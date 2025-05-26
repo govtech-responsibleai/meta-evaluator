@@ -31,7 +31,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, StrictBool
 from .models import Message, LLMClientEnum, LLMResponse, LLMUsage
 from .exceptions import LLMAPIError, LLMValidationError, LLMClientError
 
@@ -57,9 +57,13 @@ class LLMClientConfig(ABC, BaseModel):
     """
 
     api_key: str
-    supports_instructor: bool
+    supports_instructor: StrictBool
     default_model: str
     default_embedding_model: str
+
+    @abstractmethod
+    def _prevent_instantiation(self) -> None:
+        pass
 
 
 class LLMClient(ABC):

@@ -7,17 +7,21 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
-
       - id: ruff-format
         name: ruff format
         entry: uv run ruff format
         language: system
         types: [python]
         pass_filenames: false
-
       - id: pyright
         name: pyright
         entry: uv run pyright
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
         language: system
         types: [python]
         pass_filenames: false
