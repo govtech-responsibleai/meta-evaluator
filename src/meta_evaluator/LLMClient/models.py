@@ -11,9 +11,9 @@ The models are used to provide a unified interface for interacting with LLM clie
 """
 
 from enum import Enum
-import random
 import time
 from typing import Any
+import uuid
 from pydantic import BaseModel
 
 
@@ -183,5 +183,4 @@ class LLMResponse(BaseModel):
         """
         if not self.id:
             timestamp = int(time.time())
-            random_num = random.randint(1000, 9999)
-            self.id = f"{timestamp}_{self.provider.value}_{self.model}_{random_num}"
+            self.id = f"{self.provider.value}_{self.model}_{timestamp}_{uuid.uuid4().hex[:12]}"
