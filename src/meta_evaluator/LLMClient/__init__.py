@@ -29,10 +29,10 @@ Usage:
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Tuple
 
 from pydantic import BaseModel, StrictBool
-from .models import Message, LLMClientEnum, LLMResponse, LLMUsage
+from .models import Message, LLMClientEnum, LLMResponse, LLMUsage, RoleEnum
 from .exceptions import LLMAPIError, LLMValidationError, LLMClientError
 
 __all__ = [
@@ -101,7 +101,7 @@ class LLMClient(ABC):
         self.logger = logging.getLogger(self.__class__.__module__)
 
     @abstractmethod
-    def _prompt(self, model: str, messages: list[Message]) -> LLMResponse:
+    def _prompt(self, model: str, messages: list[Message]) -> Tuple[str, LLMUsage]:
         raise NotImplementedError("Subclasses must implement this method")
 
     @property
@@ -121,6 +121,19 @@ class LLMClient(ABC):
     def _validate_messages(self, messages: list[Message]) -> None:
         if len(messages) == 0:
             raise LLMValidationError("No messages provided", self.enum_value)
+
+    def _construct_llm_response(
+        self, new_response: str, usage: LLMUsage, messages: list[Message]
+    ) -> LLMResponse:
+        new_message = Message(role=RoleEnum.ASSISTANT, content=new_response)
+        new_message_list = messages + [new_message]
+
+        return LLMResponse(
+            provider=self.enum_value,
+            model=self.config.default_model,
+            messages=new_message_list,
+            usage=usage,
+        )
 
     def prompt(
         self, messages: list[Message], model: Optional[str] = None
@@ -172,7 +185,8 @@ class LLMClient(ABC):
         self.logger.info(f"Using model: {model_used}")
         self.logger.info(f"Input Payload: {messages}")
         try:
-            output = self._prompt(model_used, messages)
+            raw_text, usage = self._prompt(model_used, messages)
+            output = self._construct_llm_response(raw_text, usage, messages)
         except Exception as e:
             raise LLMAPIError(
                 f"Failed to get response from {self.enum_value}", self.enum_value, e

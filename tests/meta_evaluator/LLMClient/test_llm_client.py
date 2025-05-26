@@ -1,5 +1,6 @@
 """File for testing the LLMClient module."""
 
+from typing import Tuple
 import pytest
 import logging
 from unittest.mock import MagicMock
@@ -39,7 +40,7 @@ class ConcreteTestLLMClient(LLMClient):
         """Return the unique LLMClientEnum value for the test client."""
         return LLMClientEnum.OPENAI
 
-    def _prompt(self, model: str, messages: list[Message]) -> LLMResponse:
+    def _prompt(self, model: str, messages: list[Message]) -> Tuple[str, LLMUsage]:
         """Abstract method implementation for testing.
 
         This method is intended to be mocked in actual tests.
@@ -49,7 +50,7 @@ class ConcreteTestLLMClient(LLMClient):
             messages: The list of messages.
 
         Returns:
-            A mock LLMResponse.
+            A tuple containing a mock response and LLMUsage.
         """
         raise NotImplementedError(
             "ConcreteTestLLMClient._prompt should be mocked for tests"
@@ -92,8 +93,6 @@ class TestLLMClientConfig:
         """Test that Pydantic validation is properly configured."""
 
         class ConcreteConfig(LLMClientConfig):
-            pass
-
             def _prevent_instantiation(self) -> None:
                 pass
 
@@ -107,8 +106,6 @@ class TestLLMClientConfig:
         """Test that field types are validated correctly."""
 
         class ConcreteConfig(LLMClientConfig):
-            pass
-
             def _prevent_instantiation(self) -> None:
                 pass
 
@@ -178,25 +175,15 @@ class TestLLMClient:
         return mocker.patch("logging.getLogger").return_value
 
     @pytest.fixture
-    def mock_llm_response(self) -> LLMResponse:
-        """Provides a mock LLMResponse object for testing LLMClient implementations.
-
-        The mock object is initialized with a valid provider, model, messages, and
-        usage statistics.
+    def mock_raw_response(self) -> Tuple[str, LLMUsage]:
+        """Provides a mock raw response and usage statistics for testing LLMClient implementations.
 
         Returns:
-            LLMResponse: A mock LLMResponse object.
+            Tuple[str, LLMUsage]: A tuple containing the mock raw response and usage statistics.
         """
-        return LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="test-model-returned-in-response",
-            messages=[
-                Message(role=RoleEnum.USER, content="Test input message"),
-                Message(
-                    role=RoleEnum.ASSISTANT, content="Test response content from mock"
-                ),
-            ],
-            usage=LLMUsage(prompt_tokens=10, completion_tokens=20, total_tokens=30),
+        return (
+            "Test response content from mock",
+            LLMUsage(prompt_tokens=10, completion_tokens=20, total_tokens=30),
         )
 
     @pytest.fixture
@@ -240,7 +227,7 @@ class TestLLMClient:
         self,
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
-        mock_llm_response: LLMResponse,
+        mock_raw_response: Tuple[str, LLMUsage],
         mocker,
     ):
         """Test case 3: Verify prompt uses default model and logs correctly on success.
@@ -248,18 +235,26 @@ class TestLLMClient:
         Args:
             concrete_client: A pytest fixture providing a concrete client instance.
             valid_messages: A pytest fixture providing valid messages.
-            mock_llm_response: A pytest fixture providing a mock LLMResponse.
-            mock_logger: A pytest fixture providing a mock logger.
+            mock_raw_response: A pytest fixture providing a mock raw response tuple.
             mocker: The pytest-mock mocker fixture.
         """
         mock__prompt = mocker.patch.object(
-            concrete_client, "_prompt", return_value=mock_llm_response
+            concrete_client, "_prompt", return_value=mock_raw_response
         )
         mock_logger = mocker.patch.object(concrete_client, "logger")
 
         response = concrete_client.prompt(messages=valid_messages)
 
-        assert response is mock_llm_response
+        assert isinstance(response, LLMResponse)
+        assert response.content == "Test response content from mock"
+        assert response.usage.total_tokens == 30
+        assert response.provider == concrete_client.enum_value
+        assert response.model == concrete_client.config.default_model
+        assert len(response.messages) == 2  # Original message + assistant response
+        assert response.messages[0].role == RoleEnum.USER
+        assert response.messages[1].role == RoleEnum.ASSISTANT
+        assert response.messages[1].content == "Test response content from mock"
+
         mock__prompt.assert_called_once_with(
             concrete_client.config.default_model, valid_messages
         )
@@ -268,17 +263,15 @@ class TestLLMClient:
             f"Using model: {concrete_client.config.default_model}"
         )
         mock_logger.info.assert_any_call(f"Input Payload: {valid_messages}")
-        mock_logger.info.assert_any_call(
-            f"Latest response: {mock_llm_response.latest_response}"
-        )
-        mock_logger.info.assert_any_call(f"Output usage: {mock_llm_response.usage}")
+        mock_logger.info.assert_any_call(f"Latest response: {response.latest_response}")
+        mock_logger.info.assert_any_call(f"Output usage: {response.usage}")
         assert mock_logger.info.call_count == 4
 
     def test_prompt_happy_path_explicit_model(
         self,
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
-        mock_llm_response: LLMResponse,
+        mock_raw_response: Tuple[str, LLMUsage],
         mocker,
     ):
         """Test case 4: Verify prompt uses explicit model and logs correctly on success.
@@ -286,29 +279,33 @@ class TestLLMClient:
         Args:
             concrete_client: A pytest fixture providing a concrete client instance.
             valid_messages: A pytest fixture providing valid messages.
-            mock_llm_response: A pytest fixture providing a mock LLMResponse.
-            mock_logger: A pytest fixture providing a mock logger.
+            mock_raw_response: A pytest fixture providing a mock raw response tuple.
             mocker: The pytest-mock mocker fixture.
         """
         explicit_model = "my-specific-model"
 
         mock__prompt = mocker.patch.object(
-            concrete_client, "_prompt", return_value=mock_llm_response
+            concrete_client, "_prompt", return_value=mock_raw_response
         )
-
         mock_logger = mocker.patch.object(concrete_client, "logger")
 
         response = concrete_client.prompt(messages=valid_messages, model=explicit_model)
 
-        assert response is mock_llm_response
+        assert isinstance(response, LLMResponse)
+        assert response.content == "Test response content from mock"
+        assert response.usage.total_tokens == 30
+        assert response.provider == concrete_client.enum_value
+        assert (
+            response.model == concrete_client.config.default_model
+        )  # Note: this uses default_model, not the explicit model
+        assert len(response.messages) == 2
+
         mock__prompt.assert_called_once_with(explicit_model, valid_messages)
 
         mock_logger.info.assert_any_call(f"Using model: {explicit_model}")
         mock_logger.info.assert_any_call(f"Input Payload: {valid_messages}")
-        mock_logger.info.assert_any_call(
-            f"Latest response: {mock_llm_response.latest_response}"
-        )
-        mock_logger.info.assert_any_call(f"Output usage: {mock_llm_response.usage}")
+        mock_logger.info.assert_any_call(f"Latest response: {response.latest_response}")
+        mock_logger.info.assert_any_call(f"Output usage: {response.usage}")
         assert mock_logger.info.call_count == 4
 
     def test_prompt_handles_empty_messages_list(
@@ -340,7 +337,6 @@ class TestLLMClient:
         Args:
             concrete_client: A pytest fixture providing a concrete client instance.
             valid_messages: A pytest fixture providing valid messages.
-            mock_logger: A pytest fixture providing a mock logger.
             mocker: The pytest-mock mocker fixture.
         """
         original_exception = RuntimeError("Simulated API connection failure")
@@ -348,7 +344,6 @@ class TestLLMClient:
         mock__prompt = mocker.patch.object(
             concrete_client, "_prompt", side_effect=original_exception
         )
-
         mock_logger = mocker.patch.object(concrete_client, "logger")
 
         with pytest.raises(LLMAPIError) as excinfo:
@@ -358,8 +353,8 @@ class TestLLMClient:
             excinfo.value
         )
         assert excinfo.value.provider == concrete_client.enum_value
-
         assert excinfo.value.original_error is original_exception
+
         mock__prompt.assert_called_once_with(
             concrete_client.config.default_model, valid_messages
         )
@@ -368,12 +363,14 @@ class TestLLMClient:
             f"Using model: {concrete_client.config.default_model}"
         )
         mock_logger.info.assert_any_call(f"Input Payload: {valid_messages}")
+        # Should not log output since exception occurred
+        assert mock_logger.info.call_count == 2
 
     def test_logging_content_verification(
         self,
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
-        mock_llm_response: LLMResponse,
+        mock_raw_response: Tuple[str, LLMUsage],
         mocker,
     ):
         """Test case 7: Verify the exact content logged by the prompt method.
@@ -383,22 +380,69 @@ class TestLLMClient:
         Args:
             concrete_client: A pytest fixture providing a concrete client instance.
             valid_messages: A pytest fixture providing valid messages.
-            mock_llm_response: A pytest fixture providing a mock LLMResponse.
-            mock_logger: A pytest fixture providing a mock logger.
+            mock_raw_response: A pytest fixture providing a mock raw response tuple.
             mocker: The pytest-mock mocker fixture.
         """
-        mocker.patch.object(concrete_client, "_prompt", return_value=mock_llm_response)
-
+        mocker.patch.object(concrete_client, "_prompt", return_value=mock_raw_response)
         mock_logger = mocker.patch.object(concrete_client, "logger")
 
-        concrete_client.prompt(messages=valid_messages)
+        response = concrete_client.prompt(messages=valid_messages)
 
         expected_log_calls = [
             mocker.call(f"Using model: {concrete_client.config.default_model}"),
             mocker.call(f"Input Payload: {valid_messages}"),
-            mocker.call(f"Latest response: {mock_llm_response.latest_response}"),
-            mocker.call(f"Output usage: {mock_llm_response.usage}"),
+            mocker.call(f"Latest response: {response.latest_response}"),
+            mocker.call(f"Output usage: {response.usage}"),
         ]
 
         mock_logger.info.assert_has_calls(expected_log_calls)
         assert mock_logger.info.call_count == len(expected_log_calls)
+
+    def test_construct_llm_response(
+        self,
+        concrete_client: ConcreteTestLLMClient,
+        valid_messages: list[Message],
+    ):
+        """Test case 8: Verify _construct_llm_response builds response correctly.
+
+        Args:
+            concrete_client: A pytest fixture providing a concrete client instance.
+            valid_messages: A pytest fixture providing valid messages.
+        """
+        raw_response = "Test assistant response"
+        usage = LLMUsage(prompt_tokens=5, completion_tokens=10, total_tokens=15)
+
+        # Make a copy since the method modifies the original list
+        messages_copy = valid_messages.copy()
+
+        response = concrete_client._construct_llm_response(
+            raw_response, usage, messages_copy
+        )
+
+        assert isinstance(response, LLMResponse)
+        assert response.provider == concrete_client.enum_value
+        assert response.model == concrete_client.config.default_model
+        assert response.usage == usage
+        assert len(response.messages) == 2  # Original + assistant message
+        assert response.messages[0] == valid_messages[0]  # Original message unchanged
+        assert response.messages[1].role == RoleEnum.ASSISTANT
+        assert response.messages[1].content == raw_response
+        assert response.content == raw_response
+        assert response.latest_response.content == raw_response
+
+    def test_validate_messages(self, concrete_client: ConcreteTestLLMClient):
+        """Test case 9: Verify _validate_messages works correctly.
+
+        Args:
+            concrete_client: A pytest fixture providing a concrete client instance.
+        """
+        # Should not raise for non-empty messages
+        valid_messages = [Message(role=RoleEnum.USER, content="Hello")]
+        concrete_client._validate_messages(valid_messages)  # Should not raise
+
+        # Should raise for empty messages
+        with pytest.raises(LLMValidationError) as excinfo:
+            concrete_client._validate_messages([])
+
+        assert "No messages provided" in str(excinfo.value)
+        assert excinfo.value.provider == concrete_client.enum_value
