@@ -1,2 +1,2 @@
 def main() -> None:
-    print("Hello from meta-evaluator!")
+    print("Hello from meta-evaluator again!")
