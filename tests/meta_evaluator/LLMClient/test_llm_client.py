@@ -23,7 +23,7 @@ class LLMClientConfigConcreteTest(LLMClientConfig):
     """A concrete configuration class for testing LLMClient."""
 
     api_key: str = "test-api-key"
-    supports_instructor: bool = False
+    supports_structured_output: bool = False
     default_model: str = "test-default-model"
     default_embedding_model: str = "test-default-embedding-model"
 
@@ -64,7 +64,7 @@ class TestLLMClientConfig:
         with pytest.raises(TypeError, match="Can't instantiate abstract class"):
             LLMClientConfig(
                 api_key="test-api-key",
-                supports_instructor=True,
+                supports_structured_output=True,
                 default_model="gpt-4",
                 default_embedding_model="text-embedding-ada-002",
             )  # type: ignore
@@ -78,13 +78,13 @@ class TestLLMClientConfig:
 
         config = ConcreteConfig(
             api_key="test-api-key",
-            supports_instructor=True,
+            supports_structured_output=True,
             default_model="gpt-4",
             default_embedding_model="text-embedding-ada-002",
         )
 
         assert config.api_key == "test-api-key"
-        assert config.supports_instructor is True
+        assert config.supports_structured_output is True
         assert config.default_model == "gpt-4"
         assert config.default_embedding_model == "text-embedding-ada-002"
 
@@ -115,7 +115,7 @@ class TestLLMClientConfig:
         with pytest.raises(ValidationError):  # type: ignore
             ConcreteConfig(
                 api_key=123,  # type: ignore
-                supports_instructor=True,
+                supports_structured_output=True,
                 default_model="gpt-4",
                 default_embedding_model="text-embedding-ada-002",
             )
@@ -123,7 +123,7 @@ class TestLLMClientConfig:
         with pytest.raises(ValidationError):  # type: ignore
             ConcreteConfig(
                 api_key="test-key",
-                supports_instructor="yes",  # type: ignore
+                supports_structured_output="yes",  # type: ignore
                 default_model="gpt-4",
                 default_embedding_model="text-embedding-ada-002",
             )
@@ -145,7 +145,7 @@ class TestLLMClient:
         """
         return LLMClientConfigConcreteTest(
             api_key="test-api-key",
-            supports_instructor=True,
+            supports_structured_output=True,
             default_model="gpt-4",
             default_embedding_model="text-embedding-ada-002",
         )
@@ -228,7 +228,7 @@ class TestLLMClient:
         invalid_config = {
             "api_key": "fake",
             "default_model": "gpt-4",
-            "supports_instructor": False,
+            "supports_structured_output": False,
             "default_embedding_model": "embed-model",
         }
         with pytest.raises(

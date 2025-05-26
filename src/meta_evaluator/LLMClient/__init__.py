@@ -51,13 +51,13 @@ class LLMClientConfig(ABC, BaseModel):
 
     Attributes:
         api_key (str): API key for authenticating requests to the LLM service.
-        supports_instructor (bool): Indicates whether the client supports instructor-led models.
+        supports_structured_output (bool): Indicates whether the client supports structured output.
         default_model (str): The default language model to use when none is specified.
         default_embedding_model (str): The default embedding model for generating vector representations.
     """
 
     api_key: str
-    supports_instructor: StrictBool
+    supports_structured_output: StrictBool
     default_model: str
     default_embedding_model: str
 
