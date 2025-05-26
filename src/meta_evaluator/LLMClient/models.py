@@ -14,7 +14,7 @@ from enum import Enum
 import time
 from typing import Any
 import uuid
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class RoleEnum(str, Enum):
@@ -144,6 +144,12 @@ class LLMResponse(BaseModel):
     model: str
     messages: list[Message]
     usage: LLMUsage
+
+    @model_validator(mode="after")
+    def _validate_messages_not_empty(self) -> "LLMResponse":
+        if not self.messages:
+            raise ValueError("LLMResponse must have at least one message")
+        return self
 
     @property
     def latest_response(self) -> Message:

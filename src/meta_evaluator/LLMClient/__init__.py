@@ -32,8 +32,18 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from pydantic import BaseModel
-from .models import Message, LLMClientEnum, LLMResponse
-from .exceptions import LLMClientError
+from .models import Message, LLMClientEnum, LLMResponse, LLMUsage
+from .exceptions import LLMAPIError, LLMValidationError, LLMClientError
+
+__all__ = [
+    "LLMClientEnum",
+    "LLMAPIError",
+    "LLMValidationError",
+    "LLMClientError",
+    "LLMUsage",
+    "Message",
+    "LLMResponse",
+]
 
 
 class LLMClientConfig(ABC, BaseModel):
@@ -121,7 +131,8 @@ class LLMClient(ABC):
                 response via response.latest_response or response.content.
 
         Raises:
-            LLMClientError: If the request to the underlying LLM client fails.
+            LLMAPIError: If the request to the underlying LLM client fails.
+            LLMValidationError: If no messages are provided
 
         Note:
             All requests are logged including:
@@ -137,12 +148,14 @@ class LLMClient(ABC):
             >>> print(len(response.messages))  # Original + assistant response
         """
         model_used = model or self.config.default_model
+        if len(messages) == 0:
+            raise LLMValidationError("No messages provided", self.enum_value)
         self.logger.info(f"Using model: {model_used}")
         self.logger.info(f"Input Payload: {messages}")
         try:
             output = self._prompt(model_used, messages)
         except Exception as e:
-            raise LLMClientError(
+            raise LLMAPIError(
                 f"Failed to get response from {self.enum_value}", self.enum_value, e
             )
         self.logger.info(f"Latest response: {output.latest_response}")
