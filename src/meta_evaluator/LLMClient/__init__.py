@@ -39,14 +39,12 @@ class LLMClientConfig(ABC, BaseModel):
     """Configuration settings for an LLM client.
 
     Attributes:
-        logger (logging.Logger): Logger instance for logging messages and errors.
         api_key (str): API key for authenticating requests to the LLM service.
         supports_instructor (bool): Indicates whether the client supports instructor-led models.
         default_model (str): The default language model to use when none is specified.
         default_embedding_model (str): The default embedding model for generating vector representations.
     """
 
-    logger: logging.Logger
     api_key: str
     supports_instructor: bool
     default_model: str
@@ -80,7 +78,7 @@ class LLMClient(ABC):
             logger (logging.Logger): Logger instance for logging messages and errors.
         """
         self.config = config
-        self.logger = config.logger
+        self.logger = logging.getLogger(self.__class__.__module__)
 
     @abstractmethod
     def _prompt(self, model: str, messages: list[Message]) -> LLMResponse:
