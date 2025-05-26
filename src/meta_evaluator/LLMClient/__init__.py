@@ -118,6 +118,10 @@ class LLMClient(ABC):
         """
         raise NotImplementedError("Subclasses must implement this method")
 
+    def _validate_messages(self, messages: list[Message]) -> None:
+        if len(messages) == 0:
+            raise LLMValidationError("No messages provided", self.enum_value)
+
     def prompt(
         self, messages: list[Message], model: Optional[str] = None
     ) -> LLMResponse:
@@ -157,8 +161,14 @@ class LLMClient(ABC):
             >>> print(len(response.messages))  # Original + assistant response
         """
         model_used = model or self.config.default_model
-        if len(messages) == 0:
-            raise LLMValidationError("No messages provided", self.enum_value)
+        # Re-raise validation errors to make them visible to ruff's DOC501 rule.
+        # Without this, ruff can't see exceptions from private methods and won't
+        # enforce docstring accuracy. DO NOT remove this try/catch.
+        try:
+            self._validate_messages(messages)
+        except LLMValidationError:
+            raise  # Ruff sees this explicit raise
+
         self.logger.info(f"Using model: {model_used}")
         self.logger.info(f"Input Payload: {messages}")
         try:
