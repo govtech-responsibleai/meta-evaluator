@@ -1,3 +1,32 @@
+"""Unified interface for Large Language Model (LLM) providers with comprehensive logging.
+
+This package provides a standardized abstraction layer for interacting with multiple
+LLM providers including OpenAI, Anthropic, Gemini, and Azure OpenAI. It normalizes
+API differences, provides consistent logging and usage tracking, and enables easy
+switching between providers.
+
+Key Features:
+- Provider-agnostic interface with consistent Message/Response models
+- Comprehensive logging of requests, responses, and token usage
+- Automatic model fallback and configuration management
+- Type-safe enums and Pydantic validation
+- Extensible design for adding new LLM providers
+
+Supported Providers:
+- OpenAI
+- Azure OpenAI
+- Gemini
+- Anthropic
+
+Usage:
+    >>> config = SomeProviderConfig(api_key="...", default_model="gpt-4")
+    >>> client = SomeProviderClient(config)
+    >>> messages = [Message(role=RoleEnum.USER, content="Hello")]
+    >>> response = client.prompt(messages)
+    >>> print(response.content)
+
+"""
+
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -7,6 +36,16 @@ from .models import Message, LLMClientEnum, LLMResponse
 
 
 class LLMClientConfig(ABC, BaseModel):
+    """Configuration settings for an LLM client.
+
+    Attributes:
+        logger (logging.Logger): Logger instance for logging messages and errors.
+        api_key (str): API key for authenticating requests to the LLM service.
+        supports_instructor (bool): Indicates whether the client supports instructor-led models.
+        default_model (str): The default language model to use when none is specified.
+        default_embedding_model (str): The default embedding model for generating vector representations.
+    """
+
     logger: logging.Logger
     api_key: str
     supports_instructor: bool
@@ -15,7 +54,31 @@ class LLMClientConfig(ABC, BaseModel):
 
 
 class LLMClient(ABC):
+    """Abstract base class for all LLM clients.
+
+    This class serves as a base class for all LLM clients. It provides a common
+    interface for interacting with different LLM services. The class is
+    abstract and cannot be instantiated directly. Instead, one of its concrete
+    subclasses should be used.
+
+    Attributes:
+        config (LLMClientConfig): The configuration settings for the LLM client.
+        logger (logging.Logger): Logger instance for logging messages and errors.
+    """
+
     def __init__(self, config: LLMClientConfig):
+        """Initializes the LLMClient.
+
+        This is an abstract base class for all LLM clients. It sets up the
+        client with the given configuration and logger.
+
+        Args:
+            config (LLMClientConfig): The configuration settings for the LLM client.
+
+        Attributes:
+            config (LLMClientConfig): Stores the configuration settings for the LLM client.
+            logger (logging.Logger): Logger instance for logging messages and errors.
+        """
         self.config = config
         self.logger = config.logger
 
@@ -26,6 +89,15 @@ class LLMClient(ABC):
     @property
     @abstractmethod
     def enum_value(self) -> LLMClientEnum:
+        """Return the unique LLMClientEnum value associated with this client.
+
+        This method returns the unique enumeration value associated with this LLM
+        client. The enumeration value is used to identify the client in logging and
+        other contexts.
+
+        Returns:
+            LLMClientEnum: The unique enumeration value associated with this client.
+        """
         raise NotImplementedError("Subclasses must implement this method")
 
     def prompt(
