@@ -1,2 +1,3 @@
-def main() -> None:
-    print("Hello from meta-evaluator again!")
+class MetaEvaluator:
+    def __init__(self):
+        pass
