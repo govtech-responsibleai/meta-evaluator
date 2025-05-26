@@ -33,6 +33,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 from .models import Message, LLMClientEnum, LLMResponse
+from .exceptions import LLMClientError
 
 
 class LLMClientConfig(ABC, BaseModel):
@@ -119,6 +120,9 @@ class LLMClient(ABC):
                 assistant response), usage statistics, and metadata. Access the latest
                 response via response.latest_response or response.content.
 
+        Raises:
+            LLMClientError: If the request to the underlying LLM client fails.
+
         Note:
             All requests are logged including:
             - Model selection (chosen vs default)
@@ -135,7 +139,12 @@ class LLMClient(ABC):
         model_used = model or self.config.default_model
         self.logger.info(f"Using model: {model_used}")
         self.logger.info(f"Input Payload: {messages}")
-        output = self._prompt(model_used, messages)
+        try:
+            output = self._prompt(model_used, messages)
+        except Exception as e:
+            raise LLMClientError(
+                f"Failed to get response from {self.enum_value}", self.enum_value, e
+            )
         self.logger.info(f"Latest response: {output.latest_response}")
         self.logger.info(f"Output usage: {output.usage}")
 
