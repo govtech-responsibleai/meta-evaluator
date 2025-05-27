@@ -7,6 +7,10 @@ from unittest.mock import MagicMock
 from pydantic import ValidationError
 
 from meta_evaluator.LLMClient import LLMClientConfig, LLMClient
+from meta_evaluator.LLMClient.LLM_client import (
+    _FAILED_RESPONSE_ERROR_TEMPLATE,
+    _NO_MESSAGES_ERROR,
+)
 from meta_evaluator.LLMClient.models import (
     Message,
     LLMClientEnum,
@@ -322,7 +326,7 @@ class TestLLMClient:
         with pytest.raises(LLMValidationError) as excinfo:
             concrete_client.prompt(messages=[])
 
-        assert "No messages provided" in str(excinfo.value)
+        assert _NO_MESSAGES_ERROR in str(excinfo.value)
         assert excinfo.value.provider == concrete_client.enum_value
         mock__prompt.assert_not_called()
 
@@ -349,9 +353,9 @@ class TestLLMClient:
         with pytest.raises(LLMAPIError) as excinfo:
             concrete_client.prompt(messages=valid_messages)
 
-        assert f"Failed to get response from {concrete_client.enum_value}" in str(
-            excinfo.value
-        )
+        assert _FAILED_RESPONSE_ERROR_TEMPLATE.format(
+            concrete_client.enum_value
+        ) in str(excinfo.value)
         assert excinfo.value.provider == concrete_client.enum_value
         assert excinfo.value.original_error is original_exception
 
@@ -444,5 +448,5 @@ class TestLLMClient:
         with pytest.raises(LLMValidationError) as excinfo:
             concrete_client._validate_messages([])
 
-        assert "No messages provided" in str(excinfo.value)
+        assert _NO_MESSAGES_ERROR in str(excinfo.value)
         assert excinfo.value.provider == concrete_client.enum_value
