@@ -29,7 +29,7 @@ Usage:
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, TypeVar
+from typing import Optional, Type, TypeVar
 
 from pydantic import BaseModel, StrictBool
 from .models import (
@@ -232,12 +232,15 @@ class LLMClient(ABC):
         )
 
     def _prompt_with_structured_response(
-        self, messages: list[Message], response_model: T, model: str
+        self, messages: list[Message], response_model: Type[T], model: str
     ) -> tuple[T, LLMUsage]:
         raise NotImplementedError("Subclasses must implement this method")
 
     def prompt_with_structured_response(
-        self, messages: list[Message], response_model: T, model: Optional[str] = None
+        self,
+        messages: list[Message],
+        response_model: Type[T],
+        model: Optional[str] = None,
     ) -> tuple[T, LLMResponse]:
         """Send a prompt to the underlying LLM client with comprehensive logging.
 
