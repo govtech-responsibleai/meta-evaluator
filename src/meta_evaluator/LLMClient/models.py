@@ -114,6 +114,29 @@ class LLMUsage(BaseModel):
     total_tokens: int
 
 
+class AlternativeToken(BaseModel):
+    """Alternative token with its log probability."""
+
+    token: str
+    logprob: float
+
+
+class TokenLogprob(BaseModel):
+    """Log probability information for a single token."""
+
+    token: str  # The chosen token
+    logprob: float  # Log probability of chosen token
+    top_logprobs: Optional[list[AlternativeToken]] = (
+        None  # Alternative tokens considered
+    )
+
+
+class LogprobsData(BaseModel):
+    """Container for all logprobs information in a response."""
+
+    content: Optional[list[TokenLogprob]] = None
+
+
 class LLMResponse(BaseModel):
     """Represents a response from a Large Language Model (LLM) client interaction.
 
@@ -146,6 +169,7 @@ class LLMResponse(BaseModel):
     model: str
     messages: list[Message]
     usage: LLMUsage
+    logprobs: Optional[LogprobsData] = None
 
     @model_validator(mode="after")
     def _validate_messages_not_empty(self) -> "LLMResponse":
