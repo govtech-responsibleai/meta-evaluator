@@ -22,6 +22,7 @@ class LLMClientConfigConcreteTest(LLMClientConfig):
     supports_structured_output: bool = False
     default_model: str = "test-default-model"
     default_embedding_model: str = "test-default-embedding-model"
+    supports_logprobs: bool = False
 
     def _prevent_instantiation(self) -> None:
         pass

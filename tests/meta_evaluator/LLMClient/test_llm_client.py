@@ -86,6 +86,7 @@ class TestLLMClientConfig:
             supports_structured_output=True,
             default_model="gpt-4",
             default_embedding_model="text-embedding-ada-002",
+            supports_logprobs=False,
         )
 
         assert config.api_key == "test-api-key"
@@ -126,6 +127,7 @@ class TestLLMClient:
             supports_structured_output=True,
             default_model="gpt-4",
             default_embedding_model="text-embedding-ada-002",
+            supports_logprobs=False,
         )
 
     @pytest.fixture

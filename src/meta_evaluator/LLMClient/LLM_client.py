@@ -66,6 +66,7 @@ class LLMClientConfig(ABC, BaseModel):
     supports_structured_output: StrictBool
     default_model: str
     default_embedding_model: str
+    supports_logprobs: bool
 
     @abstractmethod
     def _prevent_instantiation(self) -> None:
