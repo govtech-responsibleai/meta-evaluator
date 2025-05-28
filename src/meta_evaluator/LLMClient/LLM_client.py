@@ -98,11 +98,7 @@ class LLMClient(ABC):
             config (LLMClientConfig): Stores the configuration settings for the LLM client.
             logger (logging.Logger): Logger instance for logging messages and errors.
 
-        Raises:
-            TypeError: If the config parameter is not an instance of LLMClientConfig.
         """
-        if not isinstance(config, LLMClientConfig):
-            raise TypeError("config must be an instance of LLMClientConfig")
         self.config = config
         self.logger = logging.getLogger(self.__class__.__module__)
 

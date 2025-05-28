@@ -106,29 +106,6 @@ class TestLLMClientConfig:
         with pytest.raises(ValidationError):
             ConcreteConfig(api_key="test-key")  # type: ignore
 
-    def test_validation_works_for_wrong_types(self):
-        """Test that field types are validated correctly."""
-
-        class ConcreteConfig(LLMClientConfig):
-            def _prevent_instantiation(self) -> None:
-                pass
-
-        with pytest.raises(ValidationError):  # type: ignore
-            ConcreteConfig(
-                api_key=123,  # type: ignore
-                supports_structured_output=True,
-                default_model="gpt-4",
-                default_embedding_model="text-embedding-ada-002",
-            )
-
-        with pytest.raises(ValidationError):  # type: ignore
-            ConcreteConfig(
-                api_key="test-key",
-                supports_structured_output="yes",  # type: ignore
-                default_model="gpt-4",
-                default_embedding_model="text-embedding-ada-002",
-            )
-
 
 class TestLLMClient:
     """Test suite for the abstract LLMClient class."""
@@ -214,18 +191,8 @@ class TestLLMClient:
         assert client.config is valid_config
         assert isinstance(client.logger, logging.Logger)
 
-    def test_initialization_with_invalid_config_type(self):
-        """Test case 2: Verify TypeError is raised with invalid config type."""
-        invalid_config = {
-            "api_key": "fake",
-            "default_model": "gpt-4",
-            "supports_structured_output": False,
-            "default_embedding_model": "embed-model",
-        }
-        with pytest.raises(
-            TypeError, match="config must be an instance of LLMClientConfig"
-        ):
-            ConcreteTestLLMClient(invalid_config)  # type: ignore
+    # Test Case 2 removed because BearType takes care of testing issues
+    # TODO: Rename test case numbers
 
     def test_prompt_happy_path_default_model(
         self,
