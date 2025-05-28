@@ -7,7 +7,10 @@ authors = [
     { name = "pradyuprasad", email = "pradyu.sp@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "beartype>=0.21.0",
+    "pydantic>=2.11.5",
+]
 
 [project.scripts]
 meta-evaluator = "meta_evaluator:main"
@@ -20,6 +23,8 @@ build-backend = "hatchling.build"
 dev = [
     "pre-commit>=4.2.0",
     "pyright>=1.1.401",
+    "pytest>=8.3.5",
+    "pytest-mock>=3.14.0",
     "ruff>=0.11.11",
 ]
 
