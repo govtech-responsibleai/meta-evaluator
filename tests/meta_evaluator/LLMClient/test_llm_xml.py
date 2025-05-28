@@ -1,6 +1,5 @@
 """Comprehensive tests for XML parsing functionality in LLMClient."""
 
-from typing import Tuple
 import pytest
 
 from meta_evaluator.LLMClient import LLMClientConfig, LLMClient
@@ -36,7 +35,9 @@ class ConcreteTestLLMClient(LLMClient):
         """Returns the  enum type for the client."""
         return LLMClientEnum.OPENAI
 
-    def _prompt(self, model: str, messages: list[Message]) -> Tuple[str, LLMUsage]:
+    def _prompt(
+        self, model: str, messages: list[Message], get_logprobs: bool = False
+    ) -> tuple[str, LLMUsage]:
         raise NotImplementedError("Should be mocked for tests")
 
 
@@ -726,7 +727,7 @@ class TestXMLParsing:
         )
 
         mock_prompt.assert_called_once_with(
-            model=explicit_model, messages=valid_messages
+            model=explicit_model, messages=valid_messages, get_logprobs=False
         )
         assert parse_result.success is True
         assert parse_result.data["result"] == "success"

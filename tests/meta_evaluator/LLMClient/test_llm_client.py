@@ -1,6 +1,5 @@
 """File for testing the LLMClient module."""
 
-from typing import Tuple
 import pytest
 import logging
 from unittest.mock import MagicMock
@@ -44,7 +43,9 @@ class ConcreteTestLLMClient(LLMClient):
         """Return the unique LLMClientEnum value for the test client."""
         return LLMClientEnum.OPENAI
 
-    def _prompt(self, model: str, messages: list[Message]) -> Tuple[str, LLMUsage]:
+    def _prompt(
+        self, model: str, messages: list[Message], get_logprobs: bool
+    ) -> tuple[str, LLMUsage]:
         """Abstract method implementation for testing.
 
         This method is intended to be mocked in actual tests.
@@ -52,6 +53,7 @@ class ConcreteTestLLMClient(LLMClient):
         Args:
             model: The model to use.
             messages: The list of messages.
+            get_logprobs: Whether to get logprobs.
 
         Returns:
             A tuple containing a mock response and LLMUsage.
@@ -158,11 +160,11 @@ class TestLLMClient:
         return mocker.patch("logging.getLogger").return_value
 
     @pytest.fixture
-    def mock_raw_response(self) -> Tuple[str, LLMUsage]:
+    def mock_raw_response(self) -> tuple[str, LLMUsage]:
         """Provides a mock raw response and usage statistics for testing LLMClient implementations.
 
         Returns:
-            Tuple[str, LLMUsage]: A tuple containing the mock raw response and usage statistics.
+            tuple[str, LLMUsage]: A tuple containing the mock raw response and usage statistics.
         """
         return (
             "Test response content from mock",
@@ -200,7 +202,7 @@ class TestLLMClient:
         self,
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
-        mock_raw_response: Tuple[str, LLMUsage],
+        mock_raw_response: tuple[str, LLMUsage],
         mocker,
     ):
         """Test case 3: Verify prompt uses default model and logs correctly on success.
@@ -229,7 +231,9 @@ class TestLLMClient:
         assert response.messages[1].content == "Test response content from mock"
 
         mock__prompt.assert_called_once_with(
-            concrete_client.config.default_model, valid_messages
+            model=concrete_client.config.default_model,
+            messages=valid_messages,
+            get_logprobs=False,
         )
 
         mock_logger.info.assert_any_call(
@@ -244,7 +248,7 @@ class TestLLMClient:
         self,
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
-        mock_raw_response: Tuple[str, LLMUsage],
+        mock_raw_response: tuple[str, LLMUsage],
         mocker,
     ):
         """Test case 4: Verify prompt uses explicit model and logs correctly on success.
@@ -273,7 +277,11 @@ class TestLLMClient:
         )  # Note: this uses default_model, not the explicit model
         assert len(response.messages) == 2
 
-        mock__prompt.assert_called_once_with(explicit_model, valid_messages)
+        mock__prompt.assert_called_once_with(
+            model=explicit_model,
+            messages=valid_messages,
+            get_logprobs=False,
+        )
 
         mock_logger.info.assert_any_call(f"Using model: {explicit_model}")
         mock_logger.info.assert_any_call(f"Input Payload: {valid_messages}")
@@ -329,7 +337,9 @@ class TestLLMClient:
         assert excinfo.value.original_error is original_exception
 
         mock__prompt.assert_called_once_with(
-            concrete_client.config.default_model, valid_messages
+            model=concrete_client.config.default_model,
+            messages=valid_messages,
+            get_logprobs=False,
         )
 
         mock_logger.info.assert_any_call(
@@ -343,7 +353,7 @@ class TestLLMClient:
         self,
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
-        mock_raw_response: Tuple[str, LLMUsage],
+        mock_raw_response: tuple[str, LLMUsage],
         mocker,
     ):
         """Test case 7: Verify the exact content logged by the prompt method.

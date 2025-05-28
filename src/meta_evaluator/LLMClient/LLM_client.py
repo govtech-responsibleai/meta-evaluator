@@ -29,7 +29,7 @@ Usage:
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, TypeVar
+from typing import Optional, TypeVar
 
 from pydantic import BaseModel, StrictBool
 from .models import (
@@ -50,6 +50,7 @@ import re
 T = TypeVar("T", bound=BaseModel)
 _NO_MESSAGES_ERROR = "No messages provided"
 _FAILED_RESPONSE_ERROR_TEMPLATE = "Failed to get response from {}"
+_LOGPROBS_NOT_SUPPORTED_ERROR_TEMPLATE = "Logprobs not supported by {}"
 
 
 class LLMClientConfig(ABC, BaseModel):
@@ -104,7 +105,9 @@ class LLMClient(ABC):
         self.logger = logging.getLogger(self.__class__.__module__)
 
     @abstractmethod
-    def _prompt(self, model: str, messages: list[Message]) -> Tuple[str, LLMUsage]:
+    def _prompt(
+        self, model: str, messages: list[Message], get_logprobs: bool
+    ) -> tuple[str, LLMUsage]:
         raise NotImplementedError("Subclasses must implement this method")
 
     @property
@@ -139,7 +142,10 @@ class LLMClient(ABC):
         )
 
     def prompt(
-        self, messages: list[Message], model: Optional[str] = None
+        self,
+        messages: list[Message],
+        model: Optional[str] = None,
+        get_logprobs: bool = False,
     ) -> LLMResponse:
         """Send a prompt to the underlying LLM client with comprehensive logging.
 
@@ -153,6 +159,8 @@ class LLMClient(ABC):
                 the underlying provider.
             model (Optional[str], optional): Model to use for this request. If None,
                 uses self.config.default_model. Defaults to None.
+            get_logprobs (bool, optional): Whether to get logprobs from the underlying LLM client.
+                Defaults to False.
 
         Returns:
             LLMResponse: Response object containing the full conversation (input + new
@@ -161,7 +169,7 @@ class LLMClient(ABC):
 
         Raises:
             LLMAPIError: If the request to the underlying LLM client fails.
-            LLMValidationError: If no messages are provided
+            LLMValidationError: If no messages are provided or if get_logprobs is True and logprobs are not supported by the underlying LLM client
 
         Note:
             All requests are logged including:
@@ -187,8 +195,15 @@ class LLMClient(ABC):
 
         self.logger.info(f"Using model: {model_used}")
         self.logger.info(f"Input Payload: {messages}")
+        if get_logprobs and not self.config.supports_logprobs:
+            raise LLMValidationError(
+                _LOGPROBS_NOT_SUPPORTED_ERROR_TEMPLATE.format(self.enum_value),
+                self.enum_value,
+            )
         try:
-            raw_text, usage = self._prompt(model_used, messages)
+            raw_text, usage = self._prompt(
+                model=model_used, messages=messages, get_logprobs=get_logprobs
+            )
             output = self._construct_llm_response(raw_text, usage, messages)
         except Exception as e:
             raise LLMAPIError(
@@ -218,12 +233,12 @@ class LLMClient(ABC):
 
     def _prompt_with_structured_response(
         self, messages: list[Message], response_model: T, model: str
-    ) -> Tuple[T, LLMUsage]:
+    ) -> tuple[T, LLMUsage]:
         raise NotImplementedError("Subclasses must implement this method")
 
     def prompt_with_structured_response(
         self, messages: list[Message], response_model: T, model: Optional[str] = None
-    ) -> Tuple[T, LLMResponse]:
+    ) -> tuple[T, LLMResponse]:
         """Send a prompt to the underlying LLM client with comprehensive logging.
 
         This method handles model selection, logging, and delegation to the provider-specific
@@ -468,7 +483,8 @@ class LLMClient(ABC):
         messages: list[Message],
         tag_configs: list[TagConfig],
         model: Optional[str] = None,
-    ) -> Tuple[ParseResult, LLMResponse]:
+        get_logprobs: bool = False,
+    ) -> tuple[ParseResult, LLMResponse]:
         """Send a prompt to the LLM and parse XML tags from the response with comprehensive error handling.
 
         This method combines LLM prompting with structured XML tag parsing. It sends the provided
@@ -492,9 +508,11 @@ class LLMClient(ABC):
             model (Optional[str], optional): Specific model to use for this request. If None,
                 uses the client's configured default model from self.config.default_model.
                 Defaults to None.
+            get_logprobs (bool, optional): Whether to get logprobs from the underlying LLM client.
+                Defaults to False.
 
         Returns:
-            Tuple[ParseResult, LLMResponse]: A two-element tuple containing:
+            tuple[ParseResult, LLMResponse]: A two-element tuple containing:
                 - ParseResult: Structured parsing results with both successfully extracted
                 data and detailed error information. The `data` dict maps tag names to
                 their parsed values (str for cardinality="one", list[str] for cardinality="many").
@@ -567,6 +585,12 @@ class LLMClient(ABC):
         except LLMValidationError:
             raise  # Ruff sees this explicit raise
 
+        if get_logprobs and not self.config.supports_logprobs:
+            raise LLMValidationError(
+                _LOGPROBS_NOT_SUPPORTED_ERROR_TEMPLATE.format(self.enum_value),
+                self.enum_value,
+            )
+
         self.logger.info(f"Using model: {model_used}")
         self.logger.info(f"Input Payload: {messages}")
         self.logger.info(
@@ -574,7 +598,9 @@ class LLMClient(ABC):
         )
 
         try:
-            raw_text, usage = self._prompt(model=model_used, messages=messages)
+            raw_text, usage = self._prompt(
+                model=model_used, messages=messages, get_logprobs=get_logprobs
+            )
             llm_response = self._construct_llm_response(raw_text, usage, messages)
         except Exception as e:
             raise LLMAPIError(
