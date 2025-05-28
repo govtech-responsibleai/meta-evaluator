@@ -1,5 +1,6 @@
 """Comprehensive tests for XML parsing functionality in LLMClient."""
 
+from pydantic import BaseModel
 import pytest
 
 from meta_evaluator.LLMClient import LLMClientConfig, LLMClient
@@ -12,6 +13,9 @@ from meta_evaluator.LLMClient.models import (
     ErrorType,
 )
 from meta_evaluator.LLMClient.exceptions import LLMValidationError, LLMAPIError
+from typing import TypeVar
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class LLMClientConfigConcreteTest(LLMClientConfig):
@@ -38,6 +42,11 @@ class ConcreteTestLLMClient(LLMClient):
     def _prompt(
         self, model: str, messages: list[Message], get_logprobs: bool = False
     ) -> tuple[str, LLMUsage]:
+        raise NotImplementedError("Should be mocked for tests")
+
+    def _prompt_with_structured_response(
+        self, messages: list[Message], response_model: type[T], model: str
+    ) -> tuple[T, LLMUsage]:
         raise NotImplementedError("Should be mocked for tests")
 
 

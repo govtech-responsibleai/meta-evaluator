@@ -3,7 +3,8 @@
 import pytest
 import logging
 from unittest.mock import MagicMock
-from pydantic import ValidationError
+from pydantic import ValidationError, BaseModel
+from typing import TypeVar
 
 from meta_evaluator.LLMClient import LLMClientConfig, LLMClient
 from meta_evaluator.LLMClient.LLM_client import (
@@ -21,6 +22,8 @@ from meta_evaluator.LLMClient.exceptions import (
     LLMAPIError,
     LLMValidationError,
 )
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class LLMClientConfigConcreteTest(LLMClientConfig):
@@ -60,6 +63,13 @@ class ConcreteTestLLMClient(LLMClient):
         """
         raise NotImplementedError(
             "ConcreteTestLLMClient._prompt should be mocked for tests"
+        )
+
+    def _prompt_with_structured_response(
+        self, messages: list[Message], response_model: type[T], model: str
+    ) -> tuple[T, LLMUsage]:
+        raise NotImplementedError(
+            "ConcreteTestLLMClient._prompt_with_structured_response should be mocked for tests"
         )
 
 

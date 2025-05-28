@@ -231,6 +231,7 @@ class LLMClient(ABC):
             usage=usage,
         )
 
+    @abstractmethod
     def _prompt_with_structured_response(
         self, messages: list[Message], response_model: Type[T], model: str
     ) -> tuple[T, LLMUsage]:
