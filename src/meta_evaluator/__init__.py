@@ -7,9 +7,9 @@ from beartype.claw import beartype_this_package
 
 beartype_this_package()
 
-from .LLMClient import LLMClient, LLMClientConfig  # noqa: E402
-from .LLMClient.exceptions import LLMAPIError, LLMValidationError, LLMClientError  # noqa: E402
-from .LLMClient.models import LLMClientEnum, LLMUsage, Message, LLMResponse, RoleEnum  # noqa: E402
+from .llm_client import LLMClient, LLMClientConfig  # noqa: E402
+from .llm_client.exceptions import LLMAPIError, LLMValidationError, LLMClientError  # noqa: E402
+from .llm_client.models import LLMClientEnum, LLMUsage, Message, LLMResponse, RoleEnum  # noqa: E402
 
 __all__ = [
     "LLMClientEnum",
