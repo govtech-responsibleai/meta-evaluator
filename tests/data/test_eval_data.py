@@ -105,7 +105,7 @@ class TestEvalData:
         assert eval_data.output_columns == ["output_col"]
         assert eval_data.metadata_columns == []
         assert eval_data.human_label_columns == []
-        assert eval_data.uncategorized_columns == []
+        assert eval_data._uncategorized_columns == []
 
     def test_initialization_rich_data_with_all_categories(self, rich_valid_data):
         """Verify initialization with all column categories."""
@@ -117,9 +117,9 @@ class TestEvalData:
             human_label_columns=["rating"],
         )
 
-        assert len(eval_data.uncategorized_columns) == 2
-        assert "uncategorized_field" in eval_data.uncategorized_columns
-        assert "another_extra" in eval_data.uncategorized_columns
+        assert len(eval_data._uncategorized_columns) == 2
+        assert "uncategorized_field" in eval_data._uncategorized_columns
+        assert "another_extra" in eval_data._uncategorized_columns
         assert eval_data.input_columns == ["prompt"]
         assert eval_data.output_columns == ["response"]
         assert eval_data.metadata_columns == ["timestamp"]
@@ -137,7 +137,7 @@ class TestEvalData:
             human_label_columns=["rating", "another_extra"],
         )
 
-        assert eval_data.uncategorized_columns == []
+        assert eval_data._uncategorized_columns == []
         mock_logger.warning.assert_not_called()
 
     def test_initialization_multiple_columns_per_category(self, rich_valid_data):
@@ -154,7 +154,7 @@ class TestEvalData:
         assert len(eval_data.output_columns) == 2
         assert len(eval_data.metadata_columns) == 1
         assert len(eval_data.human_label_columns) == 1
-        assert eval_data.uncategorized_columns == []
+        assert eval_data._uncategorized_columns == []
 
     # Required Columns Validation Tests
 
@@ -531,17 +531,6 @@ class TestEvalData:
         with pytest.raises((ValidationError, AttributeError)):
             eval_data.human_label_columns = ["new_col"]
 
-    def test_immutability_uncategorized_columns_attribute(self, minimal_valid_data):
-        """Verify uncategorized_columns cannot be modified."""
-        eval_data = EvalData(
-            data=minimal_valid_data,
-            input_columns=["input_col"],
-            output_columns=["output_col"],
-        )
-
-        with pytest.raises((ValidationError, AttributeError)):
-            eval_data.uncategorized_columns = ["new_col"]
-
     # Logging Tests
 
     def test_uncategorized_columns_warning_logged(self, rich_valid_data, mock_logger):
@@ -606,7 +595,7 @@ class TestEvalData:
         assert eval_data.input_columns == ["input-col"]
         assert eval_data.metadata_columns == ["meta@col"]
         assert eval_data.human_label_columns == ["human.label"]
-        assert eval_data.uncategorized_columns == []
+        assert eval_data._uncategorized_columns == []
 
     def test_numeric_column_names(self):
         """Verify handling of numeric column names."""
@@ -651,7 +640,7 @@ class TestEvalData:
         )
 
         assert len(eval_data.data) == n_rows
-        assert eval_data.uncategorized_columns == []
+        assert eval_data._uncategorized_columns == []
 
     def test_different_polars_dtypes(self):
         """Verify handling of different Polars data types."""
@@ -673,7 +662,7 @@ class TestEvalData:
             human_label_columns=["date_col"],
         )
 
-        assert eval_data.uncategorized_columns == []
+        assert eval_data._uncategorized_columns == []
         assert len(eval_data.input_data.columns) == 1
         assert len(eval_data.output_data.columns) == 1
         assert len(eval_data.metadata_data.columns) == 2

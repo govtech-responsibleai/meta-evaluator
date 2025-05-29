@@ -7,7 +7,7 @@ column names and ensuring immutability after initialization.
 """
 
 import polars as pl
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, PrivateAttr
 import logging
 from .exceptions import (
     EmptyColumnsError,
@@ -58,16 +58,13 @@ class EvalData(BaseModel):
             difficulty ratings, or other descriptive attributes.
         human_label_columns (list[str]): Column names containing human-provided
             ground truth labels, ratings, or annotations used as evaluation targets.
-        uncategorized_columns (list[str]): Column names that exist in the DataFrame
-            but were not assigned to any explicit category. Automatically computed
-            during validation. A warning is logged when uncategorized columns are present.
 
     Column Categorization Rules:
         - Every specified column must exist in the provided DataFrame
         - No column can appear in multiple categories (strict uniqueness)
         - At minimum, input_columns and output_columns must be non-empty
         - metadata_columns and human_label_columns are optional and default to empty lists
-        - uncategorized_columns is automatically computed and cannot be specified by users
+        - _uncategorized_columns is automatically computed and cannot be specified by users
         - Column names are preserved exactly as provided (no normalization or transformation)
     """
 
@@ -76,9 +73,9 @@ class EvalData(BaseModel):
     output_columns: list[str]
     metadata_columns: list[str] = []
     human_label_columns: list[str] = []
-    uncategorized_columns: list[
-        str
-    ] = []  # Computed during validation, not user-specified
+    _uncategorized_columns: list[str] = PrivateAttr(
+        default_factory=list
+    )  # Computed during validation, not user-specified
 
     model_config = {
         "frozen": True,
@@ -93,7 +90,7 @@ class EvalData(BaseModel):
         against the provided DataFrame. It ensures data consistency and prevents
         common configuration errors that would cause runtime failures later.
 
-        The uncategorized_columns attribute is automatically populated with DataFrame
+        The _uncategorized_columns attribute is automatically populated with DataFrame
         columns that don't belong to any user-specified category. A warning is logged
         when uncategorized columns are present to encourage explicit categorization.
 
@@ -101,7 +98,7 @@ class EvalData(BaseModel):
             1. Validate that input_columns and output_columns are non-empty
             2. Validate DataFrame is not empty (has at least one row)
             3. Check that all specified columns exist in the DataFrame
-            4. Compute uncategorized_columns from remaining DataFrame columns
+            4. Compute _uncategorized_columns from remaining DataFrame columns
             5. Enforce column uniqueness across all categories (including uncategorized)
             6. Log warning if uncategorized columns are present
 
@@ -109,7 +106,7 @@ class EvalData(BaseModel):
         error immediately raises an exception with a descriptive message.
 
         Returns:
-            EvalData: The validated instance with computed uncategorized_columns
+            EvalData: The validated instance with computed _uncategorized_columns
 
         Raises:
             EmptyColumnsError: If input_columns or output_columns are empty.
@@ -170,7 +167,7 @@ class EvalData(BaseModel):
             """Compute uncategorized columns and update the instance.
 
             Raises:
-                AttributeError: If the attempt to set `uncategorized_columns` fails due to
+                AttributeError: If the attempt to set `_uncategorized_columns` fails due to
                 restrictions in the model's immutability.
             """
             user_specified_columns = set(
@@ -183,16 +180,16 @@ class EvalData(BaseModel):
             uncategorized = sorted(available_columns - user_specified_columns)
 
             try:
-                object.__setattr__(self, "uncategorized_columns", uncategorized)
+                object.__setattr__(self, "_uncategorized_columns", uncategorized)
             except AttributeError as error:
-                raise AttributeError("Failed to set uncategorized_columns") from error
+                raise AttributeError("Failed to set _uncategorized_columns") from error
 
         def _validate_column_uniqueness():
             """Enforce column uniqueness across all categories including uncategorized.
 
             Checks that no column appears in more than one category. Categories include
             input_columns, output_columns, metadata_columns, human_label_columns, and
-            uncategorized_columns.
+            _uncategorized_columns.
 
             Raises:
                 DuplicateColumnError: If any column appears in more than one category.
@@ -231,19 +228,19 @@ class EvalData(BaseModel):
                 column_category_map[column] = "human_label_columns"
 
             # Check uncategorized columns (should not conflict by definition, but validate anyway)
-            for column in self.uncategorized_columns:
+            for column in self._uncategorized_columns:
                 if column in column_category_map:
                     raise DuplicateColumnError(
                         f"Column '{column}' appears in both {column_category_map[column]} "
-                        f"and uncategorized_columns. This should not happen - please report as a bug."
+                        f"and _uncategorized_columns. This should not happen - please report as a bug."
                     )
-                column_category_map[column] = "uncategorized_columns"
+                column_category_map[column] = "_uncategorized_columns"
 
         def _warn_about_uncategorized_columns():
             """Log warning if uncategorized columns are present."""
-            if self.uncategorized_columns:
+            if self._uncategorized_columns:
                 logger.warning(
-                    f"Found {len(self.uncategorized_columns)} uncategorized columns: {self.uncategorized_columns}. "
+                    f"Found {len(self._uncategorized_columns)} uncategorized columns: {self._uncategorized_columns}. "
                     f"Consider categorizing these columns for clearer evaluation semantics."
                 )
 
@@ -297,12 +294,17 @@ class EvalData(BaseModel):
         return self.data.select(self.human_label_columns)
 
     @property
+    def uncategorized_column_names(self) -> list[str]:
+        """Return the list of uncategorized column names."""
+        return self._uncategorized_columns
+
+    @property
     def uncategorized_data(self) -> pl.DataFrame:
         """Extract uncategorized columns as a DataFrame.
 
         Returns an empty DataFrame if no uncategorized columns exist.
         """
-        if not self.uncategorized_columns:
+        if not self._uncategorized_columns:
             # Return empty DataFrame with same schema structure
             return self.data.select([]).clear()
-        return self.data.select(self.uncategorized_columns)
+        return self.data.select(self._uncategorized_columns)
