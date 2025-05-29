@@ -7,7 +7,7 @@ Provider-agnostic LLM client with robust response parsing. Designed for the meta
 ## Quick Start
 
 ```python
-from meta_evaluator.LLMClient import OpenAIClient, OpenAIConfig, Message, RoleEnum
+from meta_evaluator.llm_client import OpenAIClient, OpenAIConfig, Message, RoleEnum
 
 # Setup
 config = OpenAIConfig(api_key="...", default_model="gpt-4")
