@@ -195,7 +195,7 @@ class TestLLMClient:
     def test_initialization_with_valid_config(
         self, valid_config: LLMClientConfigConcreteTest
     ):
-        """Test case 1: Verify initialization succeeds with a valid config.
+        """Verify initialization succeeds with a valid config.
 
         Args:
             valid_config: A pytest fixture providing a valid config.
@@ -215,7 +215,7 @@ class TestLLMClient:
         mock_raw_response: tuple[str, LLMUsage],
         mocker,
     ):
-        """Test case 3: Verify prompt uses default model and logs correctly on success.
+        """Verify prompt uses default model and logs correctly on success.
 
         Args:
             concrete_client: A pytest fixture providing a concrete client instance.
@@ -261,7 +261,7 @@ class TestLLMClient:
         mock_raw_response: tuple[str, LLMUsage],
         mocker,
     ):
-        """Test case 4: Verify prompt uses explicit model and logs correctly on success.
+        """Verify prompt uses explicit model and logs correctly on success.
 
         Args:
             concrete_client: A pytest fixture providing a concrete client instance.
@@ -302,7 +302,7 @@ class TestLLMClient:
     def test_prompt_handles_empty_messages_list(
         self, concrete_client: ConcreteTestLLMClient, mocker
     ):
-        """Test case 5: Verify prompt raises LLMValidationError for empty messages list.
+        """Verify prompt raises LLMValidationError for empty messages list.
 
         Args:
             concrete_client: A pytest fixture providing a concrete client instance.
@@ -323,7 +323,7 @@ class TestLLMClient:
         valid_messages: list[Message],
         mocker,
     ):
-        """Test case 6: Verify prompt wraps exceptions from _prompt in LLMAPIError.
+        """Verify prompt wraps exceptions from _prompt in LLMAPIError.
 
         Args:
             concrete_client: A pytest fixture providing a concrete client instance.
@@ -366,7 +366,7 @@ class TestLLMClient:
         mock_raw_response: tuple[str, LLMUsage],
         mocker,
     ):
-        """Test case 7: Verify the exact content logged by the prompt method.
+        """Verify the exact content logged by the prompt method.
 
         This test explicitly checks the arguments passed to the logger's info method.
 
@@ -396,7 +396,7 @@ class TestLLMClient:
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
     ):
-        """Test case 8: Verify _construct_llm_response builds response correctly.
+        """Verify _construct_llm_response builds response correctly.
 
         Args:
             concrete_client: A pytest fixture providing a concrete client instance.
@@ -424,7 +424,7 @@ class TestLLMClient:
         assert response.latest_response.content == raw_response
 
     def test_validate_messages(self, concrete_client: ConcreteTestLLMClient):
-        """Test case 9: Verify _validate_messages works correctly.
+        """Verify _validate_messages works correctly.
 
         Args:
             concrete_client: A pytest fixture providing a concrete client instance.
