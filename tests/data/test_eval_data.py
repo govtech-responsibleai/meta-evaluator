@@ -1,669 +1,507 @@
-"""File for testing the EvalData module."""
+"""Test suite for the EvalData class with comprehensive path coverage."""
 
 import pytest
-import polars as pl
 from unittest.mock import MagicMock
-from pydantic import ValidationError
-
+import polars as pl
+import logging
 from meta_evaluator.data import EvalData
 from meta_evaluator.data.exceptions import (
-    EmptyColumnsError,
-    EmptyDataFrameError,
     ColumnNotFoundError,
     DuplicateColumnError,
+    EmptyDataFrameError,
+    InvalidColumnNameError,
+    EmptyColumnListError,
+    IdColumnExistsError,
+    DuplicateInIDColumnError,
+    InvalidInIDColumnError,
+    NullValuesInDataError,
 )
 
 
 class TestEvalData:
-    """Test suite for the EvalData class."""
+    """Comprehensive test suite for EvalData class achieving 100% path coverage."""
 
     @pytest.fixture
-    def minimal_valid_data(self) -> pl.DataFrame:
-        """Provides minimal valid DataFrame with 2 columns, 1 row.
-
-        This is the simplest valid DataFrame that can pass validation.
+    def valid_dataframe(self) -> pl.DataFrame:
+        """Provides a valid DataFrame for testing.
 
         Returns:
-            pl.DataFrame: DataFrame with one input and one output column.
+            pl.DataFrame: A DataFrame with sample evaluation data.
         """
         return pl.DataFrame(
             {
-                "input_col": ["test input"],
-                "output_col": ["test output"],
+                "question": ["What is 2+2?", "What is 3+3?"],
+                "answer": ["4", "6"],
+                "model_response": ["Four", "Six"],
+                "difficulty": ["easy", "easy"],
+                "human_rating": [5, 4],
+                "extra_col": ["a", "b"],
             }
         )
 
     @pytest.fixture
-    def rich_valid_data(self) -> pl.DataFrame:
-        """Provides rich DataFrame with all column types and uncategorized columns.
-
-        This DataFrame contains multiple rows and representatives of all
-        possible column categories plus some uncategorized columns.
+    def minimal_dataframe(self) -> pl.DataFrame:
+        """Provides a minimal valid DataFrame.
 
         Returns:
-            pl.DataFrame: DataFrame with diverse column types and data.
+            pl.DataFrame: A DataFrame with minimal input and output columns.
         """
         return pl.DataFrame(
-            {
-                "prompt": ["What is AI?", "Explain ML"],
-                "response": ["AI is...", "ML is..."],
-                "timestamp": ["2024-01-01", "2024-01-02"],
-                "rating": [5, 4],
-                "uncategorized_field": ["extra1", "extra2"],
-                "another_extra": ["extra3", "extra4"],
-            }
+            {"input": ["test1", "test2"], "output": ["result1", "result2"]}
         )
-
-    @pytest.fixture
-    def empty_dataframe(self) -> pl.DataFrame:
-        """Provides empty DataFrame for testing empty data validation.
-
-        Returns:
-            pl.DataFrame: Empty DataFrame with proper schema but no rows.
-        """
-        return pl.DataFrame(
-            {"input_col": [], "output_col": []},
-            schema={"input_col": pl.Utf8, "output_col": pl.Utf8},
-        )
-
-    @pytest.fixture
-    def single_column_data(self) -> pl.DataFrame:
-        """Provides DataFrame with only one column for testing missing columns.
-
-        Returns:
-            pl.DataFrame: DataFrame with only one column.
-        """
-        return pl.DataFrame({"only_col": ["test data"]})
 
     @pytest.fixture
     def mock_logger(self, mocker) -> MagicMock:
-        """Mocks the logger instance used by EvalData.
-
-        This fixture patches the logging.getLogger method to return a mock logger
-        instance, allowing verification of logging calls.
-
-        Args:
-            mocker: The pytest-mock mocker fixture.
+        """Mocks the logger for testing logging behavior.
 
         Returns:
             MagicMock: A mock logger instance.
         """
-        return mocker.patch("meta_evaluator.data.EvalData.logger")
+        return mocker.patch("logging.getLogger").return_value
 
-    # Happy Path Tests
+    # === Column Name Validation Tests ===
 
-    def test_initialization_minimal_valid_data(self, minimal_valid_data):
-        """Verify initialization with minimal valid data."""
-        eval_data = EvalData(
-            data=minimal_valid_data,
-            input_columns=["input_col"],
-            output_columns=["output_col"],
-        )
+    def test_check_single_column_name_valid(self):
+        """Test valid column names pass validation."""
+        # Valid names should not raise
+        EvalData.check_single_column_name("valid_name")
+        EvalData.check_single_column_name("_starts_with_underscore")
+        EvalData.check_single_column_name("has123numbers")
+        EvalData.check_single_column_name("CamelCase")
 
-        assert eval_data.data.equals(minimal_valid_data)
-        assert eval_data.input_columns == ["input_col"]
-        assert eval_data.output_columns == ["output_col"]
-        assert eval_data.metadata_columns == []
-        assert eval_data.human_label_columns == []
-        assert eval_data._uncategorized_columns == []
+    def test_check_single_column_name_empty(self):
+        """Test empty column names raise InvalidColumnNameError."""
+        with pytest.raises(InvalidColumnNameError, match="Column name is empty"):
+            EvalData.check_single_column_name("")
 
-    def test_initialization_rich_data_with_all_categories(self, rich_valid_data):
-        """Verify initialization with all column categories."""
-        eval_data = EvalData(
-            data=rich_valid_data,
-            input_columns=["prompt"],
-            output_columns=["response"],
-            metadata_columns=["timestamp"],
-            human_label_columns=["rating"],
-        )
+        with pytest.raises(
+            InvalidColumnNameError,
+            match="Column name must start with a letter or underscore",
+        ):
+            EvalData.check_single_column_name("   ")  # Whitespace only
 
-        assert len(eval_data._uncategorized_columns) == 2
-        assert "uncategorized_field" in eval_data._uncategorized_columns
-        assert "another_extra" in eval_data._uncategorized_columns
-        assert eval_data.input_columns == ["prompt"]
-        assert eval_data.output_columns == ["response"]
-        assert eval_data.metadata_columns == ["timestamp"]
-        assert eval_data.human_label_columns == ["rating"]
+    def test_check_single_column_name_invalid_first_char(self):
+        """Test column names with invalid first characters."""
+        with pytest.raises(
+            InvalidColumnNameError, match="must start with a letter or underscore"
+        ):
+            EvalData.check_single_column_name("123invalid")
 
-    def test_initialization_all_columns_categorized_no_warning(
-        self, rich_valid_data, mock_logger
+        with pytest.raises(
+            InvalidColumnNameError, match="must start with a letter or underscore"
+        ):
+            EvalData.check_single_column_name("-invalid")
+
+    def test_check_single_column_name_invalid_chars(self):
+        """Test column names with invalid characters."""
+        with pytest.raises(
+            InvalidColumnNameError,
+            match="must only contain letters, numbers, and underscores",
+        ):
+            EvalData.check_single_column_name("invalid-name")
+
+        with pytest.raises(
+            InvalidColumnNameError,
+            match="must only contain letters, numbers, and underscores",
+        ):
+            EvalData.check_single_column_name("invalid name")
+
+    # === Pre-validation Tests ===
+
+    def test_validate_given_column_names_empty_input_columns(self, valid_dataframe):
+        """Test empty input_columns raises EmptyColumnListError."""
+        with pytest.raises(EmptyColumnListError):
+            EvalData(data=valid_dataframe, input_columns=[], output_columns=["answer"])
+
+    def test_validate_given_column_names_empty_output_columns(self, valid_dataframe):
+        """Test empty output_columns raises EmptyColumnListError."""
+        with pytest.raises(EmptyColumnListError):
+            EvalData(
+                data=valid_dataframe, input_columns=["question"], output_columns=[]
+            )
+
+    def test_validate_given_column_names_invalid_input_column(self, valid_dataframe):
+        """Test invalid input column name raises InvalidColumnNameError."""
+        with pytest.raises(InvalidColumnNameError):
+            EvalData(
+                data=valid_dataframe,
+                input_columns=["123invalid"],
+                output_columns=["answer"],
+            )
+
+    def test_validate_given_column_names_invalid_output_column(self, valid_dataframe):
+        """Test invalid output column name raises InvalidColumnNameError."""
+        with pytest.raises(InvalidColumnNameError):
+            EvalData(
+                data=valid_dataframe,
+                input_columns=["question"],
+                output_columns=["invalid-name"],
+            )
+
+    def test_validate_given_column_names_invalid_metadata_column(self, valid_dataframe):
+        """Test invalid metadata column name raises InvalidColumnNameError."""
+        with pytest.raises(InvalidColumnNameError):
+            EvalData(
+                data=valid_dataframe,
+                input_columns=["question"],
+                output_columns=["answer"],
+                metadata_columns=["123invalid"],
+            )
+
+    def test_validate_given_column_names_invalid_human_label_column(
+        self, valid_dataframe
     ):
-        """Verify no warning when all columns are categorized."""
+        """Test invalid human label column name raises InvalidColumnNameError."""
+        with pytest.raises(InvalidColumnNameError):
+            EvalData(
+                data=valid_dataframe,
+                input_columns=["question"],
+                output_columns=["answer"],
+                human_label_columns=["invalid-name"],
+            )
+
+    # === DataFrame Validation Tests ===
+
+    def test_validate_dataframe_empty(self):
+        """Test empty DataFrame raises EmptyDataFrameError."""
+        empty_df = pl.DataFrame({"col1": []})
+        with pytest.raises(EmptyDataFrameError):
+            EvalData(data=empty_df, input_columns=["col1"], output_columns=["col1"])
+
+    # === Data Integrity Validation Tests ===
+
+    def test_missing_columns_error(self, valid_dataframe):
+        """Test missing columns raise ColumnNotFoundError."""
+        with pytest.raises(ColumnNotFoundError):
+            EvalData(
+                data=valid_dataframe,
+                input_columns=["nonexistent_column"],
+                output_columns=["answer"],
+            )
+
+    def test_duplicate_columns_error(self, valid_dataframe):
+        """Test duplicate column specifications raise DuplicateColumnError."""
+        with pytest.raises(DuplicateColumnError):
+            EvalData(
+                data=valid_dataframe,
+                input_columns=["question"],
+                output_columns=["question"],  # Duplicate
+            )
+
+    def test_uncategorized_columns_warning(self, valid_dataframe, caplog):
+        """Test uncategorized columns trigger warning."""
+        with caplog.at_level(logging.WARNING):
+            eval_data = EvalData(
+                data=valid_dataframe,
+                input_columns=["question"],
+                output_columns=["answer"],
+            )
+
+        # Should have uncategorized columns
+        assert len(eval_data.uncategorized_column_names) > 0
+        assert "Uncategorized columns detected" in caplog.text
+
+    def test_clean_data_no_issues(self, minimal_dataframe):
+        """Test clean data with no integrity issues."""
         eval_data = EvalData(
-            data=rich_valid_data,
-            input_columns=["prompt"],
-            output_columns=["response"],
-            metadata_columns=["timestamp", "uncategorized_field"],
-            human_label_columns=["rating", "another_extra"],
+            data=minimal_dataframe, input_columns=["input"], output_columns=["output"]
         )
 
-        assert eval_data._uncategorized_columns == []
-        mock_logger.warning.assert_not_called()
+        assert eval_data is not None
+        assert len(eval_data.uncategorized_column_names) == 0
 
-    def test_initialization_multiple_columns_per_category(self, rich_valid_data):
-        """Verify initialization with multiple columns per category."""
+    # === ID Column Creation Tests ===
+
+    def test_auto_generate_id_column(self, minimal_dataframe):
+        """Test automatic ID column generation."""
         eval_data = EvalData(
-            data=rich_valid_data,
-            input_columns=["prompt", "timestamp"],
-            output_columns=["response", "rating"],
-            metadata_columns=["uncategorized_field"],
-            human_label_columns=["another_extra"],
+            data=minimal_dataframe, input_columns=["input"], output_columns=["output"]
         )
 
-        assert len(eval_data.input_columns) == 2
-        assert len(eval_data.output_columns) == 2
-        assert len(eval_data.metadata_columns) == 1
-        assert len(eval_data.human_label_columns) == 1
-        assert eval_data._uncategorized_columns == []
+        assert eval_data.id_column == "id"
+        assert "id" in eval_data.data.columns
+        assert eval_data.data["id"].to_list() == ["id-1", "id-2"]
 
-    # Required Columns Validation Tests
-
-    def test_empty_input_columns_raises_error(self, minimal_valid_data):
-        """Empty input_columns raises EmptyColumnsError."""
-        with pytest.raises(EmptyColumnsError) as excinfo:
-            EvalData(
-                data=minimal_valid_data,
-                input_columns=[],  # Empty!
-                output_columns=["output_col"],
-            )
-
-        assert "input_columns cannot be empty" in str(excinfo.value)
-
-    def test_empty_output_columns_raises_error(self, minimal_valid_data):
-        """Empty output_columns raises EmptyColumnsError."""
-        with pytest.raises(EmptyColumnsError) as excinfo:
-            EvalData(
-                data=minimal_valid_data,
-                input_columns=["input_col"],
-                output_columns=[],  # Empty!
-            )
-
-        assert "output_columns cannot be empty" in str(excinfo.value)
-
-    def test_both_input_and_output_empty_raises_input_error_first(
-        self, minimal_valid_data
-    ):
-        """Both empty raises input error first (fail-fast behavior)."""
-        with pytest.raises(EmptyColumnsError) as excinfo:
-            EvalData(
-                data=minimal_valid_data,
-                input_columns=[],  # Empty!
-                output_columns=[],  # Also empty!
-            )
-
-        # Should get input error first due to fail-fast validation order
-        assert "input_columns cannot be empty" in str(excinfo.value)
-
-    # DataFrame Empty Validation Tests
-
-    def test_empty_dataframe_raises_error(self, empty_dataframe):
-        """Empty DataFrame raises EmptyDataFrameError."""
-        with pytest.raises(EmptyDataFrameError) as excinfo:
-            EvalData(
-                data=empty_dataframe,
-                input_columns=["input_col"],
-                output_columns=["output_col"],
-            )
-
-        assert "DataFrame cannot be empty" in str(excinfo.value)
-
-    # Column Existence Validation Tests
-
-    def test_missing_input_column_raises_error(self, minimal_valid_data):
-        """Missing input column raises ColumnNotFoundError."""
-        with pytest.raises(ColumnNotFoundError) as excinfo:
-            EvalData(
-                data=minimal_valid_data,
-                input_columns=["nonexistent_input"],
-                output_columns=["output_col"],
-            )
-
-        assert (
-            "Column 'nonexistent_input' specified in categorization but not found"
-            in str(excinfo.value)
-        )
-        assert "Available columns:" in str(excinfo.value)
-
-    def test_missing_output_column_raises_error(self, minimal_valid_data):
-        """Missing output column raises ColumnNotFoundError."""
-        with pytest.raises(ColumnNotFoundError) as excinfo:
-            EvalData(
-                data=minimal_valid_data,
-                input_columns=["input_col"],
-                output_columns=["nonexistent_output"],
-            )
-
-        assert (
-            "Column 'nonexistent_output' specified in categorization but not found"
-            in str(excinfo.value)
+    def test_id_column_name_conflict(self):
+        """Test IdColumnExistsError when ID column name conflicts."""
+        df_with_id = pl.DataFrame(
+            {
+                "id": ["existing1", "existing2"],
+                "input": ["test1", "test2"],
+                "output": ["result1", "result2"],
+            }
         )
 
-    def test_missing_metadata_column_raises_error(self, minimal_valid_data):
-        """Missing metadata column raises ColumnNotFoundError."""
-        with pytest.raises(ColumnNotFoundError) as excinfo:
+        with pytest.raises(IdColumnExistsError):
             EvalData(
-                data=minimal_valid_data,
-                input_columns=["input_col"],
-                output_columns=["output_col"],
-                metadata_columns=["nonexistent_metadata"],
+                data=df_with_id,
+                input_columns=["input"],
+                output_columns=["output"],
+                # id_column is None, will try to auto-generate "id"
             )
 
-        assert (
-            "Column 'nonexistent_metadata' specified in categorization but not found"
-            in str(excinfo.value)
-        )
-
-    def test_missing_human_label_column_raises_error(self, minimal_valid_data):
-        """Missing human label column raises ColumnNotFoundError."""
-        with pytest.raises(ColumnNotFoundError) as excinfo:
-            EvalData(
-                data=minimal_valid_data,
-                input_columns=["input_col"],
-                output_columns=["output_col"],
-                human_label_columns=["nonexistent_label"],
-            )
-
-        assert (
-            "Column 'nonexistent_label' specified in categorization but not found"
-            in str(excinfo.value)
-        )
-
-    def test_multiple_missing_columns_reports_first_one(self, single_column_data):
-        """Multiple missing columns reports first one found (fail-fast)."""
-        with pytest.raises(ColumnNotFoundError) as excinfo:
-            EvalData(
-                data=single_column_data,
-                input_columns=["missing_input"],
-                output_columns=["missing_output"],
-                metadata_columns=["missing_metadata"],
-            )
-
-        # Should report the first missing column encountered during validation
-        error_message = str(excinfo.value)
-        assert "specified in categorization but not found" in error_message
-
-    # Duplicate Column Tests (All Combinations)
-
-    def test_duplicate_input_output_raises_error(self, minimal_valid_data):
-        """Column in both input and output raises DuplicateColumnError."""
-        with pytest.raises(DuplicateColumnError) as excinfo:
-            EvalData(
-                data=minimal_valid_data,
-                input_columns=["input_col"],
-                output_columns=["input_col"],  # Duplicate!
-            )
-
-        assert (
-            "Column 'input_col' appears in both input_columns and output_columns"
-            in str(excinfo.value)
-        )
-
-    def test_duplicate_input_metadata_raises_error(self, rich_valid_data):
-        """Column in both input and metadata raises DuplicateColumnError."""
-        with pytest.raises(DuplicateColumnError) as excinfo:
-            EvalData(
-                data=rich_valid_data,
-                input_columns=["prompt"],
-                output_columns=["response"],
-                metadata_columns=["prompt"],  # Duplicate!
-            )
-
-        assert (
-            "Column 'prompt' appears in both input_columns and metadata_columns"
-            in str(excinfo.value)
-        )
-
-    def test_duplicate_input_human_label_raises_error(self, rich_valid_data):
-        """Column in both input and human_label raises DuplicateColumnError."""
-        with pytest.raises(DuplicateColumnError) as excinfo:
-            EvalData(
-                data=rich_valid_data,
-                input_columns=["prompt"],
-                output_columns=["response"],
-                human_label_columns=["prompt"],  # Duplicate!
-            )
-
-        assert (
-            "Column 'prompt' appears in both input_columns and human_label_columns"
-            in str(excinfo.value)
-        )
-
-    def test_duplicate_output_metadata_raises_error(self, rich_valid_data):
-        """Column in both output and metadata raises DuplicateColumnError."""
-        with pytest.raises(DuplicateColumnError) as excinfo:
-            EvalData(
-                data=rich_valid_data,
-                input_columns=["prompt"],
-                output_columns=["response"],
-                metadata_columns=["response"],  # Duplicate!
-            )
-
-        assert (
-            "Column 'response' appears in both output_columns and metadata_columns"
-            in str(excinfo.value)
-        )
-
-    def test_duplicate_output_human_label_raises_error(self, rich_valid_data):
-        """Column in both output and human_label raises DuplicateColumnError."""
-        with pytest.raises(DuplicateColumnError) as excinfo:
-            EvalData(
-                data=rich_valid_data,
-                input_columns=["prompt"],
-                output_columns=["response"],
-                human_label_columns=["response"],  # Duplicate!
-            )
-
-        assert (
-            "Column 'response' appears in both output_columns and human_label_columns"
-            in str(excinfo.value)
-        )
-
-    def test_duplicate_metadata_human_label_raises_error(self, rich_valid_data):
-        """Column in both metadata and human_label raises DuplicateColumnError."""
-        with pytest.raises(DuplicateColumnError) as excinfo:
-            EvalData(
-                data=rich_valid_data,
-                input_columns=["prompt"],
-                output_columns=["response"],
-                metadata_columns=["rating"],
-                human_label_columns=["rating"],  # Duplicate!
-            )
-
-        assert (
-            "Column 'rating' appears in both metadata_columns and human_label_columns"
-            in str(excinfo.value)
-        )
-
-    def test_input_data_property(self, rich_valid_data):
-        """Verify input_data property returns correct columns."""
+    def test_user_provided_id_column(self, valid_dataframe):
+        """Test using user-provided ID column."""
         eval_data = EvalData(
-            data=rich_valid_data, input_columns=["prompt"], output_columns=["response"]
+            data=valid_dataframe,
+            id_column="question",  # Use existing column as ID
+            input_columns=["answer"],
+            output_columns=["model_response"],
+        )
+
+        assert eval_data.id_column == "question"
+
+    # === Final Validation Tests ===
+
+    def test_user_provided_id_with_nulls(self):
+        """Test user-provided ID column with null values."""
+        df_with_null_id = pl.DataFrame(
+            {
+                "custom_id": ["id1", None],
+                "input": ["test1", "test2"],
+                "output": ["result1", "result2"],
+            }
+        )
+
+        with pytest.raises(InvalidInIDColumnError):
+            EvalData(
+                data=df_with_null_id,
+                id_column="custom_id",
+                input_columns=["input"],
+                output_columns=["output"],
+            )
+
+    def test_user_provided_id_with_duplicates(self):
+        """Test user-provided ID column with duplicate values."""
+        df_with_duplicate_id = pl.DataFrame(
+            {
+                "custom_id": ["id1", "id1"],
+                "input": ["test1", "test2"],
+                "output": ["result1", "result2"],
+            }
+        )
+
+        with pytest.raises(DuplicateInIDColumnError):
+            EvalData(
+                data=df_with_duplicate_id,
+                id_column="custom_id",
+                input_columns=["input"],
+                output_columns=["output"],
+            )
+
+    def test_user_provided_string_id_with_empty_strings(self):
+        """Test user-provided string ID column with empty strings."""
+        df_with_empty_id = pl.DataFrame(
+            {
+                "custom_id": ["id1", ""],
+                "input": ["test1", "test2"],
+                "output": ["result1", "result2"],
+            }
+        )
+
+        with pytest.raises(InvalidInIDColumnError):
+            EvalData(
+                data=df_with_empty_id,
+                id_column="custom_id",
+                input_columns=["input"],
+                output_columns=["output"],
+            )
+
+    def test_user_provided_string_id_with_whitespace_only(self):
+        """Test user-provided string ID column with whitespace-only values."""
+        df_with_whitespace_id = pl.DataFrame(
+            {
+                "custom_id": ["id1", "   "],
+                "input": ["test1", "test2"],
+                "output": ["result1", "result2"],
+            }
+        )
+
+        with pytest.raises(InvalidInIDColumnError):
+            EvalData(
+                data=df_with_whitespace_id,
+                id_column="custom_id",
+                input_columns=["input"],
+                output_columns=["output"],
+            )
+
+    def test_non_string_id_column_skips_string_validation(self):
+        """Test non-string ID columns skip string-specific validations."""
+        df_with_int_id = pl.DataFrame(
+            {
+                "custom_id": [1, 2],
+                "input": ["test1", "test2"],
+                "output": ["result1", "result2"],
+            }
+        )
+
+        eval_data = EvalData(
+            data=df_with_int_id,
+            id_column="custom_id",
+            input_columns=["input"],
+            output_columns=["output"],
+        )
+
+        assert eval_data.id_column == "custom_id"
+
+    def test_null_values_in_non_id_columns(self):
+        """Test null values in non-ID columns raise NullValuesInDataError."""
+        df_with_nulls = pl.DataFrame(
+            {"input": ["test1", None], "output": ["result1", "result2"]}
+        )
+
+        with pytest.raises(NullValuesInDataError):
+            EvalData(
+                data=df_with_nulls, input_columns=["input"], output_columns=["output"]
+            )
+
+    def test_empty_strings_in_non_id_columns_warning(self, caplog):
+        """Test empty strings in non-ID columns trigger warnings."""
+        df_with_empty_strings = pl.DataFrame(
+            {"input": ["test1", ""], "output": ["result1", "result2"]}
+        )
+
+        with caplog.at_level(logging.WARNING):
+            eval_data = EvalData(
+                data=df_with_empty_strings,
+                input_columns=["input"],
+                output_columns=["output"],
+            )
+
+        assert eval_data is not None
+        assert "has empty strings" in caplog.text
+
+    def test_whitespace_only_strings_warning(self, caplog):
+        """Test whitespace-only strings in non-ID columns trigger warnings."""
+        df_with_whitespace = pl.DataFrame(
+            {"input": ["test1", "   "], "output": ["result1", "result2"]}
+        )
+
+        with caplog.at_level(logging.WARNING):
+            eval_data = EvalData(
+                data=df_with_whitespace,
+                input_columns=["input"],
+                output_columns=["output"],
+            )
+
+        assert eval_data is not None
+        assert "has whitespace-only values" in caplog.text
+
+    # === Property Access Tests ===
+
+    def test_uncategorized_data_with_no_uncategorized_columns(self, minimal_dataframe):
+        """Test uncategorized_data property with no uncategorized columns."""
+        eval_data = EvalData(
+            data=minimal_dataframe, input_columns=["input"], output_columns=["output"]
+        )
+
+        uncategorized = eval_data.uncategorized_data
+        assert isinstance(uncategorized, pl.DataFrame)
+        assert len(uncategorized.columns) == 0
+
+    def test_uncategorized_data_with_uncategorized_columns(self, valid_dataframe):
+        """Test uncategorized_data property with uncategorized columns."""
+        eval_data = EvalData(
+            data=valid_dataframe, input_columns=["question"], output_columns=["answer"]
+        )
+
+        uncategorized = eval_data.uncategorized_data
+        assert isinstance(uncategorized, pl.DataFrame)
+        assert len(uncategorized.columns) > 0
+
+    def test_input_data_property(self, valid_dataframe):
+        """Test input_data property returns correct columns."""
+        eval_data = EvalData(
+            data=valid_dataframe, input_columns=["question"], output_columns=["answer"]
         )
 
         input_data = eval_data.input_data
-        assert input_data.columns == ["prompt"]
-        assert len(input_data) == 2
-        assert input_data["prompt"].to_list() == ["What is AI?", "Explain ML"]
+        assert list(input_data.columns) == ["question"]
 
-    def test_output_data_property(self, rich_valid_data):
-        """Verify output_data property returns correct columns."""
+    def test_output_data_property(self, valid_dataframe):
+        """Test output_data property returns correct columns."""
         eval_data = EvalData(
-            data=rich_valid_data, input_columns=["prompt"], output_columns=["response"]
+            data=valid_dataframe, input_columns=["question"], output_columns=["answer"]
         )
 
         output_data = eval_data.output_data
-        assert output_data.columns == ["response"]
-        assert len(output_data) == 2
-        assert output_data["response"].to_list() == ["AI is...", "ML is..."]
+        assert list(output_data.columns) == ["answer"]
 
-    def test_metadata_data_property_with_columns(self, rich_valid_data):
-        """Verify metadata_data property with non-empty metadata_columns."""
+    def test_metadata_data_property(self, valid_dataframe):
+        """Test metadata_data property returns correct columns."""
         eval_data = EvalData(
-            data=rich_valid_data,
-            input_columns=["prompt"],
-            output_columns=["response"],
-            metadata_columns=["timestamp", "rating"],
+            data=valid_dataframe,
+            input_columns=["question"],
+            output_columns=["answer"],
+            metadata_columns=["difficulty"],
         )
 
         metadata_data = eval_data.metadata_data
-        assert set(metadata_data.columns) == {"timestamp", "rating"}
-        assert len(metadata_data) == 2
+        assert list(metadata_data.columns) == ["difficulty"]
 
-    def test_metadata_data_property_empty_columns(self, minimal_valid_data):
-        """Verify metadata_data property with empty metadata_columns."""
+    def test_human_label_data_property(self, valid_dataframe):
+        """Test human_label_data property returns correct columns."""
         eval_data = EvalData(
-            data=minimal_valid_data,
-            input_columns=["input_col"],
-            output_columns=["output_col"],
-            metadata_columns=[],  # Empty
-        )
-
-        metadata_data = eval_data.metadata_data
-        assert len(metadata_data.columns) == 0
-        assert len(metadata_data) == 0  # Same number of rows as original data
-
-    def test_human_label_data_property_with_columns(self, rich_valid_data):
-        """Verify human_label_data property with non-empty human_label_columns."""
-        eval_data = EvalData(
-            data=rich_valid_data,
-            input_columns=["prompt"],
-            output_columns=["response"],
-            human_label_columns=["rating"],
+            data=valid_dataframe,
+            input_columns=["question"],
+            output_columns=["answer"],
+            human_label_columns=["human_rating"],
         )
 
         human_label_data = eval_data.human_label_data
-        assert human_label_data.columns == ["rating"]
-        assert len(human_label_data) == 2
-        assert human_label_data["rating"].to_list() == [5, 4]
+        assert list(human_label_data.columns) == ["human_rating"]
 
-    def test_human_label_data_property_empty_columns(self, minimal_valid_data):
-        """Verify human_label_data property with empty human_label_columns."""
+    # === Immutability Tests ===
+
+    def test_immutability_after_initialization(self, minimal_dataframe):
+        """Test that attributes cannot be modified after initialization."""
         eval_data = EvalData(
-            data=minimal_valid_data,
-            input_columns=["input_col"],
-            output_columns=["output_col"],
-            human_label_columns=[],  # Empty
+            data=minimal_dataframe, input_columns=["input"], output_columns=["output"]
         )
 
-        human_label_data = eval_data.human_label_data
-        assert len(human_label_data.columns) == 0
-        assert len(human_label_data) == 0  # Same number of rows as original data
+        with pytest.raises(
+            TypeError, match="Cannot modify attribute.*on immutable EvalData instance"
+        ):
+            eval_data.input_columns = ["new_input"]
 
-    def test_uncategorized_data_property_empty(self, minimal_valid_data):
-        """Verify uncategorized_data returns empty DataFrame when no uncategorized columns."""
+        with pytest.raises(
+            TypeError, match="Cannot modify attribute.*on immutable EvalData instance"
+        ):
+            eval_data.data = minimal_dataframe
+
+    # === Integration/Happy Path Tests ===
+
+    def test_complete_happy_path_with_all_categories(self, valid_dataframe):
+        """Test complete happy path with all column categories specified."""
         eval_data = EvalData(
-            data=minimal_valid_data,
-            input_columns=["input_col"],
-            output_columns=["output_col"],
+            data=valid_dataframe,
+            input_columns=["question"],
+            output_columns=["answer", "model_response"],
+            metadata_columns=["difficulty"],
+            human_label_columns=["human_rating"],
         )
 
-        uncategorized_data = eval_data.uncategorized_data
-        assert len(uncategorized_data.columns) == 0
-        assert len(uncategorized_data) == 0  # Empty DataFrame
+        assert eval_data.id_column == "id"
+        assert eval_data.input_columns == ["question"]
+        assert eval_data.output_columns == ["answer", "model_response"]
+        assert eval_data.metadata_columns == ["difficulty"]
+        assert eval_data.human_label_columns == ["human_rating"]
+        assert len(eval_data.uncategorized_column_names) == 1  # "extra_col"
 
-    def test_uncategorized_data_property_with_data(self, rich_valid_data):
-        """Verify uncategorized_data returns correct columns."""
-        eval_data = EvalData(
-            data=rich_valid_data, input_columns=["prompt"], output_columns=["response"]
-        )
-
-        uncategorized_data = eval_data.uncategorized_data
-        assert "uncategorized_field" in uncategorized_data.columns
-        assert "another_extra" in uncategorized_data.columns
-        assert "timestamp" in uncategorized_data.columns
-        assert "rating" in uncategorized_data.columns
-        assert len(uncategorized_data) == 2
-
-    # Immutability Tests
-
-    def test_immutability_data_attribute(self, minimal_valid_data):
-        """Verify data attribute cannot be modified."""
-        eval_data = EvalData(
-            data=minimal_valid_data,
-            input_columns=["input_col"],
-            output_columns=["output_col"],
-        )
-
-        with pytest.raises((ValidationError, AttributeError)):
-            eval_data.data = pl.DataFrame({"new": ["data"]})
-
-    def test_immutability_input_columns_attribute(self, minimal_valid_data):
-        """Verify input_columns cannot be modified."""
-        eval_data = EvalData(
-            data=minimal_valid_data,
-            input_columns=["input_col"],
-            output_columns=["output_col"],
-        )
-
-        with pytest.raises((ValidationError, AttributeError)):
-            eval_data.input_columns = ["new_col"]
-
-    def test_immutability_output_columns_attribute(self, minimal_valid_data):
-        """Verify output_columns cannot be modified."""
-        eval_data = EvalData(
-            data=minimal_valid_data,
-            input_columns=["input_col"],
-            output_columns=["output_col"],
-        )
-
-        with pytest.raises((ValidationError, AttributeError)):
-            eval_data.output_columns = ["new_col"]
-
-    def test_immutability_metadata_columns_attribute(self, minimal_valid_data):
-        """Verify metadata_columns cannot be modified."""
-        eval_data = EvalData(
-            data=minimal_valid_data,
-            input_columns=["input_col"],
-            output_columns=["output_col"],
-        )
-
-        with pytest.raises((ValidationError, AttributeError)):
-            eval_data.metadata_columns = ["new_col"]
-
-    def test_immutability_human_label_columns_attribute(self, minimal_valid_data):
-        """Verify human_label_columns cannot be modified."""
-        eval_data = EvalData(
-            data=minimal_valid_data,
-            input_columns=["input_col"],
-            output_columns=["output_col"],
-        )
-
-        with pytest.raises((ValidationError, AttributeError)):
-            eval_data.human_label_columns = ["new_col"]
-
-    # Logging Tests
-
-    def test_uncategorized_columns_warning_logged(self, rich_valid_data, mock_logger):
-        """Verify warning is logged for uncategorized columns."""
-        EvalData(
-            data=rich_valid_data, input_columns=["prompt"], output_columns=["response"]
-        )
-
-        mock_logger.warning.assert_called_once()
-        warning_call = mock_logger.warning.call_args[0][0]
-        assert "Found 4 uncategorized columns" in warning_call
-        assert "uncategorized_field" in warning_call
-        assert "another_extra" in warning_call
-        assert "Consider categorizing these columns" in warning_call
-
-    def test_no_warning_when_no_uncategorized_columns(
-        self, minimal_valid_data, mock_logger
-    ):
-        """Verify no warning when all columns are categorized."""
-        EvalData(
-            data=minimal_valid_data,
-            input_columns=["input_col"],
-            output_columns=["output_col"],
-        )
-
-        mock_logger.warning.assert_not_called()
-
-    def test_uncategorized_columns_count_in_warning(self, rich_valid_data, mock_logger):
-        """Verify warning includes correct count of uncategorized columns."""
-        EvalData(
-            data=rich_valid_data,
-            input_columns=["prompt"],
-            output_columns=["response"],
-            metadata_columns=["timestamp"],  # Categorize one, leaving 3 uncategorized
-        )
-
-        mock_logger.warning.assert_called_once()
-        warning_call = mock_logger.warning.call_args[0][0]
-        assert "Found 3 uncategorized columns" in warning_call
-
-    # Edge Cases and Boundary Conditions
-
-    def test_special_character_column_names(self):
-        """Verify handling of special characters in column names."""
-        data = pl.DataFrame(
-            {
-                "input-col": ["test"],
-                "output_col": ["test"],
-                "meta@col": ["test"],
-                "human.label": ["test"],
-            }
-        )
-
-        eval_data = EvalData(
-            data=data,
-            input_columns=["input-col"],
-            output_columns=["output_col"],
-            metadata_columns=["meta@col"],
-            human_label_columns=["human.label"],
-        )
-
-        assert eval_data.input_columns == ["input-col"]
-        assert eval_data.metadata_columns == ["meta@col"]
-        assert eval_data.human_label_columns == ["human.label"]
-        assert eval_data._uncategorized_columns == []
-
-    def test_numeric_column_names(self):
-        """Verify handling of numeric column names."""
-        data = pl.DataFrame({"1": ["input1"], "2": ["output1"], "3": ["metadata1"]})
-
-        eval_data = EvalData(
-            data=data, input_columns=["1"], output_columns=["2"], metadata_columns=["3"]
-        )
-
-        assert eval_data.input_columns == ["1"]
-        assert eval_data.output_columns == ["2"]
-        assert eval_data.metadata_columns == ["3"]
-
-    def test_very_long_column_names(self):
-        """Verify handling of very long column names."""
-        long_name = "a" * 1000
-        data = pl.DataFrame({long_name: ["input"], "output": ["output"]})
-
-        eval_data = EvalData(
-            data=data, input_columns=[long_name], output_columns=["output"]
-        )
-
-        assert eval_data.input_columns == [long_name]
-
-    def test_large_dataframe_performance(self):
-        """Verify performance with larger DataFrame."""
-        # Create a larger DataFrame to test performance
-        n_rows = 10000
-        data = pl.DataFrame(
-            {
-                "input": [f"input_{i}" for i in range(n_rows)],
-                "output": [f"output_{i}" for i in range(n_rows)],
-                "metadata": [f"meta_{i}" for i in range(n_rows)],
-            }
-        )
-
-        eval_data = EvalData(
-            data=data,
-            input_columns=["input"],
-            output_columns=["output"],
-            metadata_columns=["metadata"],
-        )
-
-        assert len(eval_data.data) == n_rows
-        assert eval_data._uncategorized_columns == []
-
-    def test_different_polars_dtypes(self):
-        """Verify handling of different Polars data types."""
-        data = pl.DataFrame(
-            {
-                "str_col": ["text1", "text2"],
-                "int_col": [1, 2],
-                "float_col": [1.1, 2.2],
-                "bool_col": [True, False],
-                "date_col": ["2024-01-01", "2024-01-02"],
-            }
-        ).with_columns([pl.col("date_col").str.strptime(pl.Date, "%Y-%m-%d")])
-
-        eval_data = EvalData(
-            data=data,
-            input_columns=["str_col"],
-            output_columns=["int_col"],
-            metadata_columns=["float_col", "bool_col"],
-            human_label_columns=["date_col"],
-        )
-
-        assert eval_data._uncategorized_columns == []
+        # Test all data access methods work
         assert len(eval_data.input_data.columns) == 1
-        assert len(eval_data.output_data.columns) == 1
-        assert len(eval_data.metadata_data.columns) == 2
+        assert len(eval_data.output_data.columns) == 2
+        assert len(eval_data.metadata_data.columns) == 1
         assert len(eval_data.human_label_data.columns) == 1
+
+    def test_happy_path_with_user_provided_id(self, valid_dataframe):
+        """Test happy path with user-provided ID column."""
+        eval_data = EvalData(
+            data=valid_dataframe,
+            id_column="extra_col",
+            input_columns=["question"],
+            output_columns=["answer"],
+        )
+
+        assert eval_data.id_column == "extra_col"
+        assert "extra_col" not in eval_data.uncategorized_column_names

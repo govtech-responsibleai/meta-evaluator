@@ -1,98 +1,149 @@
-"""Custom exceptions for data validation and processing errors in LLM evaluation workflows.
+"""Placeholder file for exceptions in data."""
 
-This module defines a hierarchy of specialized exceptions for the data ingestion and
-organization components of the LLM evaluation system. These exceptions provide clear,
-actionable error messages and enable precise error handling for different validation
-failure scenarios.
-
-The exception hierarchy is designed to allow both granular error handling (catching
-specific exception types) and broad error handling (catching the base EvalDataError).
-All exceptions include detailed context about what went wrong and suggestions for
-resolution where applicable.
-
-Exception Hierarchy:
-    EvalDataError: Base exception for all data validation errors
-    ├── EmptyColumnsError: Required column categories are empty
-    ├── EmptyDataFrameError: DataFrame contains no data rows
-    ├── ColumnNotFoundError: Specified columns don't exist in DataFrame
-    └── DuplicateColumnError: Columns appear in multiple categories
-
-Design Philosophy:
-    - Fail-fast validation with clear error messages
-    - Specific exception types for different failure modes
-    - Actionable error messages that guide users toward solutions
-    - Consistent error context including available alternatives where relevant
-
-Usage Patterns:
-    Catching specific errors for targeted handling:
-        >>> try:
-        ...     eval_data = EvalData(df, input_columns=[], output_columns=["response"])
-        ... except EmptyColumnsError as e:
-        ...     print(f"Column configuration error: {e}")
-        ...     # Handle empty columns specifically
-
-    Catching category-specific errors:
-        >>> try:
-        ...     eval_data = EvalData(df, input_columns=["missing"], output_columns=["response"])
-        ... except ColumnNotFoundError as e:
-        ...     print(f"Available columns: {e}")
-        ...     # Suggest valid column names to user
-
-    Broad error handling for all data validation issues:
-        >>> try:
-        ...     eval_data = EvalData(df, input_columns=["prompt"], output_columns=["prompt"])
-        ... except EvalDataError as e:
-        ...     print(f"Data validation failed: {e}")
-        ...     # Handle any data validation error generically
-
-Integration with DataLoader:
-    These exceptions are primarily raised during EvalData initialization, which occurs
-    within DataLoader methods. Users typically encounter them when calling DataLoader
-    factory methods rather than constructing EvalData directly:
-
-        >>> try:
-        ...     eval_data = DataLoader.from_csv(
-        ...         "data.csv",
-        ...         input_columns=["nonexistent"],
-        ...         output_columns=["response"]
-        ...     )
-        ... except ColumnNotFoundError as e:
-        ...     print(f"CSV column error: {e}")
-
-Error Message Quality:
-    All exceptions are designed to provide actionable feedback:
-    - ColumnNotFoundError includes the list of available columns
-    - DuplicateColumnError specifies which categories conflict
-    - EmptyColumnsError clarifies which categories need values
-    - Clear suggestions for resolution where applicable
-"""
+from abc import ABC, abstractmethod
+from typing import Union
 
 
-class EvalDataError(Exception):
-    """Base exception for EvalData validation errors."""
+class DataException(Exception, ABC):
+    """Base class for data-related exceptions. Do not instantiate directly."""
 
-    pass
+    @abstractmethod
+    def __init__(self, message: str = ""):
+        """Initializes the DataException with an optional message.
 
-
-class EmptyColumnsError(EvalDataError):
-    """Raised when required column categories are empty."""
-
-    pass
-
-
-class EmptyDataFrameError(EvalDataError):
-    """Raised when DataFrame has no rows."""
-
-    pass
+        Args:
+            message (str): The exception message. Defaults to an empty string.
+        """
+        super().__init__(message)
 
 
-class ColumnNotFoundError(EvalDataError):
-    """Raised when specified columns don't exist in DataFrame."""
+class InvalidColumnNameError(DataException):
+    """Exception raised when a column name is invalid."""
 
-    pass
+    def __init__(self, column_name: str, error: str):
+        """Initializes the InvalidColumnNameError with the invalid column name.
+
+        Args:
+            column_name (str): The invalid column name.
+            error (str): The error message.
+        """
+        message = f"Invalid column name: '{column_name}' with error: {error}"
+        super().__init__(message)
 
 
-class DuplicateColumnError(EvalDataError):
-    """Raised when columns appear in multiple categories."""
+class EmptyColumnListError(DataException):
+    """Exception raised when the list of columns is empty."""
 
-    pass
+    def __init__(self, column_type_name: str):
+        """Initializes the EmptyColumnList exception with the column type name.
+
+        Args:
+            column_type_name (str): The type name of the column (e.g. "input", "output", etc.).
+        """
+        message = f"List of {column_type_name} columns is empty."
+        super().__init__(message)
+
+
+class IdColumnExistsError(DataException):
+    """Exception raised when the ID column already exists in the dataset."""
+
+    def __init__(self, column_name: str):
+        """Initializes the IdColumnExistsError.
+
+        Args:
+            column_name (str): The name of the ID column.
+        """
+        message = f"Id Column with name {column_name} already exists in dataset."
+        super().__init__(message)
+
+
+class ColumnNotFoundError(DataException):
+    """Exception raised when a column is not found in the dataset."""
+
+    def __init__(self, column_names: Union[str, list[str]]):
+        """Initializes the ColumnNotFoundError.
+
+        Args:
+            column_names (Union[str, list[str]]): The name of the column or list of column names.
+        """
+        if isinstance(column_names, str):
+            column_names = [column_names]
+        message = f"Column(s) {column_names} not found in dataset."
+        super().__init__(message)
+
+
+class DuplicateColumnError(DataException):
+    """Exception raised when a column is found multiple times in the dataset."""
+
+    def __init__(self, column_names: Union[str, list[str]]):
+        """Initializes the DuplicateColumnError.
+
+        Args:
+            column_names (Union[str, list[str]]): The name of the column or list of column names.
+        """
+        if isinstance(column_names, str):
+            column_names = [column_names]
+        message = f"Column(s) {column_names} found multiple times in dataset."
+        super().__init__(message)
+
+
+class InvalidInIDColumnError(DataException):
+    """Exception raised when the ID column contains invalid values."""
+
+    def __init__(self, row_numbers: list[int], id_column_name: str):
+        """Initializes the NullExistsException.
+
+        Args:
+            row_numbers (list[int]): The row numbers where invalid values are found.
+            id_column_name (str): The name of the ID column.
+        """
+        message = f"Invalid values found in ID column {id_column_name} at row numbers: {row_numbers}."
+        super().__init__(message)
+
+
+class DuplicateInIDColumnError(DataException):
+    """Exception raised when the ID column contains duplicate values."""
+
+    def __init__(self, duplicate_groups: dict[str, list[int]], id_column_name: str):
+        """Initializes the DuplicateInIDColumnError.
+
+        Args:
+            duplicate_groups (dict[str, list[int]]): Dictionary mapping duplicate ID values
+                to lists of row numbers where they appear.
+            id_column_name (str): The name of the ID column.
+        """
+        details = []
+        for value, rows in duplicate_groups.items():
+            details.append(f"  - '{value}' appears at rows {rows}")
+
+        message = (
+            f"Duplicate values found in ID column '{id_column_name}':\n"
+            + "\n".join(details)
+        )
+        super().__init__(message)
+
+
+class NullValuesInDataError(DataException):
+    """Exception raised when null values are found in non-ID data columns."""
+
+    def __init__(self, null_issues: list[str]):
+        """Initializes the NullValuesInDataError.
+
+        Args:
+            null_issues (list[str]): List of detailed descriptions of null value locations
+                in the format "Column 'name' has null values at rows [x, y] (coordinates: [(x, 'name'), ...])"
+        """
+        message = f"Null values found in data columns: {'; '.join(null_issues)}"
+        super().__init__(message)
+
+
+class EmptyDataFrameError(DataException):
+    """Exception raised when the DataFrame is empty."""
+
+    def __init__(self):
+        """Initializes the EmptyDataFrameError.
+
+        This exception is raised when an operation is attempted on an empty DataFrame.
+        """
+        message = "DataFrame is empty."
+        super().__init__(message)

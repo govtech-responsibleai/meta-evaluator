@@ -11,5 +11,11 @@ Main Classes:
 """
 
 from .EvalData import EvalData
+from .exceptions import DataException, InvalidColumnNameError, EmptyColumnListError
 
-__all__ = ["EvalData"]
+__all__ = [
+    "EvalData",
+    "DataException",
+    "InvalidColumnNameError",
+    "EmptyColumnListError",
+]
