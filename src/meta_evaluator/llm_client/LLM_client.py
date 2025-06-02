@@ -284,7 +284,7 @@ class LLMClient(ABC):
         self.logger.info(f"Processing {len(text_list)} prompts for embeddings")
 
         try:
-            embeddings = self._get_embedding(text_list, model_used)
+            embeddings = self._get_embedding(text_list=text_list, model=model_used)
         except Exception as e:
             raise LLMAPIError(
                 _FAILED_EMBEDDING_ERROR_TEMPLATE.format(self.enum_value),
