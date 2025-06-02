@@ -1,6 +1,6 @@
 """Concrete implementation of LLMClient for Azure OpenAI."""
 
-from typing import Type, TypeVar, List
+from typing import TypeVar
 import warnings
 
 import instructor
@@ -66,13 +66,13 @@ class AzureOpenAIClient(LLMClient):
 
     def _convert_messages_to_openai_format(
         self, messages: list[Message]
-    ) -> List[ChatCompletionMessageParam]:
+    ) -> list[ChatCompletionMessageParam]:
         """Convert Message objects to OpenAI ChatCompletionMessageParam format.
 
         Returns:
-            List[ChatCompletionMessageParam]: List of OpenAI-formatted message parameters.
+            list[ChatCompletionMessageParam]: List of OpenAI-formatted message parameters.
         """
-        openai_messages: List[ChatCompletionMessageParam] = []
+        openai_messages: list[ChatCompletionMessageParam] = []
 
         for message in messages:
             if message.role == RoleEnum.USER:
@@ -142,7 +142,7 @@ class AzureOpenAIClient(LLMClient):
         return content, usage
 
     def _prompt_with_structured_response(
-        self, messages: list[Message], response_model: Type[T], model: str
+        self, messages: list[Message], response_model: type[T], model: str
     ) -> tuple[T, LLMUsage]:
         """Send messages to Azure OpenAI and return structured response and usage.
 
