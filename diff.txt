@@ -1,0 +1,267 @@
+diff --git a/src/meta_evaluator/data/DataLoader.py b/src/meta_evaluator/data/DataLoader.py
+new file mode 100644
+index 0000000..9ae29be
+--- /dev/null
++++ b/src/meta_evaluator/data/DataLoader.py
+@@ -0,0 +1,62 @@
++"""File for DataLoader Class."""
++
++from typing import Optional
++import polars as pl
++
++from . import EvalData, DataException
++
++
++class DataLoader:
++    """Universal data ingestion from multiple sources, returns structured EvalData."""
++
++    def __init__(self) -> None:
++        """Initialize the DataLoader with default settings."""
++        pass
++
++    @staticmethod
++    def load_csv(
++        file_path: str,
++        input_columns: list[str],
++        output_columns: list[str],
++        id_column: Optional[str] = None,
++        metadata_columns: list[str] = [],
++        label_columns: list[str] = [],
++    ) -> EvalData:
++        """Load a CSV file and return an EvalData object.
++
++        Loads data from a given CSV file and returns an EvalData object with the
++        specified columns categorized into input, output, metadata, and human
++        labels. The EvalData object is immutable and enforces strict column
++        categorization and validation.
++
++        Args:
++            file_path: The path to the CSV file to load.
++            input_columns: The list of column names corresponding to input data.
++            output_columns: The list of column names corresponding to output data.
++            id_column: The name of the column containing unique identifiers for each
++                example. If not provided (or None), an ID column will be automatically
++                generated with row indices.
++            metadata_columns: The list of column names containing metadata.
++            label_columns: The list of column names containing human labels.
++
++        Returns:
++            EvalData: An immutable container with categorized columns and strict
++                validation.
++
++        Raises:
++            DataException: If there is an error loading the data or validating it.
++        """
++        data = pl.read_csv(file_path, has_header=True)
++        try:
++            output = EvalData(
++                data=data,
++                input_columns=input_columns,
++                output_columns=output_columns,
++                id_column=id_column,
++                metadata_columns=metadata_columns,
++                human_label_columns=label_columns,
++            )
++        except DataException:
++            raise
++
++        return output
+diff --git a/tests/meta_evaluator/data/test_eval_data.py b/tests/meta_evaluator/data/test_eval_data.py
+index 61195de..39bb71e 100644
+--- a/tests/meta_evaluator/data/test_eval_data.py
++++ b/tests/meta_evaluator/data/test_eval_data.py
+@@ -28,16 +28,14 @@ class TestEvalData:
+         Returns:
+             pl.DataFrame: A DataFrame with sample evaluation data.
+         """
+-        return pl.DataFrame(
+-            {
+-                "question": ["What is 2+2?", "What is 3+3?"],
+-                "answer": ["4", "6"],
+-                "model_response": ["Four", "Six"],
+-                "difficulty": ["easy", "easy"],
+-                "human_rating": [5, 4],
+-                "extra_col": ["a", "b"],
+-            }
+-        )
++        return pl.DataFrame({
++            "question": ["What is 2+2?", "What is 3+3?"],
++            "answer": ["4", "6"],
++            "model_response": ["Four", "Six"],
++            "difficulty": ["easy", "easy"],
++            "human_rating": [5, 4],
++            "extra_col": ["a", "b"],
++        })
+ 
+     @pytest.fixture
+     def minimal_dataframe(self) -> pl.DataFrame:
+@@ -46,9 +44,10 @@ class TestEvalData:
+         Returns:
+             pl.DataFrame: A DataFrame with minimal input and output columns.
+         """
+-        return pl.DataFrame(
+-            {"input": ["test1", "test2"], "output": ["result1", "result2"]}
+-        )
++        return pl.DataFrame({
++            "input": ["test1", "test2"],
++            "output": ["result1", "result2"],
++        })
+ 
+     @pytest.fixture
+     def mock_logger(self, mocker) -> MagicMock:
+@@ -224,13 +223,11 @@ class TestEvalData:
+ 
+     def test_id_column_name_conflict(self):
+         """Test IdColumnExistsError when ID column name conflicts."""
+-        df_with_id = pl.DataFrame(
+-            {
+-                "id": ["existing1", "existing2"],
+-                "input": ["test1", "test2"],
+-                "output": ["result1", "result2"],
+-            }
+-        )
++        df_with_id = pl.DataFrame({
++            "id": ["existing1", "existing2"],
++            "input": ["test1", "test2"],
++            "output": ["result1", "result2"],
++        })
+ 
+         with pytest.raises(IdColumnExistsError):
+             EvalData(
+@@ -255,13 +252,11 @@ class TestEvalData:
+ 
+     def test_user_provided_id_with_nulls(self):
+         """Test user-provided ID column with null values."""
+-        df_with_null_id = pl.DataFrame(
+-            {
+-                "custom_id": ["id1", None],
+-                "input": ["test1", "test2"],
+-                "output": ["result1", "result2"],
+-            }
+-        )
++        df_with_null_id = pl.DataFrame({
++            "custom_id": ["id1", None],
++            "input": ["test1", "test2"],
++            "output": ["result1", "result2"],
++        })
+ 
+         with pytest.raises(InvalidInIDColumnError):
+             EvalData(
+@@ -273,13 +268,11 @@ class TestEvalData:
+ 
+     def test_user_provided_id_with_duplicates(self):
+         """Test user-provided ID column with duplicate values."""
+-        df_with_duplicate_id = pl.DataFrame(
+-            {
+-                "custom_id": ["id1", "id1"],
+-                "input": ["test1", "test2"],
+-                "output": ["result1", "result2"],
+-            }
+-        )
++        df_with_duplicate_id = pl.DataFrame({
++            "custom_id": ["id1", "id1"],
++            "input": ["test1", "test2"],
++            "output": ["result1", "result2"],
++        })
+ 
+         with pytest.raises(DuplicateInIDColumnError):
+             EvalData(
+@@ -291,13 +284,11 @@ class TestEvalData:
+ 
+     def test_user_provided_string_id_with_empty_strings(self):
+         """Test user-provided string ID column with empty strings."""
+-        df_with_empty_id = pl.DataFrame(
+-            {
+-                "custom_id": ["id1", ""],
+-                "input": ["test1", "test2"],
+-                "output": ["result1", "result2"],
+-            }
+-        )
++        df_with_empty_id = pl.DataFrame({
++            "custom_id": ["id1", ""],
++            "input": ["test1", "test2"],
++            "output": ["result1", "result2"],
++        })
+ 
+         with pytest.raises(InvalidInIDColumnError):
+             EvalData(
+@@ -309,13 +300,11 @@ class TestEvalData:
+ 
+     def test_user_provided_string_id_with_whitespace_only(self):
+         """Test user-provided string ID column with whitespace-only values."""
+-        df_with_whitespace_id = pl.DataFrame(
+-            {
+-                "custom_id": ["id1", "   "],
+-                "input": ["test1", "test2"],
+-                "output": ["result1", "result2"],
+-            }
+-        )
++        df_with_whitespace_id = pl.DataFrame({
++            "custom_id": ["id1", "   "],
++            "input": ["test1", "test2"],
++            "output": ["result1", "result2"],
++        })
+ 
+         with pytest.raises(InvalidInIDColumnError):
+             EvalData(
+@@ -327,13 +316,11 @@ class TestEvalData:
+ 
+     def test_non_string_id_column_skips_string_validation(self):
+         """Test non-string ID columns skip string-specific validations."""
+-        df_with_int_id = pl.DataFrame(
+-            {
+-                "custom_id": [1, 2],
+-                "input": ["test1", "test2"],
+-                "output": ["result1", "result2"],
+-            }
+-        )
++        df_with_int_id = pl.DataFrame({
++            "custom_id": [1, 2],
++            "input": ["test1", "test2"],
++            "output": ["result1", "result2"],
++        })
+ 
+         eval_data = EvalData(
+             data=df_with_int_id,
+@@ -346,9 +333,10 @@ class TestEvalData:
+ 
+     def test_null_values_in_non_id_columns(self):
+         """Test null values in non-ID columns raise NullValuesInDataError."""
+-        df_with_nulls = pl.DataFrame(
+-            {"input": ["test1", None], "output": ["result1", "result2"]}
+-        )
++        df_with_nulls = pl.DataFrame({
++            "input": ["test1", None],
++            "output": ["result1", "result2"],
++        })
+ 
+         with pytest.raises(NullValuesInDataError):
+             EvalData(
+@@ -357,9 +345,10 @@ class TestEvalData:
+ 
+     def test_empty_strings_in_non_id_columns_warning(self, caplog):
+         """Test empty strings in non-ID columns trigger warnings."""
+-        df_with_empty_strings = pl.DataFrame(
+-            {"input": ["test1", ""], "output": ["result1", "result2"]}
+-        )
++        df_with_empty_strings = pl.DataFrame({
++            "input": ["test1", ""],
++            "output": ["result1", "result2"],
++        })
+ 
+         with caplog.at_level(logging.WARNING):
+             eval_data = EvalData(
+@@ -373,9 +362,10 @@ class TestEvalData:
+ 
+     def test_whitespace_only_strings_warning(self, caplog):
+         """Test whitespace-only strings in non-ID columns trigger warnings."""
+-        df_with_whitespace = pl.DataFrame(
+-            {"input": ["test1", "   "], "output": ["result1", "result2"]}
+-        )
++        df_with_whitespace = pl.DataFrame({
++            "input": ["test1", "   "],
++            "output": ["result1", "result2"],
++        })
+ 
+         with caplog.at_level(logging.WARNING):
+             eval_data = EvalData(

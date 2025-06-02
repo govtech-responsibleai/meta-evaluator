@@ -47,7 +47,10 @@ class TestEvalData:
             pl.DataFrame: A DataFrame with minimal input and output columns.
         """
         return pl.DataFrame(
-            {"input": ["test1", "test2"], "output": ["result1", "result2"]}
+            {
+                "input": ["test1", "test2"],
+                "output": ["result1", "result2"],
+            }
         )
 
     @pytest.fixture
@@ -347,7 +350,10 @@ class TestEvalData:
     def test_null_values_in_non_id_columns(self):
         """Test null values in non-ID columns raise NullValuesInDataError."""
         df_with_nulls = pl.DataFrame(
-            {"input": ["test1", None], "output": ["result1", "result2"]}
+            {
+                "input": ["test1", None],
+                "output": ["result1", "result2"],
+            }
         )
 
         with pytest.raises(NullValuesInDataError):
@@ -358,7 +364,10 @@ class TestEvalData:
     def test_empty_strings_in_non_id_columns_warning(self, caplog):
         """Test empty strings in non-ID columns trigger warnings."""
         df_with_empty_strings = pl.DataFrame(
-            {"input": ["test1", ""], "output": ["result1", "result2"]}
+            {
+                "input": ["test1", ""],
+                "output": ["result1", "result2"],
+            }
         )
 
         with caplog.at_level(logging.WARNING):
@@ -374,7 +383,10 @@ class TestEvalData:
     def test_whitespace_only_strings_warning(self, caplog):
         """Test whitespace-only strings in non-ID columns trigger warnings."""
         df_with_whitespace = pl.DataFrame(
-            {"input": ["test1", "   "], "output": ["result1", "result2"]}
+            {
+                "input": ["test1", "   "],
+                "output": ["result1", "result2"],
+            }
         )
 
         with caplog.at_level(logging.WARNING):
