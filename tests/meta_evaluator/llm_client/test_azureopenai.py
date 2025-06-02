@@ -692,102 +692,43 @@ class TestAzureOpenAIClient:
         valid_azure_config: AzureOpenAIConfig,
         sample_messages: list[Message],
     ) -> None:
-        """Test _prompt_with_structured_response with successful API calls.
-
-        Verifies that structured responses work correctly when both the instructor
-        call and usage estimation call succeed.
-
-        Args:
-            mock_azure_openai: Mock for the AzureOpenAI client constructor.
-            mock_instructor: Mock for the instructor.from_openai function.
-            valid_azure_config: A valid configuration instance.
-            sample_messages: Sample messages for testing.
-
-        """
+        """Test _prompt_with_structured_response with successful API calls."""
         from pydantic import BaseModel
 
         class TestModel(BaseModel):
             test_field: str
 
-        # Mock instructor response
+        # Mock instructor response - now returns tuple (response, completion)
         mock_instructor_client = mock_instructor.return_value
         test_response = TestModel(test_field="test_value")
-        mock_instructor_client.chat.completions.create.return_value = test_response
 
-        # Mock usage response
-        mock_client = mock_azure_openai.return_value
-        mock_usage_response = Mock()
-        mock_usage_response.usage.prompt_tokens = 15
-        mock_usage_response.usage.completion_tokens = 10
-        mock_usage_response.usage.total_tokens = 25
-        mock_client.chat.completions.create.return_value = mock_usage_response
+        # Mock the completion object
+        mock_completion = Mock()
+        mock_completion.usage.prompt_tokens = 15
+        mock_completion.usage.completion_tokens = 10
+        mock_completion.usage.total_tokens = 25
+
+        # Set up the mock to return the tuple
+        mock_instructor_client.chat.completions.create_with_completion.return_value = (
+            test_response,
+            mock_completion,
+        )
 
         client = AzureOpenAIClient(valid_azure_config)
         response, usage = client._prompt_with_structured_response(
             sample_messages, TestModel, "gpt-4"
         )
 
-        # Verify instructor was called
-        mock_instructor_client.chat.completions.create.assert_called_once()
+        # Verify instructor was called with the new method
+        mock_instructor_client.chat.completions.create_with_completion.assert_called_once()
 
-        # Verify usage call was made
-        mock_client.chat.completions.create.assert_called_once()
-        call_args = mock_client.chat.completions.create.call_args
-        assert call_args[1]["max_tokens"] == 1
+        # Remove the old assertion for the regular client call since we don't make that call anymore
 
         # Verify response and usage
         assert response.test_field == "test_value"
         assert usage.prompt_tokens == 15
         assert usage.completion_tokens == 10
         assert usage.total_tokens == 25
-
-    @patch("meta_evaluator.llm_client.azureopenai_client.instructor.from_openai")
-    @patch("meta_evaluator.llm_client.azureopenai_client.AzureOpenAI")
-    def test_prompt_with_structured_response_usage_fallback(
-        self,
-        mock_azure_openai: Mock,
-        mock_instructor: Mock,
-        valid_azure_config: AzureOpenAIConfig,
-        sample_messages: list[Message],
-    ) -> None:
-        """Test _prompt_with_structured_response with usage estimation fallback.
-
-        Verifies that the client properly falls back to usage estimation when
-        the usage API call does not return usage data.
-
-        Args:
-            mock_azure_openai: Mock for the AzureOpenAI client constructor.
-            mock_instructor: Mock for the instructor.from_openai function.
-            valid_azure_config: A valid configuration instance.
-            sample_messages: Sample messages for testing.
-
-        """
-        from pydantic import BaseModel
-
-        class TestModel(BaseModel):
-            test_field: str
-
-        # Mock instructor response
-        mock_instructor_client = mock_instructor.return_value
-        test_response = TestModel(test_field="test_value")
-        mock_instructor_client.chat.completions.create.return_value = test_response
-
-        # Mock usage response with no usage data
-        mock_client = mock_azure_openai.return_value
-        mock_usage_response = Mock()
-        mock_usage_response.usage = None
-        mock_client.chat.completions.create.return_value = mock_usage_response
-
-        client = AzureOpenAIClient(valid_azure_config)
-        response, usage = client._prompt_with_structured_response(
-            sample_messages, TestModel, "gpt-4"
-        )
-
-        # Verify fallback estimation was used
-        assert isinstance(usage, LLMUsage)
-        assert usage.completion_tokens == 100  # Conservative estimate
-        assert usage.prompt_tokens > 0  # Should be estimated from message content
-        assert usage.total_tokens == usage.prompt_tokens + usage.completion_tokens
 
     @patch("meta_evaluator.llm_client.azureopenai_client.instructor.from_openai")
     @patch("meta_evaluator.llm_client.azureopenai_client.AzureOpenAI")

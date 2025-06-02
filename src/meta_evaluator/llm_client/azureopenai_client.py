@@ -152,40 +152,19 @@ class AzureOpenAIClient(LLMClient):
         openai_messages = self._convert_messages_to_openai_format(messages)
 
         # Use instructor for structured response
-        response = self.instructor_client.chat.completions.create(
-            model=model,
-            response_model=response_model,
-            messages=openai_messages,
+        response, completion = (
+            self.instructor_client.chat.completions.create_with_completion(
+                model=model,
+                response_model=response_model,
+                messages=openai_messages,
+            )
         )
 
-        # Get usage information by making a separate call
-        # This is necessary because instructor doesn't always expose usage data
-        usage_response = self.client.chat.completions.create(
-            model=model,
-            messages=openai_messages,
-            max_tokens=1,  # Minimal call just to get usage estimate
+        usage = LLMUsage(
+            prompt_tokens=completion.usage.prompt_tokens,
+            completion_tokens=completion.usage.completion_tokens,
+            total_tokens=completion.usage.total_tokens,
         )
-
-        usage_data = usage_response.usage
-        if not usage_data:
-            # Fallback usage estimation if not available
-            total_chars = sum(len(msg.content) for msg in messages)
-            estimated_prompt_tokens = (
-                total_chars // 4
-            )  # Rough estimate: 4 chars per token
-            estimated_completion_tokens = 100  # Conservative estimate
-
-            usage = LLMUsage(
-                prompt_tokens=estimated_prompt_tokens,
-                completion_tokens=estimated_completion_tokens,
-                total_tokens=estimated_prompt_tokens + estimated_completion_tokens,
-            )
-        else:
-            usage = LLMUsage(
-                prompt_tokens=usage_data.prompt_tokens,
-                completion_tokens=usage_data.completion_tokens,
-                total_tokens=usage_data.total_tokens,
-            )
 
         return response, usage
 
