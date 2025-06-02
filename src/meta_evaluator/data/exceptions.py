@@ -147,3 +147,15 @@ class EmptyDataFrameError(DataException):
         """
         message = "DataFrame is empty."
         super().__init__(message)
+
+
+class DataFileError(DataException):
+    """Exception raised for file-related errors during data loading."""
+
+    def __init__(self, message: str):
+        """Initializes the DataFileError with a descriptive message.
+
+        Args:
+            message (str): The error message describing the file-related issue.
+        """
+        super().__init__(message)
