@@ -49,7 +49,9 @@ import re
 
 T = TypeVar("T", bound=BaseModel)
 _NO_MESSAGES_ERROR = "No messages provided"
+_NO_PROMPTS_ERROR = "No prompts provided"
 _FAILED_RESPONSE_ERROR_TEMPLATE = "Failed to get response from {}"
+_FAILED_EMBEDDING_ERROR_TEMPLATE = "Failed to get embeddings from {}"
 _LOGPROBS_NOT_SUPPORTED_ERROR_TEMPLATE = "Logprobs not supported by {}"
 
 
@@ -110,6 +112,19 @@ class LLMClient(ABC):
     ) -> tuple[str, LLMUsage]:
         raise NotImplementedError("Subclasses must implement this method")
 
+    @abstractmethod
+    def _get_embedding(self, text_list: list[str], model: str) -> list[list[float]]:
+        """Get embeddings for a list of prompts using the underlying LLM client.
+
+        Args:
+            text_list: List of text prompts to generate embeddings for.
+            model: The embedding model to use for this request.
+
+        Returns:
+            List of embedding vectors, one for each input prompt.
+        """
+        raise NotImplementedError("Subclasses must implement this method")
+
     @property
     @abstractmethod
     def enum_value(self) -> LLMClientEnum:
@@ -127,6 +142,10 @@ class LLMClient(ABC):
     def _validate_messages(self, messages: list[Message]) -> None:
         if len(messages) == 0:
             raise LLMValidationError(_NO_MESSAGES_ERROR, self.enum_value)
+
+    def _validate_prompts(self, text_list: list[str]) -> None:
+        if len(text_list) == 0:
+            raise LLMValidationError(_NO_PROMPTS_ERROR, self.enum_value)
 
     def _construct_llm_response(
         self, new_response: str, usage: LLMUsage, messages: list[Message]
@@ -215,6 +234,66 @@ class LLMClient(ABC):
         self.logger.info(f"Output usage: {output.usage}")
 
         return output
+
+    def get_embedding(
+        self, text_list: list[str], model: Optional[str] = None
+    ) -> list[list[float]]:
+        """Get embeddings for a list of prompts with comprehensive logging.
+
+        This method handles model selection, logging, and delegation to the provider-specific
+        implementation. If no model is specified, falls back to the client's configured
+        default embedding model.
+
+        Args:
+            text_list (list[str]): List of text prompts to generate embeddings for.
+                Must contain at least one prompt.
+            model (Optional[str], optional): Embedding model to use for this request. If None,
+                uses self.config.default_embedding_model. Defaults to None.
+
+        Returns:
+            list[list[float]]: List of embedding vectors, one for each input prompt.
+                Each embedding is represented as a list of floating-point numbers.
+
+        Raises:
+            LLMAPIError: If the request to the underlying LLM client fails.
+            LLMValidationError: If no prompts are provided.
+
+        Note:
+            All requests are logged including:
+            - Model selection (chosen vs default embedding model)
+            - Number of prompts processed
+            - Success confirmation
+
+        Example:
+            >>> prompts = ["Hello world", "How are you?"]
+            >>> embeddings = client.get_embedding(prompts, model="text-embedding-3-large")
+            >>> print(len(embeddings))  # 2
+            >>> print(len(embeddings[0]))  # Embedding dimension (e.g., 1536)
+        """
+        model_used = model or self.config.default_embedding_model
+
+        # Re-raise validation errors to make them visible to ruff's DOC501 rule.
+        # Without this, ruff can't see exceptions from private methods and won't
+        # enforce docstring accuracy. DO NOT remove this try/catch.
+        try:
+            self._validate_prompts(text_list)
+        except LLMValidationError:
+            raise  # Ruff sees this explicit raise
+
+        self.logger.info(f"Using embedding model: {model_used}")
+        self.logger.info(f"Processing {len(text_list)} prompts for embeddings")
+
+        try:
+            embeddings = self._get_embedding(text_list, model_used)
+        except Exception as e:
+            raise LLMAPIError(
+                _FAILED_EMBEDDING_ERROR_TEMPLATE.format(self.enum_value),
+                self.enum_value,
+                e,
+            )
+
+        self.logger.info(f"Successfully generated {len(embeddings)} embeddings")
+        return embeddings
 
     def _construct_llm_response_with_structured_response(
         self, new_response: BaseModel, usage: LLMUsage, messages: list[Message]

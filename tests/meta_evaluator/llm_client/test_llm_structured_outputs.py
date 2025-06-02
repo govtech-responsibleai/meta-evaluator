@@ -72,6 +72,22 @@ class ConcreteTestLLMClient(LLMClient):
             "ConcreteTestLLMClient._prompt should be mocked for tests"
         )
 
+    def _get_embedding(self, text_list: list[str], model: str) -> list[list[float]]:
+        """Abstract method implementation for testing.
+
+        This method is intended to be mocked in actual tests.
+
+        Args:
+            text_list: List of text prompts to generate embeddings for.
+            model: The embedding model to use for this request.
+
+        Returns:
+            List of embedding vectors, one for each input prompt.
+        """
+        raise NotImplementedError(
+            "ConcreteTestLLMClient._get_embedding should be mocked for tests"
+        )
+
     def _prompt_with_structured_response(
         self, messages: list[Message], response_model: Type[BaseModel], model: str
     ) -> tuple[BaseModel, LLMUsage]:
