@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Optional
 import polars as pl
 
-from . import EvalData, DataException
-from .exceptions import DataFileError
+from .EvalData import EvalData
+from .exceptions import DataFileError, DataException
 
 
 class DataLoader:
