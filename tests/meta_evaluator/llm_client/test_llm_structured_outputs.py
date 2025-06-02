@@ -1,6 +1,5 @@
 """File for testing the structured output functionality in LLMClient module."""
 
-from typing import Type
 import pytest
 from pydantic import BaseModel
 
@@ -23,7 +22,7 @@ from meta_evaluator.llm_client.exceptions import (
 )
 
 
-class TestResponseModel(BaseModel):
+class ExampleResponseModel(BaseModel):
     """A test Pydantic model for structured output testing."""
 
     task_id: str
@@ -89,7 +88,7 @@ class ConcreteTestLLMClient(LLMClient):
         )
 
     def _prompt_with_structured_response(
-        self, messages: list[Message], response_model: Type[BaseModel], model: str
+        self, messages: list[Message], response_model: type[BaseModel], model: str
     ) -> tuple[BaseModel, LLMUsage]:
         """Abstract method implementation for testing.
 
@@ -170,13 +169,13 @@ class TestStructuredOutput:
         return ConcreteTestLLMClient(logprobs_config)
 
     @pytest.fixture
-    def mock_structured_response(self) -> TestResponseModel:
+    def mock_structured_response(self) -> ExampleResponseModel:
         """Provides a mock structured response for testing.
 
         Returns:
-            TestResponseModel: A mock structured response instance.
+            ExampleResponseModel: A mock structured response instance.
         """
-        return TestResponseModel(
+        return ExampleResponseModel(
             task_id="task_123",
             status="completed",
             confidence=0.95,
@@ -215,7 +214,7 @@ class TestStructuredOutput:
         with pytest.raises(NotImplementedError) as excinfo:
             concrete_client._prompt_with_structured_response(
                 messages=valid_messages,
-                response_model=TestResponseModel,
+                response_model=ExampleResponseModel,
                 model="test-model",
             )
 
@@ -227,7 +226,7 @@ class TestStructuredOutput:
         self,
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
-        mock_structured_response: TestResponseModel,
+        mock_structured_response: ExampleResponseModel,
         mock_usage: LLMUsage,
     ):
         """Test _construct_llm_response_with_structured_response builds response correctly.
@@ -273,7 +272,7 @@ class TestStructuredOutput:
             mock_usage: A pytest fixture providing mock usage statistics.
         """
         # Create a specific structured response to verify JSON content
-        structured_response = TestResponseModel(
+        structured_response = ExampleResponseModel(
             task_id="json_test_123",
             status="active",
             confidence=0.87,
@@ -300,7 +299,7 @@ class TestStructuredOutput:
         self,
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
-        mock_structured_response: TestResponseModel,
+        mock_structured_response: ExampleResponseModel,
         mock_usage: LLMUsage,
         mocker,
     ):
@@ -322,12 +321,12 @@ class TestStructuredOutput:
 
         structured_response, llm_response = (
             concrete_client.prompt_with_structured_response(
-                messages=valid_messages, response_model=TestResponseModel
+                messages=valid_messages, response_model=ExampleResponseModel
             )
         )
 
         # Verify returned structured response
-        assert isinstance(structured_response, TestResponseModel)
+        assert isinstance(structured_response, ExampleResponseModel)
         assert structured_response.task_id == "task_123"
         assert structured_response.status == "completed"
         assert structured_response.confidence == 0.95
@@ -349,7 +348,7 @@ class TestStructuredOutput:
         # Verify method calls
         mock_prompt_structured.assert_called_once_with(
             messages=valid_messages,
-            response_model=TestResponseModel,
+            response_model=ExampleResponseModel,
             model=concrete_client.config.default_model,
         )
 
@@ -368,7 +367,7 @@ class TestStructuredOutput:
         self,
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
-        mock_structured_response: TestResponseModel,
+        mock_structured_response: ExampleResponseModel,
         mock_usage: LLMUsage,
         mocker,
     ):
@@ -393,13 +392,13 @@ class TestStructuredOutput:
         structured_response, llm_response = (
             concrete_client.prompt_with_structured_response(
                 messages=valid_messages,
-                response_model=TestResponseModel,
+                response_model=ExampleResponseModel,
                 model=explicit_model,
             )
         )
 
         # Verify returns
-        assert isinstance(structured_response, TestResponseModel)
+        assert isinstance(structured_response, ExampleResponseModel)
         assert isinstance(llm_response, LLMResponse)
         assert llm_response.usage == mock_usage
         assert (
@@ -409,7 +408,7 @@ class TestStructuredOutput:
         # Verify method calls with explicit model
         mock_prompt_structured.assert_called_once_with(
             messages=valid_messages,
-            response_model=TestResponseModel,
+            response_model=ExampleResponseModel,
             model=explicit_model,
         )
 
@@ -437,7 +436,7 @@ class TestStructuredOutput:
 
         with pytest.raises(LLMValidationError) as excinfo:
             concrete_client.prompt_with_structured_response(
-                messages=[], response_model=TestResponseModel
+                messages=[], response_model=ExampleResponseModel
             )
 
         assert _NO_MESSAGES_ERROR in str(excinfo.value)
@@ -468,7 +467,7 @@ class TestStructuredOutput:
 
         with pytest.raises(LLMAPIError) as excinfo:
             concrete_client.prompt_with_structured_response(
-                messages=valid_messages, response_model=TestResponseModel
+                messages=valid_messages, response_model=ExampleResponseModel
             )
 
         assert _FAILED_RESPONSE_ERROR_TEMPLATE.format(
@@ -479,7 +478,7 @@ class TestStructuredOutput:
 
         mock_prompt_structured.assert_called_once_with(
             messages=valid_messages,
-            response_model=TestResponseModel,
+            response_model=ExampleResponseModel,
             model=concrete_client.config.default_model,
         )
 
@@ -494,7 +493,7 @@ class TestStructuredOutput:
         self,
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
-        mock_structured_response: TestResponseModel,
+        mock_structured_response: ExampleResponseModel,
         mock_usage: LLMUsage,
         mocker,
     ):
@@ -516,7 +515,7 @@ class TestStructuredOutput:
 
         structured_response, llm_response = (
             concrete_client.prompt_with_structured_response(
-                messages=valid_messages, response_model=TestResponseModel
+                messages=valid_messages, response_model=ExampleResponseModel
             )
         )
 
@@ -592,7 +591,7 @@ class TestStructuredOutput:
         self,
         concrete_client: ConcreteTestLLMClient,
         valid_messages: list[Message],
-        mock_structured_response: TestResponseModel,
+        mock_structured_response: ExampleResponseModel,
         mock_usage: LLMUsage,
         mocker,
     ):
@@ -612,7 +611,7 @@ class TestStructuredOutput:
         )
 
         result = concrete_client.prompt_with_structured_response(
-            messages=valid_messages, response_model=TestResponseModel
+            messages=valid_messages, response_model=ExampleResponseModel
         )
 
         # Verify it returns a tuple
@@ -622,7 +621,7 @@ class TestStructuredOutput:
         structured_response, llm_response = result
 
         # Verify first element is the structured response
-        assert isinstance(structured_response, TestResponseModel)
+        assert isinstance(structured_response, ExampleResponseModel)
         assert structured_response is mock_structured_response
 
         # Verify second element is LLMResponse

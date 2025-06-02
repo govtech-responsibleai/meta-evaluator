@@ -59,7 +59,7 @@ class MyProviderClient(LLMClient):
         return text, usage
     
     def _prompt_with_structured_response(
-        self, messages: list[Message], response_model: Type[BaseModel], model: str
+        self, messages: list[Message], response_model: type[BaseModel], model: str
     ) -> tuple[BaseModel, LLMUsage]:
         # Use instructor internally for better reliability
         import instructor
