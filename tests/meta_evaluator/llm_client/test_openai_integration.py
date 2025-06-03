@@ -1,0 +1,297 @@
+"""Integration test suite for OpenAI LLM client implementation.
+
+This module contains integration tests that actually call the OpenAI API.
+These tests require a valid OpenAI API key in environment variable:
+- OPENAI_API_KEY
+
+Tests will be skipped if this environment variable is not set.
+"""
+
+import os
+import pytest
+from dotenv import load_dotenv
+from pydantic import BaseModel
+
+from meta_evaluator.llm_client.openai_client import (
+    OpenAIConfig,
+    OpenAIClient,
+)
+from meta_evaluator.llm_client.models import Message, RoleEnum
+
+DEFAULT_OPENAI_MODEL = "gpt-4.1-2025-04-14"
+
+load_dotenv()
+
+# Check if required environment variable is set
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+OPENAI_CREDENTIALS_AVAILABLE = bool(OPENAI_API_KEY)
+
+
+class PersonInfo(BaseModel):
+    """Test model for structured output."""
+
+    name: str
+    age: int
+    occupation: str
+
+
+@pytest.mark.skipif(
+    not OPENAI_CREDENTIALS_AVAILABLE,
+    reason="OpenAI API key not available in environment variables",
+)
+class TestOpenAIClientIntegration:
+    """Integration test suite for the OpenAIClient class.
+
+    This class tests the OpenAI client implementation with real API calls.
+    All tests require a valid OpenAI API key in environment variable.
+    """
+
+    @pytest.fixture
+    def openai_config(self) -> OpenAIConfig:
+        """Provide a valid OpenAIConfig instance from environment variables.
+
+        Returns:
+            OpenAIConfig: A valid configuration instance for creating test clients.
+        """
+        assert OPENAI_API_KEY is not None
+        return OpenAIConfig(
+            api_key=OPENAI_API_KEY,
+            default_model=DEFAULT_OPENAI_MODEL,
+            default_embedding_model="text-embedding-3-large",
+        )
+
+    @pytest.fixture
+    def openai_client(self, openai_config: OpenAIConfig) -> OpenAIClient:
+        """Provide a valid OpenAIClient instance for integration testing.
+
+        Args:
+            openai_config: A valid configuration instance.
+
+        Returns:
+            OpenAIClient: A valid client instance for integration testing.
+        """
+        return OpenAIClient(openai_config)
+
+    def test_chat_completion_integration(self, openai_client: OpenAIClient) -> None:
+        """Test actual chat completion with OpenAI API.
+
+        Verifies that the client can successfully make a real API call
+        to OpenAI and receive a valid response.
+        """
+        messages = [
+            Message(role=RoleEnum.USER, content="Say hello in exactly one word.")
+        ]
+
+        content, usage = openai_client._prompt(
+            model=DEFAULT_OPENAI_MODEL, messages=messages, get_logprobs=False
+        )
+
+        # Log usage and response information
+        print("\n=== Chat Completion Test ===")
+        print(f"Response content: {content}")
+        print(f"Usage - Prompt tokens: {usage.prompt_tokens}")
+        print(f"Usage - Completion tokens: {usage.completion_tokens}")
+        print(f"Usage - Total tokens: {usage.total_tokens}")
+
+        # Verify we got a response
+        assert content is not None
+        assert len(content.strip()) > 0
+
+        # Verify usage data
+        assert usage.prompt_tokens > 0
+        assert usage.completion_tokens > 0
+        assert usage.total_tokens > 0
+        assert usage.total_tokens == usage.prompt_tokens + usage.completion_tokens
+
+    def test_structured_output_integration(self, openai_client: OpenAIClient) -> None:
+        """Test structured output with OpenAI API using instructor.
+
+        Verifies that the client can successfully extract structured data
+        using the instructor library with OpenAI.
+        """
+        messages = [
+            Message(
+                role=RoleEnum.USER,
+                content="Extract information: John Doe is a 30-year-old software engineer.",
+            )
+        ]
+
+        structured_response, usage = openai_client._prompt_with_structured_response(
+            messages=messages, response_model=PersonInfo, model=DEFAULT_OPENAI_MODEL
+        )
+
+        # Log usage and response information
+        print("\n=== Structured Output Test ===")
+        print(f"Structured response: {structured_response}")
+        print(f"Response type: {type(structured_response)}")
+        print(f"Name: {structured_response.name}")
+        print(f"Age: {structured_response.age}")
+        print(f"Occupation: {structured_response.occupation}")
+        print(f"Usage - Prompt tokens: {usage.prompt_tokens}")
+        print(f"Usage - Completion tokens: {usage.completion_tokens}")
+        print(f"Usage - Total tokens: {usage.total_tokens}")
+
+        # Verify we got a structured response
+        assert isinstance(structured_response, PersonInfo)
+        assert structured_response.name is not None
+        assert structured_response.age is not None
+        assert structured_response.occupation is not None
+
+        # Verify the extracted data matches expectations
+        assert "john" in structured_response.name.lower()
+        assert structured_response.age == 30
+        assert "engineer" in structured_response.occupation.lower()
+
+        # Verify usage data
+        assert usage.prompt_tokens > 0
+        assert usage.completion_tokens > 0
+        assert usage.total_tokens > 0
+        assert usage.total_tokens == usage.prompt_tokens + usage.completion_tokens
+
+    def test_high_level_prompt_integration(self, openai_client: OpenAIClient) -> None:
+        """Test the high-level prompt method that returns LLMResponse.
+
+        Verifies that the public prompt method works correctly and returns
+        both the response content and comprehensive usage information.
+        """
+        messages = [
+            Message(role=RoleEnum.USER, content="Write a haiku about programming.")
+        ]
+
+        response = openai_client.prompt(messages, model=DEFAULT_OPENAI_MODEL)
+
+        # Log usage and response information
+        print("\n=== High-Level Prompt Test ===")
+        print(f"Response content: {response.content}")
+        print(f"Latest response: {response.latest_response}")
+        print(f"Provider: {response.provider}")
+        print(f"Model: {response.model}")
+        print(f"Message count: {len(response.messages)}")
+        print(f"Usage - Prompt tokens: {response.usage.prompt_tokens}")
+        print(f"Usage - Completion tokens: {response.usage.completion_tokens}")
+        print(f"Usage - Total tokens: {response.usage.total_tokens}")
+
+        # Verify response structure
+        assert response.content is not None
+        assert len(response.content.strip()) > 0
+        assert len(response.messages) == 2  # Original user message + assistant response
+        assert response.messages[0].role == RoleEnum.USER
+        assert response.messages[1].role == RoleEnum.ASSISTANT
+
+        # Verify usage data
+        assert response.usage.prompt_tokens > 0
+        assert response.usage.completion_tokens > 0
+        assert response.usage.total_tokens > 0
+        assert (
+            response.usage.total_tokens
+            == response.usage.prompt_tokens + response.usage.completion_tokens
+        )
+
+    def test_high_level_structured_output_integration(
+        self, openai_client: OpenAIClient
+    ) -> None:
+        """Test the high-level structured output method.
+
+        Verifies that the public prompt_with_structured_response method works correctly
+        and returns both structured data and comprehensive response information.
+        """
+        messages = [
+            Message(
+                role=RoleEnum.USER,
+                content="Extract: Sarah Smith is a 25-year-old data scientist working at Tech Corp.",
+            )
+        ]
+
+        structured_response, llm_response = (
+            openai_client.prompt_with_structured_response(
+                messages=messages, response_model=PersonInfo, model=DEFAULT_OPENAI_MODEL
+            )
+        )
+
+        # Log usage and response information
+        print("\n=== High-Level Structured Output Test ===")
+        print(f"Structured response: {structured_response}")
+        print(f"Name: {structured_response.name}")
+        print(f"Age: {structured_response.age}")
+        print(f"Occupation: {structured_response.occupation}")
+        print(f"LLM Response content: {llm_response.content}")
+        print(f"Provider: {llm_response.provider}")
+        print(f"Model: {llm_response.model}")
+        print(f"Usage - Prompt tokens: {llm_response.usage.prompt_tokens}")
+        print(f"Usage - Completion tokens: {llm_response.usage.completion_tokens}")
+        print(f"Usage - Total tokens: {llm_response.usage.total_tokens}")
+
+        # Verify structured response
+        assert isinstance(structured_response, PersonInfo)
+        assert "sarah" in structured_response.name.lower()
+        assert structured_response.age == 25
+        assert "scientist" in structured_response.occupation.lower()
+
+        # Verify LLM response structure
+        assert llm_response.content is not None
+        assert len(llm_response.messages) == 2
+        assert llm_response.usage.total_tokens > 0
+
+    def test_embedding_integration(self, openai_client: OpenAIClient) -> None:
+        """Test actual embedding generation with OpenAI API.
+
+        Verifies that the client can successfully generate embeddings
+        using the OpenAI embedding API.
+        """
+        texts = ["Hello world", "This is a test"]
+
+        embeddings = openai_client._get_embedding(
+            text_list=texts, model="text-embedding-3-large"
+        )
+
+        # Log embedding information
+        print("\n=== Embedding Test ===")
+        print(f"Input texts: {texts}")
+        print(f"Number of embeddings generated: {len(embeddings)}")
+        print(f"Embedding dimensions: {len(embeddings[0])}")
+        print(f"First embedding (first 5 values): {embeddings[0][:5]}")
+        print(f"Second embedding (first 5 values): {embeddings[1][:5]}")
+
+        # Verify we got embeddings for both texts
+        assert len(embeddings) == 2
+
+        # Verify each embedding is a list of floats
+        for i, embedding in enumerate(embeddings):
+            assert isinstance(embedding, list)
+            assert len(embedding) > 0
+            assert all(isinstance(x, (int, float)) for x in embedding)
+            print(f"Embedding {i + 1} length: {len(embedding)}")
+
+        # Verify embeddings are different for different texts
+        assert embeddings[0] != embeddings[1]
+
+    def test_high_level_embedding_integration(
+        self, openai_client: OpenAIClient
+    ) -> None:
+        """Test the high-level embedding method.
+
+        Verifies that the public get_embedding method works correctly.
+        """
+        texts = [
+            "Machine learning is fascinating",
+            "Python is a great programming language",
+        ]
+
+        embeddings = openai_client.get_embedding(texts, model="text-embedding-3-large")
+
+        # Log embedding information
+        print("\n=== High-Level Embedding Test ===")
+        print(f"Input texts: {texts}")
+        print(f"Number of embeddings: {len(embeddings)}")
+        print(f"Embedding dimensions: {len(embeddings[0])}")
+
+        # Verify embeddings
+        assert len(embeddings) == 2
+        for embedding in embeddings:
+            assert isinstance(embedding, list)
+            assert len(embedding) > 0
+            assert all(isinstance(x, (int, float)) for x in embedding)
+
+        # Verify embeddings are different
+        assert embeddings[0] != embeddings[1]
