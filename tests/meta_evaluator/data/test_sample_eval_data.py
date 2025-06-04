@@ -2,7 +2,7 @@
 
 import pytest
 import polars as pl
-from meta_evaluator.data import EvalData, SampledEvalData
+from meta_evaluator.data import EvalData, SampleEvalData
 from meta_evaluator.data.exceptions import (
     EmptyColumnListError,
 )
@@ -147,24 +147,24 @@ class TestSamplingFunctionality:
             len(sample_small.data) > 0
         )  # Should still get at least 1 row per partition
 
-    # === metadata_columns_to_focus Validation Tests ===
+    # === metadata_columns_sample Validation Tests ===
 
     def test_sample_by_metadata_focus_none_no_metadata_columns(
         self, eval_data_no_metadata
     ):
-        """Test metadata_columns_to_focus=None with no metadata columns raises EmptyColumnListError."""
+        """Test metadata_columns_sample=None with no metadata columns raises EmptyColumnListError."""
         with pytest.raises(
             EmptyColumnListError,
             match="metadata \\(no metadata columns available for sampling\\)",
         ):
-            eval_data_no_metadata.sample_by_metadata(metadata_columns_to_focus=None)
+            eval_data_no_metadata.sample_by_metadata(metadata_columns_sample=None)
 
     def test_sample_by_metadata_focus_none_with_metadata_columns(
         self, eval_data_with_metadata
     ):
-        """Test metadata_columns_to_focus=None uses all metadata columns."""
+        """Test metadata_columns_sample=None uses all metadata columns."""
         sample = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=None, sample_percentage=0.5
+            metadata_columns_sample=None, sample_percentage=0.5
         )
         assert (
             sample.metadata_columns_focused == eval_data_with_metadata.metadata_columns
@@ -173,12 +173,12 @@ class TestSamplingFunctionality:
     def test_sample_by_metadata_focus_invalid_column_names(
         self, eval_data_with_metadata
     ):
-        """Test metadata_columns_to_focus with invalid column names raises ValueError."""
+        """Test metadata_columns_sample with invalid column names raises ValueError."""
         with pytest.raises(
-            ValueError, match="metadata_columns_to_focus contains non-metadata columns"
+            ValueError, match="metadata_columns_sample contains non-metadata columns"
         ):
             eval_data_with_metadata.sample_by_metadata(
-                metadata_columns_to_focus=[
+                metadata_columns_sample=[
                     "question",
                     "nonexistent",
                 ],  # input column and invalid
@@ -186,18 +186,18 @@ class TestSamplingFunctionality:
             )
 
     def test_sample_by_metadata_focus_empty_list(self, eval_data_with_metadata):
-        """Test metadata_columns_to_focus with empty list raises ValueError."""
+        """Test metadata_columns_sample with empty list raises ValueError."""
         with pytest.raises(
-            ValueError, match="metadata_columns_to_focus cannot be an empty list"
+            ValueError, match="metadata_columns_sample cannot be an empty list"
         ):
             eval_data_with_metadata.sample_by_metadata(
-                metadata_columns_to_focus=[], sample_percentage=0.5
+                metadata_columns_sample=[], sample_percentage=0.5
             )
 
     def test_sample_by_metadata_focus_valid_subset(self, eval_data_with_metadata):
-        """Test metadata_columns_to_focus with valid subset of metadata columns."""
+        """Test metadata_columns_sample with valid subset of metadata columns."""
         sample = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty"], sample_percentage=0.5
+            metadata_columns_sample=["difficulty"], sample_percentage=0.5
         )
         assert sample.metadata_columns_focused == ["difficulty"]
 
@@ -208,18 +208,19 @@ class TestSamplingFunctionality:
     ):
         """Test automatic sample name generation when sample_name=None."""
         sample = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty", "topic"],
+            metadata_columns_sample=["difficulty", "topic"],
             sample_percentage=0.3,
             sample_name=None,
         )
-        expected_name = "Stratified Sample (difficulty_topic, 30.0%)"
+        cols_name = "difficulty_topic"
+        expected_name = f"Stratified Sample ({eval_data_with_metadata.name}, {cols_name}, {0.3 * 100:.1f}%)"
         assert sample.sample_name == expected_name
 
     def test_sample_by_metadata_provided_sample_name(self, eval_data_with_metadata):
         """Test using provided sample_name."""
         custom_name = "My Custom Sample"
         sample = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty"],
+            metadata_columns_sample=["difficulty"],
             sample_percentage=0.5,
             sample_name=custom_name,
         )
@@ -238,7 +239,7 @@ class TestSamplingFunctionality:
         )
 
         sample = eval_data.sample_by_metadata(
-            metadata_columns_to_focus=["unique_meta"], sample_percentage=0.5
+            metadata_columns_sample=["unique_meta"], sample_percentage=0.5
         )
 
         # Each partition has 1 row, so should get 1 row from each (max(1, 1*0.5) = 1)
@@ -255,7 +256,7 @@ class TestSamplingFunctionality:
         )
 
         sample = eval_data.sample_by_metadata(
-            metadata_columns_to_focus=["category", "level"], sample_percentage=0.5
+            metadata_columns_sample=["category", "level"], sample_percentage=0.5
         )
 
         # Should have samples from each category-level combination
@@ -275,7 +276,7 @@ class TestSamplingFunctionality:
         )
 
         sample = eval_data.sample_by_metadata(
-            metadata_columns_to_focus=["category"],
+            metadata_columns_sample=["category"],
             sample_percentage=0.01,  # Very small percentage
         )
 
@@ -302,7 +303,7 @@ class TestSamplingFunctionality:
         )
 
         sample = eval_data.sample_by_metadata(
-            metadata_columns_to_focus=["category"],
+            metadata_columns_sample=["category"],
             sample_percentage=0.9,  # High percentage
         )
 
@@ -331,7 +332,7 @@ class TestSamplingFunctionality:
 
         # This should work normally since max(1, ...) ensures at least 1 row
         sample = eval_data.sample_by_metadata(
-            metadata_columns_to_focus=["category"], sample_percentage=0.1
+            metadata_columns_sample=["category"], sample_percentage=0.1
         )
         assert len(sample.data) == 1
 
@@ -340,11 +341,11 @@ class TestSamplingFunctionality:
     ):
         """Test sampling is reproducible with same seed."""
         sample1 = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty"], sample_percentage=0.5, seed=42
+            metadata_columns_sample=["difficulty"], sample_percentage=0.5, seed=42
         )
 
         sample2 = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty"], sample_percentage=0.5, seed=42
+            metadata_columns_sample=["difficulty"], sample_percentage=0.5, seed=42
         )
 
         # Should get identical results
@@ -355,11 +356,11 @@ class TestSamplingFunctionality:
     ):
         """Test different seeds produce different results."""
         sample1 = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty"], sample_percentage=0.5, seed=42
+            metadata_columns_sample=["difficulty"], sample_percentage=0.5, seed=42
         )
 
         sample2 = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty"], sample_percentage=0.5, seed=123
+            metadata_columns_sample=["difficulty"], sample_percentage=0.5, seed=123
         )
 
         # Should likely get different results (not guaranteed but very probable)
@@ -367,19 +368,19 @@ class TestSamplingFunctionality:
         assert len(sample1.data) > 0
         assert len(sample2.data) > 0
 
-    # === SampledEvalData Class Tests ===
+    # === SampleEvalData Class Tests ===
 
     def test_sampled_eval_data_initialization(self, eval_data_with_metadata):
-        """Test SampledEvalData initialization with all required fields."""
+        """Test SampleEvalData initialization with all required fields."""
         sample = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty"],
+            metadata_columns_sample=["difficulty"],
             sample_percentage=0.5,
             sample_name="Test Sample",
             seed=42,
         )
 
-        # Verify it's a SampledEvalData instance
-        assert isinstance(sample, SampledEvalData)
+        # Verify it's a SampleEvalData instance
+        assert isinstance(sample, SampleEvalData)
 
         # Verify sampling-specific attributes
         assert sample.sample_name == "Test Sample"
@@ -396,10 +397,10 @@ class TestSamplingFunctionality:
     def test_sampled_eval_data_inherits_eval_data_validation(
         self, valid_dataframe_with_metadata
     ):
-        """Test SampledEvalData inherits all EvalData validation logic."""
+        """Test SampleEvalData inherits all EvalData validation logic."""
         # This should fail the same way EvalData would fail
         with pytest.raises(EmptyColumnListError):
-            SampledEvalData(
+            SampleEvalData(
                 data=valid_dataframe_with_metadata,
                 name="test",
                 input_columns=[],  # Empty input columns should fail
@@ -411,9 +412,9 @@ class TestSamplingFunctionality:
             )
 
     def test_sampled_eval_data_immutability(self, eval_data_with_metadata):
-        """Test SampledEvalData immutability after initialization."""
+        """Test SampleEvalData immutability after initialization."""
         sample = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty"], sample_percentage=0.5
+            metadata_columns_sample=["difficulty"], sample_percentage=0.5
         )
 
         # Should not be able to modify any attributes
@@ -432,7 +433,7 @@ class TestSamplingFunctionality:
     def test_sampling_info_property(self, eval_data_with_metadata):
         """Test sampling_info property returns comprehensive dictionary."""
         sample = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty", "topic"],
+            metadata_columns_sample=["difficulty", "topic"],
             sample_percentage=0.25,
             sample_name="Info Test Sample",
             seed=999,
@@ -455,14 +456,14 @@ class TestSamplingFunctionality:
         """Test complete end-to-end sampling workflow."""
         # Perform sampling
         sample = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty"],
+            metadata_columns_sample=["difficulty"],
             sample_percentage=0.5,
             sample_name="E2E Test Sample",
             seed=42,
         )
 
         # Verify sample properties
-        assert isinstance(sample, SampledEvalData)
+        assert isinstance(sample, SampleEvalData)
         assert len(sample.data) > 0
         assert len(sample.data) <= len(eval_data_with_metadata.data)
 
@@ -486,7 +487,7 @@ class TestSamplingFunctionality:
         """Test reproducing a sample using its sampling_info."""
         # Create original sample
         original = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty"], sample_percentage=0.3, seed=555
+            metadata_columns_sample=["difficulty"], sample_percentage=0.3, seed=555
         )
 
         # Get sampling info
@@ -494,7 +495,7 @@ class TestSamplingFunctionality:
 
         # Reproduce the sample
         reproduced = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=info["metadata_columns_focused"],
+            metadata_columns_sample=info["metadata_columns_focused"],
             sample_percentage=info["sample_percentage"],
             seed=info["seed"],
         )
@@ -506,7 +507,7 @@ class TestSamplingFunctionality:
     def test_sample_preserves_all_column_categories(self, eval_data_with_metadata):
         """Test sampling preserves all original column categorizations."""
         sample = eval_data_with_metadata.sample_by_metadata(
-            metadata_columns_to_focus=["difficulty"], sample_percentage=0.5
+            metadata_columns_sample=["difficulty"], sample_percentage=0.5
         )
 
         # All original column categories should be preserved

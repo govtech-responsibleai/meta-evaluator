@@ -633,11 +633,11 @@ class EvalData(BaseModel):
 
     def sample_by_metadata(
         self,
-        metadata_columns_to_focus: Optional[list[str]] = None,
+        metadata_columns_sample: Optional[list[str]] = None,
         sample_percentage: float = 0.1,
         sample_name: Optional[str] = None,
         seed: int = 42,
-    ) -> "SampledEvalData":
+    ) -> "SampleEvalData":
         """Perform stratified sampling based on metadata columns.
 
         Creates a stratified sample by grouping data based on unique combinations
@@ -645,7 +645,7 @@ class EvalData(BaseModel):
         This preserves the original distribution of metadata combinations in the sample.
 
         Args:
-            metadata_columns_to_focus: List of metadata column names to use for stratification.
+            metadata_columns_sample: List of metadata column names to use for stratification.
                 If None, uses all metadata columns. Must be a subset of self.metadata_columns.
             sample_percentage: Fraction of data to sample from each stratum (0.0 to 1.0).
                 Defaults to 0.1 (10% of each metadata combination group).
@@ -655,12 +655,12 @@ class EvalData(BaseModel):
                 identical sampling results when called with the same parameters.
 
         Returns:
-            SampledEvalData: A new instance containing the stratified sample with
+            SampleEvalData: A new instance containing the stratified sample with
                 comprehensive sampling metadata attached.
 
         Raises:
             ValueError: If sample_percentage is not between 0 and 1, or if
-                metadata_columns_to_focus contains invalid column names.
+                metadata_columns_sample contains invalid column names.
             EmptyColumnListError: If no metadata columns are available for sampling.
             NoDataLeftError: If the sampling operation results in an empty dataset.
         """
@@ -671,33 +671,31 @@ class EvalData(BaseModel):
             )
 
         # Handle metadata columns
-        if metadata_columns_to_focus is None:
+        if metadata_columns_sample is None:
             if not self.metadata_columns:
                 raise EmptyColumnListError(
                     "metadata (no metadata columns available for sampling)"
                 )
-            metadata_columns_to_focus = self.metadata_columns.copy()
+            metadata_columns_sample = self.metadata_columns.copy()
         else:
             # Validate that specified columns are actually metadata columns
-            invalid_cols = set(metadata_columns_to_focus) - set(self.metadata_columns)
+            invalid_cols = set(metadata_columns_sample) - set(self.metadata_columns)
             if invalid_cols:
                 raise ValueError(
-                    f"metadata_columns_to_focus contains non-metadata columns: {list(invalid_cols)}"
+                    f"metadata_columns_sample contains non-metadata columns: {list(invalid_cols)}"
                 )
 
-            if not metadata_columns_to_focus:
-                raise ValueError("metadata_columns_to_focus cannot be an empty list")
+            if not metadata_columns_sample:
+                raise ValueError("metadata_columns_sample cannot be an empty list")
 
         # Generate sample name if not provided
         if sample_name is None:
-            cols_str = "_".join(metadata_columns_to_focus)
-            sample_name = (
-                f"Stratified Sample ({cols_str}, {sample_percentage * 100:.1f}%)"
-            )
+            cols_str = "_".join(metadata_columns_sample)
+            sample_name = f"Stratified Sample ({self.name}, {cols_str}, {sample_percentage * 100:.1f}%)"
 
         # Perform stratified sampling
         # Partition by metadata columns and sample from each partition
-        partitioned = self.data.partition_by(metadata_columns_to_focus, as_dict=False)
+        partitioned = self.data.partition_by(metadata_columns_sample, as_dict=False)
         sampled_partitions = []
 
         for partition in partitioned:
@@ -719,10 +717,7 @@ class EvalData(BaseModel):
         if len(sampled_df) == 0:
             raise NoDataLeftError("stratified sampling", len(self.data))
 
-        # Import SampledEvalData - this assumes it will be defined in the same module
-        # or you'll need to adjust the import path accordingly
-
-        return SampledEvalData(
+        return SampleEvalData(
             data=sampled_df,
             name=self.name,  # Inherit the original dataset name
             id_column=self.id_column,
@@ -731,17 +726,17 @@ class EvalData(BaseModel):
             metadata_columns=self.metadata_columns,
             human_label_columns=self.human_label_columns,
             sample_name=sample_name,
-            metadata_columns_focused=metadata_columns_to_focus,
+            metadata_columns_focused=metadata_columns_sample,
             sample_percentage=sample_percentage,
             seed=seed,
             sampling_method="by_metadata_combination",
         )
 
 
-class SampledEvalData(EvalData):
+class SampleEvalData(EvalData):
     """Immutable container for sampled evaluation data with metadata-based sampling information.
 
-    SampledEvalData extends EvalData to represent datasets that have been created through
+    SampleEvalData extends EvalData to represent datasets that have been created through
     the sample_by_metadata sampling process. It enriches the base EvalData functionality
     with detailed metadata about the sampling operation, enabling full traceability,
     reproducibility, and auditability of metadata-based sampling workflows.
@@ -751,7 +746,7 @@ class SampledEvalData(EvalData):
     and for reproducing sampling results.
 
     Inheritance Design:
-        SampledEvalData IS an EvalData instance, meaning it can be used anywhere an EvalData
+        SampleEvalData IS an EvalData instance, meaning it can be used anywhere an EvalData
         is expected. All EvalData methods, properties, and validation logic are inherited
         unchanged. The sampling metadata is stored as additional object-level attributes,
         not as DataFrame columns, preserving the semantic clarity of the underlying data.
@@ -782,9 +777,9 @@ class SampledEvalData(EvalData):
         - input_data, output_data, metadata_data, human_label_data: Type-safe data access
         - uncategorized_column_names, uncategorized_data: Access to uncategorized columns
 
-    ## New SampledEvalData Attributes
+    ## New SampleEvalData Attributes
 
-    The following attributes are specific to SampledEvalData and provide comprehensive context
+    The following attributes are specific to SampleEvalData and provide comprehensive context
     about the metadata-based sampling operation:
 
     Attributes:
@@ -827,21 +822,21 @@ class SampledEvalData(EvalData):
     3. **Clean Separation**: Maintains the distinction between data content (rows/columns)
        and data context (how the container was created).
 
-    4. **Backward Compatibility**: Any code expecting EvalData can work with SampledEvalData
+    4. **Backward Compatibility**: Any code expecting EvalData can work with SampleEvalData
        without modification, as the DataFrame structure is unchanged.
 
     ## Usage Examples
 
-    Creating a SampledEvalData through sample_by_metadata:
+    Creating a SampleEvalData through sample_by_metadata:
         ```python
         original = EvalData(...)
         sample = original.sample_by_metadata(
-            metadata_columns_to_focus=["topic", "difficulty"],
+            metadata_columns_sample=["topic", "difficulty"],
             sample_percentage=0.3,
             sample_name="Balanced Topic-Difficulty Sample",
             seed=42
         )
-        # sample is now a SampledEvalData instance
+        # sample is now a SampleEvalData instance
         ```
 
     Accessing sampling metadata:
@@ -862,12 +857,12 @@ class SampledEvalData(EvalData):
     ## Reproducibility
 
     The combination of seed, metadata_columns_focused, and sample_percentage values
-    stored in SampledEvalData instances enables exact reproduction of sampling results:
+    stored in SampleEvalData instances enables exact reproduction of sampling results:
 
         ```python
         # Reproduce the exact same sample
         reproduced_sample = original.sample_by_metadata(
-            metadata_columns_to_focus=sample.metadata_columns_focused,
+            metadata_columns_sample=sample.metadata_columns_focused,
             sample_percentage=sample.sample_percentage,
             seed=sample.seed
         )
@@ -876,13 +871,13 @@ class SampledEvalData(EvalData):
 
     ## Thread Safety & Immutability
 
-    Like EvalData, SampledEvalData instances are immutable after initialization.
+    Like EvalData, SampleEvalData instances are immutable after initialization.
     All sampling metadata attributes are set during construction and cannot be
     modified afterward, ensuring predictable behavior in concurrent environments.
 
     ## Validation
 
-    SampledEvalData inherits all EvalData validation logic, ensuring that sampled
+    SampleEvalData inherits all EvalData validation logic, ensuring that sampled
     datasets maintain the same data integrity guarantees as their source datasets.
     The sampling metadata attributes are validated by Pydantic's type system but
     do not affect the core data validation pipeline.
@@ -914,7 +909,7 @@ class SampledEvalData(EvalData):
         Example:
             ```python
             sample = original.sample_by_metadata(
-                metadata_columns_to_focus=["topic"],
+                metadata_columns_sample=["topic"],
                 sample_percentage=0.4,
                 sample_name="Topic Balanced Sample",
                 seed=123
