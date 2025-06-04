@@ -15,6 +15,7 @@ from meta_evaluator.data.exceptions import (
     DuplicateInIDColumnError,
     InvalidInIDColumnError,
     NullValuesInDataError,
+    InvalidNameError,
 )
 
 
@@ -109,24 +110,115 @@ class TestEvalData:
         ):
             EvalData.check_single_column_name("invalid name")
 
+    # === Dataset Name Validation Tests ===
+
+    def test_check_dataset_name_valid(self):
+        """Test valid dataset names pass validation."""
+        # Valid names should not raise
+        EvalData.check_dataset_name("valid_name")
+        EvalData.check_dataset_name("_starts_with_underscore")
+        EvalData.check_dataset_name("has123numbers")
+        EvalData.check_dataset_name("CamelCase")
+
+    def test_check_dataset_name_empty(self):
+        """Test empty dataset names raise InvalidNameError."""
+        with pytest.raises(InvalidNameError, match="Dataset name is empty"):
+            EvalData.check_dataset_name("")
+
+    def test_check_dataset_name_whitespace_only(self):
+        """Test whitespace-only dataset names raise InvalidNameError."""
+        with pytest.raises(InvalidNameError, match="contains only whitespace"):
+            EvalData.check_dataset_name("   ")
+
+        with pytest.raises(InvalidNameError, match="contains only whitespace"):
+            EvalData.check_dataset_name("\t\n  ")
+
+    def test_check_dataset_name_invalid_first_char(self):
+        """Test dataset names with invalid first characters."""
+        with pytest.raises(
+            InvalidNameError, match="must start with a letter or underscore"
+        ):
+            EvalData.check_dataset_name("123invalid")
+
+        with pytest.raises(
+            InvalidNameError, match="must start with a letter or underscore"
+        ):
+            EvalData.check_dataset_name("-invalid")
+
+    def test_check_dataset_name_invalid_chars(self):
+        """Test dataset names with invalid characters."""
+        with pytest.raises(
+            InvalidNameError,
+            match="must only contain letters, numbers, and underscores",
+        ):
+            EvalData.check_dataset_name("invalid-name")
+
+        with pytest.raises(
+            InvalidNameError,
+            match="must only contain letters, numbers, and underscores",
+        ):
+            EvalData.check_dataset_name("invalid name")
+
+    def test_name_validation_in_constructor_empty(self, valid_dataframe):
+        """Test empty name in constructor raises InvalidNameError."""
+        with pytest.raises(InvalidNameError, match="Dataset name is empty"):
+            EvalData(
+                name="",
+                data=valid_dataframe,
+                input_columns=["question"],
+                output_columns=["answer"],
+            )
+
+    def test_name_validation_in_constructor_whitespace_only(self, valid_dataframe):
+        """Test whitespace-only name in constructor raises InvalidNameError."""
+        with pytest.raises(InvalidNameError, match="contains only whitespace"):
+            EvalData(
+                name="   ",
+                data=valid_dataframe,
+                input_columns=["question"],
+                output_columns=["answer"],
+            )
+
+    def test_name_validation_in_constructor_invalid_chars(self, valid_dataframe):
+        """Test invalid characters in name raises InvalidNameError."""
+        with pytest.raises(
+            InvalidNameError,
+            match="must only contain letters, numbers, and underscores",
+        ):
+            EvalData(
+                name="invalid-name",
+                data=valid_dataframe,
+                input_columns=["question"],
+                output_columns=["answer"],
+            )
+
     # === Pre-validation Tests ===
 
     def test_validate_given_column_names_empty_input_columns(self, valid_dataframe):
         """Test empty input_columns raises EmptyColumnListError."""
         with pytest.raises(EmptyColumnListError):
-            EvalData(data=valid_dataframe, input_columns=[], output_columns=["answer"])
+            EvalData(
+                name="test",
+                data=valid_dataframe,
+                input_columns=[],
+                output_columns=["answer"],
+            )
 
     def test_validate_given_column_names_empty_output_columns(self, valid_dataframe):
         """Test empty output_columns raises EmptyColumnListError."""
         with pytest.raises(EmptyColumnListError):
             EvalData(
-                data=valid_dataframe, input_columns=["question"], output_columns=[]
+                name="test",
+                data=valid_dataframe,
+                input_columns=["question"],
+                output_columns=[],
             )
 
     def test_validate_given_column_names_invalid_input_column(self, valid_dataframe):
         """Test invalid input column name raises InvalidColumnNameError."""
         with pytest.raises(InvalidColumnNameError):
             EvalData(
+                name="test",
                 data=valid_dataframe,
                 input_columns=["123invalid"],
                 output_columns=["answer"],
@@ -136,6 +228,7 @@ class TestEvalData:
         """Test invalid output column name raises InvalidColumnNameError."""
         with pytest.raises(InvalidColumnNameError):
             EvalData(
+                name="test",
                 data=valid_dataframe,
                 input_columns=["question"],
                 output_columns=["invalid-name"],
@@ -145,6 +238,7 @@ class TestEvalData:
         """Test invalid metadata column name raises InvalidColumnNameError."""
         with pytest.raises(InvalidColumnNameError):
             EvalData(
+                name="test",
                 data=valid_dataframe,
                 input_columns=["question"],
                 output_columns=["answer"],
@@ -157,6 +251,7 @@ class TestEvalData:
         """Test invalid human label column name raises InvalidColumnNameError."""
         with pytest.raises(InvalidColumnNameError):
             EvalData(
+                name="test",
                 data=valid_dataframe,
                 input_columns=["question"],
                 output_columns=["answer"],
@@ -169,7 +264,12 @@ class TestEvalData:
         """Test empty DataFrame raises EmptyDataFrameError."""
         empty_df = pl.DataFrame({"col1": []})
         with pytest.raises(EmptyDataFrameError):
-            EvalData(data=empty_df, input_columns=["col1"], output_columns=["col1"])
+            EvalData(
+                name="test",
+                data=empty_df,
+                input_columns=["col1"],
+                output_columns=["col1"],
+            )
 
     # === Data Integrity Validation Tests ===
 
@@ -177,6 +277,7 @@ class TestEvalData:
         """Test missing columns raise ColumnNotFoundError."""
         with pytest.raises(ColumnNotFoundError):
             EvalData(
+                name="test",
                 data=valid_dataframe,
                 input_columns=["nonexistent_column"],
                 output_columns=["answer"],
@@ -186,6 +287,7 @@ class TestEvalData:
         """Test duplicate column specifications raise DuplicateColumnError."""
         with pytest.raises(DuplicateColumnError):
             EvalData(
+                name="test",
                 data=valid_dataframe,
                 input_columns=["question"],
                 output_columns=["question"],  # Duplicate
@@ -195,6 +297,7 @@ class TestEvalData:
         """Test uncategorized columns trigger warning."""
         with caplog.at_level(logging.WARNING):
             eval_data = EvalData(
+                name="test",
                 data=valid_dataframe,
                 input_columns=["question"],
                 output_columns=["answer"],
@@ -207,7 +310,10 @@ class TestEvalData:
     def test_clean_data_no_issues(self, minimal_dataframe):
         """Test clean data with no integrity issues."""
         eval_data = EvalData(
-            data=minimal_dataframe, input_columns=["input"], output_columns=["output"]
+            name="test",
+            data=minimal_dataframe,
+            input_columns=["input"],
+            output_columns=["output"],
         )
 
         assert eval_data is not None
@@ -218,7 +324,10 @@ class TestEvalData:
     def test_auto_generate_id_column(self, minimal_dataframe):
         """Test automatic ID column generation."""
         eval_data = EvalData(
-            data=minimal_dataframe, input_columns=["input"], output_columns=["output"]
+            name="test",
+            data=minimal_dataframe,
+            input_columns=["input"],
+            output_columns=["output"],
         )
 
         assert eval_data.id_column == "id"
@@ -237,6 +346,7 @@ class TestEvalData:
 
         with pytest.raises(IdColumnExistsError):
             EvalData(
+                name="test",
                 data=df_with_id,
                 input_columns=["input"],
                 output_columns=["output"],
@@ -246,6 +356,7 @@ class TestEvalData:
     def test_user_provided_id_column(self, valid_dataframe):
         """Test using user-provided ID column."""
         eval_data = EvalData(
+            name="test",
             data=valid_dataframe,
             id_column="question",  # Use existing column as ID
             input_columns=["answer"],
@@ -268,6 +379,7 @@ class TestEvalData:
 
         with pytest.raises(InvalidInIDColumnError):
             EvalData(
+                name="test",
                 data=df_with_null_id,
                 id_column="custom_id",
                 input_columns=["input"],
@@ -286,6 +398,7 @@ class TestEvalData:
 
         with pytest.raises(DuplicateInIDColumnError):
             EvalData(
+                name="test",
                 data=df_with_duplicate_id,
                 id_column="custom_id",
                 input_columns=["input"],
@@ -304,6 +417,7 @@ class TestEvalData:
 
         with pytest.raises(InvalidInIDColumnError):
             EvalData(
+                name="test",
                 data=df_with_empty_id,
                 id_column="custom_id",
                 input_columns=["input"],
@@ -322,6 +436,7 @@ class TestEvalData:
 
         with pytest.raises(InvalidInIDColumnError):
             EvalData(
+                name="test",
                 data=df_with_whitespace_id,
                 id_column="custom_id",
                 input_columns=["input"],
@@ -339,6 +454,7 @@ class TestEvalData:
         )
 
         eval_data = EvalData(
+            name="test",
             data=df_with_int_id,
             id_column="custom_id",
             input_columns=["input"],
@@ -358,7 +474,10 @@ class TestEvalData:
 
         with pytest.raises(NullValuesInDataError):
             EvalData(
-                data=df_with_nulls, input_columns=["input"], output_columns=["output"]
+                name="test",
+                data=df_with_nulls,
+                input_columns=["input"],
+                output_columns=["output"],
             )
 
     def test_empty_strings_in_non_id_columns_warning(self, caplog):
@@ -372,6 +491,7 @@ class TestEvalData:
 
         with caplog.at_level(logging.WARNING):
             eval_data = EvalData(
+                name="test",
                 data=df_with_empty_strings,
                 input_columns=["input"],
                 output_columns=["output"],
@@ -391,6 +511,7 @@ class TestEvalData:
 
         with caplog.at_level(logging.WARNING):
             eval_data = EvalData(
+                name="test",
                 data=df_with_whitespace,
                 input_columns=["input"],
                 output_columns=["output"],
@@ -404,7 +525,10 @@ class TestEvalData:
     def test_uncategorized_data_with_no_uncategorized_columns(self, minimal_dataframe):
         """Test uncategorized_data property with no uncategorized columns."""
         eval_data = EvalData(
-            data=minimal_dataframe, input_columns=["input"], output_columns=["output"]
+            name="test",
+            data=minimal_dataframe,
+            input_columns=["input"],
+            output_columns=["output"],
         )
 
         uncategorized = eval_data.uncategorized_data
@@ -414,7 +538,10 @@ class TestEvalData:
     def test_uncategorized_data_with_uncategorized_columns(self, valid_dataframe):
         """Test uncategorized_data property with uncategorized columns."""
         eval_data = EvalData(
-            data=valid_dataframe, input_columns=["question"], output_columns=["answer"]
+            name="test",
+            data=valid_dataframe,
+            input_columns=["question"],
+            output_columns=["answer"],
         )
 
         uncategorized = eval_data.uncategorized_data
@@ -424,7 +551,10 @@ class TestEvalData:
     def test_input_data_property(self, valid_dataframe):
         """Test input_data property returns correct columns."""
         eval_data = EvalData(
-            data=valid_dataframe, input_columns=["question"], output_columns=["answer"]
+            name="test",
+            data=valid_dataframe,
+            input_columns=["question"],
+            output_columns=["answer"],
         )
 
         input_data = eval_data.input_data
@@ -433,7 +563,10 @@ class TestEvalData:
     def test_output_data_property(self, valid_dataframe):
         """Test output_data property returns correct columns."""
         eval_data = EvalData(
-            data=valid_dataframe, input_columns=["question"], output_columns=["answer"]
+            name="test",
+            data=valid_dataframe,
+            input_columns=["question"],
+            output_columns=["answer"],
         )
 
         output_data = eval_data.output_data
@@ -442,6 +575,7 @@ class TestEvalData:
     def test_metadata_data_property(self, valid_dataframe):
         """Test metadata_data property returns correct columns."""
         eval_data = EvalData(
+            name="test",
             data=valid_dataframe,
             input_columns=["question"],
             output_columns=["answer"],
@@ -454,6 +588,7 @@ class TestEvalData:
     def test_human_label_data_property(self, valid_dataframe):
         """Test human_label_data property returns correct columns."""
         eval_data = EvalData(
+            name="test",
             data=valid_dataframe,
             input_columns=["question"],
             output_columns=["answer"],
@@ -468,7 +603,10 @@ class TestEvalData:
     def test_immutability_after_initialization(self, minimal_dataframe):
         """Test that attributes cannot be modified after initialization."""
         eval_data = EvalData(
-            data=minimal_dataframe, input_columns=["input"], output_columns=["output"]
+            name="test",
+            data=minimal_dataframe,
+            input_columns=["input"],
+            output_columns=["output"],
         )
 
         with pytest.raises(
@@ -486,6 +624,7 @@ class TestEvalData:
     def test_complete_happy_path_with_all_categories(self, valid_dataframe):
         """Test complete happy path with all column categories specified."""
         eval_data = EvalData(
+            name="test_dataset",
             data=valid_dataframe,
             input_columns=["question"],
             output_columns=["answer", "model_response"],
@@ -493,6 +632,7 @@ class TestEvalData:
             human_label_columns=["human_rating"],
         )
 
+        assert eval_data.name == "test_dataset"
         assert eval_data.id_column == "id"
         assert eval_data.input_columns == ["question"]
         assert eval_data.output_columns == ["answer", "model_response"]
@@ -509,6 +649,7 @@ class TestEvalData:
     def test_happy_path_with_user_provided_id(self, valid_dataframe):
         """Test happy path with user-provided ID column."""
         eval_data = EvalData(
+            name="test",
             data=valid_dataframe,
             id_column="extra_col",
             input_columns=["question"],

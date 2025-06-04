@@ -10,6 +10,7 @@ from meta_evaluator.data.exceptions import (
     ColumnNotFoundError,
     DuplicateColumnError,
     EmptyDataFrameError,
+    InvalidNameError,
 )
 
 
@@ -89,6 +90,7 @@ test2,result2"""
     def test_load_csv_minimal_success(self, minimal_csv_file):
         """Test successful loading with minimal configuration."""
         result = DataLoader.load_csv(
+            name="test",
             file_path=minimal_csv_file,
             input_columns=["input"],
             output_columns=["output"],
@@ -102,6 +104,7 @@ test2,result2"""
     def test_load_csv_full_features_success(self, valid_csv_file):
         """Test successful loading with all column types."""
         result = DataLoader.load_csv(
+            name="test",
             file_path=valid_csv_file,
             input_columns=["question"],
             output_columns=["answer", "model_response"],
@@ -118,6 +121,7 @@ test2,result2"""
     def test_load_csv_with_user_id_column(self, valid_csv_file):
         """Test successful loading with user-provided ID column."""
         result = DataLoader.load_csv(
+            name="test",
             file_path=valid_csv_file,
             input_columns=["question"],
             output_columns=["answer"],
@@ -132,6 +136,7 @@ test2,result2"""
         """Test DataFileError when file doesn't exist."""
         with pytest.raises(DataFileError, match="File not found"):
             DataLoader.load_csv(
+                name="test",
                 file_path="nonexistent_file.csv",
                 input_columns=["input"],
                 output_columns=["output"],
@@ -144,6 +149,7 @@ test2,result2"""
 
         with pytest.raises(DataFileError, match="Path is not a file"):
             DataLoader.load_csv(
+                name="test",
                 file_path=str(directory),
                 input_columns=["input"],
                 output_columns=["output"],
@@ -157,6 +163,7 @@ test2,result2"""
         try:
             with pytest.raises(DataFileError, match="No read permission"):
                 DataLoader.load_csv(
+                    name="test",
                     file_path=minimal_csv_file,
                     input_columns=["input"],
                     output_columns=["output"],
@@ -171,6 +178,7 @@ test2,result2"""
         """Test DataFileError with empty CSV file."""
         with pytest.raises(DataFileError, match="Failed to parse CSV"):
             DataLoader.load_csv(
+                name="test",
                 file_path=empty_csv_file,
                 input_columns=["input"],
                 output_columns=["output"],
@@ -180,6 +188,7 @@ test2,result2"""
         """Test DataFileError with malformed quotes."""
         with pytest.raises(DataFileError, match="Failed to parse CSV"):
             DataLoader.load_csv(
+                name="test",
                 file_path=malformed_quotes_csv,
                 input_columns=["input"],
                 output_columns=["output"],
@@ -191,6 +200,7 @@ test2,result2"""
         """Test that EvalData validation errors bubble up unchanged."""
         with pytest.raises(ColumnNotFoundError):  # Not wrapped in DataFileError
             DataLoader.load_csv(
+                name="test",
                 file_path=minimal_csv_file,
                 input_columns=["nonexistent_column"],
                 output_columns=["output"],
@@ -200,6 +210,7 @@ test2,result2"""
         """Test EvalData duplicate column error bubbles up."""
         with pytest.raises(DuplicateColumnError):  # Not wrapped in DataFileError
             DataLoader.load_csv(
+                name="test",
                 file_path=minimal_csv_file,
                 input_columns=["input"],
                 output_columns=["input"],  # Duplicate
@@ -209,7 +220,28 @@ test2,result2"""
         """Test headers-only CSV creates empty EvalData (triggers EmptyDataFrameError)."""
         with pytest.raises(EmptyDataFrameError):  # From EvalData, not wrapped
             DataLoader.load_csv(
+                name="test",
                 file_path=headers_only_csv_file,
+                input_columns=["input"],
+                output_columns=["output"],
+            )
+
+    def test_load_csv_empty_name_error(self, minimal_csv_file):
+        """Test that InvalidNameError is raised when name is empty."""
+        with pytest.raises(InvalidNameError):  # From EvalData, not wrapped
+            DataLoader.load_csv(
+                name="",  # Empty name should trigger InvalidNameError
+                file_path=minimal_csv_file,
+                input_columns=["input"],
+                output_columns=["output"],
+            )
+
+    def test_load_csv_whitespace_only_name_error(self, minimal_csv_file):
+        """Test that InvalidNameError is raised when name is whitespace only."""
+        with pytest.raises(InvalidNameError):
+            DataLoader.load_csv(
+                name="   ",
+                file_path=minimal_csv_file,
                 input_columns=["input"],
                 output_columns=["output"],
             )
@@ -226,6 +258,7 @@ test2,result2"""
         try:
             os.chdir(Path(minimal_csv_file).parent)
             result = DataLoader.load_csv(
+                name="test",
                 file_path=relative_path,
                 input_columns=["input"],
                 output_columns=["output"],
@@ -238,6 +271,7 @@ test2,result2"""
         """Test loading with absolute file path."""
         absolute_path = Path(minimal_csv_file).resolve()
         result = DataLoader.load_csv(
+            name="test",
             file_path=str(absolute_path),
             input_columns=["input"],
             output_columns=["output"],
@@ -249,6 +283,7 @@ test2,result2"""
     def test_load_csv_with_auto_generated_id(self, minimal_csv_file):
         """Test that auto-generated ID works correctly."""
         result = DataLoader.load_csv(
+            name="test",
             file_path=minimal_csv_file,
             input_columns=["input"],
             output_columns=["output"],
@@ -262,6 +297,7 @@ test2,result2"""
     def test_load_csv_with_empty_optional_lists(self, minimal_csv_file):
         """Test loading with explicitly empty metadata and label columns."""
         result = DataLoader.load_csv(
+            name="test",
             file_path=minimal_csv_file,
             input_columns=["input"],
             output_columns=["output"],
@@ -282,7 +318,10 @@ test1,result1"""
         csv_file.write_text(csv_content)
 
         result = DataLoader.load_csv(
-            file_path=str(csv_file), input_columns=["input"], output_columns=["output"]
+            name="test",
+            file_path=str(csv_file),
+            input_columns=["input"],
+            output_columns=["output"],
         )
 
         assert isinstance(result, EvalData)

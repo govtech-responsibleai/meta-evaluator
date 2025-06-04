@@ -159,3 +159,32 @@ class DataFileError(DataException):
             message (str): The error message describing the file-related issue.
         """
         super().__init__(message)
+
+
+class InvalidNameError(DataException):
+    """Exception raised when the name of the dataset is empty."""
+
+    def __init__(self, name: str, message: str):
+        """Initializes the InvalidNameError.
+
+        This exception is raised when the name of the dataset is empty.
+        """
+        message = f"Dataset name {name} is invalid. {message}"
+        super().__init__(message)
+
+
+class NoDataLeftError(DataException):
+    """Exception raised when an operation results in no remaining data."""
+
+    def __init__(self, operation: str, original_size: int = 0):
+        """Initializes the NoDataLeftError.
+
+        Args:
+            operation (str): The operation that resulted in no data (e.g., "stratified sampling", "filtering").
+            original_size (int): The original number of rows before the operation. Defaults to 0.
+        """
+        if original_size > 0:
+            message = f"No data remaining after {operation} operation (started with {original_size} rows)."
+        else:
+            message = f"No data remaining after {operation} operation."
+        super().__init__(message)

@@ -20,6 +20,7 @@ class DataLoader:
     def load_csv(
         file_path: str,
         input_columns: list[str],
+        name: str,
         output_columns: list[str],
         id_column: Optional[str] = None,
         metadata_columns: list[str] = [],
@@ -40,6 +41,7 @@ class DataLoader:
             file_path: The path to the CSV file to load.
             input_columns: The list of column names corresponding to input data.
             output_columns: The list of column names corresponding to output data.
+            name: The name of the evaluation dataset.
             id_column: The name of the column containing unique identifiers for each
                 example. If not provided (or None), an ID column will be automatically
                 generated with row indices.
@@ -79,6 +81,7 @@ class DataLoader:
             output = EvalData(
                 data=data,
                 input_columns=input_columns,
+                name=name,
                 output_columns=output_columns,
                 id_column=id_column,
                 metadata_columns=metadata_columns,
