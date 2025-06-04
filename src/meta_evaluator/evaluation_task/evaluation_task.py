@@ -1,15 +1,94 @@
 """Main class for evaluation tasks."""
 
-from pydantic import BaseModel, Field
+from typing import Any, Callable, Literal
+from pydantic import BaseModel, Field, create_model, model_validator
 
 
 class EvaluationTask(BaseModel):
-    """Main class for evaluation tasks.
+    """Main class for evaluation tasks."""
 
-    Properties:
-        task_name: str. A name for the task
-        outcomes: list[str]. The outcomes of the task. Minimum of 2
-    """
+    task_schemas: dict[str, list[str] | None] = Field(
+        ...,
+        description="Dictionary mapping task names to their allowed outcome values. Use None for free form text outputs.",
+    )
+    input_columns: list[str] = Field(..., min_length=1)
+    output_columns: list[str] = Field(..., min_length=1)
+    skip_function: Callable[[dict[str, Any]], bool] = lambda x: False
+    answering_method: Literal["structured", "xml"]
 
-    task_name: str = Field(..., min_length=1)
-    outcomes: list[str] = Field(..., min_length=2)
+    @model_validator(mode="after")
+    def validate_task_configuration(self) -> "EvaluationTask":
+        """Validate task schemas configuration.
+
+        Returns:
+            EvaluationTask: The validated instance
+
+        Raises:
+            ValueError: If task_schemas is empty or any task has fewer than 2 outcomes
+        """
+        if not self.task_schemas:
+            raise ValueError("task_schemas cannot be empty")
+
+        for task_name, outcomes in self.task_schemas.items():
+            if outcomes is not None and len(outcomes) < 2:
+                raise ValueError(
+                    f"Task '{task_name}' must have at least 2 outcomes when using predefined outcomes"
+                )
+
+        return self
+
+    def get_task_names(self) -> list[str]:
+        """Get list of task names.
+
+        Returns:
+            list[str]: List of task names
+        """
+        return list(self.task_schemas.keys())
+
+    def get_all_outcomes(self) -> list[str]:
+        """Get all possible outcomes across all tasks.
+
+        Returns:
+            list[str]: Flattened list of all possible outcomes from tasks with predefined outcomes
+        """
+        all_outcomes = []
+        for outcomes in self.task_schemas.values():
+            if outcomes is not None:
+                all_outcomes.extend(outcomes)
+        return list(set(all_outcomes))  # Remove duplicates
+
+    def create_task_class(self) -> type[BaseModel]:
+        """Create a new evaluation task class with Literal outcomes for predefined tasks and str for free form tasks.
+
+        Returns:
+            type[BaseModel]: A new evaluation task class with appropriate field types.
+        """
+        model_fields: dict[str, Any] = {}
+
+        # Create one field per task
+        for task_name, outcomes in self.task_schemas.items():
+            if outcomes is None:
+                # Free form text output
+                model_fields[task_name] = (
+                    str,
+                    Field(
+                        ...,
+                        description=f"The free form text output for {task_name}",
+                    ),
+                )
+            else:
+                # Predefined outcomes using Literal
+                outcomes_literal = Literal[tuple(outcomes)]
+                model_fields[task_name] = (
+                    outcomes_literal,
+                    Field(
+                        ...,
+                        description=f"The outcome for {task_name}. Must be one of: {', '.join(outcomes)}",
+                    ),
+                )
+
+        DynamicTaskOutcome = create_model(
+            "MultiTaskOutcomeRecord", **model_fields, __base__=BaseModel
+        )
+
+        return DynamicTaskOutcome

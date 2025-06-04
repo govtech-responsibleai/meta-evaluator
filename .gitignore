@@ -9,3 +9,5 @@ wheels/
 # Virtual environments
 .venv
 .env
+node_modules/
+package-lock.json
