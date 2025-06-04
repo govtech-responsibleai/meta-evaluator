@@ -159,3 +159,15 @@ class DataFileError(DataException):
             message (str): The error message describing the file-related issue.
         """
         super().__init__(message)
+
+
+class InvalidNameError(DataException):
+    """Exception raised when the name of the dataset is empty."""
+
+    def __init__(self, name: str, message: str):
+        """Initializes the InvalidNameError.
+
+        This exception is raised when the name of the dataset is empty.
+        """
+        message = f"Dataset name {name} is invalid. {message}"
+        super().__init__(message)

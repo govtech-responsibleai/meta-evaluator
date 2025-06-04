@@ -20,6 +20,7 @@ from .exceptions import (
     DuplicateInIDColumnError,
     InvalidInIDColumnError,
     NullValuesInDataError,
+    InvalidNameError,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ class EvalData(BaseModel):
         id_column (Optional[str]): Column name containing unique identifiers for each
             evaluation example.  If not provided (defaults to None), an ID column will be automatically generated
             with row indices. After initialization, this will always contain the name of the ID column.
+        name (str): Name of the evaluation dataset.
         input_columns (list[str]): Column names containing input data for evaluation.
             These typically represent prompts, questions, or other stimuli sent to
             models being evaluated.
@@ -79,6 +81,7 @@ class EvalData(BaseModel):
     """
 
     data: pl.DataFrame
+    name: str
     id_column: Optional[str] = None
     input_columns: list[str]
     output_columns: list[str]
@@ -120,6 +123,41 @@ class EvalData(BaseModel):
             raise InvalidColumnNameError(
                 column_name,
                 "Column name must only contain letters, numbers, and underscores",
+            )
+
+        return
+
+    @staticmethod
+    def check_dataset_name(name: str) -> None:
+        """Validate a dataset name.
+
+        1. The dataset name must not be empty.
+        2. The dataset name must not be whitespace-only.
+        3. The dataset name must start with a letter or underscore.
+        4. The dataset name must only contain letters, numbers, and underscores.
+
+        Args:
+            name (str): The dataset name to validate.
+
+        Raises:
+            InvalidNameError: If the dataset name is invalid.
+        """
+        if len(name) == 0 or not name:
+            raise InvalidNameError(name, "Dataset name is empty")
+
+        if name.strip() == "":
+            raise InvalidNameError(name, "Dataset name contains only whitespace")
+
+        stripped_name = name.strip()
+        if not stripped_name[0].isalpha() and stripped_name[0] != "_":
+            raise InvalidNameError(
+                name, "Dataset name must start with a letter or underscore"
+            )
+
+        if any(not (char.isalnum() or char == "_") for char in stripped_name):
+            raise InvalidNameError(
+                name,
+                "Dataset name must only contain letters, numbers, and underscores",
             )
 
         return
@@ -218,6 +256,40 @@ class EvalData(BaseModel):
 
         if len(dataframe) == 0:
             raise EmptyDataFrameError()
+
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_dataset_name(cls, data: Any) -> Any:
+        """Validate the dataset name before the model is initialized.
+
+        This function is called before the model is initialized, and it checks the
+        given dataset name for the following conditions:
+
+        - The dataset name must not be empty.
+        - The dataset name must not be whitespace-only.
+        - The dataset name must start with a letter or underscore.
+        - The dataset name must only contain letters, numbers, and underscores.
+
+        Args:
+            data (dict): The data to validate.
+
+        Raises:
+            InvalidNameError: If the dataset name is invalid.
+
+        Returns:
+            dict: The validated data.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        name = data.get("name")
+        if name is not None:  # Allow Pydantic to handle None case
+            try:
+                cls.check_dataset_name(name)
+            except InvalidNameError:
+                raise  # For ruff's docstring checker
 
         return data
 
@@ -340,6 +412,7 @@ class EvalData(BaseModel):
             DuplicateInIDColumnError: If the ID column contains duplicate values.
             RuntimeError: If the ID column is not set at this point or if there is a bug in the automatic id setting pipeline.
             NullValuesInDataError: If any non-ID columns contain null values.
+
         """
         # Step 1: Ensure ID column is set
         if self.id_column is None:
