@@ -425,7 +425,7 @@ class TestLLMClient:
         messages_copy = valid_messages.copy()
 
         response = concrete_client._construct_llm_response(
-            raw_response, usage, messages_copy
+            raw_response, usage, messages_copy, concrete_client.config.default_model
         )
 
         assert isinstance(response, LLMResponse)

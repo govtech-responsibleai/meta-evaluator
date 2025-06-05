@@ -148,7 +148,7 @@ class LLMClient(ABC):
             raise LLMValidationError(_NO_PROMPTS_ERROR, self.enum_value)
 
     def _construct_llm_response(
-        self, new_response: str, usage: LLMUsage, messages: list[Message]
+        self, new_response: str, usage: LLMUsage, messages: list[Message], model: str
     ) -> LLMResponse:
         new_message = Message(role=RoleEnum.ASSISTANT, content=new_response)
         new_message_list = messages + [new_message]
@@ -223,7 +223,7 @@ class LLMClient(ABC):
             raw_text, usage = self._prompt(
                 model=model_used, messages=messages, get_logprobs=get_logprobs
             )
-            output = self._construct_llm_response(raw_text, usage, messages)
+            output = self._construct_llm_response(raw_text, usage, messages, model_used)
         except Exception as e:
             raise LLMAPIError(
                 _FAILED_RESPONSE_ERROR_TEMPLATE.format(self.enum_value),
@@ -684,7 +684,9 @@ class LLMClient(ABC):
             raw_text, usage = self._prompt(
                 model=model_used, messages=messages, get_logprobs=get_logprobs
             )
-            llm_response = self._construct_llm_response(raw_text, usage, messages)
+            llm_response = self._construct_llm_response(
+                raw_text, usage, messages, model_used
+            )
         except Exception as e:
             raise LLMAPIError(
                 _FAILED_RESPONSE_ERROR_TEMPLATE.format(self.enum_value),
