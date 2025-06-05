@@ -155,7 +155,7 @@ class LLMClient(ABC):
 
         return LLMResponse(
             provider=self.enum_value,
-            model=self.config.default_model,
+            model=model,
             messages=new_message_list,
             usage=usage,
         )
@@ -489,8 +489,10 @@ class LLMClient(ABC):
             # Step 3: Validate extracted values against allowed_values constraint
             if config.allowed_values is not None:
                 valid_values = []
+                allowed_values_lower = [v.lower() for v in config.allowed_values]
+
                 for value in raw_values:
-                    if value in config.allowed_values:
+                    if value in allowed_values_lower:
                         valid_values.append(value)
                     else:
                         # Record invalid value error but continue processing other values

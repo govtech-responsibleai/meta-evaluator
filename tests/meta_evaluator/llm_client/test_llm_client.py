@@ -298,9 +298,7 @@ class TestLLMClient:
         assert response.content == "Test response content from mock"
         assert response.usage.total_tokens == 30
         assert response.provider == concrete_client.enum_value
-        assert (
-            response.model == concrete_client.config.default_model
-        )  # Note: this uses default_model, not the explicit model
+        assert response.model == explicit_model
         assert len(response.messages) == 2
 
         mock__prompt.assert_called_once_with(
