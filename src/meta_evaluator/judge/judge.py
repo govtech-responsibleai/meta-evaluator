@@ -11,8 +11,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 import re
 import time
 from datetime import datetime
-import polars as pl
-from .models import JudgeResults, EvaluationStatusEnum
+from .models import JudgeResults, JudgeResultsConfig, JudgeResultsBuilder
 from ..data import EvalData, SampleEvalData
 from .exceptions import IncorrectClientError
 
@@ -92,14 +91,18 @@ class Judge(BaseModel):
         Returns:
             str: XML formatting instructions.
         """
-        return f"""
+        instructions = "\n\nPlease provide your evaluation results in XML format using the following tags:\n"
 
-Please provide your evaluation result in XML format using the following tag:
-<result_outcome>YOUR_ANSWER</result_outcome>
+        for task_name, outcomes in self.evaluation_task.task_schemas.items():
+            instructions += (
+                f"<{task_name}>YOUR_ANSWER_FOR_{task_name.upper()}</{task_name}>\n"
+            )
+            instructions += (
+                f"Valid values for {task_name} are: {', '.join(outcomes)}\n\n"
+            )
 
-Valid values for YOUR_ANSWER are: {", ".join(self.evaluation_task.outcomes)}
-
-You must choose exactly one of these values and place it within the result_outcome tags."""
+        instructions += "You must choose exactly one value for each task and place it within the appropriate tags."
+        return instructions
 
     def _create_system_message(self, include_xml_instructions: bool = False) -> Message:
         """Create the system message with evaluation instructions.
@@ -155,23 +158,20 @@ You must choose exactly one of these values and place it within the result_outco
         self,
         row: dict[str, Any],
         eval_data: EvalData,
-        run_id: str,
         sample_example_id: str,
         llm_client: LLMClient,
         task_class: type[BaseModel],
-    ) -> dict[str, Any]:
+        builder: JudgeResultsBuilder,
+    ) -> None:
         """Evaluate a single row using structured response method.
 
         Args:
             row: Row data from EvalData
             eval_data: The EvalData instance
-            run_id: Unique identifier for the evaluation run
             sample_example_id: Unique identifier for this sample
             llm_client: The LLMClient instance
             task_class: The dynamically created Pydantic model for responses
-
-        Returns:
-            dict[str, Any]: Result row dictionary ready for DataFrame
+            builder: The JudgeResultsBuilder instance
         """
         assert eval_data.id_column is not None, (
             f"EvalData {eval_data.name} has no ID column, but was expected to have one."
@@ -193,17 +193,68 @@ You must choose exactly one of these values and place it within the result_outco
             )
             call_duration = time.time() - start_time
 
-            # Extract outcome from structured response
+            # Extract outcomes from structured response for all tasks
             try:
-                outcome = structured_response.result_outcome  # type: ignore
-            except AttributeError as attr_error:
-                # This is a parsing error - structured response doesn't have expected attribute
-                return JudgeResults.create_parsing_error_row(
-                    task_name=self.evaluation_task.task_name,
+                outcomes = {}
+                missing_tasks = []
+
+                for task_name in self.evaluation_task.task_schemas.keys():
+                    try:
+                        outcome = getattr(structured_response, task_name)
+                        outcomes[task_name] = outcome
+                    except AttributeError:
+                        missing_tasks.append(task_name)
+
+                if missing_tasks:
+                    # Partial success - some tasks missing
+                    if outcomes:  # At least some tasks succeeded
+                        error_message = (
+                            f"Structured response missing tasks: {missing_tasks}"
+                        )
+                        builder.create_partial_row(
+                            sample_example_id=sample_example_id,
+                            original_id=row[eval_data.id_column],
+                            outcomes=outcomes,
+                            error_message=error_message,
+                            llm_raw_response=llm_response.content,
+                            prompt_tokens=llm_response.usage.prompt_tokens,
+                            completion_tokens=llm_response.usage.completion_tokens,
+                            total_tokens=llm_response.usage.total_tokens,
+                            call_duration=call_duration,
+                        )
+                    else:
+                        # Complete failure - no tasks found
+                        builder.create_parsing_error_row(
+                            sample_example_id=sample_example_id,
+                            original_id=row[eval_data.id_column],
+                            error=AttributeError(
+                                f"Structured response missing all tasks: {missing_tasks}"
+                            ),
+                            llm_raw_response=llm_response.content,
+                            prompt_tokens=llm_response.usage.prompt_tokens,
+                            completion_tokens=llm_response.usage.completion_tokens,
+                            total_tokens=llm_response.usage.total_tokens,
+                            call_duration=call_duration,
+                        )
+                else:
+                    # Perfect success - all tasks found
+                    builder.create_success_row(
+                        sample_example_id=sample_example_id,
+                        original_id=row[eval_data.id_column],
+                        outcomes=outcomes,
+                        llm_raw_response=llm_response.content,
+                        prompt_tokens=llm_response.usage.prompt_tokens,
+                        completion_tokens=llm_response.usage.completion_tokens,
+                        total_tokens=llm_response.usage.total_tokens,
+                        call_duration=call_duration,
+                    )
+                return
+
+            except Exception as attr_error:
+                # This is a parsing error - structured response doesn't have expected attributes
+                builder.create_parsing_error_row(
                     sample_example_id=sample_example_id,
                     original_id=row[eval_data.id_column],
-                    run_id=run_id,
-                    judge_id=self.id,
                     error=attr_error,
                     llm_raw_response=llm_response.content,
                     prompt_tokens=llm_response.usage.prompt_tokens,
@@ -211,41 +262,21 @@ You must choose exactly one of these values and place it within the result_outco
                     total_tokens=llm_response.usage.total_tokens,
                     call_duration=call_duration,
                 )
-
-            # Create success row
-            return JudgeResults.create_success_row(
-                task_name=self.evaluation_task.task_name,
-                sample_example_id=sample_example_id,
-                original_id=row[eval_data.id_column],
-                run_id=run_id,
-                judge_id=self.id,
-                outcome=outcome,
-                llm_raw_response=llm_response.content,
-                prompt_tokens=llm_response.usage.prompt_tokens,
-                completion_tokens=llm_response.usage.completion_tokens,
-                total_tokens=llm_response.usage.total_tokens,
-                call_duration=call_duration,
-            )
+                return
 
         except LLMAPIError as llm_error:
             # LLM API error
-            return JudgeResults.create_llm_error_row(
-                task_name=self.evaluation_task.task_name,
+            builder.create_llm_error_row(
                 sample_example_id=sample_example_id,
                 original_id=row[eval_data.id_column],
-                run_id=run_id,
-                judge_id=self.id,
                 error=llm_error,
             )
 
         except Exception as unexpected_error:
             # Any other unexpected error (e.g., message creation, network issues)
-            return JudgeResults.create_other_error_row(
-                task_name=self.evaluation_task.task_name,
+            builder.create_other_error_row(
                 sample_example_id=sample_example_id,
                 original_id=row[eval_data.id_column],
-                run_id=run_id,
-                judge_id=self.id,
                 error=unexpected_error,
             )
 
@@ -253,23 +284,20 @@ You must choose exactly one of these values and place it within the result_outco
         self,
         row: dict[str, Any],
         eval_data: EvalData,
-        run_id: str,
         sample_example_id: str,
         llm_client: LLMClient,
-        tag_config: TagConfig,
-    ) -> dict[str, Any]:
+        tag_configs: list[TagConfig],
+        builder: JudgeResultsBuilder,
+    ) -> None:
         """Evaluate a single row using XML tags method.
 
         Args:
             row: Row data from EvalData
             eval_data: The EvalData instance
-            run_id: Unique identifier for the evaluation run
             sample_example_id: Unique identifier for this sample
             llm_client: The LLMClient instance
-            tag_config: TagConfig for parsing XML response
-
-        Returns:
-            dict[str, Any]: Result row dictionary ready for DataFrame
+            tag_configs: List of TagConfigs for parsing XML response (one per task)
+            builder: The JudgeResultsBuilder instance
         """
         assert eval_data.id_column is not None, (
             f"EvalData {eval_data.name} has no ID column, but was expected to have one."
@@ -285,26 +313,49 @@ You must choose exactly one of these values and place it within the result_outco
             # Call LLM with XML tags
             start_time = time.time()
             parse_result, llm_response = llm_client.prompt_with_xml_tags(
-                messages=messages, tag_configs=[tag_config], model=self.model
+                messages=messages, tag_configs=tag_configs, model=self.model
             )
             call_duration = time.time() - start_time
 
-            # Check if parsing was successful
-            if parse_result.success and "result_outcome" in parse_result.data:
-                # Success case
-                outcome = parse_result.data["result_outcome"]
-                new_outcome = cast(
-                    str, outcome
-                )  # outcome should be a str at this point
-                # TagConfig cardinality="one" guarantees str, not list[str]
+            # Check parsing results - we need all tasks to succeed for a success row
+            task_names = set(self.evaluation_task.task_schemas.keys())
+            parsed_tasks = set(parse_result.data.keys())
 
-                return JudgeResults.create_success_row(
-                    task_name=self.evaluation_task.task_name,
+            if parse_result.success and parsed_tasks == task_names:
+                # Perfect success - all tasks parsed successfully
+                outcomes = {}
+                for task_name in task_names:
+                    outcome = parse_result.data[task_name]
+                    # TagConfig cardinality="one" guarantees str, not list[str]
+                    outcomes[task_name] = cast(str, outcome)
+
+                builder.create_success_row(
                     sample_example_id=sample_example_id,
                     original_id=row[eval_data.id_column],
-                    run_id=run_id,
-                    judge_id=self.id,
-                    outcome=new_outcome,
+                    outcomes=outcomes,
+                    llm_raw_response=llm_response.content,
+                    prompt_tokens=llm_response.usage.prompt_tokens,
+                    completion_tokens=llm_response.usage.completion_tokens,
+                    total_tokens=llm_response.usage.total_tokens,
+                    call_duration=call_duration,
+                )
+            elif (
+                parse_result.partial_success
+                and parsed_tasks.issubset(task_names)
+                and len(parsed_tasks) > 0
+            ):
+                # Partial success - some tasks parsed successfully
+                outcomes = {}
+                for task_name in parsed_tasks:
+                    outcome = parse_result.data[task_name]
+                    outcomes[task_name] = cast(str, outcome)
+
+                error_message = f"XML parsing partial success. Missing tasks: {task_names - parsed_tasks}. Errors: {[str(e) for e in parse_result.errors]}"
+                builder.create_partial_row(
+                    sample_example_id=sample_example_id,
+                    original_id=row[eval_data.id_column],
+                    outcomes=outcomes,
+                    error_message=error_message,
                     llm_raw_response=llm_response.content,
                     prompt_tokens=llm_response.usage.prompt_tokens,
                     completion_tokens=llm_response.usage.completion_tokens,
@@ -312,16 +363,11 @@ You must choose exactly one of these values and place it within the result_outco
                     call_duration=call_duration,
                 )
             else:
-                # Parsing failed
-                error_message = (
-                    f"XML parsing failed: {[str(e) for e in parse_result.errors]}"
-                )
-                return JudgeResults.create_parsing_error_row(
-                    task_name=self.evaluation_task.task_name,
+                # Complete parsing failure
+                error_message = f"XML parsing failed completely: {[str(e) for e in parse_result.errors]}"
+                builder.create_parsing_error_row(
                     sample_example_id=sample_example_id,
                     original_id=row[eval_data.id_column],
-                    run_id=run_id,
-                    judge_id=self.id,
                     error=ValueError(error_message),
                     llm_raw_response=llm_response.content,
                     prompt_tokens=llm_response.usage.prompt_tokens,
@@ -332,23 +378,17 @@ You must choose exactly one of these values and place it within the result_outco
 
         except LLMAPIError as llm_error:
             # LLM API error
-            return JudgeResults.create_llm_error_row(
-                task_name=self.evaluation_task.task_name,
+            builder.create_llm_error_row(
                 sample_example_id=sample_example_id,
                 original_id=row[eval_data.id_column],
-                run_id=run_id,
-                judge_id=self.id,
                 error=llm_error,
             )
 
         except Exception as unexpected_error:
             # Any other unexpected error (e.g., message creation, network issues)
-            return JudgeResults.create_other_error_row(
-                task_name=self.evaluation_task.task_name,
+            builder.create_other_error_row(
                 sample_example_id=sample_example_id,
                 original_id=row[eval_data.id_column],
-                run_id=run_id,
-                judge_id=self.id,
                 error=unexpected_error,
             )
 
@@ -379,29 +419,39 @@ You must choose exactly one of these values and place it within the result_outco
                 actual_client=llm_client.enum_value.value,
             )
 
-        # Initialize tracking variables
-        results = []
-        total_count = 0
-        skipped_count = 0
-        success_count = 0
-        llm_error_count = 0
-        parsing_error_count = 0
-        other_error_count = 0
+        # Create builder configuration and builder
+        expected_ids = eval_data.data[eval_data.id_column].to_list()
+        config = JudgeResultsConfig(
+            run_id=run_id,
+            judge_id=self.id,
+            task_schemas=self.evaluation_task.task_schemas,
+            llm_client_enum=self.llm_client_enum,
+            model_used=self.model,
+            timestamp_local=datetime.now(),
+            is_sampled_run=isinstance(eval_data, SampleEvalData),
+            expected_ids=expected_ids,
+        )
+        builder = JudgeResultsBuilder(config)
 
         # Pre-create models/configs once to avoid recreating in loop
         task_class: Optional[type[BaseModel]] = None
-        tag_config: Optional[TagConfig] = None
+        tag_configs: Optional[list[TagConfig]] = None
 
         if self.evaluation_task.answering_method == "structured":
             task_class = self.evaluation_task.create_task_class()
         elif self.evaluation_task.answering_method == "xml":
-            tag_config = TagConfig(
-                name="result_outcome",
-                allowed_values=self.evaluation_task.outcomes,
-                cardinality="one",
-            )
+            tag_configs = []
+            for task_name, outcomes in self.evaluation_task.task_schemas.items():
+                tag_configs.append(
+                    TagConfig(
+                        name=task_name,
+                        allowed_values=outcomes,
+                        cardinality="one",
+                    )
+                )
 
         # Process each row in the evaluation data
+        total_count = 0
         for row in self._get_dicts_as_generator(eval_data):
             total_count += 1
             sample_example_id = f"{run_id}_{total_count}"
@@ -412,86 +462,46 @@ You must choose exactly one of these values and place it within the result_outco
                     self.evaluation_task.skip_function
                     and self.evaluation_task.skip_function(row)
                 ):
-                    skipped_count += 1
-                    result_row = JudgeResults.create_skipped_row(
-                        task_name=self.evaluation_task.task_name,
+                    builder.create_skipped_row(
                         sample_example_id=sample_example_id,
                         original_id=row[eval_data.id_column],
-                        run_id=run_id,
-                        judge_id=self.id,
                     )
-                    results.append(result_row)
                     continue
 
                 # Evaluate the row based on answering method
                 if self.evaluation_task.answering_method == "structured":
                     assert task_class is not None, "task_class was to be set previously"
-                    result_row = self._evaluate_row_structured(
+                    self._evaluate_row_structured(
                         row=row,
                         eval_data=eval_data,
-                        run_id=run_id,
                         sample_example_id=sample_example_id,
                         llm_client=llm_client,
                         task_class=task_class,
+                        builder=builder,
                     )
                 else:  # xml
-                    assert tag_config is not None, "tag_config was to be set previously"
-                    result_row = self._evaluate_row_xml(
+                    assert tag_configs is not None, (
+                        "tag_configs was to be set previously"
+                    )
+                    self._evaluate_row_xml(
                         row=row,
                         eval_data=eval_data,
-                        run_id=run_id,
                         sample_example_id=sample_example_id,
                         llm_client=llm_client,
-                        tag_config=tag_config,
+                        tag_configs=tag_configs,
+                        builder=builder,
                     )
-
-                # Update counters based on result status
-                status = result_row["status"]
-                if status == EvaluationStatusEnum.SUCCESS.value:
-                    success_count += 1
-                elif status == EvaluationStatusEnum.LLM_ERROR.value:
-                    llm_error_count += 1
-                elif status == EvaluationStatusEnum.PARSING_ERROR.value:
-                    parsing_error_count += 1
-                elif status == EvaluationStatusEnum.OTHER_ERROR.value:
-                    other_error_count += 1
-
-                results.append(result_row)
 
             except Exception as unexpected_error:
                 # Handle errors that occur outside of the evaluation methods
                 # (e.g., skip function errors, row processing errors)
-                other_error_count += 1
-                result_row = JudgeResults.create_other_error_row(
-                    task_name=self.evaluation_task.task_name,
+                builder.create_other_error_row(
                     sample_example_id=sample_example_id,
                     original_id=row.get(
                         eval_data.id_column, "unknown"
                     ),  # Use .get() in case row access fails
-                    run_id=run_id,
-                    judge_id=self.id,
                     error=unexpected_error,
                 )
-                results.append(result_row)
 
-        # Create results DataFrame
-        results_df = pl.DataFrame(results)
-
-        # Create and return JudgeResults
-        return JudgeResults(
-            run_id=run_id,
-            judge_id=self.id,
-            task_name=self.evaluation_task.task_name,
-            task_outcomes=self.evaluation_task.outcomes,
-            llm_client_enum=self.llm_client_enum,
-            model_used=self.model,
-            timestamp_local=datetime.now(),
-            total_examples_count=total_count,
-            skipped_examples_count=skipped_count,
-            succeeded_examples_count=success_count,
-            llm_error_examples_count=llm_error_count,
-            parsing_error_examples_count=parsing_error_count,
-            other_error_examples_count=other_error_count,
-            is_sampled_run=isinstance(eval_data, SampleEvalData),
-            results_data=results_df,
-        )
+        # Complete the builder and return JudgeResults
+        return builder.complete()
