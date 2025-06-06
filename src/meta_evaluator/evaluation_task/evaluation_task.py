@@ -7,8 +7,9 @@ from pydantic import BaseModel, Field, create_model, model_validator
 class EvaluationTask(BaseModel):
     """Main class for evaluation tasks."""
 
-    task_schemas: dict[str, list[str]] = Field(
-        ..., description="Dictionary mapping task names to their allowed outcome values"
+    task_schemas: dict[str, list[str] | None] = Field(
+        ...,
+        description="Dictionary mapping task names to their allowed outcome values. Use None for free form text outputs.",
     )
     input_columns: list[str] = Field(..., min_length=1)
     output_columns: list[str] = Field(..., min_length=1)
@@ -29,8 +30,10 @@ class EvaluationTask(BaseModel):
             raise ValueError("task_schemas cannot be empty")
 
         for task_name, outcomes in self.task_schemas.items():
-            if len(outcomes) < 2:
-                raise ValueError(f"Task '{task_name}' must have at least 2 outcomes")
+            if outcomes is not None and len(outcomes) < 2:
+                raise ValueError(
+                    f"Task '{task_name}' must have at least 2 outcomes when using predefined outcomes"
+                )
 
         return self
 
@@ -46,31 +49,43 @@ class EvaluationTask(BaseModel):
         """Get all possible outcomes across all tasks.
 
         Returns:
-            list[str]: Flattened list of all possible outcomes
+            list[str]: Flattened list of all possible outcomes from tasks with predefined outcomes
         """
         all_outcomes = []
         for outcomes in self.task_schemas.values():
-            all_outcomes.extend(outcomes)
+            if outcomes is not None:
+                all_outcomes.extend(outcomes)
         return list(set(all_outcomes))  # Remove duplicates
 
     def create_task_class(self) -> type[BaseModel]:
-        """Create a new evaluation task class with Literal outcomes.
+        """Create a new evaluation task class with Literal outcomes for predefined tasks and str for free form tasks.
 
         Returns:
-            type[BaseModel]: A new evaluation task class with Literal outcomes.
+            type[BaseModel]: A new evaluation task class with appropriate field types.
         """
         model_fields: dict[str, Any] = {}
 
         # Create one field per task
         for task_name, outcomes in self.task_schemas.items():
-            outcomes_literal = Literal[tuple(outcomes)]
-            model_fields[task_name] = (
-                outcomes_literal,
-                Field(
-                    ...,
-                    description=f"The outcome for {task_name}. Must be one of: {', '.join(outcomes)}",
-                ),
-            )
+            if outcomes is None:
+                # Free form text output
+                model_fields[task_name] = (
+                    str,
+                    Field(
+                        ...,
+                        description=f"The free form text output for {task_name}",
+                    ),
+                )
+            else:
+                # Predefined outcomes using Literal
+                outcomes_literal = Literal[tuple(outcomes)]
+                model_fields[task_name] = (
+                    outcomes_literal,
+                    Field(
+                        ...,
+                        description=f"The outcome for {task_name}. Must be one of: {', '.join(outcomes)}",
+                    ),
+                )
 
         DynamicTaskOutcome = create_model(
             "MultiTaskOutcomeRecord", **model_fields, __base__=BaseModel

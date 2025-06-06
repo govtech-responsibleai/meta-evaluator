@@ -234,9 +234,9 @@ class JudgeResults(BaseModel):
     judge_id: str = Field(
         ..., description="ID of the Judge configuration used for this run."
     )
-    task_schema: dict[str, List[str]] = Field(
+    task_schema: dict[str, List[str] | None] = Field(
         ...,
-        description="Dictionary mapping task names to their allowed outcome values.",
+        description="Dictionary mapping task names to their allowed outcome values. Use None for free form text outputs.",
     )
     llm_client_enum: LLMClientEnum = Field(
         ..., description="The LLM client provider used for this run."
@@ -647,8 +647,9 @@ class JudgeResultsConfig(BaseModel):
     judge_id: str = Field(
         ..., description="ID of the Judge configuration used for this run"
     )
-    task_schemas: dict[str, List[str]] = Field(
-        ..., description="Dictionary mapping task names to their allowed outcome values"
+    task_schemas: dict[str, List[str] | None] = Field(
+        ...,
+        description="Dictionary mapping task names to their allowed outcome values. Use None for free form text outputs.",
     )
     llm_client_enum: LLMClientEnum = Field(
         ..., description="The LLM client provider used for this run"
@@ -731,8 +732,13 @@ class JudgeResultsBuilder:
         fields: dict[str, Any] = {}
 
         for task_name, outcomes in self.config.task_schemas.items():
-            literal_type = Literal[tuple(outcomes)]
-            fields[task_name] = (Optional[literal_type], None)
+            if outcomes is None:
+                # Free form text field
+                fields[task_name] = (Optional[str], None)
+            else:
+                # Predefined outcomes
+                literal_type = Literal[tuple(outcomes)]
+                fields[task_name] = (Optional[literal_type], None)
 
         output_class = create_model(
             "JudgeResultsRow",

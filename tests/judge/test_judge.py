@@ -1049,3 +1049,49 @@ class TestJudge:
             assert mock_builder.create_success_row.call_count == 0
             mock_builder.complete.assert_called_once()
             assert result == mock_results
+
+    def test_evaluation_task_free_form_outputs(self, basic_prompt):
+        """Test EvaluationTask with free form outputs."""
+        # Test mixed task schemas with both predefined and free form
+        task = EvaluationTask(
+            task_schemas={
+                "sentiment": ["positive", "negative", "neutral"],  # Predefined
+                "summary": None,  # Free form
+                "explanation": None,  # Free form
+            },
+            input_columns=["text"],
+            output_columns=["response"],
+            answering_method="structured",
+        )
+
+        judge = Judge(
+            id="free_form_judge",
+            evaluation_task=task,
+            llm_client_enum=LLMClientEnum.OPENAI,
+            model="gpt-4",
+            prompt=basic_prompt,
+        )
+
+        # Test task class creation
+        TaskClass = task.create_task_class()
+
+        # Test that we can create an instance with mixed field types
+        instance = TaskClass(
+            sentiment="positive",
+            summary="This is a free form summary",
+            explanation="This explains the sentiment",
+        )
+
+        # Use getattr for dynamically created attributes to avoid type checker issues
+        assert getattr(instance, "sentiment") == "positive"
+        assert getattr(instance, "summary") == "This is a free form summary"
+        assert getattr(instance, "explanation") == "This explains the sentiment"
+
+        # Test XML instructions include free form guidance
+        xml_instructions = judge._get_xml_instructions()
+        assert (
+            "Valid values for sentiment are: positive, negative, neutral"
+            in xml_instructions
+        )
+        assert "For summary, provide a free form text response" in xml_instructions
+        assert "For explanation, provide a free form text response" in xml_instructions

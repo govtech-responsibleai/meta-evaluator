@@ -97,11 +97,16 @@ class Judge(BaseModel):
             instructions += (
                 f"<{task_name}>YOUR_ANSWER_FOR_{task_name.upper()}</{task_name}>\n"
             )
-            instructions += (
-                f"Valid values for {task_name} are: {', '.join(outcomes)}\n\n"
-            )
+            if outcomes is None:
+                instructions += (
+                    f"For {task_name}, provide a free form text response.\n\n"
+                )
+            else:
+                instructions += (
+                    f"Valid values for {task_name} are: {', '.join(outcomes)}\n\n"
+                )
 
-        instructions += "You must choose exactly one value for each task and place it within the appropriate tags."
+        instructions += "For tasks with predefined values, you must choose exactly one value. For free form tasks, provide your response within the appropriate tags."
         return instructions
 
     def _create_system_message(self, include_xml_instructions: bool = False) -> Message:
