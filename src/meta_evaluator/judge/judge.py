@@ -1,6 +1,6 @@
 """Main class of judge module."""
 
-from typing import Any, cast
+from typing import Any, Optional, cast
 from ..evaluation_task import EvaluationTask
 from ..llm_client import LLMClientEnum, LLMClient
 from ..llm_client.models import Message, RoleEnum, TagConfig
@@ -63,7 +63,7 @@ class Judge(BaseModel):
     id: str
     model_config = ConfigDict(frozen=True)
     evaluation_task: EvaluationTask
-    llm_client: LLMClientEnum
+    llm_client_enum: LLMClientEnum
     model: str
     prompt: Prompt
 
@@ -373,9 +373,9 @@ You must choose exactly one of these values and place it within the result_outco
         )
 
         # Validate LLM client matches configuration
-        if llm_client.enum_value != self.llm_client:
+        if llm_client.enum_value != self.llm_client_enum:
             raise IncorrectClientError(
-                expected_client=self.llm_client.value,
+                expected_client=self.llm_client_enum.value,
                 actual_client=llm_client.enum_value.value,
             )
 
@@ -389,8 +389,8 @@ You must choose exactly one of these values and place it within the result_outco
         other_error_count = 0
 
         # Pre-create models/configs once to avoid recreating in loop
-        task_class = None
-        tag_config = None
+        task_class: Optional[type[BaseModel]] = None
+        tag_config: Optional[TagConfig] = None
 
         if self.evaluation_task.answering_method == "structured":
             task_class = self.evaluation_task.create_task_class()
@@ -483,7 +483,7 @@ You must choose exactly one of these values and place it within the result_outco
             judge_id=self.id,
             task_name=self.evaluation_task.task_name,
             task_outcomes=self.evaluation_task.outcomes,
-            llm_client_enum=self.llm_client,
+            llm_client_enum=self.llm_client_enum,
             model_used=self.model,
             timestamp_local=datetime.now(),
             total_examples_count=total_count,

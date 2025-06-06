@@ -85,7 +85,6 @@ class JudgeResults(BaseModel):
         - Enforces conditional null/non-null states for columns based on 'status'.
     """
 
-    # Schema definition: (column_name, type)
     run_id: str = Field(
         ..., description="Unique identifier for this specific evaluation run."
     )
@@ -433,7 +432,6 @@ class JudgeResults(BaseModel):
 
         Raises:
             ValueError: if validation fails
-            TypeError: if results_data is not a Polars DataFrame
         """
         # 1. Validate count consistency
         if self.total_examples_count != (
@@ -454,10 +452,6 @@ class JudgeResults(BaseModel):
                 Number of other error examples: {self.other_error_examples_count}
                 """
             )
-
-        # 2. Validate results_data DataFrame basic properties
-        if not isinstance(self.results_data, pl.DataFrame):
-            raise TypeError("results_data must be a Polars DataFrame.")
 
         if self.results_data.is_empty():
             raise ValueError("results_data DataFrame cannot be empty.")

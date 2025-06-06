@@ -185,7 +185,7 @@ class TestJudge:
         return Judge(
             id="test_structured_judge",
             evaluation_task=structured_evaluation_task,
-            llm_client=LLMClientEnum.OPENAI,
+            llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
             prompt=test_prompt,
         )
@@ -200,7 +200,7 @@ class TestJudge:
         return Judge(
             id="test_xml_judge",
             evaluation_task=xml_evaluation_task,
-            llm_client=LLMClientEnum.OPENAI,
+            llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
             prompt=test_prompt,
         )
@@ -215,7 +215,7 @@ class TestJudge:
         return Judge(
             id="test_skip_judge",
             evaluation_task=skip_evaluation_task,
-            llm_client=LLMClientEnum.OPENAI,
+            llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
             prompt=test_prompt,
         )
@@ -230,7 +230,7 @@ class TestJudge:
         return Judge(
             id="test_error_skip_judge",
             evaluation_task=error_skip_evaluation_task,
-            llm_client=LLMClientEnum.OPENAI,
+            llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
             prompt=test_prompt,
         )
@@ -245,7 +245,7 @@ class TestJudge:
             judge = Judge(
                 id=valid_id,
                 evaluation_task=structured_evaluation_task,
-                llm_client=LLMClientEnum.OPENAI,
+                llm_client_enum=LLMClientEnum.OPENAI,
                 model="gpt-4",
                 prompt=test_prompt,
             )
@@ -263,7 +263,7 @@ class TestJudge:
                 Judge(
                     id=invalid_id,
                     evaluation_task=structured_evaluation_task,
-                    llm_client=LLMClientEnum.OPENAI,
+                    llm_client_enum=LLMClientEnum.OPENAI,
                     model="gpt-4",
                     prompt=test_prompt,
                 )
