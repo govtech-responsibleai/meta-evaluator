@@ -11,8 +11,6 @@ import polars as pl
 from pydantic import BaseModel, PrivateAttr, model_validator
 import logging
 from .exceptions import (
-    ColumnNotFoundError,
-    DuplicateColumnError,
     EmptyDataFrameError,
     InvalidColumnNameError,
     EmptyColumnListError,
@@ -31,8 +29,7 @@ ID_COLUMN_NAME = "id"
 class EvalData(BaseModel):
     """Immutable container for evaluation data with strict column categorization and validation.
 
-    This class provides a structured interface for organizing evaluation datasets by categorizing
-    columns into semantic groups (inputs, outputs, metadata, human labels, uncategorized) while
+    This class provides a structured interface for organizing evaluation datasets while
     enforcing data integrity constraints. Once initialized, the container is immutable, ensuring
     thread-safe access and predictable behavior throughout evaluation workflows.
 
@@ -60,37 +57,11 @@ class EvalData(BaseModel):
             evaluation example.  If not provided (defaults to None), an ID column will be automatically generated
             with row indices. After initialization, this will always contain the name of the ID column.
         name (str): Name of the evaluation dataset.
-        input_columns (list[str]): Column names containing input data for evaluation.
-            These typically represent prompts, questions, or other stimuli sent to
-            models being evaluated.
-        output_columns (list[str]): Column names containing model outputs or responses.
-            These represent the generated content that will be evaluated for quality,
-            correctness, or other metrics.
-        metadata_columns (list[str]): Column names containing contextual information
-            about each evaluation example. May include identifiers, timestamps,
-            difficulty ratings, or other descriptive attributes.
-        human_label_columns (list[str]): Column names containing human-provided
-            ground truth labels, ratings, or annotations used as evaluation targets.
-
-    Column Categorization Rules:
-        - Every specified column must exist in the provided DataFrame
-        - No column name may appear more than once – either within a category list or across lists (strict uniqueness).
-        - At minimum, input_columns and output_columns must be non-empty
-        - metadata_columns and human_label_columns are optional and default to empty lists
-        - _uncategorized_columns is automatically computed and cannot be specified by users
-        - Column names are preserved exactly as provided (no normalization or transformation)
     """
 
     data: pl.DataFrame
     name: str
     id_column: Optional[str] = None
-    input_columns: list[str]
-    output_columns: list[str]
-    metadata_columns: list[str] = []
-    human_label_columns: list[str] = []
-    _uncategorized_columns: list[str] = PrivateAttr(
-        default_factory=list
-    )  # Computed during validation, not user-specified
     _initialized: bool = PrivateAttr(default=False)
     _user_set_id: bool = PrivateAttr(default=False)
 
@@ -165,68 +136,6 @@ class EvalData(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def validate_given_column_names(cls, data: Any) -> Any:
-        """Validate the given column names.
-
-        This function is called before the model is initialized, and it checks the
-        given column names for the following conditions:
-
-        - The column name must not be empty.
-        - The column name must start with a letter or underscore.
-        - The column name must only contain letters, numbers, and underscores.
-
-        If the column name is invalid, an InvalidColumnNameError is raised.
-
-        It only requires input and output columns to be non-empty.
-
-        Args:
-            data (dict): The data to validate.
-
-        Raises:
-            EmptyColumnListError: If any of the column lists are empty.
-            InvalidColumnNameError: If any of the column names are invalid.
-
-        Returns:
-            dict: The validated data.
-        """
-        if not isinstance(data, dict):
-            return data
-
-        input_columns = data.get("input_columns")
-        if not input_columns:
-            raise EmptyColumnListError("input")  # For ruff's docstring checker
-        for column_name in input_columns:
-            try:
-                cls.check_single_column_name(column_name)
-            except InvalidColumnNameError:
-                raise  # For ruff's docstring checker
-
-        output_columns = data.get("output_columns")
-        if not output_columns:
-            raise EmptyColumnListError("output")  # For ruff's docstring checker
-        for column_name in output_columns:
-            try:
-                cls.check_single_column_name(column_name)
-            except InvalidColumnNameError:
-                raise  # For ruff's docstring checker
-
-        metadata_columns = data.get("metadata_columns", [])
-        for column_name in metadata_columns:
-            try:
-                cls.check_single_column_name(column_name)
-            except InvalidColumnNameError:
-                raise  # For ruff's docstring checker
-
-        human_label_columns = data.get("human_label_columns", [])
-        for column_name in human_label_columns:
-            try:
-                cls.check_single_column_name(column_name)
-            except InvalidColumnNameError:
-                raise  # For ruff's docstring checker
-        return data
-
-    @model_validator(mode="before")
-    @classmethod
     def validate_dataframe(cls, data: Any) -> Any:
         """Validate the DataFrame before it is set in the model.
 
@@ -293,63 +202,6 @@ class EvalData(BaseModel):
                 raise  # For ruff's docstring checker
 
         return data
-
-    def _validate_data_integrity(self) -> "EvalData":
-        """Validate data integrity after all fields are set.
-
-        This method validates the data integrity in the following ways:
-
-        1. Checks if all specified columns are present in the DataFrame.
-        2. Checks if any column is specified more than once.
-        3. Computes uncategorized columns (i.e., columns present in the DataFrame
-            but not specified in any category).
-
-        Returns:
-            EvalData: The validated EvalData
-
-        Raises:
-            ColumnNotFoundError: If any of the specified columns are missing from the DataFrame.
-            DuplicateColumnError: If any column is specified more than once.
-
-        Note:
-            Error vs Logging:
-            - Missing or duplicate columns trigger exceptions, halting execution and requiring user intervention.
-            - Uncategorized columns are logged as warnings, indicating non-critical issues that may warrant attention.
-        """
-        all_specified_columns = (
-            self.input_columns
-            + self.output_columns
-            + self.metadata_columns
-            + self.human_label_columns
-            + ([self.id_column] if self.id_column else [])
-        )
-
-        missing_cols = set(all_specified_columns) - set(self.data.columns)
-        if missing_cols:
-            raise ColumnNotFoundError(list(missing_cols))
-
-        # 2. Check for duplicates across all categories
-        column_counts = {}
-        for col in all_specified_columns:
-            column_counts[col] = column_counts.get(col, 0) + 1
-
-        duplicates = {col: count for col, count in column_counts.items() if count > 1}
-        duplicates_list = list(duplicates.keys())
-        if duplicates:
-            raise DuplicateColumnError(duplicates_list)
-
-        # 3. Compute uncategorized columns
-        all_df_columns = set(self.data.columns)
-        categorized_columns = set(all_specified_columns)
-        uncategorized = list(all_df_columns - categorized_columns)
-
-        if uncategorized:
-            logger.warning(f"Uncategorized columns detected: {uncategorized}")
-
-        # 4. Set private attributes
-        self._uncategorized_columns = uncategorized
-
-        return self
 
     def _create_id_column_if_needed(self) -> "EvalData":
         """Create an ID column if none was provided by the user.
@@ -422,6 +274,9 @@ class EvalData(BaseModel):
             )
 
         # Step 2: ID column specific validation
+
+        # Validate ID column name format
+        self.check_single_column_name(self.id_column)
 
         # Check for nulls in ID column
         id_null_mask = self.data[self.id_column].is_null()
@@ -505,6 +360,10 @@ class EvalData(BaseModel):
         # Step 3: Validate all other columns
         non_id_columns = [col for col in self.data.columns if col != self.id_column]
 
+        # Validate all column names
+        for col in non_id_columns:
+            self.check_single_column_name(col)
+
         # Check for nulls in all non-ID columns
         null_issues = []
         for col in non_id_columns:
@@ -570,54 +429,13 @@ class EvalData(BaseModel):
         Returns:
             EvalData: The instance with all validation checks completed.
         """
-        # Step 1: Validate data integrity
-        self._validate_data_integrity()
-
-        # Step 2: Create ID column if needed
         self._create_id_column_if_needed()
 
-        # Step 3: Final validation checks
         self._final_validation_checks()
 
         self._initialized = True
 
         return self
-
-    @property
-    def input_data(self) -> pl.DataFrame:
-        """Extract input columns as a DataFrame."""
-        return self.data.select(self.input_columns)
-
-    @property
-    def output_data(self) -> pl.DataFrame:
-        """Extract output columns as a DataFrame."""
-        return self.data.select(self.output_columns)
-
-    @property
-    def metadata_data(self) -> pl.DataFrame:
-        """Extract metadata columns as a DataFrame."""
-        return self.data.select(self.metadata_columns)
-
-    @property
-    def human_label_data(self) -> pl.DataFrame:
-        """Extract human label columns as a DataFrame."""
-        return self.data.select(self.human_label_columns)
-
-    @property
-    def uncategorized_column_names(self) -> list[str]:
-        """Return the list of uncategorized column names."""
-        return self._uncategorized_columns
-
-    @property
-    def uncategorized_data(self) -> pl.DataFrame:
-        """Extract uncategorized columns as a DataFrame.
-
-        Returns an empty DataFrame if no uncategorized columns exist.
-        """
-        if not self._uncategorized_columns:
-            # Return empty DataFrame with same schema structure
-            return self.data.select([]).clear()
-        return self.data.select(self._uncategorized_columns)
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Override __setattr__ to prevent setting attributes after initialization.
@@ -631,26 +449,26 @@ class EvalData(BaseModel):
             )
         super().__setattr__(name, value)
 
-    def sample_by_metadata(
+    def stratified_sample_by_columns(
         self,
-        metadata_columns_sample: Optional[list[str]] = None,
+        columns: list[str],
         sample_percentage: float = 0.1,
         sample_name: Optional[str] = None,
         seed: int = 42,
     ) -> "SampleEvalData":
-        """Perform stratified sampling based on metadata columns.
+        """Perform stratified sampling based on specified columns.
 
         Creates a stratified sample by grouping data based on unique combinations
-        of metadata columns and sampling the specified percentage from each stratum.
-        This preserves the original distribution of metadata combinations in the sample.
+        of the specified columns and sampling the specified percentage from each stratum.
+        This preserves the original distribution of column combinations in the sample.
 
         Args:
-            metadata_columns_sample: List of metadata column names to use for stratification.
-                If None, uses all metadata columns. Must be a subset of self.metadata_columns.
+            columns: List of column names to use for stratification. Must be non-empty
+                and all columns must exist in the DataFrame.
             sample_percentage: Fraction of data to sample from each stratum (0.0 to 1.0).
-                Defaults to 0.1 (10% of each metadata combination group).
+                Defaults to 0.1 (10% of each column combination group).
             sample_name: Human-readable name for this sample. If None, auto-generated based
-                on focused columns and sample percentage.
+                on stratification columns and sample percentage.
             seed: Random seed for reproducible sampling. Defaults to 42. This ensures
                 identical sampling results when called with the same parameters.
 
@@ -659,9 +477,9 @@ class EvalData(BaseModel):
                 comprehensive sampling metadata attached.
 
         Raises:
-            ValueError: If sample_percentage is not between 0 and 1, or if
-                metadata_columns_sample contains invalid column names.
-            EmptyColumnListError: If no metadata columns are available for sampling.
+            ValueError: If sample_percentage is not between 0 and 1, or if any specified
+                columns don't exist in the DataFrame.
+            EmptyColumnListError: If columns list is empty.
             NoDataLeftError: If the sampling operation results in an empty dataset.
         """
         # Validate sample_percentage
@@ -670,32 +488,25 @@ class EvalData(BaseModel):
                 f"sample_percentage must be between 0 and 1, got {sample_percentage}"
             )
 
-        # Handle metadata columns
-        if metadata_columns_sample is None:
-            if not self.metadata_columns:
-                raise EmptyColumnListError(
-                    "metadata (no metadata columns available for sampling)"
-                )
-            metadata_columns_sample = self.metadata_columns.copy()
-        else:
-            # Validate that specified columns are actually metadata columns
-            invalid_cols = set(metadata_columns_sample) - set(self.metadata_columns)
-            if invalid_cols:
-                raise ValueError(
-                    f"metadata_columns_sample contains non-metadata columns: {list(invalid_cols)}"
-                )
+        # Validate columns parameter
+        if not columns:
+            raise EmptyColumnListError("columns list cannot be empty")
 
-            if not metadata_columns_sample:
-                raise ValueError("metadata_columns_sample cannot be an empty list")
+        # Validate that specified columns exist in the DataFrame
+        missing_cols = set(columns) - set(self.data.columns)
+        if missing_cols:
+            raise ValueError(
+                f"columns contains non-existent columns: {list(missing_cols)}"
+            )
 
         # Generate sample name if not provided
         if sample_name is None:
-            cols_str = "_".join(metadata_columns_sample)
+            cols_str = "_".join(columns)
             sample_name = f"Stratified Sample ({self.name}, {cols_str}, {sample_percentage * 100:.1f}%)"
 
         # Perform stratified sampling
-        # Partition by metadata columns and sample from each partition
-        partitioned = self.data.partition_by(metadata_columns_sample, as_dict=False)
+        # Partition by specified columns and sample from each partition
+        partitioned = self.data.partition_by(columns, as_dict=False)
         sampled_partitions = []
 
         for partition in partitioned:
@@ -721,25 +532,21 @@ class EvalData(BaseModel):
             data=sampled_df,
             name=self.name,  # Inherit the original dataset name
             id_column=self.id_column,
-            input_columns=self.input_columns,
-            output_columns=self.output_columns,
-            metadata_columns=self.metadata_columns,
-            human_label_columns=self.human_label_columns,
             sample_name=sample_name,
-            metadata_columns_focused=metadata_columns_sample,
+            stratification_columns=columns,
             sample_percentage=sample_percentage,
             seed=seed,
-            sampling_method="by_metadata_combination",
+            sampling_method="stratified_by_columns",
         )
 
 
 class SampleEvalData(EvalData):
-    """Immutable container for sampled evaluation data with metadata-based sampling information.
+    """Immutable container for sampled evaluation data with stratified sampling information.
 
     SampleEvalData extends EvalData to represent datasets that have been created through
-    the sample_by_metadata sampling process. It enriches the base EvalData functionality
+    the stratified_sample_by_columns sampling process. It enriches the base EvalData functionality
     with detailed metadata about the sampling operation, enabling full traceability,
-    reproducibility, and auditability of metadata-based sampling workflows.
+    reproducibility, and auditability of stratified sampling workflows.
 
     This class maintains all the core functionality of EvalData while adding sampling-specific
     context that is crucial for understanding how the sample relates to its source dataset
@@ -756,46 +563,34 @@ class SampleEvalData(EvalData):
     All of the following EvalData features are fully inherited and available:
 
     ### Data Organization & Validation:
-        - Strict column categorization (inputs, outputs, metadata, human labels, uncategorized)
         - Comprehensive data integrity validation with clear error messages
         - Automatic ID column generation if not provided
         - Immutability after initialization for thread safety
-        - Type-safe access to categorized data subsets
-
-    ### Column Categorization Rules (from EvalData):
-        - Every specified column must exist in the provided DataFrame
-        - No column name may appear more than once across all categories
-        - input_columns and output_columns must be non-empty
-        - metadata_columns and human_label_columns are optional
-        - Column names are preserved exactly as provided
 
     ### Inherited Properties:
         - data: Complete evaluation dataset as Polars DataFrame
         - name: Name/identifier of the evaluation dataset
         - id_column: Column containing unique identifiers for each row
-        - input_columns, output_columns, metadata_columns, human_label_columns: Column categorization
-        - input_data, output_data, metadata_data, human_label_data: Type-safe data access
-        - uncategorized_column_names, uncategorized_data: Access to uncategorized columns
 
     ## New SampleEvalData Attributes
 
     The following attributes are specific to SampleEvalData and provide comprehensive context
-    about the metadata-based sampling operation:
+    about the stratified sampling operation:
 
     Attributes:
         sample_name (str): Human-readable identifier for this specific sample.
             Used to distinguish between different samples from the same source dataset.
             Examples: "Balanced Topic Sample", "Difficulty Stratified 30%", "Q3 Data Sample"
 
-        metadata_columns_focused (list[str]): List of metadata column names that were used
+        stratification_columns (list[str]): List of column names that were used
             to define the unique combinations for stratified sampling. These columns determine
-            how the original data was grouped before sampling. Must be a subset of the parent
-            dataset's metadata_columns.
+            how the original data was grouped before sampling. Can be any valid columns
+            from the DataFrame.
             Examples: ["topic", "difficulty"], ["user_type"], ["region", "language"]
 
         sample_percentage (float): The exact percentage (as a float between 0.0 and 1.0)
-            of rows that were sampled from each metadata combination group. This ensures
-            proportional representation across all identified metadata categories.
+            of rows that were sampled from each stratification combination group. This ensures
+            proportional representation across all identified stratification categories.
             Examples: 0.5 (50%), 0.2 (20%), 0.75 (75%)
 
         seed (int): The random seed value used during the sampling process. This integer
@@ -804,8 +599,8 @@ class SampleEvalData(EvalData):
             Examples: 42, 12345, 999
 
         sampling_method (str): Programmatic identifier indicating the specific sampling
-            strategy used. Defaults to "by_metadata_combination" for samples created
-            through the sample_by_metadata method. This field enables filtering and
+            strategy used. Defaults to "stratified_by_columns" for samples created
+            through the stratified_sample_by_columns method. This field enables filtering and
             categorizing samples by their creation methodology.
 
     ## Sampling Metadata Design Philosophy
@@ -827,11 +622,11 @@ class SampleEvalData(EvalData):
 
     ## Usage Examples
 
-    Creating a SampleEvalData through sample_by_metadata:
+    Creating a SampleEvalData through stratified_sample_by_columns:
         ```python
         original = EvalData(...)
-        sample = original.sample_by_metadata(
-            metadata_columns_sample=["topic", "difficulty"],
+        sample = original.stratified_sample_by_columns(
+            columns=["topic", "difficulty"],
             sample_percentage=0.3,
             sample_name="Balanced Topic-Difficulty Sample",
             seed=42
@@ -843,7 +638,7 @@ class SampleEvalData(EvalData):
         ```python
         print(f"Sample: {sample.sample_name}")
         print(f"Strategy: {sample.sampling_method}")
-        print(f"Focused columns: {sample.metadata_columns_focused}")
+        print(f"Stratification columns: {sample.stratification_columns}")
         print(f"Percentage sampled: {sample.sample_percentage}")
         print(f"Seed: {sample.seed}")
         ```
@@ -856,13 +651,13 @@ class SampleEvalData(EvalData):
 
     ## Reproducibility
 
-    The combination of seed, metadata_columns_focused, and sample_percentage values
+    The combination of seed, stratification_columns, and sample_percentage values
     stored in SampleEvalData instances enables exact reproduction of sampling results:
 
         ```python
         # Reproduce the exact same sample
-        reproduced_sample = original.sample_by_metadata(
-            metadata_columns_sample=sample.metadata_columns_focused,
+        reproduced_sample = original.stratified_sample_by_columns(
+            columns=sample.stratification_columns,
             sample_percentage=sample.sample_percentage,
             seed=sample.seed
         )
@@ -884,10 +679,10 @@ class SampleEvalData(EvalData):
     """
 
     sample_name: str
-    metadata_columns_focused: list[str]
+    stratification_columns: list[str]
     sample_percentage: float
     seed: int
-    sampling_method: str = "by_metadata_combination"
+    sampling_method: str = "stratified_by_columns"
 
     @property
     def sampling_info(self) -> dict:
@@ -901,15 +696,15 @@ class SampleEvalData(EvalData):
             dict: Dictionary containing all sampling metadata with the following keys:
                 - sample_name (str): Human-readable sample identifier
                 - sampling_method (str): Sampling strategy used
-                - metadata_columns_focused (list[str]): Columns used for grouping
+                - stratification_columns (list[str]): Columns used for grouping
                 - sample_percentage (float): Percentage sampled from each group
                 - seed (int): Random seed for reproducibility
                 - sampled_rows (int): Total number of rows in this sample
 
         Example:
             ```python
-            sample = original.sample_by_metadata(
-                metadata_columns_sample=["topic"],
+            sample = original.stratified_sample_by_columns(
+                columns=["topic"],
                 sample_percentage=0.4,
                 sample_name="Topic Balanced Sample",
                 seed=123
@@ -917,14 +712,14 @@ class SampleEvalData(EvalData):
 
             info = sample.sampling_info
             print(f"Sample '{info['sample_name']}' contains {info['sampled_rows']} rows")
-            print(f"Created using {info['sample_percentage']:.1%} from each {info['metadata_columns_focused']} group")
+            print(f"Created using {info['sample_percentage']:.1%} from each {info['stratification_columns']} group")
             print(f"Reproducible with seed {info['seed']}")
             ```
         """
         return {
             "sample_name": self.sample_name,
             "sampling_method": self.sampling_method,
-            "metadata_columns_focused": self.metadata_columns_focused,
+            "stratification_columns": self.stratification_columns,
             "sample_percentage": self.sample_percentage,
             "seed": self.seed,
             "sampled_rows": len(self.data),

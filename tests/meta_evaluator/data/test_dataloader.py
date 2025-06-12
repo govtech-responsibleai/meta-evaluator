@@ -7,10 +7,11 @@ from pathlib import Path
 from meta_evaluator.data import DataLoader, EvalData
 from meta_evaluator.data.exceptions import (
     DataFileError,
-    ColumnNotFoundError,
-    DuplicateColumnError,
+    DuplicateInIDColumnError,
     EmptyDataFrameError,
+    IdColumnExistsError,
     InvalidNameError,
+    NullValuesInDataError,
 )
 
 
@@ -92,39 +93,26 @@ test2,result2"""
         result = DataLoader.load_csv(
             name="test",
             file_path=minimal_csv_file,
-            input_columns=["input"],
-            output_columns=["output"],
         )
 
         assert isinstance(result, EvalData)
-        assert result.input_columns == ["input"]
-        assert result.output_columns == ["output"]
         assert len(result.data) == 2
 
     def test_load_csv_full_features_success(self, valid_csv_file):
-        """Test successful loading with all column types."""
+        """Test successful loading with all features."""
         result = DataLoader.load_csv(
             name="test",
             file_path=valid_csv_file,
-            input_columns=["question"],
-            output_columns=["answer", "model_response"],
-            metadata_columns=["difficulty"],
-            label_columns=["rating"],
         )
 
         assert isinstance(result, EvalData)
-        assert result.input_columns == ["question"]
-        assert result.output_columns == ["answer", "model_response"]
-        assert result.metadata_columns == ["difficulty"]
-        assert result.human_label_columns == ["rating"]
+        assert len(result.data) == 2
 
     def test_load_csv_with_user_id_column(self, valid_csv_file):
         """Test successful loading with user-provided ID column."""
         result = DataLoader.load_csv(
             name="test",
             file_path=valid_csv_file,
-            input_columns=["question"],
-            output_columns=["answer"],
             id_column="difficulty",  # Now has unique values: "easy", "medium"
         )
 
@@ -138,8 +126,6 @@ test2,result2"""
             DataLoader.load_csv(
                 name="test",
                 file_path="nonexistent_file.csv",
-                input_columns=["input"],
-                output_columns=["output"],
             )
 
     def test_load_csv_path_is_directory(self, tmp_path):
@@ -151,8 +137,6 @@ test2,result2"""
             DataLoader.load_csv(
                 name="test",
                 file_path=str(directory),
-                input_columns=["input"],
-                output_columns=["output"],
             )
 
     def test_load_csv_no_read_permission(self, minimal_csv_file):
@@ -165,8 +149,6 @@ test2,result2"""
                 DataLoader.load_csv(
                     name="test",
                     file_path=minimal_csv_file,
-                    input_columns=["input"],
-                    output_columns=["output"],
                 )
         finally:
             # Restore permissions for cleanup
@@ -180,8 +162,6 @@ test2,result2"""
             DataLoader.load_csv(
                 name="test",
                 file_path=empty_csv_file,
-                input_columns=["input"],
-                output_columns=["output"],
             )
 
     def test_load_csv_malformed_quotes(self, malformed_quotes_csv):
@@ -190,31 +170,9 @@ test2,result2"""
             DataLoader.load_csv(
                 name="test",
                 file_path=malformed_quotes_csv,
-                input_columns=["input"],
-                output_columns=["output"],
             )
 
     # === EVALDATA INTEGRATION TESTS ===
-
-    def test_load_csv_missing_specified_columns(self, minimal_csv_file):
-        """Test that EvalData validation errors bubble up unchanged."""
-        with pytest.raises(ColumnNotFoundError):  # Not wrapped in DataFileError
-            DataLoader.load_csv(
-                name="test",
-                file_path=minimal_csv_file,
-                input_columns=["nonexistent_column"],
-                output_columns=["output"],
-            )
-
-    def test_load_csv_duplicate_column_specification(self, minimal_csv_file):
-        """Test EvalData duplicate column error bubbles up."""
-        with pytest.raises(DuplicateColumnError):  # Not wrapped in DataFileError
-            DataLoader.load_csv(
-                name="test",
-                file_path=minimal_csv_file,
-                input_columns=["input"],
-                output_columns=["input"],  # Duplicate
-            )
 
     def test_load_csv_headers_only_creates_empty_evaldata(self, headers_only_csv_file):
         """Test headers-only CSV creates empty EvalData (triggers EmptyDataFrameError)."""
@@ -222,8 +180,6 @@ test2,result2"""
             DataLoader.load_csv(
                 name="test",
                 file_path=headers_only_csv_file,
-                input_columns=["input"],
-                output_columns=["output"],
             )
 
     def test_load_csv_empty_name_error(self, minimal_csv_file):
@@ -232,8 +188,6 @@ test2,result2"""
             DataLoader.load_csv(
                 name="",  # Empty name should trigger InvalidNameError
                 file_path=minimal_csv_file,
-                input_columns=["input"],
-                output_columns=["output"],
             )
 
     def test_load_csv_whitespace_only_name_error(self, minimal_csv_file):
@@ -242,8 +196,53 @@ test2,result2"""
             DataLoader.load_csv(
                 name="   ",
                 file_path=minimal_csv_file,
-                input_columns=["input"],
-                output_columns=["output"],
+            )
+
+    def test_load_csv_id_column_exists_conflict_error(self, tmp_path):
+        """Test that EvalData validation errors bubble up unchanged when auto-generated ID column conflicts."""
+        # Create CSV that already has an 'id' column
+        csv_content = """id,input,output
+existing1,test1,result1
+existing2,test2,result2"""
+        csv_file = tmp_path / "id_conflict.csv"
+        csv_file.write_text(csv_content)
+
+        with pytest.raises(IdColumnExistsError):  # Not wrapped in DataFileError
+            DataLoader.load_csv(
+                name="test",
+                file_path=str(csv_file),
+                # No id_column specified, will try to auto-generate "id" but it already exists
+            )
+
+    def test_load_csv_id_column_with_duplicates_error(self, tmp_path):
+        """Test that EvalData ID column validation errors bubble up unchanged."""
+        # Create CSV with duplicate values in a column
+        csv_content = """custom_id,input,output
+id1,test1,result1
+id1,test2,result2"""
+        csv_file = tmp_path / "duplicate_id.csv"
+        csv_file.write_text(csv_content)
+
+        with pytest.raises(DuplicateInIDColumnError):  # Not wrapped in DataFileError
+            DataLoader.load_csv(
+                name="test",
+                file_path=str(csv_file),
+                id_column="custom_id",  # Column with duplicate values
+            )
+
+    def test_load_csv_null_values_in_data_error(self, tmp_path):
+        """Test that EvalData data integrity validation errors bubble up unchanged."""
+        # Create CSV with null values (empty cells)
+        csv_content = """input,output
+test1,result1
+,result2"""  # Empty input field creates null
+        csv_file = tmp_path / "null_data.csv"
+        csv_file.write_text(csv_content)
+
+        with pytest.raises(NullValuesInDataError):  # Not wrapped in DataFileError
+            DataLoader.load_csv(
+                name="test",
+                file_path=str(csv_file),
             )
 
     # === EDGE CASE TESTS ===
@@ -260,8 +259,6 @@ test2,result2"""
             result = DataLoader.load_csv(
                 name="test",
                 file_path=relative_path,
-                input_columns=["input"],
-                output_columns=["output"],
             )
             assert isinstance(result, EvalData)
         finally:
@@ -273,8 +270,6 @@ test2,result2"""
         result = DataLoader.load_csv(
             name="test",
             file_path=str(absolute_path),
-            input_columns=["input"],
-            output_columns=["output"],
         )
         assert isinstance(result, EvalData)
 
@@ -285,8 +280,6 @@ test2,result2"""
         result = DataLoader.load_csv(
             name="test",
             file_path=minimal_csv_file,
-            input_columns=["input"],
-            output_columns=["output"],
             # No id_column specified, should auto-generate
         )
 
@@ -294,20 +287,14 @@ test2,result2"""
         assert "id" in result.data.columns
         assert result.data["id"].to_list() == ["id-1", "id-2"]
 
-    def test_load_csv_with_empty_optional_lists(self, minimal_csv_file):
-        """Test loading with explicitly empty metadata and label columns."""
+    def test_load_csv_with_minimal_data(self, minimal_csv_file):
+        """Test loading with minimal data."""
         result = DataLoader.load_csv(
             name="test",
             file_path=minimal_csv_file,
-            input_columns=["input"],
-            output_columns=["output"],
-            metadata_columns=[],  # Explicitly empty
-            label_columns=[],  # Explicitly empty
         )
 
-        assert result.metadata_columns == []
-        assert result.human_label_columns == []
-        assert len(result.uncategorized_column_names) == 0  # All columns categorized
+        assert len(result.data.columns) == 3  # input, output, and auto-generated id
 
     def test_load_csv_file_with_special_characters_in_path(self, tmp_path):
         """Test loading file with special characters in path."""
@@ -320,8 +307,6 @@ test1,result1"""
         result = DataLoader.load_csv(
             name="test",
             file_path=str(csv_file),
-            input_columns=["input"],
-            output_columns=["output"],
         )
 
         assert isinstance(result, EvalData)

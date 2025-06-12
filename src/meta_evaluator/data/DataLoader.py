@@ -19,19 +19,13 @@ class DataLoader:
     @staticmethod
     def load_csv(
         file_path: str,
-        input_columns: list[str],
         name: str,
-        output_columns: list[str],
         id_column: Optional[str] = None,
-        metadata_columns: list[str] = [],
-        label_columns: list[str] = [],
     ) -> EvalData:
         """Load a CSV file and return an EvalData object.
 
-        Loads data from a given CSV file and returns an EvalData object with the
-        specified columns categorized into input, output, metadata, and human
-        labels. The EvalData object is immutable and enforces strict column
-        categorization and validation.
+        Loads data from a given CSV file and returns an EvalData object. The EvalData
+        object is immutable and enforces strict data validation.
 
         Performs upfront validation of file existence and permissions before
         attempting to parse the CSV. All file-related errors are wrapped in
@@ -39,18 +33,13 @@ class DataLoader:
 
         Args:
             file_path: The path to the CSV file to load.
-            input_columns: The list of column names corresponding to input data.
-            output_columns: The list of column names corresponding to output data.
             name: The name of the evaluation dataset.
             id_column: The name of the column containing unique identifiers for each
                 example. If not provided (or None), an ID column will be automatically
                 generated with row indices.
-            metadata_columns: The list of column names containing metadata.
-            label_columns: The list of column names containing human labels.
 
         Returns:
-            EvalData: An immutable container with categorized columns and strict
-                validation.
+            EvalData: An immutable container with strict validation.
 
         Raises:
             DataFileError: If there are file-related issues (file not found,
@@ -80,12 +69,8 @@ class DataLoader:
         try:
             output = EvalData(
                 data=data,
-                input_columns=input_columns,
                 name=name,
-                output_columns=output_columns,
                 id_column=id_column,
-                metadata_columns=metadata_columns,
-                human_label_columns=label_columns,
             )
         except DataException:
             # Re-raise DataExceptions from EvalData validation unchanged
