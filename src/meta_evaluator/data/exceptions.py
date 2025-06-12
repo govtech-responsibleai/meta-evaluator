@@ -72,21 +72,6 @@ class ColumnNotFoundError(DataException):
         super().__init__(message)
 
 
-class DuplicateColumnError(DataException):
-    """Exception raised when a column is found multiple times in the dataset."""
-
-    def __init__(self, column_names: Union[str, list[str]]):
-        """Initializes the DuplicateColumnError.
-
-        Args:
-            column_names (Union[str, list[str]]): The name of the column or list of column names.
-        """
-        if isinstance(column_names, str):
-            column_names = [column_names]
-        message = f"Column(s) {column_names} found multiple times in dataset."
-        super().__init__(message)
-
-
 class InvalidInIDColumnError(DataException):
     """Exception raised when the ID column contains invalid values."""
 

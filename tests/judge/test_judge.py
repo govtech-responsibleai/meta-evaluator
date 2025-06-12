@@ -133,8 +133,6 @@ class TestJudge:
             name="test_data",
             data=df,
             id_column="id",
-            input_columns=["text"],
-            output_columns=["response"],
         )
 
     @pytest.fixture
@@ -155,11 +153,9 @@ class TestJudge:
             name="test_sample",
             data=df,
             id_column="id",
-            input_columns=["text"],
-            output_columns=["response"],
             sample_name="test_sample",
-            metadata_columns_focused=[],
-            sample_percentage=100.0,
+            stratification_columns=[],
+            sample_percentage=1.0,
             seed=42,
         )
 
@@ -1028,8 +1024,6 @@ class TestJudge:
             name="test",
             data=df,
             id_column="id",
-            input_columns=["text"],
-            output_columns=["response"],
         )
 
         with patch(
