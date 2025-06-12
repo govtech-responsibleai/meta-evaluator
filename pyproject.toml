@@ -38,3 +38,8 @@ extend-select = ["D", "DOC"]
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (may be slow or require external services)"
+]
+

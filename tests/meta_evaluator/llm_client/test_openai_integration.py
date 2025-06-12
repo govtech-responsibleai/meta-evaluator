@@ -8,6 +8,7 @@ Tests will be skipped if this environment variable is not set.
 """
 
 import os
+import warnings
 import pytest
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -36,10 +37,7 @@ class PersonInfo(BaseModel):
     occupation: str
 
 
-@pytest.mark.skipif(
-    not OPENAI_CREDENTIALS_AVAILABLE,
-    reason="OpenAI API key not available in environment variables",
-)
+@pytest.mark.integration
 class TestOpenAIClientIntegration:
     """Integration test suite for the OpenAIClient class.
 
@@ -51,9 +49,19 @@ class TestOpenAIClientIntegration:
     def openai_config(self) -> OpenAIConfig:
         """Provide a valid OpenAIConfig instance from environment variables.
 
+        Warns and skips if OpenAI credentials are not available.
+
         Returns:
             OpenAIConfig: A valid configuration instance for creating test clients.
         """
+        if not OPENAI_CREDENTIALS_AVAILABLE:
+            warnings.warn(
+                "OpenAI API key not available in environment variables. "
+                "Integration tests will be skipped.",
+                UserWarning,
+                stacklevel=2,
+            )
+            pytest.skip("OpenAI API key not available in environment variables")
         assert OPENAI_API_KEY is not None
         return OpenAIConfig(
             api_key=OPENAI_API_KEY,

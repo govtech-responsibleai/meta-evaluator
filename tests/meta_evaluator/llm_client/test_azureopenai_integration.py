@@ -10,6 +10,7 @@ Tests will be skipped if these environment variables are not set.
 """
 
 import os
+import warnings
 import pytest
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -44,10 +45,7 @@ class PersonInfo(BaseModel):
     occupation: str
 
 
-@pytest.mark.skipif(
-    not AZURE_CREDENTIALS_AVAILABLE,
-    reason="Azure OpenAI credentials not available in environment variables",
-)
+@pytest.mark.integration
 class TestAzureOpenAIClientIntegration:
     """Integration test suite for the AzureOpenAIClient class.
 
@@ -59,9 +57,21 @@ class TestAzureOpenAIClientIntegration:
     def azure_config(self) -> AzureOpenAIConfig:
         """Provide a valid AzureOpenAIConfig instance from environment variables.
 
+        Warns and skips if Azure OpenAI credentials are not available.
+
         Returns:
             AzureOpenAIConfig: A valid configuration instance for creating test clients.
         """
+        if not AZURE_CREDENTIALS_AVAILABLE:
+            warnings.warn(
+                "Azure OpenAI credentials not available in environment variables. "
+                "Integration tests will be skipped.",
+                UserWarning,
+                stacklevel=2,
+            )
+            pytest.skip(
+                "Azure OpenAI credentials not available in environment variables"
+            )
         assert AZURE_OPENAI_API_KEY is not None
         assert AZURE_OPENAI_ENDPOINT is not None
         assert AZURE_OPENAI_VERSION is not None
