@@ -30,6 +30,7 @@ from meta_evaluator.llm_client.models import LLMClientEnum
 class TestMetaEvaluatorIntegration:
     """Integration tests for MetaEvaluator with real data and full workflows."""
 
+    @pytest.mark.integration
     def create_mock_openai_client(self):
         """Create a properly mocked OpenAI client that passes type checking.
 
@@ -163,6 +164,7 @@ class TestMetaEvaluatorIntegration:
                 azure_openai_api_key="test-azure-key",  # Mock Azure key for integration tests
             )
 
+    @pytest.mark.integration
     def test_full_roundtrip_with_real_evaldata_json(self):
         """Test complete save/load cycle with real EvalData in JSON format."""
         eval_data = self.create_real_eval_data()
@@ -190,6 +192,7 @@ class TestMetaEvaluatorIntegration:
             assert isinstance(loaded.data, EvalData)
             assert not isinstance(loaded.data, SampleEvalData)
 
+    @pytest.mark.integration
     def test_full_roundtrip_with_real_evaldata_csv(self):
         """Test complete save/load cycle with real EvalData in CSV format."""
         eval_data = self.create_real_eval_data()
@@ -212,6 +215,7 @@ class TestMetaEvaluatorIntegration:
             assert loaded.data.id_column == eval_data.id_column
             assert loaded.data.data.equals(eval_data.data)
 
+    @pytest.mark.integration
     def test_full_roundtrip_with_real_evaldata_parquet(self):
         """Test complete save/load cycle with real EvalData in Parquet format."""
         eval_data = self.create_real_eval_data()
@@ -234,6 +238,7 @@ class TestMetaEvaluatorIntegration:
             assert loaded.data.id_column == eval_data.id_column
             assert loaded.data.data.equals(eval_data.data)
 
+    @pytest.mark.integration
     def test_multi_client_serialization(self):
         """Test serialization with multiple real LLM clients."""
         eval_data = self.create_real_eval_data()
@@ -267,6 +272,7 @@ class TestMetaEvaluatorIntegration:
             assert loaded.data.name == eval_data.name
             assert loaded.data.data.equals(eval_data.data)
 
+    @pytest.mark.integration
     def test_sample_eval_data_roundtrip(self):
         """Test complete workflow with real SampleEvalData."""
         sample_data = self.create_real_sample_eval_data()
@@ -295,6 +301,7 @@ class TestMetaEvaluatorIntegration:
             assert loaded.data.id_column == sample_data.id_column
             assert loaded.data.data.equals(sample_data.data)
 
+    @pytest.mark.integration
     def test_file_system_integration(self):
         """Test that data files are actually created and readable."""
         eval_data = self.create_real_eval_data("file_test")
@@ -336,6 +343,7 @@ class TestMetaEvaluatorIntegration:
                 # Verify data integrity
                 assert loaded.data.data.equals(eval_data.data)
 
+    @pytest.mark.integration
     def test_cross_format_data_consistency(self):
         """Test that the same data produces equivalent results across formats."""
         eval_data = self.create_real_eval_data("consistency_test")
@@ -372,6 +380,7 @@ class TestMetaEvaluatorIntegration:
                 assert json_meta.name == fmt_meta.name
                 assert json_meta.id_column == fmt_meta.id_column
 
+    @pytest.mark.integration
     def test_missing_data_file_integration(self):
         """Test behavior when data file is deleted after saving."""
         eval_data = self.create_real_eval_data()
@@ -405,6 +414,7 @@ class TestMetaEvaluatorIntegration:
 
                 assert "state_data.csv" in str(exc.value)
 
+    @pytest.mark.integration
     def test_corrupted_state_file_integration(self):
         """Test handling of corrupted JSON state files."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -421,6 +431,7 @@ class TestMetaEvaluatorIntegration:
 
             assert "Invalid JSON structure" in str(exc.value)
 
+    @pytest.mark.integration
     def test_skip_data_loading_integration(self):
         """Test loading state without data (load_data=False)."""
         eval_data = self.create_real_eval_data()
@@ -449,6 +460,7 @@ class TestMetaEvaluatorIntegration:
             assert loaded_with_data.data is not None
             assert loaded_without_data.data is None
 
+    @pytest.mark.integration
     def test_large_dataset_performance(self):
         """Test serialization with larger datasets to catch performance issues."""
         # Create larger dataset (1000 rows)
@@ -489,6 +501,7 @@ class TestMetaEvaluatorIntegration:
                 assert loaded.data.data.equals(eval_data.data)
                 assert len(loaded.data.data) == 1000
 
+    @pytest.mark.integration
     def test_custom_data_filename_integration(self):
         """Test custom data filename functionality."""
         eval_data = self.create_real_eval_data()

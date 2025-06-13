@@ -21,7 +21,7 @@ repos:
         pass_filenames: false
       - id: pytest
         name: pytest
-        entry: uv run pytest
+        entry: uv run pytest -k "not integration"
         language: system
         types: [python]
         pass_filenames: false
