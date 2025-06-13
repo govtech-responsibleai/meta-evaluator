@@ -324,6 +324,14 @@ class MetaEvaluator:
         serialized_state = client.config.serialize()
         return serialized_state.model_dump(mode="json")
 
+    def get_client_list(self) -> list[tuple[LLMClientEnum, LLMClient]]:
+        """Get a list of client tuples (type, client).
+
+        Returns:
+            List of client tuples.
+        """
+        return list(self.client_registry.items())
+
     def _serialize_data(
         self,
         include_data: bool,
