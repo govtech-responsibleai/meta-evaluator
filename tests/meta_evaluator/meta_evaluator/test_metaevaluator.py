@@ -1685,9 +1685,9 @@ class TestMetaEvaluator:
 
         assert state_data["version"] == "1.0"
 
-    # === load_from_json() Method Tests ===
+    # === load_state() Method Tests ===
 
-    def test_load_from_json_with_openai_client(self, tmp_path, openai_environment):
+    def test_load_state_with_openai_client(self, tmp_path, openai_environment):
         """Test loading MetaEvaluator with OpenAI client from JSON."""
         # First save a state with OpenAI client
         with patch(
@@ -1726,7 +1726,7 @@ class TestMetaEvaluator:
             original_evaluator.save_state(str(state_file), include_data=False)
 
             # Load from JSON (provide API key for reconstruction)
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file), load_data=False, openai_api_key="test-api-key"
             )
 
@@ -1734,7 +1734,7 @@ class TestMetaEvaluator:
             assert LLMClientEnum.OPENAI in loaded_evaluator.client_registry
             assert loaded_evaluator.data is None
 
-    def test_load_from_json_with_azure_openai_client(
+    def test_load_state_with_azure_openai_client(
         self, tmp_path, azure_openai_environment
     ):
         """Test loading MetaEvaluator with Azure OpenAI client from JSON."""
@@ -1780,7 +1780,7 @@ class TestMetaEvaluator:
             original_evaluator.save_state(str(state_file), include_data=False)
 
             # Load from JSON (provide API key for reconstruction)
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file), load_data=False, azure_openai_api_key="test-api-key"
             )
 
@@ -1788,7 +1788,7 @@ class TestMetaEvaluator:
             assert LLMClientEnum.AZURE_OPENAI in loaded_evaluator.client_registry
             assert loaded_evaluator.data is None
 
-    def test_load_from_json_with_eval_data_json_format(
+    def test_load_state_with_eval_data_json_format(
         self, tmp_path, sample_eval_data, openai_environment
     ):
         """Test loading MetaEvaluator with EvalData in JSON format."""
@@ -1831,7 +1831,7 @@ class TestMetaEvaluator:
             )
 
             # Load from JSON
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file), load_data=True, openai_api_key="test-api-key"
             )
 
@@ -1841,7 +1841,7 @@ class TestMetaEvaluator:
             assert loaded_evaluator.data.id_column == sample_eval_data.id_column
             assert isinstance(loaded_evaluator.data, EvalData)
 
-    def test_load_from_json_with_sample_eval_data_csv_format(
+    def test_load_state_with_sample_eval_data_csv_format(
         self, tmp_path, mock_sample_eval_data, openai_environment
     ):
         """Test loading MetaEvaluator with SampleEvalData in CSV format."""
@@ -1888,7 +1888,7 @@ class TestMetaEvaluator:
             assert data_file.exists()
 
             # Load from JSON
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file), load_data=True, openai_api_key="test-api-key"
             )
 
@@ -1912,7 +1912,7 @@ class TestMetaEvaluator:
                 == mock_sample_eval_data.sampling_method
             )
 
-    def test_load_from_json_skip_data_loading(
+    def test_load_state_skip_data_loading(
         self, tmp_path, sample_eval_data, openai_environment
     ):
         """Test loading MetaEvaluator while skipping data loading."""
@@ -1955,7 +1955,7 @@ class TestMetaEvaluator:
             )
 
             # Load from JSON without data
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file), load_data=False, openai_api_key="test-api-key"
             )
 
@@ -1963,17 +1963,17 @@ class TestMetaEvaluator:
             assert LLMClientEnum.OPENAI in loaded_evaluator.client_registry
             assert loaded_evaluator.data is None
 
-    def test_load_from_json_invalid_file_extension(self):
+    def test_load_state_invalid_file_extension(self):
         """Test ValueError when state file doesn't end with .json."""
         with pytest.raises(ValueError, match="state_file must end with .json"):
-            MetaEvaluator.load_from_json("invalid_file.txt")
+            MetaEvaluator.load_state("invalid_file.txt")
 
-    def test_load_from_json_nonexistent_file(self):
+    def test_load_state_nonexistent_file(self):
         """Test FileNotFoundError when state file doesn't exist."""
         with pytest.raises(FileNotFoundError, match="State file not found"):
-            MetaEvaluator.load_from_json("nonexistent.json")
+            MetaEvaluator.load_state("nonexistent.json")
 
-    def test_load_from_json_invalid_json(self, tmp_path):
+    def test_load_state_invalid_json(self, tmp_path):
         """Test ValueError when state file contains invalid JSON."""
         state_file = tmp_path / "invalid.json"
         state_file.write_text("{ invalid json }")
@@ -1982,9 +1982,9 @@ class TestMetaEvaluator:
             ValueError,
             match=re.compile(rf"{re.escape(INVALID_JSON_STRUCTURE_MSG)}", re.DOTALL),
         ):
-            MetaEvaluator.load_from_json(str(state_file))
+            MetaEvaluator.load_state(str(state_file))
 
-    def test_load_from_json_missing_required_keys(self, tmp_path):
+    def test_load_state_missing_required_keys(self, tmp_path):
         """Test ValueError when state file is missing required keys."""
         state_file = tmp_path / "incomplete.json"
         state_file.write_text('{"version": "1.0"}')  # Missing client_registry and data
@@ -1995,9 +1995,9 @@ class TestMetaEvaluator:
                 rf"{re.escape(INVALID_JSON_STRUCTURE_MSG)}.*Field required", re.DOTALL
             ),
         ):
-            MetaEvaluator.load_from_json(str(state_file))
+            MetaEvaluator.load_state(str(state_file))
 
-    def test_load_from_json_missing_api_keys(self, tmp_path, clean_environment):
+    def test_load_state_missing_api_keys(self, tmp_path, clean_environment):
         """Test MissingConfigurationException when API keys are missing."""
         # Create valid state file with OpenAI client
         state_data = {
@@ -2020,9 +2020,9 @@ class TestMetaEvaluator:
             json.dump(state_data, f)
 
         with pytest.raises(MissingConfigurationException, match="api_key"):
-            MetaEvaluator.load_from_json(str(state_file))
+            MetaEvaluator.load_state(str(state_file))
 
-    def test_load_from_json_nonexistent_data_file(self, tmp_path, openai_environment):
+    def test_load_state_nonexistent_data_file(self, tmp_path, openai_environment):
         """Test FileNotFoundError when referenced data file doesn't exist."""
         # Create state file that references nonexistent data file
         state_data = {
@@ -2057,11 +2057,11 @@ class TestMetaEvaluator:
             mock_client_class.return_value = mock_client
 
             with pytest.raises(FileNotFoundError, match="Data file not found"):
-                MetaEvaluator.load_from_json(
+                MetaEvaluator.load_state(
                     str(state_file), load_data=True, openai_api_key="test-api-key"
                 )
 
-    def test_load_from_json_unsupported_data_format(self, tmp_path, openai_environment):
+    def test_load_state_unsupported_data_format(self, tmp_path, openai_environment):
         """Test ValueError when data format is unsupported."""
         # Create state file with unsupported data format
         state_data = {
@@ -2106,11 +2106,11 @@ class TestMetaEvaluator:
                     re.DOTALL,
                 ),
             ):
-                MetaEvaluator.load_from_json(
+                MetaEvaluator.load_state(
                     str(state_file), load_data=True, openai_api_key="test-api-key"
                 )
 
-    def test_load_from_json_with_custom_api_keys(self, tmp_path):
+    def test_load_state_with_custom_api_keys(self, tmp_path):
         """Test loading with custom API keys provided as parameters."""
         # Create state file with both OpenAI and Azure OpenAI clients
         state_data = {
@@ -2156,7 +2156,7 @@ class TestMetaEvaluator:
             mock_azure_class.return_value = mock_azure_client
 
             # Load with custom API keys
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file),
                 load_data=False,
                 openai_api_key="custom-openai-key",

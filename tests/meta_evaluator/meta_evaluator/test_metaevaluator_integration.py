@@ -157,7 +157,7 @@ class TestMetaEvaluatorIntegration:
             )
 
             # Load evaluator back
-            return MetaEvaluator.load_from_json(
+            return MetaEvaluator.load_state(
                 str(state_file),
                 load_data=load_data,
                 openai_api_key="test-key",  # Mock key for integration tests
@@ -332,7 +332,7 @@ class TestMetaEvaluatorIntegration:
                 assert loaded_df.equals(eval_data.data)
 
                 # Verify MetaEvaluator can load it
-                loaded = MetaEvaluator.load_from_json(
+                loaded = MetaEvaluator.load_state(
                     str(state_file),
                     load_data=True,
                     openai_api_key="test-key",
@@ -405,7 +405,7 @@ class TestMetaEvaluatorIntegration:
 
                 # Should raise FileNotFoundError with clear message
                 with pytest.raises(FileNotFoundError) as exc:
-                    MetaEvaluator.load_from_json(
+                    MetaEvaluator.load_state(
                         str(state_file),
                         load_data=True,
                         openai_api_key="test-key",
@@ -423,7 +423,7 @@ class TestMetaEvaluatorIntegration:
             state_file.write_text('{"version": "1.0", "client_registry":')
 
             with pytest.raises(ValueError) as exc:
-                MetaEvaluator.load_from_json(
+                MetaEvaluator.load_state(
                     str(state_file),
                     openai_api_key="test-key",
                     azure_openai_api_key="test-azure-key",
@@ -536,7 +536,7 @@ class TestMetaEvaluatorIntegration:
                 assert state_data["data"]["data_file"] == custom_data_filename
 
                 # Verify loading works with custom filename
-                loaded = MetaEvaluator.load_from_json(
+                loaded = MetaEvaluator.load_state(
                     str(state_file),
                     load_data=True,
                     openai_api_key="test-key",

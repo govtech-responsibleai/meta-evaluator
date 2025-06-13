@@ -348,7 +348,7 @@ class MetaEvaluator:
         return self.data.serialize(data_format, data_filename)
 
     @classmethod
-    def load_from_json(
+    def load_state(
         cls,
         state_file: str,
         load_data: bool = True,
@@ -375,13 +375,13 @@ class MetaEvaluator:
 
         Examples:
             # Load everything (clients + data)
-            evaluator = MetaEvaluator.load_from_json("my_state.json")
+            evaluator = MetaEvaluator.load_state("my_state.json")
 
             # Load only clients, skip data
-            evaluator = MetaEvaluator.load_from_json("my_state.json", load_data=False)
+            evaluator = MetaEvaluator.load_state("my_state.json", load_data=False)
 
             # Provide custom API keys
-            evaluator = MetaEvaluator.load_from_json("my_state.json",
+            evaluator = MetaEvaluator.load_state("my_state.json",
                                                    openai_api_key="custom-key")
 
         Raises:
