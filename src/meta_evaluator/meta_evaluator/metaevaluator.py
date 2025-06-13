@@ -202,7 +202,7 @@ class MetaEvaluator:
 
         self.data = eval_data
 
-    def save_to_json(
+    def save_state(
         self,
         state_file: str,
         include_data: bool = True,

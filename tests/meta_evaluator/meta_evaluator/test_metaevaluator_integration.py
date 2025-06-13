@@ -152,7 +152,7 @@ class TestMetaEvaluatorIntegration:
             state_file = Path(tmp_dir) / "test_state.json"
 
             # Save evaluator
-            evaluator.save_to_json(
+            evaluator.save_state(
                 str(state_file), include_data=True, data_format=data_format
             )
 
@@ -318,7 +318,7 @@ class TestMetaEvaluatorIntegration:
                 state_file = Path(tmp_dir) / "state.json"
 
                 # Save with parquet data format
-                evaluator.save_to_json(
+                evaluator.save_state(
                     str(state_file), include_data=True, data_format="parquet"
                 )
 
@@ -395,7 +395,7 @@ class TestMetaEvaluatorIntegration:
 
             with tempfile.TemporaryDirectory() as tmp_dir:
                 state_file = Path(tmp_dir) / "state.json"
-                evaluator.save_to_json(
+                evaluator.save_state(
                     str(state_file), include_data=True, data_format="csv"
                 )
 
@@ -519,7 +519,7 @@ class TestMetaEvaluatorIntegration:
                 custom_data_filename = "my_custom_data.parquet"
 
                 # Save with custom filename
-                evaluator.save_to_json(
+                evaluator.save_state(
                     str(state_file),
                     include_data=True,
                     data_format="parquet",
