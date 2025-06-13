@@ -90,6 +90,7 @@ class LLMClientEnum(Enum):
     AZURE_OPENAI = "azure_openai"
     GEMINI = "gemini"
     ANTHROPIC = "anthropic"
+    TEST = "test"
 
 
 class LLMUsage(BaseModel):

@@ -61,7 +61,7 @@ class EvalData(BaseModel):
 
     data: pl.DataFrame
     name: str
-    id_column: Optional[str] = None
+    id_column: Optional[str] = None  # id_column is never None after initalisation
     _initialized: bool = PrivateAttr(default=False)
     _user_set_id: bool = PrivateAttr(default=False)
 

@@ -17,6 +17,10 @@ from meta_evaluator.llm_client.exceptions import (
     LLMAPIError,
     LLMValidationError,
 )
+from meta_evaluator.llm_client.serialization import (
+    MockLLMClientSerializedState,
+    LLMClientSerializedState,
+)
 from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
@@ -34,6 +38,53 @@ class LLMClientConfigConcreteTest(LLMClientConfig):
     def _prevent_instantiation(self) -> None:
         """Prevent instantiation as required by abstract base class."""
         pass
+
+    def serialize(self) -> MockLLMClientSerializedState:
+        """Serialize test config to typed state object (excluding API key for security).
+
+        Returns:
+            MockLLMClientSerializedState: Configuration as typed state object without sensitive data.
+        """
+        return MockLLMClientSerializedState(
+            default_model=self.default_model,
+            default_embedding_model=self.default_embedding_model,
+            supports_structured_output=self.supports_structured_output,
+            supports_logprobs=self.supports_logprobs,
+            supports_instructor=False,
+        )
+
+    @classmethod
+    def deserialize(
+        cls,
+        state: LLMClientSerializedState,
+        api_key: str,
+        **kwargs,
+    ) -> "LLMClientConfigConcreteTest":
+        """Deserialize test config from typed state object and API key.
+
+        Args:
+            state: Serialized configuration state object.
+            api_key: API key to use for the config.
+            **kwargs: Additional configuration parameters.
+
+        Returns:
+            LLMClientConfigConcreteTest: Reconstructed configuration instance.
+
+        Raises:
+            TypeError: If state is not a MockLLMClientSerializedState instance.
+        """
+        if not isinstance(state, MockLLMClientSerializedState):
+            raise TypeError(
+                f"Expected MockLLMClientSerializedState, got {type(state).__name__}"
+            )
+
+        return cls(
+            api_key=api_key,
+            default_model=state.default_model,
+            default_embedding_model=state.default_embedding_model,
+            supports_structured_output=state.supports_structured_output,
+            supports_logprobs=state.supports_logprobs,
+        )
 
 
 class ConcreteTestLLMClient(LLMClient):

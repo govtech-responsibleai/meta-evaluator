@@ -44,10 +44,13 @@ from .models import (
     TagConfig,
 )
 from .exceptions import LLMAPIError, LLMValidationError
+from .serialization import LLMClientSerializedState
 import re
 
 
 T = TypeVar("T", bound=BaseModel)
+S = TypeVar("S", bound="LLMClientSerializedState")
+ConfigT = TypeVar("ConfigT", bound="LLMClientConfig")
 _NO_MESSAGES_ERROR = "No messages provided"
 _NO_PROMPTS_ERROR = "No prompts provided"
 _FAILED_RESPONSE_ERROR_TEMPLATE = "Failed to get response from {}"
@@ -69,10 +72,36 @@ class LLMClientConfig(ABC, BaseModel):
     supports_structured_output: StrictBool
     default_model: str
     default_embedding_model: str
-    supports_logprobs: bool
+    supports_logprobs: StrictBool
 
     @abstractmethod
     def _prevent_instantiation(self) -> None:
+        pass
+
+    @abstractmethod
+    def serialize(self) -> LLMClientSerializedState:
+        """Serialize config to typed state object (excluding API key for security).
+
+        Returns:
+            LLMClientSerializedState: Configuration as typed state object without sensitive data.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def deserialize(
+        cls, state: LLMClientSerializedState, api_key: str, **kwargs
+    ) -> "LLMClientConfig":
+        """Deserialize config from typed state object and API key.
+
+        Args:
+            state: Serialized configuration state object.
+            api_key: API key to use for the config.
+            **kwargs: Additional configuration parameters that may be needed.
+
+        Returns:
+            LLMClientConfig: Reconstructed configuration instance.
+        """
         pass
 
 
