@@ -488,3 +488,29 @@ class TestSamplingFunctionality:
         assert sample.id_column == eval_data_with_stratification_columns.id_column
         assert isinstance(sample.data, pl.DataFrame)
         assert len(sample.data) > 0
+
+    def test_serialize_sample_eval_data(self, eval_data_with_stratification_columns):
+        """Test serialization of SampleEvalData includes sampling metadata."""
+        # Create a sample with all metadata
+        sample = eval_data_with_stratification_columns.stratified_sample_by_columns(
+            columns=["difficulty", "topic"],
+            sample_percentage=0.3,
+            sample_name="Test Sample",
+            seed=42,
+        )
+
+        result = sample.serialize(data_format="json", data_filename="sample_data.json")
+
+        # Verify basic EvalData fields
+        assert result.name == sample.name
+        assert result.id_column == sample.id_column
+        assert result.data_file == "sample_data.json"
+        assert result.data_format == "json"
+
+        # Verify SampleEvalData specific fields
+        assert result.type == "SampleEvalData"
+        assert result.sample_name == "Test Sample"
+        assert result.stratification_columns == ["difficulty", "topic"]
+        assert result.sample_percentage == 0.3
+        assert result.seed == 42
+        assert result.sampling_method == "stratified_by_columns"

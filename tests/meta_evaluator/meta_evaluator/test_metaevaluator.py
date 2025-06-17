@@ -112,7 +112,7 @@ class TestMetaEvaluator:
         )
         mock_eval_data.data = mock_df
 
-        # Create a dynamic serialize method that returns a real DataMetadata object
+        # Mock the serialise function
         def mock_serialize(data_format, data_filename):
             return DataMetadata(
                 name="test_dataset",
@@ -122,7 +122,6 @@ class TestMetaEvaluator:
                 type="EvalData",
             )
 
-        # Set the side_effect to return a real DataMetadata object
         mock_eval_data.serialize.side_effect = mock_serialize
 
         return mock_eval_data
@@ -154,6 +153,18 @@ class TestMetaEvaluator:
         )
         mock_eval_data.data = mock_df
 
+        # Mock the serialise function
+        def mock_serialize(data_format, data_filename):
+            return DataMetadata(
+                name="another_dataset",
+                id_column="id",
+                data_file=data_filename or f"test_data.{data_format}",
+                data_format=data_format,
+                type="EvalData",
+            )
+
+        mock_eval_data.serialize.side_effect = mock_serialize
+
         return mock_eval_data
 
     @pytest.fixture
@@ -167,7 +178,16 @@ class TestMetaEvaluator:
         mock_eval_data.name = "test_dataset"
         mock_eval_data.id_column = "id"
 
-        # Create a dynamic serialize method that respects the requested format
+        # Mock the data (polars DataFrame)
+        mock_dataframe = MagicMock()
+        mock_dataframe.write_parquet = MagicMock()
+        mock_dataframe.write_csv = MagicMock()
+        mock_dataframe.to_dict = MagicMock(
+            return_value={"id": [1, 2], "text": ["a", "b"]}
+        )
+        mock_eval_data.data = mock_dataframe
+
+        # Mock the serialise function
         def mock_serialize(data_format, data_filename):
             return DataMetadata(
                 name="test_dataset",
@@ -178,15 +198,6 @@ class TestMetaEvaluator:
             )
 
         mock_eval_data.serialize.side_effect = mock_serialize
-
-        # Mock the data (polars DataFrame)
-        mock_dataframe = MagicMock()
-        mock_dataframe.write_parquet = MagicMock()
-        mock_dataframe.write_csv = MagicMock()
-        mock_dataframe.to_dict = MagicMock(
-            return_value={"id": [1, 2], "text": ["a", "b"]}
-        )
-        mock_eval_data.data = mock_dataframe
 
         return mock_eval_data
 
@@ -206,23 +217,6 @@ class TestMetaEvaluator:
         mock_sample_data.seed = 42
         mock_sample_data.sampling_method = "stratified_by_columns"
 
-        # Create a dynamic serialize method that respects the requested format
-        def mock_serialize(data_format, data_filename):
-            return DataMetadata(
-                name="sample_dataset",
-                id_column="sample_id",
-                data_file=data_filename or f"sample_data.{data_format}",
-                data_format=data_format,
-                type="SampleEvalData",
-                sample_name="Test Sample",
-                stratification_columns=["topic", "difficulty"],
-                sample_percentage=0.3,
-                seed=42,
-                sampling_method="stratified_by_columns",
-            )
-
-        mock_sample_data.serialize.side_effect = mock_serialize
-
         # Mock the data (polars DataFrame)
         import polars as pl
 
@@ -235,6 +229,23 @@ class TestMetaEvaluator:
             }
         )
         mock_sample_data.data = actual_df
+
+        # Mock the serialise function
+        def mock_serialize(data_format, data_filename):
+            return DataMetadata(
+                name="sample_dataset",
+                id_column="sample_id",
+                data_file=data_filename,
+                data_format=data_format,
+                type="SampleEvalData",
+                sample_name="Test Sample",
+                stratification_columns=["topic", "difficulty"],
+                sample_percentage=0.3,
+                seed=42,
+                sampling_method="stratified_by_columns",
+            )
+
+        mock_sample_data.serialize.side_effect = mock_serialize
 
         return mock_sample_data
 
@@ -1060,7 +1071,6 @@ class TestMetaEvaluator:
         data_file = tmp_path / "test_state_data.csv"
 
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
-
         meta_evaluator.save_to_json(
             str(state_file), include_data=True, data_format="csv"
         )
@@ -1425,74 +1435,6 @@ class TestMetaEvaluator:
         mock_config.serialize.assert_called_once()
         assert result["client_type"] == "test"
         assert result["default_model"] == "test-model"
-
-    # === Client Serialization Method Tests ===
-    # Note: Individual client serialization methods were removed in favor of
-    # delegating to config.serialize() method. Tests for specific serialization
-    # behavior are now in the individual client config test files.
-
-    # === Data Serialization Method Tests ===
-
-    def test_serialize_data_include_data_false(self, meta_evaluator):
-        """Test _serialize_data returns None when include_data is False."""
-        result = meta_evaluator._serialize_data(
-            include_data=False, data_format="parquet", data_filename="test.parquet"
-        )
-
-        assert result is None
-
-    def test_serialize_data_no_data_present(self, meta_evaluator):
-        """Test _serialize_data returns None when self.data is None."""
-        assert meta_evaluator.data is None
-
-        result = meta_evaluator._serialize_data(
-            include_data=True, data_format="parquet", data_filename="test.parquet"
-        )
-
-        assert result is None
-
-    def test_serialize_data_with_eval_data(
-        self, meta_evaluator, mock_eval_data_with_dataframe
-    ):
-        """Test _serialize_data with regular EvalData instance."""
-        meta_evaluator.add_data(mock_eval_data_with_dataframe)
-
-        result = meta_evaluator._serialize_data(
-            include_data=True, data_format="csv", data_filename="test_data.csv"
-        )
-
-        # Result is now a DataMetadata object
-        assert result.name == "test_dataset"
-        assert result.id_column == "id"
-        assert result.data_file == "test_data.csv"
-        assert result.data_format == "csv"
-        assert result.type == "EvalData"
-        # Optional fields should be None for regular EvalData
-        assert result.sample_name is None
-        assert result.stratification_columns is None
-
-    def test_serialize_data_with_sample_eval_data(
-        self, meta_evaluator, mock_sample_eval_data
-    ):
-        """Test _serialize_data with SampleEvalData includes sampling metadata."""
-        meta_evaluator.add_data(mock_sample_eval_data)
-
-        result = meta_evaluator._serialize_data(
-            include_data=True, data_format="json", data_filename="sample_data.json"
-        )
-
-        # Result is now a DataMetadata object
-        assert result.name == "sample_dataset"
-        assert result.id_column == "sample_id"
-        assert result.data_file == "sample_data.json"
-        assert result.data_format == "json"
-        assert result.type == "SampleEvalData"
-        # SampleEvalData specific fields
-        assert result.sample_name == "Test Sample"
-        assert result.stratification_columns == ["topic", "difficulty"]
-        assert result.sample_percentage == 0.3
-        assert result.seed == 42
-        assert result.sampling_method == "stratified_by_columns"
 
     def test_write_data_file_no_data_present(self, meta_evaluator):
         """Test _write_data_file returns early when self.data is None."""

@@ -486,3 +486,21 @@ class TestEvalData:
                 data=valid_df,
                 id_column="123invalid",
             )
+
+    def test_serialize_basic(self, minimal_dataframe):
+        """Test basic serialization of EvalData."""
+        eval_data = EvalData(
+            name="test",
+            data=minimal_dataframe,
+        )
+
+        result = eval_data.serialize(data_format="csv", data_filename="test_data.csv")
+
+        assert result.name == "test"
+        assert result.id_column == "id"
+        assert result.data_file == "test_data.csv"
+        assert result.data_format == "csv"
+        assert result.type == "EvalData"
+        # Optional fields should be None for regular EvalData
+        assert result.sample_name is None
+        assert result.stratification_columns is None
