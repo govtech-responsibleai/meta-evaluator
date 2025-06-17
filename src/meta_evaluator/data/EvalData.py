@@ -22,7 +22,7 @@ from .exceptions import (
     NullValuesInDataError,
     InvalidNameError,
 )
-from ..llm_client.serialization import DataMetadata
+from .serialization import DataMetadata
 
 logger = logging.getLogger(__name__)
 ID_COLUMN_NAME = "id"

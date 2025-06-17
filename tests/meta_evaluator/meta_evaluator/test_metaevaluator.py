@@ -21,9 +21,9 @@ from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
 from meta_evaluator.llm_client.serialization import (
     OpenAISerializedState,
     AzureOpenAISerializedState,
-    DataMetadata,
 )
 from meta_evaluator.data.EvalData import EvalData, SampleEvalData
+from meta_evaluator.data.serialization import DataMetadata
 
 
 class TestMetaEvaluator:
