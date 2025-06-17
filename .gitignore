@@ -11,3 +11,4 @@ wheels/
 .env
 node_modules/
 package-lock.json
+plan.md

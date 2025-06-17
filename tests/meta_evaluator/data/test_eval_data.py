@@ -1,5 +1,6 @@
 """Test suite for the EvalData class with comprehensive path coverage."""
 
+import json
 import pytest
 from unittest.mock import MagicMock
 import polars as pl
@@ -486,3 +487,77 @@ class TestEvalData:
                 data=valid_df,
                 id_column="123invalid",
             )
+
+    def test_serialize_basic(self, minimal_dataframe):
+        """Test basic serialization of EvalData."""
+        eval_data = EvalData(
+            name="test",
+            data=minimal_dataframe,
+        )
+
+        result = eval_data.serialize(data_format="csv", data_filename="test_data.csv")
+
+        assert result.name == "test"
+        assert result.id_column == "id"
+        assert result.data_file == "test_data.csv"
+        assert result.data_format == "csv"
+        assert result.type == "EvalData"
+        # Optional fields should be None for regular EvalData
+        assert result.sample_name is None
+        assert result.stratification_columns is None
+
+    def test_write_data_parquet_format(self, minimal_dataframe, tmp_path):
+        """Test write_data writes parquet format correctly."""
+        eval_data = EvalData(
+            name="test",
+            data=minimal_dataframe,
+        )
+        filepath = tmp_path / "test.parquet"
+
+        eval_data.write_data(str(filepath), "parquet")
+
+        # Verify file exists
+        assert filepath.exists()
+
+        # Verify we can read it back
+        df = pl.read_parquet(str(filepath))
+        assert df.equals(eval_data.data)
+
+    def test_write_data_csv_format(self, minimal_dataframe, tmp_path):
+        """Test write_data writes CSV format correctly."""
+        eval_data = EvalData(
+            name="test",
+            data=minimal_dataframe,
+        )
+        filepath = tmp_path / "test.csv"
+
+        eval_data.write_data(str(filepath), "csv")
+
+        # Verify file exists
+        assert filepath.exists()
+
+        # Verify we can read it back
+        df = pl.read_csv(str(filepath))
+
+        # Cast columns as csv is lossy
+        for col in df.columns:
+            df = df.with_columns(pl.col(col).cast(eval_data.data[col].dtype))
+        assert df.equals(eval_data.data)
+
+    def test_write_data_json_format(self, minimal_dataframe, tmp_path):
+        """Test write_data writes JSON format correctly."""
+        eval_data = EvalData(
+            name="test",
+            data=minimal_dataframe,
+        )
+        filepath = tmp_path / "test.json"
+
+        eval_data.write_data(str(filepath), "json")
+
+        # Verify file exists
+        assert filepath.exists()
+
+        # Verify file contents
+        with open(filepath) as f:
+            data = json.load(f)
+        assert data == eval_data.data.to_dict(as_series=False)

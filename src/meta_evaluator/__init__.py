@@ -10,6 +10,7 @@ beartype_this_package()
 from .llm_client import LLMClient, LLMClientConfig  # noqa: E402
 from .llm_client.exceptions import LLMAPIError, LLMValidationError, LLMClientError  # noqa: E402
 from .llm_client.models import LLMClientEnum, LLMUsage, Message, LLMResponse, RoleEnum  # noqa: E402
+from .meta_evaluator import MetaEvaluator  # noqa: E402
 
 __all__ = [
     "LLMClientEnum",
@@ -24,11 +25,3 @@ __all__ = [
     "RoleEnum",
     "MetaEvaluator",
 ]
-
-
-class MetaEvaluator:
-    """This is a placeholder for the MetaEvaluator class."""
-
-    def __init__(self):
-        """This is a placeholder for the MetaEvaluator class."""
-        pass

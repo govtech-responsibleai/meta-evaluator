@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from .LLM_client import LLMClientConfig, LLMClient
 from .models import LLMClientEnum, Message, LLMUsage, RoleEnum
+from .serialization import OpenAISerializedState, LLMClientSerializedState
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -36,6 +37,53 @@ class OpenAIConfig(LLMClientConfig):
         will have no effect.
         """
         pass
+
+    def serialize(self) -> OpenAISerializedState:
+        """Serialize OpenAI config to typed state object (excluding API key for security).
+
+        Returns:
+            OpenAISerializedState: Configuration as typed state object without sensitive data.
+        """
+        return OpenAISerializedState(
+            default_model=self.default_model,
+            default_embedding_model=self.default_embedding_model,
+            supports_structured_output=self.supports_structured_output,
+            supports_logprobs=self.supports_logprobs,
+            supports_instructor=True,  # OpenAI always supports instructor
+        )
+
+    @classmethod
+    def deserialize(
+        cls,
+        state: LLMClientSerializedState,
+        api_key: str,
+        **kwargs,
+    ) -> "OpenAIConfig":
+        """Deserialize OpenAI config from typed state object and API key.
+
+        Args:
+            state: Serialized configuration state object.
+            api_key: API key to use for the config.
+            **kwargs: Additional configuration parameters (unused for OpenAI).
+
+        Returns:
+            OpenAIConfig: Reconstructed configuration instance.
+
+        Raises:
+            TypeError: If state is not an OpenAISerializedState instance.
+        """
+        if not isinstance(state, OpenAISerializedState):
+            raise TypeError(
+                f"Expected OpenAISerializedState, got {type(state).__name__}"
+            )
+
+        return cls(
+            api_key=api_key,
+            default_model=state.default_model,
+            default_embedding_model=state.default_embedding_model,
+            supports_structured_output=state.supports_structured_output,
+            supports_logprobs=state.supports_logprobs,
+        )
 
 
 class OpenAIClient(LLMClient):
