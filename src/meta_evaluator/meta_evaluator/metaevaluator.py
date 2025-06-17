@@ -256,7 +256,7 @@ class MetaEvaluator:
                 final_data_filename = f"{base_name}_data.{data_format}"
 
         # Generate state
-        state = self._create_state(include_data, data_format, final_data_filename)
+        state = self._serialize(include_data, data_format, final_data_filename)
 
         # Ensure directory exists
         directory.mkdir(parents=True, exist_ok=True)
@@ -272,7 +272,7 @@ class MetaEvaluator:
                 str(data_filepath), cast(Literal["json", "csv", "parquet"], data_format)
             )
 
-    def _create_state(
+    def _serialize(
         self,
         include_data: bool,
         data_format: Optional[Literal["json", "csv", "parquet"]],

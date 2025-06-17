@@ -1401,9 +1401,9 @@ class TestMetaEvaluator:
 
     # === Private Serialization Method Tests ===
 
-    def test_create_state_dict_include_data_false(self, meta_evaluator):
-        """Test _create_state when data should not be included."""
-        state = meta_evaluator._create_state(
+    def test_serialize_dict_include_data_false(self, meta_evaluator):
+        """Test _serialize when data should not be included."""
+        state = meta_evaluator._serialize(
             include_data=False, data_format=None, data_filename=None
         )
 
@@ -1411,13 +1411,13 @@ class TestMetaEvaluator:
         assert state.data is None
         assert state.client_registry is not None
 
-    def test_create_state_dict_include_data_true(
+    def test_serialize_dict_include_data_true(
         self, meta_evaluator, mock_eval_data_with_dataframe
     ):
-        """Test _create_state when data should be included."""
+        """Test _serialize when data should be included."""
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
-        state = meta_evaluator._create_state(
+        state = meta_evaluator._serialize(
             include_data=True, data_format="parquet", data_filename="test_data.parquet"
         )
 
