@@ -268,7 +268,7 @@ class MetaEvaluator:
         # Write data file if needed
         if include_data and self.data is not None:
             data_filepath = directory / cast(str, final_data_filename)
-            self._write_data_file(
+            self.data.write_data(
                 str(data_filepath), cast(Literal["json", "csv", "parquet"], data_format)
             )
 
@@ -346,33 +346,6 @@ class MetaEvaluator:
         if not include_data or self.data is None:
             return None
         return self.data.serialize(data_format, data_filename)
-
-    def _write_data_file(
-        self, filepath: str, data_format: Literal["json", "csv", "parquet"]
-    ) -> None:
-        """Write DataFrame to external file in specified format.
-
-        Args:
-            filepath: Path to write the data file.
-            data_format: Format to write the data in.
-
-        Raises:
-            ValueError: If data_format is not supported.
-        """
-        if self.data is None:
-            return
-
-        match data_format:
-            case "parquet":
-                self.data.data.write_parquet(filepath)
-            case "csv":
-                self.data.data.write_csv(filepath)
-            case "json":
-                # Write DataFrame directly as JSON
-                with open(filepath, "w") as f:
-                    json.dump(self.data.data.to_dict(as_series=False), f, indent=2)
-            case _:
-                raise ValueError(f"Unsupported data format: {data_format}")
 
     @classmethod
     def load_from_json(

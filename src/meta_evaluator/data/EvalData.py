@@ -6,6 +6,7 @@ and provides type-safe access to different data categories while preserving orig
 column names and ensuring immutability after initialization.
 """
 
+import json
 from typing import Any, Optional, Literal, cast
 import polars as pl
 from pydantic import BaseModel, PrivateAttr, model_validator
@@ -569,6 +570,29 @@ class EvalData(BaseModel):
             data_format=cast(Literal["json", "csv", "parquet"], data_format),
             type="EvalData",
         )
+
+    def write_data(
+        self, filepath: str, data_format: Literal["json", "csv", "parquet"]
+    ) -> None:
+        """Write the data to a file in the specified format.
+
+        Args:
+            filepath: Path to write the data file to.
+            data_format: Format to write the data in (json, csv, or parquet).
+
+        Raises:
+            ValueError: If data_format is not one of json, csv, or parquet.
+        """
+        if data_format == "parquet":
+            self.data.write_parquet(filepath)
+        elif data_format == "csv":
+            self.data.write_csv(filepath)
+        elif data_format == "json":
+            data_dict = self.data.to_dict(as_series=False)
+            with open(filepath, "w") as f:
+                json.dump(data_dict, f, indent=2)
+        else:
+            raise ValueError(f"Unsupported data format: {data_format}")
 
 
 class SampleEvalData(EvalData):

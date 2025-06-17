@@ -1,5 +1,6 @@
 """Test suite for the sampling functionality with comprehensive path coverage."""
 
+import json
 import pytest
 import polars as pl
 from meta_evaluator.data import EvalData, SampleEvalData
@@ -514,3 +515,65 @@ class TestSamplingFunctionality:
         assert result.sample_percentage == 0.3
         assert result.seed == 42
         assert result.sampling_method == "stratified_by_columns"
+
+    def test_write_data_parquet_format(
+        self, eval_data_with_stratification_columns, tmp_path
+    ):
+        """Test write_data writes parquet format correctly for SampleEvalData."""
+        # Create a sample first
+        sample = eval_data_with_stratification_columns.stratified_sample_by_columns(
+            columns=["difficulty"], sample_percentage=0.5
+        )
+        filepath = tmp_path / "test.parquet"
+
+        sample.write_data(str(filepath), "parquet")
+
+        # Verify file exists
+        assert filepath.exists()
+
+        # Verify we can read it back
+        df = pl.read_parquet(str(filepath))
+        assert df.equals(sample.data)
+
+    def test_write_data_csv_format(
+        self, eval_data_with_stratification_columns, tmp_path
+    ):
+        """Test write_data writes CSV format correctly for SampleEvalData."""
+        # Create a sample first
+        sample = eval_data_with_stratification_columns.stratified_sample_by_columns(
+            columns=["difficulty"], sample_percentage=0.5
+        )
+        filepath = tmp_path / "test.csv"
+
+        sample.write_data(str(filepath), "csv")
+
+        # Verify file exists
+        assert filepath.exists()
+
+        # Verify we can read it back
+        df = pl.read_csv(str(filepath))
+
+        # Cast columns as csv is lossy
+        for col in df.columns:
+            df = df.with_columns(pl.col(col).cast(sample.data[col].dtype))
+        assert df.equals(sample.data)
+
+    def test_write_data_json_format(
+        self, eval_data_with_stratification_columns, tmp_path
+    ):
+        """Test write_data writes JSON format correctly for SampleEvalData."""
+        # Create a sample first
+        sample = eval_data_with_stratification_columns.stratified_sample_by_columns(
+            columns=["difficulty"], sample_percentage=0.5
+        )
+        filepath = tmp_path / "test.json"
+
+        sample.write_data(str(filepath), "json")
+
+        # Verify file exists
+        assert filepath.exists()
+
+        # Verify file contents
+        with open(filepath) as f:
+            data = json.load(f)
+        assert data == sample.data.to_dict(as_series=False)

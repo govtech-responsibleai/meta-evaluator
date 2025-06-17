@@ -99,7 +99,7 @@ class TestMetaEvaluator:
         mock_eval_data.id_column = "id"
 
         # Create a mock DataFrame with sample data
-        mock_df = pl.DataFrame(
+        mock_dataframe = pl.DataFrame(
             {
                 "id": [1, 2, 3],
                 "question": [
@@ -110,7 +110,7 @@ class TestMetaEvaluator:
                 "answer": ["4", "Paris", "Shakespeare"],
             }
         )
-        mock_eval_data.data = mock_df
+        mock_eval_data.data = mock_dataframe
 
         # Mock the serialise function
         def mock_serialize(data_format, data_filename):
@@ -123,6 +123,26 @@ class TestMetaEvaluator:
             )
 
         mock_eval_data.serialize.side_effect = mock_serialize
+
+        # Mock the write_data function
+        mock_dataframe.write_parquet = MagicMock()
+        mock_dataframe.write_csv = MagicMock()
+        mock_dataframe.to_dict = MagicMock(
+            return_value={"id": [1, 2], "text": ["a", "b"]}
+        )
+
+        def mock_write_data(filepath, data_format):
+            if data_format == "parquet":
+                mock_dataframe.write_parquet(filepath)
+            elif data_format == "csv":
+                mock_dataframe.write_csv(filepath)
+            elif data_format == "json":
+                with open(filepath, "w") as f:
+                    json.dump(mock_dataframe.to_dict(as_series=False), f, indent=2)
+            else:
+                raise ValueError(f"Unsupported data format: {data_format}")
+
+        mock_eval_data.write_data.side_effect = mock_write_data
 
         return mock_eval_data
 
@@ -140,7 +160,7 @@ class TestMetaEvaluator:
         mock_eval_data.id_column = "id"
 
         # Create a mock DataFrame with different sample data
-        mock_df = pl.DataFrame(
+        mock_dataframe = pl.DataFrame(
             {
                 "id": [4, 5, 6],
                 "prompt": ["How are you?", "What's the weather?", "Tell me a joke"],
@@ -151,7 +171,7 @@ class TestMetaEvaluator:
                 ],
             }
         )
-        mock_eval_data.data = mock_df
+        mock_eval_data.data = mock_dataframe
 
         # Mock the serialise function
         def mock_serialize(data_format, data_filename):
@@ -164,6 +184,26 @@ class TestMetaEvaluator:
             )
 
         mock_eval_data.serialize.side_effect = mock_serialize
+
+        # Mock the write_data function
+        mock_dataframe.write_parquet = MagicMock()
+        mock_dataframe.write_csv = MagicMock()
+        mock_dataframe.to_dict = MagicMock(
+            return_value={"id": [1, 2], "text": ["a", "b"]}
+        )
+
+        def mock_write_data(filepath, data_format):
+            if data_format == "parquet":
+                mock_dataframe.write_parquet(filepath)
+            elif data_format == "csv":
+                mock_dataframe.write_csv(filepath)
+            elif data_format == "json":
+                with open(filepath, "w") as f:
+                    json.dump(mock_dataframe.to_dict(as_series=False), f, indent=2)
+            else:
+                raise ValueError(f"Unsupported data format: {data_format}")
+
+        mock_eval_data.write_data.side_effect = mock_write_data
 
         return mock_eval_data
 
@@ -180,11 +220,6 @@ class TestMetaEvaluator:
 
         # Mock the data (polars DataFrame)
         mock_dataframe = MagicMock()
-        mock_dataframe.write_parquet = MagicMock()
-        mock_dataframe.write_csv = MagicMock()
-        mock_dataframe.to_dict = MagicMock(
-            return_value={"id": [1, 2], "text": ["a", "b"]}
-        )
         mock_eval_data.data = mock_dataframe
 
         # Mock the serialise function
@@ -198,6 +233,26 @@ class TestMetaEvaluator:
             )
 
         mock_eval_data.serialize.side_effect = mock_serialize
+
+        # Mock the write_data function
+        mock_dataframe.write_parquet = MagicMock()
+        mock_dataframe.write_csv = MagicMock()
+        mock_dataframe.to_dict = MagicMock(
+            return_value={"id": [1, 2], "text": ["a", "b"]}
+        )
+
+        def mock_write_data(filepath, data_format):
+            if data_format == "parquet":
+                mock_dataframe.write_parquet(filepath)
+            elif data_format == "csv":
+                mock_dataframe.write_csv(filepath)
+            elif data_format == "json":
+                with open(filepath, "w") as f:
+                    json.dump(mock_dataframe.to_dict(as_series=False), f, indent=2)
+            else:
+                raise ValueError(f"Unsupported data format: {data_format}")
+
+        mock_eval_data.write_data.side_effect = mock_write_data
 
         return mock_eval_data
 
@@ -221,14 +276,14 @@ class TestMetaEvaluator:
         import polars as pl
 
         # Create an actual DataFrame instead of mocking it for write operations
-        actual_df = pl.DataFrame(
+        actual_dataframe = pl.DataFrame(
             {
                 "sample_id": [1, 2],
                 "topic": ["math", "science"],
                 "difficulty": ["easy", "medium"],
             }
         )
-        mock_sample_data.data = actual_df
+        mock_sample_data.data = actual_dataframe
 
         # Mock the serialise function
         def mock_serialize(data_format, data_filename):
@@ -246,6 +301,20 @@ class TestMetaEvaluator:
             )
 
         mock_sample_data.serialize.side_effect = mock_serialize
+
+        # Mock the write_data function
+        def mock_write_data(filepath, data_format):
+            if data_format == "parquet":
+                actual_dataframe.write_parquet(filepath)
+            elif data_format == "csv":
+                actual_dataframe.write_csv(filepath)
+            elif data_format == "json":
+                with open(filepath, "w") as f:
+                    json.dump(actual_dataframe.to_dict(as_series=False), f, indent=2)
+            else:
+                raise ValueError(f"Unsupported data format: {data_format}")
+
+        mock_sample_data.write_data.side_effect = mock_write_data
 
         return mock_sample_data
 
@@ -1051,8 +1120,8 @@ class TestMetaEvaluator:
         assert state_file.exists()
 
         # Verify polars write_parquet was called
-        mock_eval_data_with_dataframe.data.write_parquet.assert_called_once_with(
-            str(data_file)
+        mock_eval_data_with_dataframe.write_data.assert_called_once_with(
+            str(data_file), "parquet"
         )
 
         # Verify state file contents
@@ -1072,15 +1141,17 @@ class TestMetaEvaluator:
 
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
         meta_evaluator.save_to_json(
-            str(state_file), include_data=True, data_format="csv"
+            str(state_file),
+            include_data=True,
+            data_format="csv",
         )
 
         # Verify both files exist
         assert state_file.exists()
 
         # Verify polars write_csv was called
-        mock_eval_data_with_dataframe.data.write_csv.assert_called_once_with(
-            str(data_file)
+        mock_eval_data_with_dataframe.write_data.assert_called_once_with(
+            str(data_file), "csv"
         )
 
         # Verify state file contents
@@ -1107,8 +1178,8 @@ class TestMetaEvaluator:
         assert state_file.exists()
 
         # Verify polars to_dict was called for JSON serialization
-        mock_eval_data_with_dataframe.data.to_dict.assert_called_once_with(
-            as_series=False
+        mock_eval_data_with_dataframe.write_data.assert_called_once_with(
+            str(data_file), "json"
         )
 
         # Verify data file was created with JSON content
@@ -1173,6 +1244,7 @@ class TestMetaEvaluator:
         with open(state_file) as f:
             state_data = json.load(f)
 
+        assert state_data["version"] == "1.0"
         assert state_data["data"]["data_file"] == custom_data_file
         assert state_data["data"]["data_format"] == "json"
 
@@ -1194,8 +1266,8 @@ class TestMetaEvaluator:
 
         # Verify polars write_csv was called with custom path
         expected_data_path = tmp_path / custom_data_file
-        mock_eval_data_with_dataframe.data.write_csv.assert_called_once_with(
-            str(expected_data_path)
+        mock_eval_data_with_dataframe.write_data.assert_called_once_with(
+            str(expected_data_path), "csv"
         )
 
         # Verify state file references custom filename
@@ -1223,8 +1295,8 @@ class TestMetaEvaluator:
 
         # Verify polars write_parquet was called with custom path
         expected_data_path = tmp_path / custom_data_file
-        mock_eval_data_with_dataframe.data.write_parquet.assert_called_once_with(
-            str(expected_data_path)
+        mock_eval_data_with_dataframe.write_data.assert_called_once_with(
+            str(expected_data_path), "parquet"
         )
 
         # Verify state file references custom filename
@@ -1436,74 +1508,6 @@ class TestMetaEvaluator:
         assert result["client_type"] == "test"
         assert result["default_model"] == "test-model"
 
-    def test_write_data_file_no_data_present(self, meta_evaluator):
-        """Test _write_data_file returns early when self.data is None."""
-        assert meta_evaluator.data is None
-
-        # Should not raise any errors, just return early
-        meta_evaluator._write_data_file("test.parquet", "parquet")
-
-    def test_write_data_file_parquet_format(
-        self, meta_evaluator, mock_eval_data_with_dataframe
-    ):
-        """Test _write_data_file calls write_parquet for parquet format."""
-        meta_evaluator.add_data(mock_eval_data_with_dataframe)
-
-        meta_evaluator._write_data_file("test.parquet", "parquet")
-
-        mock_eval_data_with_dataframe.data.write_parquet.assert_called_once_with(
-            "test.parquet"
-        )
-
-    def test_write_data_file_csv_format(
-        self, meta_evaluator, mock_eval_data_with_dataframe
-    ):
-        """Test _write_data_file calls write_csv for CSV format."""
-        meta_evaluator.add_data(mock_eval_data_with_dataframe)
-
-        meta_evaluator._write_data_file("test.csv", "csv")
-
-        mock_eval_data_with_dataframe.data.write_csv.assert_called_once_with("test.csv")
-
-    def test_write_data_file_json_format(
-        self, meta_evaluator, mock_eval_data_with_dataframe, tmp_path
-    ):
-        """Test _write_data_file creates JSON file for json format."""
-        meta_evaluator.add_data(mock_eval_data_with_dataframe)
-        json_file = tmp_path / "test.json"
-
-        meta_evaluator._write_data_file(str(json_file), "json")
-
-        # Verify to_dict was called
-        mock_eval_data_with_dataframe.data.to_dict.assert_called_once_with(
-            as_series=False
-        )
-
-        # Verify file was created
-        assert json_file.exists()
-
-        # Verify file contents
-        with open(json_file) as f:
-            data = json.load(f)
-        assert data == {"id": [1, 2], "text": ["a", "b"]}
-
-    def test_write_data_file_unsupported_format(
-        self, meta_evaluator, mock_eval_data_with_dataframe
-    ):
-        """Test _write_data_file raises ValueError for unsupported format."""
-        meta_evaluator.add_data(mock_eval_data_with_dataframe)
-
-        # Test the match/case logic by patching the method to bypass beartype
-        with patch.object(
-            meta_evaluator,
-            "_write_data_file",
-            wraps=lambda fp, fmt: meta_evaluator.__class__._write_data_file.__wrapped__(
-                meta_evaluator, fp, fmt
-            ),
-        ):
-            with pytest.raises(ValueError, match="Unsupported data format: xml"):
-                meta_evaluator._write_data_file("test.xml", "xml")
-
     # === Security Assertion Tests ===
 
     def test_api_key_security_assertion_would_trigger(self, meta_evaluator):
@@ -1594,8 +1598,8 @@ class TestMetaEvaluator:
             assert data_config["type"] == "EvalData"
 
             # Verify DataFrame method was called
-            mock_eval_data_with_dataframe.data.write_parquet.assert_called_once_with(
-                str(data_file)
+            mock_eval_data_with_dataframe.write_data.assert_called_once_with(
+                str(data_file), "parquet"
             )
 
     def test_save_with_multiple_clients_and_sample_data(
