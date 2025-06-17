@@ -6,7 +6,7 @@ and provides type-safe access to different data categories while preserving orig
 column names and ensuring immutability after initialization.
 """
 
-from typing import Any, Optional
+from typing import Any, Optional, Literal, cast
 import polars as pl
 from pydantic import BaseModel, PrivateAttr, model_validator
 import logging
@@ -21,6 +21,7 @@ from .exceptions import (
     NullValuesInDataError,
     InvalidNameError,
 )
+from ..llm_client.serialization import DataMetadata
 
 logger = logging.getLogger(__name__)
 ID_COLUMN_NAME = "id"
@@ -539,6 +540,36 @@ class EvalData(BaseModel):
             sampling_method="stratified_by_columns",
         )
 
+    def serialize(
+        self,
+        data_format: Optional[Literal["json", "csv", "parquet"]],
+        data_filename: Optional[str],
+    ) -> DataMetadata:
+        """Serialize EvalData metadata.
+
+        Args:
+            data_format: Format for data serialization.
+            data_filename: Name of data file if applicable.
+
+        Returns:
+            DataMetadata: Metadata object for this EvalData.
+
+        Raises:
+            TypeError: If id_column is None during serialization.
+        """
+        if self.id_column is None:
+            raise TypeError(
+                "Cannot serialize EvalData: id_column is None. "
+                "Data should be properly initialized before serialization."
+            )
+        return DataMetadata(
+            name=self.name,
+            id_column=self.id_column,
+            data_file=cast(str, data_filename),
+            data_format=cast(Literal["json", "csv", "parquet"], data_format),
+            type="EvalData",
+        )
+
 
 class SampleEvalData(EvalData):
     """Immutable container for sampled evaluation data with stratified sampling information.
@@ -724,3 +755,38 @@ class SampleEvalData(EvalData):
             "seed": self.seed,
             "sampled_rows": len(self.data),
         }
+
+    def serialize(
+        self,
+        data_format: Optional[Literal["json", "csv", "parquet"]],
+        data_filename: Optional[str],
+    ) -> DataMetadata:
+        """Serialize SampleEvalData metadata.
+
+        Args:
+            data_format: Format for data serialization.
+            data_filename: Name of data file if applicable.
+
+        Returns:
+            DataMetadata: Metadata object for this SampleEvalData.
+
+        Raises:
+            TypeError: If id_column is None during serialization.
+        """
+        if self.id_column is None:
+            raise TypeError(
+                "Cannot serialize SampleEvalData: id_column is None. "
+                "Data should be properly initialized before serialization."
+            )
+        return DataMetadata(
+            name=self.name,
+            id_column=self.id_column,
+            data_file=cast(str, data_filename),
+            data_format=cast(Literal["json", "csv", "parquet"], data_format),
+            type="SampleEvalData",
+            sample_name=self.sample_name,
+            stratification_columns=self.stratification_columns,
+            sample_percentage=self.sample_percentage,
+            seed=self.seed,
+            sampling_method=self.sampling_method,
+        )

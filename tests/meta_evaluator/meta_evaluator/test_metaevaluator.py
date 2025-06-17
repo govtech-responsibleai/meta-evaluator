@@ -21,6 +21,7 @@ from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
 from meta_evaluator.llm_client.serialization import (
     OpenAISerializedState,
     AzureOpenAISerializedState,
+    DataMetadata,
 )
 from meta_evaluator.data.EvalData import EvalData, SampleEvalData
 
@@ -111,6 +112,19 @@ class TestMetaEvaluator:
         )
         mock_eval_data.data = mock_df
 
+        # Create a dynamic serialize method that returns a real DataMetadata object
+        def mock_serialize(data_format, data_filename):
+            return DataMetadata(
+                name="test_dataset",
+                id_column="id",
+                data_file=data_filename or f"test_data.{data_format}",
+                data_format=data_format,
+                type="EvalData",
+            )
+
+        # Set the side_effect to return a real DataMetadata object
+        mock_eval_data.serialize.side_effect = mock_serialize
+
         return mock_eval_data
 
     @pytest.fixture
@@ -153,6 +167,18 @@ class TestMetaEvaluator:
         mock_eval_data.name = "test_dataset"
         mock_eval_data.id_column = "id"
 
+        # Create a dynamic serialize method that respects the requested format
+        def mock_serialize(data_format, data_filename):
+            return DataMetadata(
+                name="test_dataset",
+                id_column="id",
+                data_file=data_filename or f"test_data.{data_format}",
+                data_format=data_format,
+                type="EvalData",
+            )
+
+        mock_eval_data.serialize.side_effect = mock_serialize
+
         # Mock the data (polars DataFrame)
         mock_dataframe = MagicMock()
         mock_dataframe.write_parquet = MagicMock()
@@ -179,6 +205,23 @@ class TestMetaEvaluator:
         mock_sample_data.sample_percentage = 0.3
         mock_sample_data.seed = 42
         mock_sample_data.sampling_method = "stratified_by_columns"
+
+        # Create a dynamic serialize method that respects the requested format
+        def mock_serialize(data_format, data_filename):
+            return DataMetadata(
+                name="sample_dataset",
+                id_column="sample_id",
+                data_file=data_filename or f"sample_data.{data_format}",
+                data_format=data_format,
+                type="SampleEvalData",
+                sample_name="Test Sample",
+                stratification_columns=["topic", "difficulty"],
+                sample_percentage=0.3,
+                seed=42,
+                sampling_method="stratified_by_columns",
+            )
+
+        mock_sample_data.serialize.side_effect = mock_serialize
 
         # Mock the data (polars DataFrame)
         import polars as pl
@@ -1900,6 +1943,10 @@ class TestMetaEvaluator:
             original_evaluator.save_to_json(
                 str(state_file), include_data=True, data_format="csv"
             )
+
+            # Ensure the data file exists
+            data_file = tmp_path / "test_state_data.csv"
+            assert data_file.exists()
 
             # Load from JSON
             loaded_evaluator = MetaEvaluator.load_from_json(

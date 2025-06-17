@@ -330,7 +330,7 @@ class MetaEvaluator:
         data_format: Optional[Literal["json", "csv", "parquet"]],
         data_filename: Optional[str],
     ) -> Optional[DataMetadata]:
-        """Serialize EvalData metadata (never embed DataFrame here).
+        """Serialize EvalData metadata.
 
         Args:
             include_data: Whether to include data serialization metadata.
@@ -340,44 +340,12 @@ class MetaEvaluator:
         Returns:
             Data metadata object or None if data should not be included.
 
-        Raises:
-            TypeError: If data exists but id_column is None during serialization.
+        Note:
+            If data exists but id_column is None, a TypeError is raised by the underlying serialize method.
         """
         if not include_data or self.data is None:
             return None
-
-        # Check if SampleEvalData and include sampling metadata
-        if isinstance(self.data, SampleEvalData):
-            if self.data.id_column is None:
-                raise TypeError(
-                    "Cannot serialize SampleEvalData: id_column is None. "
-                    "Data should be properly initialized before serialization."
-                )
-            return DataMetadata(
-                name=self.data.name,
-                id_column=self.data.id_column,
-                data_file=cast(str, data_filename),
-                data_format=cast(Literal["json", "csv", "parquet"], data_format),
-                type="SampleEvalData",
-                sample_name=self.data.sample_name,
-                stratification_columns=self.data.stratification_columns,
-                sample_percentage=self.data.sample_percentage,
-                seed=self.data.seed,
-                sampling_method=self.data.sampling_method,
-            )
-        else:
-            if self.data.id_column is None:
-                raise TypeError(
-                    "Cannot serialize EvalData: id_column is None. "
-                    "Data should be properly initialized before serialization."
-                )
-            return DataMetadata(
-                name=self.data.name,
-                id_column=self.data.id_column,
-                data_file=cast(str, data_filename),
-                data_format=cast(Literal["json", "csv", "parquet"], data_format),
-                type="EvalData",
-            )
+        return self.data.serialize(data_format, data_filename)
 
     def _write_data_file(
         self, filepath: str, data_format: Literal["json", "csv", "parquet"]
