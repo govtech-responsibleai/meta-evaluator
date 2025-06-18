@@ -1053,23 +1053,21 @@ class TestMetaEvaluator:
             assert isinstance(retrieved_client, MagicMock)
             # In a real scenario, this would be: isinstance(retrieved_client, LLMClient)
 
-    # === save_to_json() Method Tests ===
+    # === save_state() Method Tests ===
 
-    def test_save_to_json_invalid_file_extension(self, meta_evaluator):
+    def test_save_state_invalid_file_extension(self, meta_evaluator):
         """Test ValueError when state_file doesn't end with .json."""
         with pytest.raises(ValueError, match="state_file must end with .json"):
-            meta_evaluator.save_to_json("invalid_file.txt")
+            meta_evaluator.save_state("invalid_file.txt")
 
-    def test_save_to_json_include_data_true_but_no_format(self, meta_evaluator):
+    def test_save_state_include_data_true_but_no_format(self, meta_evaluator):
         """Test ValueError when include_data=True but data_format is None."""
         with pytest.raises(
             ValueError, match="data_format must be specified when include_data=True"
         ):
-            meta_evaluator.save_to_json(
-                "test.json", include_data=True, data_format=None
-            )
+            meta_evaluator.save_state("test.json", include_data=True, data_format=None)
 
-    def test_save_to_json_include_data_false(self, meta_evaluator, tmp_path):
+    def test_save_state_include_data_false(self, meta_evaluator, tmp_path):
         """Test saving state without data serialization."""
         state_file = tmp_path / "test_state.json"
 
@@ -1087,7 +1085,7 @@ class TestMetaEvaluator:
             )
 
         # Save without data
-        meta_evaluator.save_to_json(str(state_file), include_data=False)
+        meta_evaluator.save_state(str(state_file), include_data=False)
 
         # Verify state file exists and data file doesn't
         assert state_file.exists()
@@ -1103,7 +1101,7 @@ class TestMetaEvaluator:
         assert state_data["data"] is None
         assert "openai" in state_data["client_registry"]
 
-    def test_save_to_json_with_parquet_format(
+    def test_save_state_with_parquet_format(
         self, meta_evaluator, mock_eval_data_with_dataframe, tmp_path
     ):
         """Test saving state with parquet data format."""
@@ -1112,7 +1110,7 @@ class TestMetaEvaluator:
 
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
-        meta_evaluator.save_to_json(
+        meta_evaluator.save_state(
             str(state_file), include_data=True, data_format="parquet"
         )
 
@@ -1132,7 +1130,7 @@ class TestMetaEvaluator:
         assert state_data["data"]["data_format"] == "parquet"
         assert state_data["data"]["data_file"] == "test_state_data.parquet"
 
-    def test_save_to_json_with_csv_format(
+    def test_save_state_with_csv_format(
         self, meta_evaluator, mock_eval_data_with_dataframe, tmp_path
     ):
         """Test saving state with CSV data format."""
@@ -1140,11 +1138,8 @@ class TestMetaEvaluator:
         data_file = tmp_path / "test_state_data.csv"
 
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
-        meta_evaluator.save_to_json(
-            str(state_file),
-            include_data=True,
-            data_format="csv",
-        )
+
+        meta_evaluator.save_state(str(state_file), include_data=True, data_format="csv")
 
         # Verify both files exist
         assert state_file.exists()
@@ -1161,7 +1156,7 @@ class TestMetaEvaluator:
         assert state_data["data"]["data_format"] == "csv"
         assert state_data["data"]["data_file"] == "test_state_data.csv"
 
-    def test_save_to_json_with_json_format(
+    def test_save_state_with_json_format(
         self, meta_evaluator, mock_eval_data_with_dataframe, tmp_path
     ):
         """Test saving state with JSON data format."""
@@ -1170,7 +1165,7 @@ class TestMetaEvaluator:
 
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
-        meta_evaluator.save_to_json(
+        meta_evaluator.save_state(
             str(state_file), include_data=True, data_format="json"
         )
 
@@ -1185,14 +1180,14 @@ class TestMetaEvaluator:
         # Verify data file was created with JSON content
         assert data_file.exists()
 
-    def test_save_to_json_no_data_present(self, meta_evaluator, tmp_path):
+    def test_save_state_no_data_present(self, meta_evaluator, tmp_path):
         """Test saving when include_data=True but self.data is None."""
         state_file = tmp_path / "test_state.json"
 
         # Don't add any data to meta_evaluator
         assert meta_evaluator.data is None
 
-        meta_evaluator.save_to_json(
+        meta_evaluator.save_state(
             str(state_file), include_data=True, data_format="parquet"
         )
 
@@ -1206,7 +1201,7 @@ class TestMetaEvaluator:
 
         assert state_data["data"] is None
 
-    def test_save_to_json_creates_directories(self, meta_evaluator, tmp_path):
+    def test_save_state_creates_directories(self, meta_evaluator, tmp_path):
         """Test that parent directories are created when they don't exist."""
         nested_dir = tmp_path / "deep" / "nested" / "path"
         state_file = nested_dir / "test_state.json"
@@ -1214,13 +1209,13 @@ class TestMetaEvaluator:
         # Directory shouldn't exist initially
         assert not nested_dir.exists()
 
-        meta_evaluator.save_to_json(str(state_file), include_data=False)
+        meta_evaluator.save_state(str(state_file), include_data=False)
 
         # Directory should be created and file should exist
         assert nested_dir.exists()
         assert state_file.exists()
 
-    def test_save_to_json_with_custom_data_filename_json(
+    def test_save_state_with_custom_data_filename_json(
         self, meta_evaluator, mock_eval_data_with_dataframe, tmp_path
     ):
         """Test saving with custom data filename for JSON format."""
@@ -1229,7 +1224,7 @@ class TestMetaEvaluator:
 
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
-        meta_evaluator.save_to_json(
+        meta_evaluator.save_state(
             str(state_file),
             include_data=True,
             data_format="json",
@@ -1248,7 +1243,7 @@ class TestMetaEvaluator:
         assert state_data["data"]["data_file"] == custom_data_file
         assert state_data["data"]["data_format"] == "json"
 
-    def test_save_to_json_with_custom_data_filename_csv(
+    def test_save_state_with_custom_data_filename_csv(
         self, meta_evaluator, mock_eval_data_with_dataframe, tmp_path
     ):
         """Test saving with custom data filename for CSV format."""
@@ -1257,7 +1252,7 @@ class TestMetaEvaluator:
 
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
-        meta_evaluator.save_to_json(
+        meta_evaluator.save_state(
             str(state_file),
             include_data=True,
             data_format="csv",
@@ -1277,7 +1272,7 @@ class TestMetaEvaluator:
         assert state_data["data"]["data_file"] == custom_data_file
         assert state_data["data"]["data_format"] == "csv"
 
-    def test_save_to_json_with_custom_data_filename_parquet(
+    def test_save_state_with_custom_data_filename_parquet(
         self, meta_evaluator, mock_eval_data_with_dataframe, tmp_path
     ):
         """Test saving with custom data filename for Parquet format."""
@@ -1286,7 +1281,7 @@ class TestMetaEvaluator:
 
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
-        meta_evaluator.save_to_json(
+        meta_evaluator.save_state(
             str(state_file),
             include_data=True,
             data_format="parquet",
@@ -1306,59 +1301,57 @@ class TestMetaEvaluator:
         assert state_data["data"]["data_file"] == custom_data_file
         assert state_data["data"]["data_format"] == "parquet"
 
-    def test_save_to_json_data_filename_extension_mismatch_json(self, meta_evaluator):
+    def test_save_state_data_filename_extension_mismatch_json(self, meta_evaluator):
         """Test DataFilenameExtensionMismatchException for JSON format mismatch."""
         with pytest.raises(
             DataFilenameExtensionMismatchException,
             match="Data filename 'wrong_extension.csv' must have extension '.json' to match data_format 'json'",
         ):
-            meta_evaluator.save_to_json(
+            meta_evaluator.save_state(
                 "test.json",
                 include_data=True,
                 data_format="json",
                 data_filename="wrong_extension.csv",
             )
 
-    def test_save_to_json_data_filename_extension_mismatch_csv(self, meta_evaluator):
+    def test_save_state_data_filename_extension_mismatch_csv(self, meta_evaluator):
         """Test DataFilenameExtensionMismatchException for CSV format mismatch."""
         with pytest.raises(
             DataFilenameExtensionMismatchException,
             match="Data filename 'wrong_extension.json' must have extension '.csv' to match data_format 'csv'",
         ):
-            meta_evaluator.save_to_json(
+            meta_evaluator.save_state(
                 "test.json",
                 include_data=True,
                 data_format="csv",
                 data_filename="wrong_extension.json",
             )
 
-    def test_save_to_json_data_filename_extension_mismatch_parquet(
-        self, meta_evaluator
-    ):
+    def test_save_state_data_filename_extension_mismatch_parquet(self, meta_evaluator):
         """Test DataFilenameExtensionMismatchException for Parquet format mismatch."""
         with pytest.raises(
             DataFilenameExtensionMismatchException,
             match="Data filename 'wrong_extension.csv' must have extension '.parquet' to match data_format 'parquet'",
         ):
-            meta_evaluator.save_to_json(
+            meta_evaluator.save_state(
                 "test.json",
                 include_data=True,
                 data_format="parquet",
                 data_filename="wrong_extension.csv",
             )
 
-    def test_save_to_json_data_filename_no_validation_when_include_data_false(
+    def test_save_state_data_filename_no_validation_when_include_data_false(
         self, meta_evaluator, tmp_path
     ):
         """Test that data_filename extension is not validated when include_data=False."""
         state_file = tmp_path / "test.json"
         # This should not raise an exception even with wrong extension
         # because data_filename is ignored when include_data=False
-        meta_evaluator.save_to_json(
+        meta_evaluator.save_state(
             str(state_file), include_data=False, data_filename="wrong_extension.csv"
         )
 
-    def test_save_to_json_data_filename_no_validation_when_data_format_none(
+    def test_save_state_data_filename_no_validation_when_data_format_none(
         self, meta_evaluator
     ):
         """Test that data_filename extension is not validated when data_format=None."""
@@ -1367,14 +1360,14 @@ class TestMetaEvaluator:
         with pytest.raises(
             ValueError, match="data_format must be specified when include_data=True"
         ):
-            meta_evaluator.save_to_json(
+            meta_evaluator.save_state(
                 "test.json",
                 include_data=True,
                 data_format=None,
                 data_filename="any_name.csv",
             )
 
-    def test_save_to_json_fallback_to_auto_generated_when_data_filename_none(
+    def test_save_state_fallback_to_auto_generated_when_data_filename_none(
         self, meta_evaluator, mock_eval_data_with_dataframe, tmp_path
     ):
         """Test that auto-generated filename is used when data_filename=None."""
@@ -1382,7 +1375,7 @@ class TestMetaEvaluator:
 
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
-        meta_evaluator.save_to_json(
+        meta_evaluator.save_state(
             str(state_file),
             include_data=True,
             data_format="json",
@@ -1563,7 +1556,7 @@ class TestMetaEvaluator:
             meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
             # Save state
-            meta_evaluator.save_to_json(
+            meta_evaluator.save_state(
                 str(state_file), include_data=True, data_format="parquet"
             )
 
@@ -1639,7 +1632,7 @@ class TestMetaEvaluator:
             meta_evaluator.add_data(mock_sample_eval_data)
 
             # Save state
-            meta_evaluator.save_to_json(
+            meta_evaluator.save_state(
                 str(state_file), include_data=True, data_format="csv"
             )
 
@@ -1680,7 +1673,7 @@ class TestMetaEvaluator:
         # Directory shouldn't exist initially
         assert not complex_dir.exists()
 
-        meta_evaluator.save_to_json(str(state_file), include_data=False)
+        meta_evaluator.save_state(str(state_file), include_data=False)
 
         # Verify directory was created and file exists
         assert complex_dir.exists()
@@ -1692,9 +1685,9 @@ class TestMetaEvaluator:
 
         assert state_data["version"] == "1.0"
 
-    # === load_from_json() Method Tests ===
+    # === load_state() Method Tests ===
 
-    def test_load_from_json_with_openai_client(self, tmp_path, openai_environment):
+    def test_load_state_with_openai_client(self, tmp_path, openai_environment):
         """Test loading MetaEvaluator with OpenAI client from JSON."""
         # First save a state with OpenAI client
         with patch(
@@ -1730,10 +1723,10 @@ class TestMetaEvaluator:
             original_evaluator.add_openai()
 
             state_file = tmp_path / "test_state.json"
-            original_evaluator.save_to_json(str(state_file), include_data=False)
+            original_evaluator.save_state(str(state_file), include_data=False)
 
             # Load from JSON (provide API key for reconstruction)
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file), load_data=False, openai_api_key="test-api-key"
             )
 
@@ -1741,7 +1734,7 @@ class TestMetaEvaluator:
             assert LLMClientEnum.OPENAI in loaded_evaluator.client_registry
             assert loaded_evaluator.data is None
 
-    def test_load_from_json_with_azure_openai_client(
+    def test_load_state_with_azure_openai_client(
         self, tmp_path, azure_openai_environment
     ):
         """Test loading MetaEvaluator with Azure OpenAI client from JSON."""
@@ -1784,10 +1777,10 @@ class TestMetaEvaluator:
             original_evaluator.add_azure_openai()
 
             state_file = tmp_path / "test_state.json"
-            original_evaluator.save_to_json(str(state_file), include_data=False)
+            original_evaluator.save_state(str(state_file), include_data=False)
 
             # Load from JSON (provide API key for reconstruction)
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file), load_data=False, azure_openai_api_key="test-api-key"
             )
 
@@ -1795,7 +1788,7 @@ class TestMetaEvaluator:
             assert LLMClientEnum.AZURE_OPENAI in loaded_evaluator.client_registry
             assert loaded_evaluator.data is None
 
-    def test_load_from_json_with_eval_data_json_format(
+    def test_load_state_with_eval_data_json_format(
         self, tmp_path, sample_eval_data, openai_environment
     ):
         """Test loading MetaEvaluator with EvalData in JSON format."""
@@ -1833,12 +1826,12 @@ class TestMetaEvaluator:
             original_evaluator.add_data(sample_eval_data)
 
             state_file = tmp_path / "test_state.json"
-            original_evaluator.save_to_json(
+            original_evaluator.save_state(
                 str(state_file), include_data=True, data_format="json"
             )
 
             # Load from JSON
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file), load_data=True, openai_api_key="test-api-key"
             )
 
@@ -1848,7 +1841,7 @@ class TestMetaEvaluator:
             assert loaded_evaluator.data.id_column == sample_eval_data.id_column
             assert isinstance(loaded_evaluator.data, EvalData)
 
-    def test_load_from_json_with_sample_eval_data_csv_format(
+    def test_load_state_with_sample_eval_data_csv_format(
         self, tmp_path, mock_sample_eval_data, openai_environment
     ):
         """Test loading MetaEvaluator with SampleEvalData in CSV format."""
@@ -1886,7 +1879,7 @@ class TestMetaEvaluator:
             original_evaluator.add_data(mock_sample_eval_data)
 
             state_file = tmp_path / "test_state.json"
-            original_evaluator.save_to_json(
+            original_evaluator.save_state(
                 str(state_file), include_data=True, data_format="csv"
             )
 
@@ -1895,7 +1888,7 @@ class TestMetaEvaluator:
             assert data_file.exists()
 
             # Load from JSON
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file), load_data=True, openai_api_key="test-api-key"
             )
 
@@ -1919,7 +1912,7 @@ class TestMetaEvaluator:
                 == mock_sample_eval_data.sampling_method
             )
 
-    def test_load_from_json_skip_data_loading(
+    def test_load_state_skip_data_loading(
         self, tmp_path, sample_eval_data, openai_environment
     ):
         """Test loading MetaEvaluator while skipping data loading."""
@@ -1957,12 +1950,12 @@ class TestMetaEvaluator:
             original_evaluator.add_data(sample_eval_data)
 
             state_file = tmp_path / "test_state.json"
-            original_evaluator.save_to_json(
+            original_evaluator.save_state(
                 str(state_file), include_data=True, data_format="json"
             )
 
             # Load from JSON without data
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file), load_data=False, openai_api_key="test-api-key"
             )
 
@@ -1970,17 +1963,17 @@ class TestMetaEvaluator:
             assert LLMClientEnum.OPENAI in loaded_evaluator.client_registry
             assert loaded_evaluator.data is None
 
-    def test_load_from_json_invalid_file_extension(self):
+    def test_load_state_invalid_file_extension(self):
         """Test ValueError when state file doesn't end with .json."""
         with pytest.raises(ValueError, match="state_file must end with .json"):
-            MetaEvaluator.load_from_json("invalid_file.txt")
+            MetaEvaluator.load_state("invalid_file.txt")
 
-    def test_load_from_json_nonexistent_file(self):
+    def test_load_state_nonexistent_file(self):
         """Test FileNotFoundError when state file doesn't exist."""
         with pytest.raises(FileNotFoundError, match="State file not found"):
-            MetaEvaluator.load_from_json("nonexistent.json")
+            MetaEvaluator.load_state("nonexistent.json")
 
-    def test_load_from_json_invalid_json(self, tmp_path):
+    def test_load_state_invalid_json(self, tmp_path):
         """Test ValueError when state file contains invalid JSON."""
         state_file = tmp_path / "invalid.json"
         state_file.write_text("{ invalid json }")
@@ -1989,9 +1982,9 @@ class TestMetaEvaluator:
             ValueError,
             match=re.compile(rf"{re.escape(INVALID_JSON_STRUCTURE_MSG)}", re.DOTALL),
         ):
-            MetaEvaluator.load_from_json(str(state_file))
+            MetaEvaluator.load_state(str(state_file))
 
-    def test_load_from_json_missing_required_keys(self, tmp_path):
+    def test_load_state_missing_required_keys(self, tmp_path):
         """Test ValueError when state file is missing required keys."""
         state_file = tmp_path / "incomplete.json"
         state_file.write_text('{"version": "1.0"}')  # Missing client_registry and data
@@ -2002,9 +1995,9 @@ class TestMetaEvaluator:
                 rf"{re.escape(INVALID_JSON_STRUCTURE_MSG)}.*Field required", re.DOTALL
             ),
         ):
-            MetaEvaluator.load_from_json(str(state_file))
+            MetaEvaluator.load_state(str(state_file))
 
-    def test_load_from_json_missing_api_keys(self, tmp_path, clean_environment):
+    def test_load_state_missing_api_keys(self, tmp_path, clean_environment):
         """Test MissingConfigurationException when API keys are missing."""
         # Create valid state file with OpenAI client
         state_data = {
@@ -2027,9 +2020,9 @@ class TestMetaEvaluator:
             json.dump(state_data, f)
 
         with pytest.raises(MissingConfigurationException, match="api_key"):
-            MetaEvaluator.load_from_json(str(state_file))
+            MetaEvaluator.load_state(str(state_file))
 
-    def test_load_from_json_nonexistent_data_file(self, tmp_path, openai_environment):
+    def test_load_state_nonexistent_data_file(self, tmp_path, openai_environment):
         """Test FileNotFoundError when referenced data file doesn't exist."""
         # Create state file that references nonexistent data file
         state_data = {
@@ -2064,11 +2057,11 @@ class TestMetaEvaluator:
             mock_client_class.return_value = mock_client
 
             with pytest.raises(FileNotFoundError, match="Data file not found"):
-                MetaEvaluator.load_from_json(
+                MetaEvaluator.load_state(
                     str(state_file), load_data=True, openai_api_key="test-api-key"
                 )
 
-    def test_load_from_json_unsupported_data_format(self, tmp_path, openai_environment):
+    def test_load_state_unsupported_data_format(self, tmp_path, openai_environment):
         """Test ValueError when data format is unsupported."""
         # Create state file with unsupported data format
         state_data = {
@@ -2113,11 +2106,11 @@ class TestMetaEvaluator:
                     re.DOTALL,
                 ),
             ):
-                MetaEvaluator.load_from_json(
+                MetaEvaluator.load_state(
                     str(state_file), load_data=True, openai_api_key="test-api-key"
                 )
 
-    def test_load_from_json_with_custom_api_keys(self, tmp_path):
+    def test_load_state_with_custom_api_keys(self, tmp_path):
         """Test loading with custom API keys provided as parameters."""
         # Create state file with both OpenAI and Azure OpenAI clients
         state_data = {
@@ -2163,7 +2156,7 @@ class TestMetaEvaluator:
             mock_azure_class.return_value = mock_azure_client
 
             # Load with custom API keys
-            loaded_evaluator = MetaEvaluator.load_from_json(
+            loaded_evaluator = MetaEvaluator.load_state(
                 str(state_file),
                 load_data=False,
                 openai_api_key="custom-openai-key",

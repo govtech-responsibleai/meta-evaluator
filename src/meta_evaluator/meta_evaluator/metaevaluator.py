@@ -33,6 +33,16 @@ INVALID_JSON_STRUCTURE_MSG = "Invalid JSON structure in state file"
 INVALID_JSON_MSG = "Invalid JSON in state file"
 STATE_FILE_NOT_FOUND_MSG = "State file not found"
 
+_OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY"
+_OPENAI_DEFAULT_MODEL_ENV_VAR = "OPENAI_DEFAULT_MODEL"
+_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR = "OPENAI_DEFAULT_EMBEDDING_MODEL"
+
+_AZURE_OPENAI_API_KEY_ENV_VAR = "AZURE_OPENAI_API_KEY"
+_AZURE_OPENAI_ENDPOINT_ENV_VAR = "AZURE_OPENAI_ENDPOINT"
+_AZURE_OPENAI_API_VERSION_ENV_VAR = "AZURE_OPENAI_API_VERSION"
+_AZURE_OPENAI_DEFAULT_MODEL_ENV_VAR = "AZURE_OPENAI_DEFAULT_MODEL"
+_AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR = "AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL"
+
 load_dotenv()
 
 
@@ -68,24 +78,24 @@ class MetaEvaluator:
             raise ClientAlreadyExistsException("OPENAI")
 
         # Get configuration values, fallback to environment variables
-        final_api_key = api_key or os.getenv("OPENAI_API_KEY")
-        final_default_model = default_model or os.getenv("OPENAI_DEFAULT_MODEL")
+        final_api_key = api_key or os.getenv(_OPENAI_API_KEY_ENV_VAR)
+        final_default_model = default_model or os.getenv(_OPENAI_DEFAULT_MODEL_ENV_VAR)
         final_default_embedding_model = default_embedding_model or os.getenv(
-            "OPENAI_DEFAULT_EMBEDDING_MODEL"
+            _OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR
         )
 
         # Validate required parameters
         if not final_api_key:
             raise MissingConfigurationException(
-                "api_key (or OPENAI_API_KEY environment variable)"
+                f"api_key (or {_OPENAI_API_KEY_ENV_VAR} environment variable)"
             )
         if not final_default_model:
             raise MissingConfigurationException(
-                "default_model (or OPENAI_DEFAULT_MODEL environment variable)"
+                f"default_model (or {_OPENAI_DEFAULT_MODEL_ENV_VAR} environment variable)"
             )
         if not final_default_embedding_model:
             raise MissingConfigurationException(
-                "default_embedding_model (or OPENAI_DEFAULT_EMBEDDING_MODEL environment variable)"
+                f"default_embedding_model (or {_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR} environment variable)"
             )
 
         # Create configuration and client
@@ -127,34 +137,36 @@ class MetaEvaluator:
             raise ClientAlreadyExistsException("AZURE_OPENAI")
 
         # Get configuration values, fallback to environment variables
-        final_api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
-        final_endpoint = endpoint or os.getenv("AZURE_OPENAI_ENDPOINT")
-        final_api_version = api_version or os.getenv("AZURE_OPENAI_API_VERSION")
-        final_default_model = default_model or os.getenv("AZURE_OPENAI_DEFAULT_MODEL")
+        final_api_key = api_key or os.getenv(_AZURE_OPENAI_API_KEY_ENV_VAR)
+        final_endpoint = endpoint or os.getenv(_AZURE_OPENAI_ENDPOINT_ENV_VAR)
+        final_api_version = api_version or os.getenv(_AZURE_OPENAI_API_VERSION_ENV_VAR)
+        final_default_model = default_model or os.getenv(
+            _AZURE_OPENAI_DEFAULT_MODEL_ENV_VAR
+        )
         final_default_embedding_model = default_embedding_model or os.getenv(
-            "AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL"
+            _AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR
         )
 
         # Validate required parameters
         if not final_api_key:
             raise MissingConfigurationException(
-                "api_key (or AZURE_OPENAI_API_KEY environment variable)"
+                f"api_key (or {_AZURE_OPENAI_API_KEY_ENV_VAR} environment variable)"
             )
         if not final_endpoint:
             raise MissingConfigurationException(
-                "endpoint (or AZURE_OPENAI_ENDPOINT environment variable)"
+                f"endpoint (or {_AZURE_OPENAI_ENDPOINT_ENV_VAR} environment variable)"
             )
         if not final_api_version:
             raise MissingConfigurationException(
-                "api_version (or AZURE_OPENAI_API_VERSION environment variable)"
+                f"api_version (or {_AZURE_OPENAI_API_VERSION_ENV_VAR} environment variable)"
             )
         if not final_default_model:
             raise MissingConfigurationException(
-                "default_model (or AZURE_OPENAI_DEFAULT_MODEL environment variable)"
+                f"default_model (or {_AZURE_OPENAI_DEFAULT_MODEL_ENV_VAR} environment variable)"
             )
         if not final_default_embedding_model:
             raise MissingConfigurationException(
-                "default_embedding_model (or AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL environment variable)"
+                f"default_embedding_model (or {_AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR} environment variable)"
             )
 
         # Create configuration and client
@@ -202,7 +214,7 @@ class MetaEvaluator:
 
         self.data = eval_data
 
-    def save_to_json(
+    def save_state(
         self,
         state_file: str,
         include_data: bool = True,
@@ -324,6 +336,14 @@ class MetaEvaluator:
         serialized_state = client.config.serialize()
         return serialized_state.model_dump(mode="json")
 
+    def get_client_list(self) -> list[tuple[LLMClientEnum, LLMClient]]:
+        """Get a list of client tuples (type, client).
+
+        Returns:
+            List of client tuples.
+        """
+        return list(self.client_registry.items())
+
     def _serialize_data(
         self,
         include_data: bool,
@@ -348,7 +368,7 @@ class MetaEvaluator:
         return self.data.serialize(data_format, data_filename)
 
     @classmethod
-    def load_from_json(
+    def load_state(
         cls,
         state_file: str,
         load_data: bool = True,
@@ -375,13 +395,13 @@ class MetaEvaluator:
 
         Examples:
             # Load everything (clients + data)
-            evaluator = MetaEvaluator.load_from_json("my_state.json")
+            evaluator = MetaEvaluator.load_state("my_state.json")
 
             # Load only clients, skip data
-            evaluator = MetaEvaluator.load_from_json("my_state.json", load_data=False)
+            evaluator = MetaEvaluator.load_state("my_state.json", load_data=False)
 
             # Provide custom API keys
-            evaluator = MetaEvaluator.load_from_json("my_state.json",
+            evaluator = MetaEvaluator.load_state("my_state.json",
                                                    openai_api_key="custom-key")
 
         Raises:
@@ -396,6 +416,12 @@ class MetaEvaluator:
 
         # Create new MetaEvaluator instance
         evaluator = cls()
+
+        # Use environment variables if API keys are not provided
+        openai_api_key = openai_api_key or os.getenv(_OPENAI_API_KEY_ENV_VAR)
+        azure_openai_api_key = azure_openai_api_key or os.getenv(
+            _AZURE_OPENAI_API_KEY_ENV_VAR
+        )
 
         # Reconstruct clients
         evaluator._reconstruct_clients(
