@@ -2,6 +2,7 @@
 
 from typing import Any, Callable, Literal
 from pydantic import BaseModel, Field, create_model, model_validator
+from .serialization import EvaluationTaskState
 
 
 class EvaluationTask(BaseModel):
@@ -92,3 +93,34 @@ class EvaluationTask(BaseModel):
         )
 
         return DynamicTaskOutcome
+
+    def serialize(self) -> EvaluationTaskState:
+        """Serialize the EvaluationTask to metadata (excluding skip_function).
+
+        Returns:
+            EvaluationTaskState: Serialized state for EvaluationTask.
+        """
+        return EvaluationTaskState(
+            task_schemas=self.task_schemas,
+            input_columns=self.input_columns,
+            output_columns=self.output_columns,
+            answering_method=self.answering_method,
+        )
+
+    @classmethod
+    def deserialize(cls, state: EvaluationTaskState) -> "EvaluationTask":
+        """Deserialize EvaluationTask from state.
+
+        Args:
+            state: Serialized state for EvaluationTask.
+
+        Returns:
+            EvaluationTask: Reconstructed EvaluationTask instance.
+        """
+        return cls(
+            task_schemas=state.task_schemas,
+            input_columns=state.input_columns,
+            output_columns=state.output_columns,
+            answering_method=state.answering_method,
+            # skip_function must be set manually or defaulted
+        )
