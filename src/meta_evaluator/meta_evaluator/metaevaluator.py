@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 from typing import Literal, Optional, cast
 from pydantic import ValidationError
-import polars as pl
 
 from dotenv import load_dotenv
 
@@ -68,6 +67,8 @@ class MetaEvaluator:
         self.client_registry: dict[LLMClientEnum, LLMClient] = {}
         self.data: Optional[EvalData] = None
         self.evaluation_task: Optional[EvaluationTask] = None  # NEW
+
+    # ===== CLIENT MANAGEMENT METHODS =====
 
     def add_openai(
         self,
@@ -214,6 +215,16 @@ class MetaEvaluator:
 
         return self.client_registry[client_type]
 
+    def get_client_list(self) -> list[tuple[LLMClientEnum, LLMClient]]:
+        """Get a list of client tuples (type, client).
+
+        Returns:
+            List of client tuples.
+        """
+        return list(self.client_registry.items())
+
+    # ===== DATA AND TASK MANAGEMENT METHODS =====
+
     def add_data(self, eval_data: EvalData, overwrite: bool = False) -> None:
         """Add evaluation data to the evaluator.
 
@@ -245,6 +256,8 @@ class MetaEvaluator:
             raise EvaluationTaskAlreadyExistsException()
 
         self.evaluation_task = evaluation_task
+
+    # ===== SERIALIZATION METHODS =====
 
     def save_state(
         self,
@@ -322,7 +335,8 @@ class MetaEvaluator:
         if include_data and self.data is not None:
             data_filepath = directory / cast(str, final_data_filename)
             self.data.write_data(
-                str(data_filepath), cast(Literal["json", "csv", "parquet"], data_format)
+                filepath=str(data_filepath),
+                data_format=cast(Literal["json", "csv", "parquet"], data_format),
             )
 
     def _serialize(
@@ -380,14 +394,6 @@ class MetaEvaluator:
         serialized_state = client.config.serialize()
         return serialized_state.model_dump(mode="json")
 
-    def get_client_list(self) -> list[tuple[LLMClientEnum, LLMClient]]:
-        """Get a list of client tuples (type, client).
-
-        Returns:
-            List of client tuples.
-        """
-        return list(self.client_registry.items())
-
     def _serialize_data(
         self,
         include_data: bool,
@@ -402,19 +408,22 @@ class MetaEvaluator:
             data_filename: Name of data file if applicable.
 
         Returns:
-            Data metadata object or None if data should not be included.
+            Serialized DataMetaData dictionary.
 
         Note:
             If data exists but id_column is None, a TypeError is raised by the underlying serialize method.
         """
         if not include_data or self.data is None:
             return None
-        return self.data.serialize(data_format, data_filename)
+        serialized_metadata = self.data.serialize_metadata(
+            data_filename=data_filename, data_format=data_format
+        )
+        return serialized_metadata
 
     def _serialize_evaluation_task(
         self,
         include_task: bool,
-    ) -> Optional[dict]:
+    ) -> Optional[EvaluationTaskState]:
         """Serialize EvaluationTask.
 
         Returns:
@@ -424,7 +433,9 @@ class MetaEvaluator:
             return None
         serialized_state = self.evaluation_task.serialize()
 
-        return serialized_state.model_dump(mode="json")
+        return serialized_state
+
+    # ===== DESERIALIZATION METHODS =====
 
     @classmethod
     def load_state(
@@ -494,7 +505,6 @@ class MetaEvaluator:
         azure_openai_api_key = azure_openai_api_key or os.getenv(
             _AZURE_OPENAI_API_KEY_ENV_VAR
         )
-
         # Reconstruct clients
         evaluator._reconstruct_clients(
             state.client_registry, openai_api_key, azure_openai_api_key
@@ -502,7 +512,7 @@ class MetaEvaluator:
 
         # Load data if requested and available
         if load_data and state.data is not None:
-            evaluator._load_data_from_state(state.data, state_file)
+            evaluator._reconstruct_data(state.data, state_file)
 
         # Load task if requested and available
         if load_task and state.evaluation_task is not None:
@@ -594,92 +604,35 @@ class MetaEvaluator:
             case _:
                 raise ValueError(f"Unsupported client type: {client_enum}")
 
-    def _reconstruct_task(self, task_data: dict) -> None:
+    def _reconstruct_task(self, state: EvaluationTaskState) -> None:
         """Reconstruct the evaluation task from serialized data.
 
         Args:
-            task_data: Dictionary of serialized evaluation task.
+            state: EvaluationTaskState object containing serialized evaluation task.
         """
-        state = EvaluationTaskState.model_validate(task_data)
         self.evaluation_task = EvaluationTask.deserialize(state)
 
-    def _load_data_from_state(
-        self, data_metadata: DataMetadata, state_file: str
-    ) -> None:
-        """Load data from external file based on metadata.
+    def _reconstruct_data(self, metadata: DataMetadata, state_file: str) -> None:
+        """Reconstruct the data from the data file metadata.
 
         Args:
-            data_metadata: DataMetadata object containing data file metadata.
+            metadata: DataMetadata object containing data file metadata.
             state_file: Path to the original state file (for resolving relative paths).
         """
         # Resolve data file path relative to state file
         state_path = Path(state_file)
-        data_filepath = state_path.parent / data_metadata.data_file
+        data_filepath = state_path.parent / metadata.data_file
 
         # Load the data based on format
-        df = self._load_dataframe_from_file(
-            str(data_filepath), data_metadata.data_format
+        df = EvalData.load_data(
+            filepath=str(data_filepath), data_format=metadata.data_format
         )
 
         # Create appropriate EvalData object
-        eval_data = self._create_eval_data_from_metadata(data_metadata, df)
+        if metadata.type == "SampleEvalData":
+            eval_data = SampleEvalData.deserialize(data=df, metadata=metadata)
+        else:
+            eval_data = EvalData.deserialize(data=df, metadata=metadata)
 
         # Add to evaluator
         self.add_data(eval_data, overwrite=True)
-
-    def _load_dataframe_from_file(self, filepath: str, data_format: str):
-        """Load DataFrame from file in specified format.
-
-        Args:
-            filepath: Path to the data file.
-            data_format: Format of the data file.
-
-        Returns:
-            Loaded DataFrame (polars).
-
-        Raises:
-            FileNotFoundError: If the data file doesn't exist.
-            ValueError: If the data format is not supported.
-        """
-        try:
-            match data_format:
-                case "parquet":
-                    return pl.read_parquet(filepath)
-                case "csv":
-                    return pl.read_csv(filepath)
-                case "json":
-                    with open(filepath, "r") as f:
-                        data_dict = json.load(f)
-                    return pl.DataFrame(data_dict)
-                case _:
-                    raise ValueError(f"Unsupported data format: {data_format}")
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Data file not found: {filepath}")
-
-    def _create_eval_data_from_metadata(self, data_metadata: DataMetadata, df):
-        """Create EvalData or SampleEvalData object from metadata and DataFrame.
-
-        Args:
-            data_metadata: DataMetadata object containing data metadata.
-            df: The loaded DataFrame.
-
-        Returns:
-            EvalData or SampleEvalData object.
-        """
-        if data_metadata.type == "SampleEvalData":
-            return SampleEvalData(
-                data=df,
-                name=data_metadata.name,
-                id_column=data_metadata.id_column,
-                sample_name=cast(str, data_metadata.sample_name),
-                stratification_columns=cast(list, data_metadata.stratification_columns),
-                sample_percentage=cast(float, data_metadata.sample_percentage),
-                seed=cast(int, data_metadata.seed),
-                sampling_method=cast(str, data_metadata.sampling_method),
-            )
-        else:
-            return EvalData(
-                data=df,
-                name=data_metadata.name,
-                id_column=data_metadata.id_column,
-            )

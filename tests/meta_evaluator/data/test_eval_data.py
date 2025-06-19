@@ -488,23 +488,7 @@ class TestEvalData:
                 id_column="123invalid",
             )
 
-    def test_serialize_basic(self, minimal_dataframe):
-        """Test basic serialization of EvalData."""
-        eval_data = EvalData(
-            name="test",
-            data=minimal_dataframe,
-        )
-
-        result = eval_data.serialize(data_format="csv", data_filename="test_data.csv")
-
-        assert result.name == "test"
-        assert result.id_column == "id"
-        assert result.data_file == "test_data.csv"
-        assert result.data_format == "csv"
-        assert result.type == "EvalData"
-        # Optional fields should be None for regular EvalData
-        assert result.sample_name is None
-        assert result.stratification_columns is None
+    # === Data Loading and Serialization Tests ===
 
     def test_write_data_parquet_format(self, minimal_dataframe, tmp_path):
         """Test write_data writes parquet format correctly."""
@@ -561,3 +545,74 @@ class TestEvalData:
         with open(filepath) as f:
             data = json.load(f)
         assert data == eval_data.data.to_dict(as_series=False)
+
+    def test_load_data_parquet_format(self, minimal_dataframe, tmp_path):
+        """Test load_data loads parquet format correctly."""
+        # First write a test file
+        filepath = tmp_path / "test.parquet"
+        minimal_dataframe.write_parquet(str(filepath))
+
+        # Load it back
+        loaded_df = EvalData.load_data(str(filepath), "parquet")
+        assert loaded_df.equals(minimal_dataframe)
+
+    def test_load_data_csv_format(self, minimal_dataframe, tmp_path):
+        """Test load_data loads CSV format correctly."""
+        # First write a test file
+        filepath = tmp_path / "test.csv"
+        minimal_dataframe.write_csv(str(filepath))
+
+        # Load it back
+        loaded_df = EvalData.load_data(str(filepath), "csv")
+        # CSV loading might have type differences, so compare values
+        assert loaded_df.shape == minimal_dataframe.shape
+        assert list(loaded_df.columns) == list(minimal_dataframe.columns)
+
+    def test_load_data_json_format(self, minimal_dataframe, tmp_path):
+        """Test load_data loads JSON format correctly."""
+        # First write a test file
+        filepath = tmp_path / "test.json"
+        data_dict = minimal_dataframe.to_dict(as_series=False)
+        with open(filepath, "w") as f:
+            json.dump(data_dict, f)
+
+        # Load it back
+        loaded_df = EvalData.load_data(str(filepath), "json")
+        assert loaded_df.equals(minimal_dataframe)
+
+    def test_serialize_metadata_basic(self, minimal_dataframe):
+        """Test basic serialization of EvalData metadata."""
+        eval_data = EvalData(
+            name="test",
+            data=minimal_dataframe,
+        )
+
+        result = eval_data.serialize_metadata(
+            data_filename="test_data.csv", data_format="csv"
+        )
+
+        assert result.name == "test"
+        assert result.id_column == "id"
+        assert result.data_file == "test_data.csv"
+        assert result.data_format == "csv"
+        assert result.type == "EvalData"
+        # Optional fields should be None for regular EvalData
+        assert result.sample_name is None
+        assert result.stratification_columns is None
+
+    def test_deserialize_basic(self, minimal_dataframe):
+        """Test basic deserialization of EvalData."""
+        eval_data = EvalData(
+            name="test",
+            data=minimal_dataframe,
+        )
+
+        metadata = eval_data.serialize_metadata(
+            data_format="csv", data_filename="test.csv"
+        )
+
+        new_eval_data = EvalData.deserialize(data=eval_data.data, metadata=metadata)
+
+        assert new_eval_data.name == eval_data.name
+        assert new_eval_data.id_column == eval_data.id_column
+        assert new_eval_data.data.equals(eval_data.data)

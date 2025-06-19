@@ -490,31 +490,7 @@ class TestSamplingFunctionality:
         assert isinstance(sample.data, pl.DataFrame)
         assert len(sample.data) > 0
 
-    def test_serialize_sample_eval_data(self, eval_data_with_stratification_columns):
-        """Test serialization of SampleEvalData includes sampling metadata."""
-        # Create a sample with all metadata
-        sample = eval_data_with_stratification_columns.stratified_sample_by_columns(
-            columns=["difficulty", "topic"],
-            sample_percentage=0.3,
-            sample_name="Test Sample",
-            seed=42,
-        )
-
-        result = sample.serialize(data_format="json", data_filename="sample_data.json")
-
-        # Verify basic EvalData fields
-        assert result.name == sample.name
-        assert result.id_column == sample.id_column
-        assert result.data_file == "sample_data.json"
-        assert result.data_format == "json"
-
-        # Verify SampleEvalData specific fields
-        assert result.type == "SampleEvalData"
-        assert result.sample_name == "Test Sample"
-        assert result.stratification_columns == ["difficulty", "topic"]
-        assert result.sample_percentage == 0.3
-        assert result.seed == 42
-        assert result.sampling_method == "stratified_by_columns"
+    # === Data Loading and Serialization Tests ===
 
     def test_write_data_parquet_format(
         self, eval_data_with_stratification_columns, tmp_path
@@ -577,3 +553,138 @@ class TestSamplingFunctionality:
         with open(filepath) as f:
             data = json.load(f)
         assert data == sample.data.to_dict(as_series=False)
+
+    def test_serialize_sample_eval_data_basic(
+        self, eval_data_with_stratification_columns
+    ):
+        """Test basic serialization of SampleEvalData metadata."""
+        # Create a sample first
+        sample = eval_data_with_stratification_columns.stratified_sample_by_columns(
+            columns=["difficulty", "topic"],
+            sample_percentage=0.3,
+            sample_name="Test Sample",
+            seed=42,
+        )
+
+        result = sample.serialize_metadata(
+            data_filename="test_sample.csv", data_format="csv"
+        )
+
+        # Verify basic EvalData fields
+        assert result.name == sample.name
+        assert result.id_column == sample.id_column
+        assert result.data_file == "test_sample.csv"
+        assert result.data_format == "csv"
+        assert result.type == "SampleEvalData"
+
+        # Verify SampleEvalData specific fields
+        assert result.sample_name == "Test Sample"
+        assert result.stratification_columns == ["difficulty", "topic"]
+        assert result.sample_percentage == 0.3
+        assert result.seed == 42
+        assert result.sampling_method == "stratified_by_columns"
+
+    def test_deserialize_basic(self, eval_data_with_stratification_columns):
+        """Test basic deserialization of SampleEvalData."""
+        # Create a sample first
+        sample = eval_data_with_stratification_columns.stratified_sample_by_columns(
+            columns=["difficulty", "topic"],
+            sample_percentage=0.3,
+            sample_name="Test Sample",
+            seed=42,
+        )
+
+        # Create metadata for deserialization
+        from meta_evaluator.data.serialization import DataMetadata
+
+        metadata = DataMetadata(
+            name=sample.name,
+            id_column=sample.id_column,
+            data_file="test.csv",
+            data_format="csv",
+            type="SampleEvalData",
+            sample_name=sample.sample_name,
+            stratification_columns=sample.stratification_columns,
+            sample_percentage=sample.sample_percentage,
+            seed=sample.seed,
+            sampling_method=sample.sampling_method,
+        )
+
+        # Deserialize
+        new_sample = SampleEvalData.deserialize(
+            data=sample.data,
+            metadata=metadata,
+        )
+
+        # Verify basic EvalData fields
+        assert new_sample.name == sample.name
+        assert new_sample.id_column == sample.id_column
+        assert new_sample.data.equals(sample.data)
+
+        # Verify SampleEvalData specific fields
+        assert new_sample.sample_name == sample.sample_name
+        assert new_sample.stratification_columns == sample.stratification_columns
+        assert new_sample.sample_percentage == sample.sample_percentage
+        assert new_sample.seed == sample.seed
+        assert new_sample.sampling_method == sample.sampling_method
+
+    def test_deserialize_missing_required_metadata(
+        self, eval_data_with_stratification_columns
+    ):
+        """Test deserialization fails with missing required SampleEvalData metadata."""
+        # Create a sample first
+        sample = eval_data_with_stratification_columns.stratified_sample_by_columns(
+            columns=["difficulty", "topic"],
+            sample_percentage=0.3,
+            sample_name="Test Sample",
+            seed=42,
+        )
+
+        from meta_evaluator.data.serialization import DataMetadata
+
+        # Create metadata missing required SampleEvalData fields
+        metadata = DataMetadata(
+            name=sample.name,
+            id_column=sample.id_column,
+            data_file="test.csv",
+            data_format="csv",
+            type="SampleEvalData",
+            # Missing: sample_name, stratification_columns, sample_percentage, seed
+        )
+
+        with pytest.raises(ValueError, match="MetaData missing required fields"):
+            SampleEvalData.deserialize(
+                data=sample.data,
+                metadata=metadata,
+            )
+
+    def test_deserialize_wrong_type(self, eval_data_with_stratification_columns):
+        """Test deserialization fails when metadata type doesn't match."""
+        # Create a sample first
+        sample = eval_data_with_stratification_columns.stratified_sample_by_columns(
+            columns=["difficulty", "topic"],
+            sample_percentage=0.3,
+            sample_name="Test Sample",
+            seed=42,
+        )
+
+        from meta_evaluator.data.serialization import DataMetadata
+
+        metadata = DataMetadata(
+            name=sample.name,
+            id_column=sample.id_column,
+            data_file="test.csv",
+            data_format="csv",
+            type="EvalData",  # Wrong type - should be SampleEvalData
+            sample_name=sample.sample_name,
+            stratification_columns=sample.stratification_columns,
+            sample_percentage=sample.sample_percentage,
+            seed=sample.seed,
+            sampling_method=sample.sampling_method,
+        )
+
+        with pytest.raises(ValueError, match="Expected type 'SampleEvalData'"):
+            SampleEvalData.deserialize(
+                data=sample.data,
+                metadata=metadata,
+            )

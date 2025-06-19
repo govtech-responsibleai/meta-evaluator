@@ -541,7 +541,63 @@ class EvalData(BaseModel):
             sampling_method="stratified_by_columns",
         )
 
-    def serialize(
+    def write_data(
+        self, filepath: str, data_format: Literal["json", "csv", "parquet"]
+    ) -> None:
+        """Write the data to a file in the specified format.
+
+        Args:
+            filepath: Path to write the data file to.
+            data_format: Format to write the data in (json, csv, or parquet).
+
+        Raises:
+            ValueError: If data_format is not one of json, csv, or parquet.
+        """
+        match data_format:
+            case "parquet":
+                self.data.write_parquet(filepath)
+            case "csv":
+                self.data.write_csv(filepath)
+            case "json":
+                data_dict = self.data.to_dict(as_series=False)
+                with open(filepath, "w") as f:
+                    json.dump(data_dict, f, indent=2)
+            case _:
+                raise ValueError(f"Unsupported data format: {data_format}")
+
+    @staticmethod
+    def load_data(
+        filepath: str, data_format: Literal["json", "csv", "parquet"]
+    ) -> pl.DataFrame:
+        """Load DataFrame from file in specified format.
+
+        Args:
+            filepath: Path to write the data file to.
+            data_format: Format to write the data in (json, csv, or parquet).
+
+        Returns:
+            Loaded DataFrame (polars).
+
+        Raises:
+            FileNotFoundError: If the data file doesn't exist.
+            ValueError: If the data format is not supported.
+        """
+        try:
+            match data_format:
+                case "parquet":
+                    return pl.read_parquet(filepath)
+                case "csv":
+                    return pl.read_csv(filepath)
+                case "json":
+                    with open(filepath, "r") as f:
+                        data_dict = json.load(f)
+                    return pl.DataFrame(data_dict)
+                case _:
+                    raise ValueError(f"Unsupported data format: {data_format}")
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Data file not found: {filepath}")
+
+    def serialize_metadata(
         self,
         data_format: Optional[Literal["json", "csv", "parquet"]],
         data_filename: Optional[str],
@@ -571,28 +627,26 @@ class EvalData(BaseModel):
             type="EvalData",
         )
 
-    def write_data(
-        self, filepath: str, data_format: Literal["json", "csv", "parquet"]
-    ) -> None:
-        """Write the data to a file in the specified format.
+    @classmethod
+    def deserialize(
+        cls,
+        data: pl.DataFrame,
+        metadata: DataMetadata,
+    ) -> "EvalData":
+        """Deserialize EvalData from data file metadata.
 
         Args:
-            filepath: Path to write the data file to.
-            data_format: Format to write the data in (json, csv, or parquet).
+            data: The loaded DataFrame.
+            metadata: DataMetadata object containing data metadata.
 
-        Raises:
-            ValueError: If data_format is not one of json, csv, or parquet.
+        Returns:
+            EvalData: Reconstructed EvalData instance.
         """
-        if data_format == "parquet":
-            self.data.write_parquet(filepath)
-        elif data_format == "csv":
-            self.data.write_csv(filepath)
-        elif data_format == "json":
-            data_dict = self.data.to_dict(as_series=False)
-            with open(filepath, "w") as f:
-                json.dump(data_dict, f, indent=2)
-        else:
-            raise ValueError(f"Unsupported data format: {data_format}")
+        return cls(
+            data=data,
+            name=metadata.name,
+            id_column=metadata.id_column,
+        )
 
 
 class SampleEvalData(EvalData):
@@ -780,7 +834,7 @@ class SampleEvalData(EvalData):
             "sampled_rows": len(self.data),
         }
 
-    def serialize(
+    def serialize_metadata(
         self,
         data_format: Optional[Literal["json", "csv", "parquet"]],
         data_filename: Optional[str],
@@ -789,7 +843,7 @@ class SampleEvalData(EvalData):
 
         Args:
             data_format: Format for data serialization.
-            data_filename: Name of data file if applicable.
+            data_filename: Name of data file if applicable. Indicates the name of the df if data is written to disk.
 
         Returns:
             DataMetadata: Metadata object for this SampleEvalData.
@@ -813,4 +867,40 @@ class SampleEvalData(EvalData):
             sample_percentage=self.sample_percentage,
             seed=self.seed,
             sampling_method=self.sampling_method,
+        )
+
+    @classmethod
+    def deserialize(
+        cls,
+        data: pl.DataFrame,
+        metadata: DataMetadata,
+    ) -> "SampleEvalData":
+        """Deserialize EvalData from data file metadata.
+
+        Args:
+            data: The loaded DataFrame.
+            metadata: DataMetadata object containing data metadata.
+
+        Returns:
+            SampleEvalData: Reconstructed SampleEvalData instance.
+
+        Raises:
+            ValueError: If the metadata type is not "SampleEvalData".
+            ValueError: If the metadata sample_name is None.
+        """
+        if metadata.type != "SampleEvalData":
+            raise ValueError("Expected type 'SampleEvalData'")
+
+        if metadata.sample_name is None:
+            raise ValueError("MetaData missing required fields")
+
+        return cls(
+            data=data,
+            name=metadata.name,
+            id_column=metadata.id_column,
+            sample_name=cast(str, metadata.sample_name),
+            stratification_columns=cast(list, metadata.stratification_columns),
+            sample_percentage=cast(float, metadata.sample_percentage),
+            seed=cast(int, metadata.seed),
+            sampling_method=cast(str, metadata.sampling_method),
         )

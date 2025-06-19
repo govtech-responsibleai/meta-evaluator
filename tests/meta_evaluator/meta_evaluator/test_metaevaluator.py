@@ -124,7 +124,7 @@ class TestMetaEvaluator:
                 type="EvalData",
             )
 
-        mock_eval_data.serialize.side_effect = mock_serialize
+        mock_eval_data.serialize_metadata.side_effect = mock_serialize
 
         # Mock the write_data function
         mock_dataframe.write_parquet = MagicMock()
@@ -134,15 +134,17 @@ class TestMetaEvaluator:
         )
 
         def mock_write_data(filepath, data_format):
-            if data_format == "parquet":
-                mock_dataframe.write_parquet(filepath)
-            elif data_format == "csv":
-                mock_dataframe.write_csv(filepath)
-            elif data_format == "json":
-                with open(filepath, "w") as f:
-                    json.dump(mock_dataframe.to_dict(as_series=False), f, indent=2)
-            else:
-                raise ValueError(f"Unsupported data format: {data_format}")
+            match data_format:
+                case "parquet":
+                    mock_dataframe.write_parquet(filepath)
+                case "csv":
+                    mock_dataframe.write_csv(filepath)
+                case "json":
+                    data_dict = mock_dataframe.to_dict(as_series=False)
+                    with open(filepath, "w") as f:
+                        json.dump(data_dict, f, indent=2)
+                case _:
+                    raise ValueError(f"Unsupported data format: {data_format}")
 
         mock_eval_data.write_data.side_effect = mock_write_data
 
@@ -185,7 +187,7 @@ class TestMetaEvaluator:
                 type="EvalData",
             )
 
-        mock_eval_data.serialize.side_effect = mock_serialize
+        mock_eval_data.serialize_metadata.side_effect = mock_serialize
 
         # Mock the write_data function
         mock_dataframe.write_parquet = MagicMock()
@@ -195,15 +197,17 @@ class TestMetaEvaluator:
         )
 
         def mock_write_data(filepath, data_format):
-            if data_format == "parquet":
-                mock_dataframe.write_parquet(filepath)
-            elif data_format == "csv":
-                mock_dataframe.write_csv(filepath)
-            elif data_format == "json":
-                with open(filepath, "w") as f:
-                    json.dump(mock_dataframe.to_dict(as_series=False), f, indent=2)
-            else:
-                raise ValueError(f"Unsupported data format: {data_format}")
+            match data_format:
+                case "parquet":
+                    mock_dataframe.write_parquet(filepath)
+                case "csv":
+                    mock_dataframe.write_csv(filepath)
+                case "json":
+                    data_dict = mock_dataframe.to_dict(as_series=False)
+                    with open(filepath, "w") as f:
+                        json.dump(data_dict, f, indent=2)
+                case _:
+                    raise ValueError(f"Unsupported data format: {data_format}")
 
         mock_eval_data.write_data.side_effect = mock_write_data
 
@@ -234,7 +238,7 @@ class TestMetaEvaluator:
                 type="EvalData",
             )
 
-        mock_eval_data.serialize.side_effect = mock_serialize
+        mock_eval_data.serialize_metadata.side_effect = mock_serialize
 
         # Mock the write_data function
         mock_dataframe.write_parquet = MagicMock()
@@ -244,15 +248,17 @@ class TestMetaEvaluator:
         )
 
         def mock_write_data(filepath, data_format):
-            if data_format == "parquet":
-                mock_dataframe.write_parquet(filepath)
-            elif data_format == "csv":
-                mock_dataframe.write_csv(filepath)
-            elif data_format == "json":
-                with open(filepath, "w") as f:
-                    json.dump(mock_dataframe.to_dict(as_series=False), f, indent=2)
-            else:
-                raise ValueError(f"Unsupported data format: {data_format}")
+            match data_format:
+                case "parquet":
+                    mock_dataframe.write_parquet(filepath)
+                case "csv":
+                    mock_dataframe.write_csv(filepath)
+                case "json":
+                    data_dict = mock_dataframe.to_dict(as_series=False)
+                    with open(filepath, "w") as f:
+                        json.dump(data_dict, f, indent=2)
+                case _:
+                    raise ValueError(f"Unsupported data format: {data_format}")
 
         mock_eval_data.write_data.side_effect = mock_write_data
 
@@ -302,19 +308,21 @@ class TestMetaEvaluator:
                 sampling_method="stratified_by_columns",
             )
 
-        mock_sample_data.serialize.side_effect = mock_serialize
+        mock_sample_data.serialize_metadata.side_effect = mock_serialize
 
         # Mock the write_data function
         def mock_write_data(filepath, data_format):
-            if data_format == "parquet":
-                actual_dataframe.write_parquet(filepath)
-            elif data_format == "csv":
-                actual_dataframe.write_csv(filepath)
-            elif data_format == "json":
-                with open(filepath, "w") as f:
-                    json.dump(actual_dataframe.to_dict(as_series=False), f, indent=2)
-            else:
-                raise ValueError(f"Unsupported data format: {data_format}")
+            match data_format:
+                case "parquet":
+                    actual_dataframe.write_parquet(filepath)
+                case "csv":
+                    actual_dataframe.write_csv(filepath)
+                case "json":
+                    data_dict = actual_dataframe.to_dict(as_series=False)
+                    with open(filepath, "w") as f:
+                        json.dump(data_dict, f, indent=2)
+                case _:
+                    raise ValueError(f"Unsupported data format: {data_format}")
 
         mock_sample_data.write_data.side_effect = mock_write_data
 
@@ -1255,7 +1263,10 @@ class TestMetaEvaluator:
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
         meta_evaluator.save_state(
-            str(state_file), include_data=True, data_format="parquet"
+            str(state_file),
+            include_data=True,
+            data_format="parquet",
+            data_filename="test_state_data.parquet",
         )
 
         # Verify both files exist
@@ -1263,7 +1274,7 @@ class TestMetaEvaluator:
 
         # Verify polars write_parquet was called
         mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-            str(data_file), "parquet"
+            filepath=str(data_file), data_format="parquet"
         )
 
         # Verify state file contents
@@ -1283,14 +1294,19 @@ class TestMetaEvaluator:
 
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
-        meta_evaluator.save_state(str(state_file), include_data=True, data_format="csv")
+        meta_evaluator.save_state(
+            str(state_file),
+            include_data=True,
+            data_format="csv",
+            data_filename="test_state_data.csv",
+        )
 
         # Verify both files exist
         assert state_file.exists()
 
         # Verify polars write_csv was called
         mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-            str(data_file), "csv"
+            filepath=str(data_file), data_format="csv"
         )
 
         # Verify state file contents
@@ -1310,7 +1326,10 @@ class TestMetaEvaluator:
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
         meta_evaluator.save_state(
-            str(state_file), include_data=True, data_format="json"
+            str(state_file),
+            include_data=True,
+            data_format="json",
+            data_filename="test_state_data.json",
         )
 
         # Verify both files exist
@@ -1318,7 +1337,7 @@ class TestMetaEvaluator:
 
         # Verify polars to_dict was called for JSON serialization
         mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-            str(data_file), "json"
+            filepath=str(data_file), data_format="json"
         )
 
         # Verify data file was created with JSON content
@@ -1332,7 +1351,7 @@ class TestMetaEvaluator:
         assert meta_evaluator.data is None
 
         meta_evaluator.save_state(
-            str(state_file), include_data=True, data_format="parquet"
+            state_file=str(state_file), include_data=True, data_format="csv"
         )
 
         # Verify state file exists but no data file
@@ -1363,12 +1382,7 @@ class TestMetaEvaluator:
             )
 
         # Save without data
-        meta_evaluator.save_state(
-            str(state_file),
-            include_task=False,
-            include_data=True,
-            data_format="parquet",
-        )
+        meta_evaluator.save_state(str(state_file), include_data=False)
 
         # Verify state file exists and data file doesn't
         assert state_file.exists()
@@ -1445,7 +1459,7 @@ class TestMetaEvaluator:
         # Verify polars write_csv was called with custom path
         expected_data_path = tmp_path / custom_data_file
         mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-            str(expected_data_path), "csv"
+            filepath=str(expected_data_path), data_format="csv"
         )
 
         # Verify state file references custom filename
@@ -1474,7 +1488,7 @@ class TestMetaEvaluator:
         # Verify polars write_parquet was called with custom path
         expected_data_path = tmp_path / custom_data_file
         mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-            str(expected_data_path), "parquet"
+            filepath=str(expected_data_path), data_format="parquet"
         )
 
         # Verify state file references custom filename
@@ -1823,7 +1837,7 @@ class TestMetaEvaluator:
 
             # Verify DataFrame method was called
             mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-                str(data_file), "parquet"
+                filepath=str(data_file), data_format="parquet"
             )
 
     def test_save_with_multiple_clients_and_sample_data(
@@ -1864,7 +1878,10 @@ class TestMetaEvaluator:
 
             # Save state
             meta_evaluator.save_state(
-                str(state_file), include_data=True, data_format="csv"
+                str(state_file),
+                include_data=True,
+                data_format="csv",
+                data_filename="test_state_data.csv",
             )
 
             # Verify file exists
