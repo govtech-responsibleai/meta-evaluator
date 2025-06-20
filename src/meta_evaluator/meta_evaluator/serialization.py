@@ -2,8 +2,8 @@
 
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
-
 from ..data.serialization import DataMetadata
+from ..evaluation_task.serialization import EvaluationTaskState
 
 
 class MetaEvaluatorState(BaseModel):
@@ -16,3 +16,4 @@ class MetaEvaluatorState(BaseModel):
     version: str = "1.0"
     client_registry: Dict[str, Dict[str, Any]]
     data: Optional[DataMetadata] = None
+    evaluation_task: Optional[EvaluationTaskState] = None

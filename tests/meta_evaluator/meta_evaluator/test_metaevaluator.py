@@ -14,6 +14,7 @@ from meta_evaluator.meta_evaluator.exceptions import (
     ClientNotFoundException,
     DataAlreadyExistsException,
     DataFilenameExtensionMismatchException,
+    EvaluationTaskAlreadyExistsException,
 )
 from meta_evaluator.llm_client.models import LLMClientEnum
 from meta_evaluator.llm_client.openai_client import OpenAIClient
@@ -24,6 +25,7 @@ from meta_evaluator.llm_client.serialization import (
 )
 from meta_evaluator.data.EvalData import EvalData, SampleEvalData
 from meta_evaluator.data.serialization import DataMetadata
+from meta_evaluator.evaluation_task.evaluation_task import EvaluationTask
 
 
 class TestMetaEvaluator:
@@ -122,7 +124,7 @@ class TestMetaEvaluator:
                 type="EvalData",
             )
 
-        mock_eval_data.serialize.side_effect = mock_serialize
+        mock_eval_data.serialize_metadata.side_effect = mock_serialize
 
         # Mock the write_data function
         mock_dataframe.write_parquet = MagicMock()
@@ -132,15 +134,17 @@ class TestMetaEvaluator:
         )
 
         def mock_write_data(filepath, data_format):
-            if data_format == "parquet":
-                mock_dataframe.write_parquet(filepath)
-            elif data_format == "csv":
-                mock_dataframe.write_csv(filepath)
-            elif data_format == "json":
-                with open(filepath, "w") as f:
-                    json.dump(mock_dataframe.to_dict(as_series=False), f, indent=2)
-            else:
-                raise ValueError(f"Unsupported data format: {data_format}")
+            match data_format:
+                case "parquet":
+                    mock_dataframe.write_parquet(filepath)
+                case "csv":
+                    mock_dataframe.write_csv(filepath)
+                case "json":
+                    data_dict = mock_dataframe.to_dict(as_series=False)
+                    with open(filepath, "w") as f:
+                        json.dump(data_dict, f, indent=2)
+                case _:
+                    raise ValueError(f"Unsupported data format: {data_format}")
 
         mock_eval_data.write_data.side_effect = mock_write_data
 
@@ -183,7 +187,7 @@ class TestMetaEvaluator:
                 type="EvalData",
             )
 
-        mock_eval_data.serialize.side_effect = mock_serialize
+        mock_eval_data.serialize_metadata.side_effect = mock_serialize
 
         # Mock the write_data function
         mock_dataframe.write_parquet = MagicMock()
@@ -193,15 +197,17 @@ class TestMetaEvaluator:
         )
 
         def mock_write_data(filepath, data_format):
-            if data_format == "parquet":
-                mock_dataframe.write_parquet(filepath)
-            elif data_format == "csv":
-                mock_dataframe.write_csv(filepath)
-            elif data_format == "json":
-                with open(filepath, "w") as f:
-                    json.dump(mock_dataframe.to_dict(as_series=False), f, indent=2)
-            else:
-                raise ValueError(f"Unsupported data format: {data_format}")
+            match data_format:
+                case "parquet":
+                    mock_dataframe.write_parquet(filepath)
+                case "csv":
+                    mock_dataframe.write_csv(filepath)
+                case "json":
+                    data_dict = mock_dataframe.to_dict(as_series=False)
+                    with open(filepath, "w") as f:
+                        json.dump(data_dict, f, indent=2)
+                case _:
+                    raise ValueError(f"Unsupported data format: {data_format}")
 
         mock_eval_data.write_data.side_effect = mock_write_data
 
@@ -232,7 +238,7 @@ class TestMetaEvaluator:
                 type="EvalData",
             )
 
-        mock_eval_data.serialize.side_effect = mock_serialize
+        mock_eval_data.serialize_metadata.side_effect = mock_serialize
 
         # Mock the write_data function
         mock_dataframe.write_parquet = MagicMock()
@@ -242,15 +248,17 @@ class TestMetaEvaluator:
         )
 
         def mock_write_data(filepath, data_format):
-            if data_format == "parquet":
-                mock_dataframe.write_parquet(filepath)
-            elif data_format == "csv":
-                mock_dataframe.write_csv(filepath)
-            elif data_format == "json":
-                with open(filepath, "w") as f:
-                    json.dump(mock_dataframe.to_dict(as_series=False), f, indent=2)
-            else:
-                raise ValueError(f"Unsupported data format: {data_format}")
+            match data_format:
+                case "parquet":
+                    mock_dataframe.write_parquet(filepath)
+                case "csv":
+                    mock_dataframe.write_csv(filepath)
+                case "json":
+                    data_dict = mock_dataframe.to_dict(as_series=False)
+                    with open(filepath, "w") as f:
+                        json.dump(data_dict, f, indent=2)
+                case _:
+                    raise ValueError(f"Unsupported data format: {data_format}")
 
         mock_eval_data.write_data.side_effect = mock_write_data
 
@@ -300,23 +308,53 @@ class TestMetaEvaluator:
                 sampling_method="stratified_by_columns",
             )
 
-        mock_sample_data.serialize.side_effect = mock_serialize
+        mock_sample_data.serialize_metadata.side_effect = mock_serialize
 
         # Mock the write_data function
         def mock_write_data(filepath, data_format):
-            if data_format == "parquet":
-                actual_dataframe.write_parquet(filepath)
-            elif data_format == "csv":
-                actual_dataframe.write_csv(filepath)
-            elif data_format == "json":
-                with open(filepath, "w") as f:
-                    json.dump(actual_dataframe.to_dict(as_series=False), f, indent=2)
-            else:
-                raise ValueError(f"Unsupported data format: {data_format}")
+            match data_format:
+                case "parquet":
+                    actual_dataframe.write_parquet(filepath)
+                case "csv":
+                    actual_dataframe.write_csv(filepath)
+                case "json":
+                    data_dict = actual_dataframe.to_dict(as_series=False)
+                    with open(filepath, "w") as f:
+                        json.dump(data_dict, f, indent=2)
+                case _:
+                    raise ValueError(f"Unsupported data format: {data_format}")
 
         mock_sample_data.write_data.side_effect = mock_write_data
 
         return mock_sample_data
+
+    @pytest.fixture
+    def basic_evaluation_task(self) -> EvaluationTask:
+        """Provides a basic evaluation task for testing.
+
+        Returns:
+            EvaluationTask: A basic evaluation task with sentiment analysis schema.
+        """
+        return EvaluationTask(
+            task_schemas={"sentiment": ["positive", "negative", "neutral"]},
+            input_columns=["text"],
+            output_columns=["response"],
+            answering_method="structured",
+        )
+
+    @pytest.fixture
+    def another_basic_evaluation_task(self) -> EvaluationTask:
+        """Provides a basic evaluation task for testing.
+
+        Returns:
+            EvaluationTask: A basic evaluation task with sentiment analysis schema.
+        """
+        return EvaluationTask(
+            task_schemas={"rejection": ["rejected", "accepted"]},
+            input_columns=["prompt"],
+            output_columns=["response"],
+            answering_method="structured",
+        )
 
     def _create_mock_openai_client(self, **config_overrides):
         """Helper method to create a properly mocked OpenAI client.
@@ -393,6 +431,7 @@ class TestMetaEvaluator:
         assert meta_evaluator.client_registry == {}
         assert isinstance(meta_evaluator.client_registry, dict)
         assert meta_evaluator.data is None
+        assert meta_evaluator.evaluation_task is None
 
     # === add_openai() Method Tests ===
 
@@ -798,6 +837,78 @@ class TestMetaEvaluator:
             )
             assert meta_evaluator.data == sample_eval_data
 
+    # === add_evaluation_task() Method Tests ===
+
+    def test_add_evaluation_task_first_time(
+        self, meta_evaluator, basic_evaluation_task
+    ):
+        """Test adding evaluation task when no task exists."""
+        assert meta_evaluator.evaluation_task is None
+
+        meta_evaluator.add_evaluation_task(basic_evaluation_task)
+
+        assert meta_evaluator.evaluation_task == basic_evaluation_task
+
+    def test_add_evaluation_task_already_exists_no_overwrite(
+        self, meta_evaluator, basic_evaluation_task, another_basic_evaluation_task
+    ):
+        """Test EvaluationTaskAlreadyExistsException when task exists and overwrite is False (default)."""
+        # Add task first time
+        meta_evaluator.add_evaluation_task(basic_evaluation_task)
+        assert meta_evaluator.evaluation_task == basic_evaluation_task
+
+        # Try to add again without overwrite
+        with pytest.raises(
+            EvaluationTaskAlreadyExistsException, match="Evaluation task already exists"
+        ):
+            meta_evaluator.add_evaluation_task(another_basic_evaluation_task)
+
+        # Verify original task is unchanged
+        assert meta_evaluator.evaluation_task == basic_evaluation_task
+
+    def test_add_evaluation_task_already_exists_with_overwrite(
+        self, meta_evaluator, basic_evaluation_task, another_basic_evaluation_task
+    ):
+        """Test successful replacement when task exists and overwrite is True."""
+        # Add task first time
+        meta_evaluator.add_evaluation_task(basic_evaluation_task)
+        original_task = meta_evaluator.evaluation_task
+        assert original_task == basic_evaluation_task
+
+        # Overwrite with new task
+        meta_evaluator.add_evaluation_task(
+            another_basic_evaluation_task, overwrite=True
+        )
+        new_task = meta_evaluator.evaluation_task
+
+        assert new_task == another_basic_evaluation_task
+        assert new_task != original_task
+
+    def test_add_evaluation_task_preserves_client_registry(
+        self, meta_evaluator, basic_evaluation_task, openai_environment
+    ):
+        """Test that adding evaluation task doesn't affect client registry."""
+        with patch(
+            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+        ) as mock_client_class:
+            mock_client = MagicMock(spec=OpenAIClient)
+            mock_client_class.return_value = mock_client
+
+            # Add client first
+            meta_evaluator.add_openai()
+            assert LLMClientEnum.OPENAI in meta_evaluator.client_registry
+            original_client = meta_evaluator.client_registry[LLMClientEnum.OPENAI]
+
+            # Add evaluation task
+            meta_evaluator.add_evaluation_task(basic_evaluation_task)
+
+            # Verify client registry is unchanged
+            assert LLMClientEnum.OPENAI in meta_evaluator.client_registry
+            assert (
+                meta_evaluator.client_registry[LLMClientEnum.OPENAI] == original_client
+            )
+            assert meta_evaluator.evaluation_task == basic_evaluation_task
+
     # === Integration Tests ===
 
     def test_add_multiple_clients_and_retrieve(
@@ -874,12 +985,16 @@ class TestMetaEvaluator:
             assert retrieved_client == mock_client
             assert len(meta_evaluator.client_registry) == 1
 
-    # === Data + Client Integration Tests ===
+    # === Client + Data + Task Integration Tests ===
 
     def test_add_client_and_data_together(
-        self, meta_evaluator, sample_eval_data, openai_environment
+        self,
+        meta_evaluator,
+        sample_eval_data,
+        basic_evaluation_task,
+        openai_environment,
     ):
-        """Test adding OpenAI client and data together, verify both exist independently."""
+        """Test adding OpenAI client, data, and evaluation task together, verify all exist independently."""
         with patch(
             "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
         ) as mock_client_class:
@@ -889,11 +1004,13 @@ class TestMetaEvaluator:
             # Add both client and data
             meta_evaluator.add_openai()
             meta_evaluator.add_data(sample_eval_data)
+            meta_evaluator.add_evaluation_task(basic_evaluation_task)
 
             # Verify both exist and are independent
             assert LLMClientEnum.OPENAI in meta_evaluator.client_registry
             assert meta_evaluator.client_registry[LLMClientEnum.OPENAI] == mock_client
             assert meta_evaluator.data == sample_eval_data
+            assert meta_evaluator.evaluation_task == basic_evaluation_task
 
     def test_add_data_then_client(
         self, meta_evaluator, sample_eval_data, openai_environment
@@ -967,10 +1084,43 @@ class TestMetaEvaluator:
             assert meta_evaluator.data == another_eval_data
             assert meta_evaluator.data != sample_eval_data
 
+    def test_overwrite_task_preserves_clients(
+        self,
+        meta_evaluator,
+        basic_evaluation_task,
+        another_basic_evaluation_task,
+        openai_environment,
+    ):
+        """Test that overwriting data doesn't affect client registry."""
+        with patch(
+            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+        ) as mock_client_class:
+            mock_client = MagicMock(spec=OpenAIClient)
+            mock_client_class.return_value = mock_client
+
+            # Add client and task
+            meta_evaluator.add_openai()
+            meta_evaluator.add_evaluation_task(basic_evaluation_task)
+
+            original_client = meta_evaluator.client_registry[LLMClientEnum.OPENAI]
+
+            # Overwrite task
+            meta_evaluator.add_evaluation_task(
+                another_basic_evaluation_task, overwrite=True
+            )
+
+            # Verify client preserved, data changed
+            assert (
+                meta_evaluator.client_registry[LLMClientEnum.OPENAI] == original_client
+            )
+            assert meta_evaluator.evaluation_task == another_basic_evaluation_task
+            assert meta_evaluator.evaluation_task != basic_evaluation_task
+
     def test_complete_evaluator_state(
         self,
         meta_evaluator,
         sample_eval_data,
+        basic_evaluation_task,
         openai_environment,
         azure_openai_environment,
     ):
@@ -992,6 +1142,7 @@ class TestMetaEvaluator:
             meta_evaluator.add_openai()
             meta_evaluator.add_azure_openai()
             meta_evaluator.add_data(sample_eval_data)
+            meta_evaluator.add_evaluation_task(basic_evaluation_task)
 
             # Verify complete state
             assert len(meta_evaluator.client_registry) == 2
@@ -1006,6 +1157,7 @@ class TestMetaEvaluator:
                 == mock_azure_client
             )
             assert meta_evaluator.data == sample_eval_data
+            assert meta_evaluator.evaluation_task == basic_evaluation_task
 
     # === Edge Cases and Error Handling ===
 
@@ -1111,7 +1263,10 @@ class TestMetaEvaluator:
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
         meta_evaluator.save_state(
-            str(state_file), include_data=True, data_format="parquet"
+            str(state_file),
+            include_data=True,
+            data_format="parquet",
+            data_filename="test_state_data.parquet",
         )
 
         # Verify both files exist
@@ -1119,7 +1274,7 @@ class TestMetaEvaluator:
 
         # Verify polars write_parquet was called
         mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-            str(data_file), "parquet"
+            filepath=str(data_file), data_format="parquet"
         )
 
         # Verify state file contents
@@ -1139,14 +1294,19 @@ class TestMetaEvaluator:
 
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
-        meta_evaluator.save_state(str(state_file), include_data=True, data_format="csv")
+        meta_evaluator.save_state(
+            str(state_file),
+            include_data=True,
+            data_format="csv",
+            data_filename="test_state_data.csv",
+        )
 
         # Verify both files exist
         assert state_file.exists()
 
         # Verify polars write_csv was called
         mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-            str(data_file), "csv"
+            filepath=str(data_file), data_format="csv"
         )
 
         # Verify state file contents
@@ -1166,7 +1326,10 @@ class TestMetaEvaluator:
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
         meta_evaluator.save_state(
-            str(state_file), include_data=True, data_format="json"
+            str(state_file),
+            include_data=True,
+            data_format="json",
+            data_filename="test_state_data.json",
         )
 
         # Verify both files exist
@@ -1174,7 +1337,7 @@ class TestMetaEvaluator:
 
         # Verify polars to_dict was called for JSON serialization
         mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-            str(data_file), "json"
+            filepath=str(data_file), data_format="json"
         )
 
         # Verify data file was created with JSON content
@@ -1188,7 +1351,7 @@ class TestMetaEvaluator:
         assert meta_evaluator.data is None
 
         meta_evaluator.save_state(
-            str(state_file), include_data=True, data_format="parquet"
+            state_file=str(state_file), include_data=True, data_format="csv"
         )
 
         # Verify state file exists but no data file
@@ -1200,6 +1363,40 @@ class TestMetaEvaluator:
             state_data = json.load(f)
 
         assert state_data["data"] is None
+
+    def test_save_state_include_task_false(self, meta_evaluator, tmp_path):
+        """Test saving state without evaluation task serialization."""
+        state_file = tmp_path / "test_state.json"
+
+        # Add a client to have something to serialize
+        with patch(
+            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+        ) as mock_client_class:
+            mock_client = self._create_mock_openai_client()
+            mock_client_class.return_value = mock_client
+
+            meta_evaluator.add_openai(
+                api_key="test-key",
+                default_model="gpt-4",
+                default_embedding_model="text-embedding-3-large",
+            )
+
+        # Save without data
+        meta_evaluator.save_state(str(state_file), include_data=False)
+
+        # Verify state file exists and data file doesn't
+        assert state_file.exists()
+        assert not (tmp_path / "test_state_data.json").exists()
+        assert not (tmp_path / "test_state_data.csv").exists()
+        assert not (tmp_path / "test_state_data.parquet").exists()
+
+        # Verify state file contents
+        with open(state_file) as f:
+            state_data = json.load(f)
+
+        assert state_data["version"] == "1.0"
+        assert "openai" in state_data["client_registry"]
+        assert state_data["evaluation_task"] is None
 
     def test_save_state_creates_directories(self, meta_evaluator, tmp_path):
         """Test that parent directories are created when they don't exist."""
@@ -1262,7 +1459,7 @@ class TestMetaEvaluator:
         # Verify polars write_csv was called with custom path
         expected_data_path = tmp_path / custom_data_file
         mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-            str(expected_data_path), "csv"
+            filepath=str(expected_data_path), data_format="csv"
         )
 
         # Verify state file references custom filename
@@ -1291,7 +1488,7 @@ class TestMetaEvaluator:
         # Verify polars write_parquet was called with custom path
         expected_data_path = tmp_path / custom_data_file
         mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-            str(expected_data_path), "parquet"
+            filepath=str(expected_data_path), data_format="parquet"
         )
 
         # Verify state file references custom filename
@@ -1394,30 +1591,66 @@ class TestMetaEvaluator:
 
     # === Private Serialization Method Tests ===
 
-    def test_serialize_dict_include_data_false(self, meta_evaluator):
+    def test_serialize_include_data_false(self, meta_evaluator):
         """Test _serialize when data should not be included."""
         state = meta_evaluator._serialize(
-            include_data=False, data_format=None, data_filename=None
+            include_task=True,
+            include_data=False,
+            data_format=None,
+            data_filename=None,
         )
 
         assert state.version == "1.0"
         assert state.data is None
         assert state.client_registry is not None
+        assert state.evaluation_task is None
 
-    def test_serialize_dict_include_data_true(
+    def test_serialize_include_data_true(
         self, meta_evaluator, mock_eval_data_with_dataframe
     ):
         """Test _serialize when data should be included."""
         meta_evaluator.add_data(mock_eval_data_with_dataframe)
 
         state = meta_evaluator._serialize(
-            include_data=True, data_format="parquet", data_filename="test_data.parquet"
+            include_task=True,
+            include_data=True,
+            data_format="parquet",
+            data_filename="test_data.parquet",
         )
 
         assert state.version == "1.0"
         assert state.data is not None
         assert state.data.data_format == "parquet"
         assert state.data.data_file == "test_data.parquet"
+        assert state.evaluation_task is None
+
+    def test_serialize_include_task_false(self, meta_evaluator, basic_evaluation_task):
+        """Test _serialize when task should not be included."""
+        state = meta_evaluator._serialize(
+            include_task=False,
+            include_data=False,
+            data_format=None,
+            data_filename=None,
+        )
+
+        assert state.version == "1.0"
+        assert state.data is None
+        assert state.evaluation_task is None
+
+    def test_serialize_include_task_true(self, meta_evaluator, basic_evaluation_task):
+        """Test _serialize when task should be included."""
+        meta_evaluator.add_evaluation_task(basic_evaluation_task)
+
+        state = meta_evaluator._serialize(
+            include_task=True,
+            include_data=False,
+            data_format=None,
+            data_filename=None,
+        )
+
+        assert state.version == "1.0"
+        assert state.data is None
+        assert state.evaluation_task is not None
 
     def test_serialize_client_registry_empty(self, meta_evaluator):
         """Test _serialize_client_registry with empty registry."""
@@ -1539,6 +1772,7 @@ class TestMetaEvaluator:
         meta_evaluator,
         openai_environment,
         mock_eval_data_with_dataframe,
+        basic_evaluation_task,
         tmp_path,
     ):
         """Test complete save operation and verify actual file contents match expected structure."""
@@ -1554,6 +1788,7 @@ class TestMetaEvaluator:
 
             meta_evaluator.add_openai()
             meta_evaluator.add_data(mock_eval_data_with_dataframe)
+            meta_evaluator.add_evaluation_task(basic_evaluation_task)
 
             # Save state
             meta_evaluator.save_state(
@@ -1571,6 +1806,7 @@ class TestMetaEvaluator:
             assert state_data["version"] == "1.0"
             assert "client_registry" in state_data
             assert "data" in state_data
+            assert "evaluation_task" in state_data
 
             # Verify client registry structure
             assert "openai" in state_data["client_registry"]
@@ -1590,9 +1826,18 @@ class TestMetaEvaluator:
             assert data_config["data_file"] == "integration_test_data.parquet"
             assert data_config["type"] == "EvalData"
 
+            # Verify evaluation task structure
+            evaluation_task_config = state_data["evaluation_task"]
+            assert evaluation_task_config["task_schemas"] == {
+                "sentiment": ["positive", "negative", "neutral"]
+            }
+            assert evaluation_task_config["input_columns"] == ["text"]
+            assert evaluation_task_config["output_columns"] == ["response"]
+            assert evaluation_task_config["answering_method"] == "structured"
+
             # Verify DataFrame method was called
             mock_eval_data_with_dataframe.write_data.assert_called_once_with(
-                str(data_file), "parquet"
+                filepath=str(data_file), data_format="parquet"
             )
 
     def test_save_with_multiple_clients_and_sample_data(
@@ -1633,7 +1878,10 @@ class TestMetaEvaluator:
 
             # Save state
             meta_evaluator.save_state(
-                str(state_file), include_data=True, data_format="csv"
+                str(state_file),
+                include_data=True,
+                data_format="csv",
+                data_filename="test_state_data.csv",
             )
 
             # Verify file exists
@@ -1789,7 +2037,7 @@ class TestMetaEvaluator:
             assert loaded_evaluator.data is None
 
     def test_load_state_with_eval_data_json_format(
-        self, tmp_path, sample_eval_data, openai_environment
+        self, tmp_path, sample_eval_data, openai_environment, basic_evaluation_task
     ):
         """Test loading MetaEvaluator with EvalData in JSON format."""
         with patch(
@@ -1820,10 +2068,11 @@ class TestMetaEvaluator:
             mock_client.config = mock_config
             mock_client_class.return_value = mock_client
 
-            # Create and save evaluator with data
+            # Create and save evaluator with data and evaluation task
             original_evaluator = MetaEvaluator()
             original_evaluator.add_openai()
             original_evaluator.add_data(sample_eval_data)
+            original_evaluator.add_evaluation_task(basic_evaluation_task)
 
             state_file = tmp_path / "test_state.json"
             original_evaluator.save_state(
@@ -1842,7 +2091,7 @@ class TestMetaEvaluator:
             assert isinstance(loaded_evaluator.data, EvalData)
 
     def test_load_state_with_sample_eval_data_csv_format(
-        self, tmp_path, mock_sample_eval_data, openai_environment
+        self, tmp_path, mock_sample_eval_data, openai_environment, basic_evaluation_task
     ):
         """Test loading MetaEvaluator with SampleEvalData in CSV format."""
         with patch(
@@ -1877,6 +2126,7 @@ class TestMetaEvaluator:
             original_evaluator = MetaEvaluator()
             original_evaluator.add_openai()
             original_evaluator.add_data(mock_sample_eval_data)
+            original_evaluator.add_evaluation_task(basic_evaluation_task)
 
             state_file = tmp_path / "test_state.json"
             original_evaluator.save_state(
@@ -1912,8 +2162,75 @@ class TestMetaEvaluator:
                 == mock_sample_eval_data.sampling_method
             )
 
-    def test_load_state_skip_data_loading(
-        self, tmp_path, sample_eval_data, openai_environment
+    def test_load_state_with_evaluation_task(
+        self, tmp_path, sample_eval_data, openai_environment, basic_evaluation_task
+    ):
+        """Test loading MetaEvaluator with evaluation task from JSON."""
+        with patch(
+            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+        ) as mock_client_class:
+            # Create proper mock config with serialize method
+            from meta_evaluator.llm_client.openai_client import OpenAIConfig
+            from meta_evaluator.llm_client.serialization import OpenAISerializedState
+
+            mock_config = MagicMock(spec=OpenAIConfig)
+            mock_config.default_model = "gpt-4"
+            mock_config.default_embedding_model = "text-embedding-ada-002"
+            mock_config.supports_structured_output = True
+            mock_config.supports_logprobs = True
+
+            # Mock the serialize method to return proper state
+            mock_state = OpenAISerializedState(
+                default_model="gpt-4",
+                default_embedding_model="text-embedding-ada-002",
+                supports_structured_output=True,
+                supports_logprobs=True,
+                supports_instructor=True,
+            )
+            mock_config.serialize.return_value = mock_state
+
+            # Create mock client with config
+            mock_client = MagicMock(spec=OpenAIClient)
+            mock_client.config = mock_config
+            mock_client_class.return_value = mock_client
+
+            # Create and save evaluator with data and evaluation task
+            original_evaluator = MetaEvaluator()
+            original_evaluator.add_openai()
+            original_evaluator.add_data(sample_eval_data)
+            original_evaluator.add_evaluation_task(basic_evaluation_task)
+
+            state_file = tmp_path / "test_state.json"
+            original_evaluator.save_state(
+                str(state_file), include_data=True, data_format="json"
+            )
+
+            # Load from JSON
+            loaded_evaluator = MetaEvaluator.load_state(
+                str(state_file), load_data=True, openai_api_key="test-api-key"
+            )
+
+            # Verify evaluation task was loaded
+            assert loaded_evaluator.evaluation_task is not None
+            assert (
+                loaded_evaluator.evaluation_task.task_schemas
+                == basic_evaluation_task.task_schemas
+            )
+            assert (
+                loaded_evaluator.evaluation_task.input_columns
+                == basic_evaluation_task.input_columns
+            )
+            assert (
+                loaded_evaluator.evaluation_task.output_columns
+                == basic_evaluation_task.output_columns
+            )
+            assert (
+                loaded_evaluator.evaluation_task.answering_method
+                == basic_evaluation_task.answering_method
+            )
+
+    def test_load_state_skip_data_and_evaluation_task_loading(
+        self, tmp_path, sample_eval_data, openai_environment, basic_evaluation_task
     ):
         """Test loading MetaEvaluator while skipping data loading."""
         with patch(
@@ -1944,24 +2261,29 @@ class TestMetaEvaluator:
             mock_client.config = mock_config
             mock_client_class.return_value = mock_client
 
-            # Create and save evaluator with data
+            # Create and save evaluator with data and evaluation task
             original_evaluator = MetaEvaluator()
             original_evaluator.add_openai()
             original_evaluator.add_data(sample_eval_data)
+            original_evaluator.add_evaluation_task(basic_evaluation_task)
 
             state_file = tmp_path / "test_state.json"
             original_evaluator.save_state(
                 str(state_file), include_data=True, data_format="json"
             )
 
-            # Load from JSON without data
+            # Load from JSON without data and evaluation task
             loaded_evaluator = MetaEvaluator.load_state(
-                str(state_file), load_data=False, openai_api_key="test-api-key"
+                str(state_file),
+                load_data=False,
+                load_task=False,
+                openai_api_key="test-api-key",
             )
 
-            # Verify client loaded but data skipped
+            # Verify client loaded but data and evaluation task skipped
             assert LLMClientEnum.OPENAI in loaded_evaluator.client_registry
             assert loaded_evaluator.data is None
+            assert loaded_evaluator.evaluation_task is None
 
     def test_load_state_invalid_file_extension(self):
         """Test ValueError when state file doesn't end with .json."""

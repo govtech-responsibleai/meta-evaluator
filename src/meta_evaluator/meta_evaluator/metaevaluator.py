@@ -1,11 +1,10 @@
-"""Module docstring."""
+"""Main class for MetaEvaluator."""
 
 import json
 import os
 from pathlib import Path
 from typing import Literal, Optional, cast
 from pydantic import ValidationError
-import polars as pl
 
 from dotenv import load_dotenv
 
@@ -19,12 +18,15 @@ from ..llm_client.serialization import (
 )
 from ..data.EvalData import EvalData, SampleEvalData
 from ..data.serialization import DataMetadata
+from ..evaluation_task.evaluation_task import EvaluationTask
+from ..evaluation_task.serialization import EvaluationTaskState
 from .exceptions import (
     MissingConfigurationException,
     ClientAlreadyExistsException,
     ClientNotFoundException,
     DataAlreadyExistsException,
     DataFilenameExtensionMismatchException,
+    EvaluationTaskAlreadyExistsException,
 )
 from .serialization import MetaEvaluatorState
 
@@ -47,12 +49,26 @@ load_dotenv()
 
 
 class MetaEvaluator:
-    """This is a placeholder for the MetaEvaluator class."""
+    """Main class for managing evaluation workflows with LLM clients, data, and evaluation tasks.
+
+    The MetaEvaluator provides a unified interface for:
+    - Managing multiple LLM client configurations (OpenAI, Azure OpenAI)
+    - Loading and managing evaluation datasets
+    - Configuring evaluation tasks with support for both predefined outcomes and free form text outputs
+    - Serializing and deserializing complete evaluation states
+    - Supporting both structured and XML-based evaluation methods
+    """
 
     def __init__(self):
-        """This is a placeholder for the MetaEvaluator class."""
+        """Initialize a new MetaEvaluator instance.
+
+        Creates an empty evaluator with no clients, data, or evaluation tasks configured.
+        """
         self.client_registry: dict[LLMClientEnum, LLMClient] = {}
         self.data: Optional[EvalData] = None
+        self.evaluation_task: Optional[EvaluationTask] = None  # NEW
+
+    # ===== CLIENT MANAGEMENT METHODS =====
 
     def add_openai(
         self,
@@ -199,6 +215,16 @@ class MetaEvaluator:
 
         return self.client_registry[client_type]
 
+    def get_client_list(self) -> list[tuple[LLMClientEnum, LLMClient]]:
+        """Get a list of client tuples (type, client).
+
+        Returns:
+            List of client tuples.
+        """
+        return list(self.client_registry.items())
+
+    # ===== DATA AND TASK MANAGEMENT METHODS =====
+
     def add_data(self, eval_data: EvalData, overwrite: bool = False) -> None:
         """Add evaluation data to the evaluator.
 
@@ -214,17 +240,43 @@ class MetaEvaluator:
 
         self.data = eval_data
 
+    def add_evaluation_task(
+        self, evaluation_task: EvaluationTask, overwrite: bool = False
+    ) -> None:
+        """Add evaluation task to the evaluator.
+
+        Args:
+            evaluation_task: The EvaluationTask object to add to the evaluator.
+            overwrite: Whether to overwrite existing evaluation task. Defaults to False.
+
+        Raises:
+            EvaluationTaskAlreadyExistsException: If evaluation task already exists and overwrite is False.
+        """
+        if self.evaluation_task is not None and not overwrite:
+            raise EvaluationTaskAlreadyExistsException()
+
+        self.evaluation_task = evaluation_task
+
+    # ===== SERIALIZATION METHODS =====
+
     def save_state(
         self,
         state_file: str,
+        include_task: bool = True,
         include_data: bool = True,
         data_format: Optional[Literal["json", "csv", "parquet"]] = None,
         data_filename: Optional[str] = None,
     ) -> None:
         """Save MetaEvaluator state to JSON file with optional data serialization.
 
+        The state includes all configuration needed to reconstruct the evaluator:
+        - LLM client configurations (without API keys for security)
+        - Evaluation task configuration (task schemas, input/output columns, answering method)
+        - Data metadata and optional data file serialization
+
         Args:
             state_file: Path to JSON file for state (must end with .json).
+            include_task: Whether to serialize EvaluationTask. Defaults to True.
             include_data: Whether to serialize EvalData. Defaults to True.
             data_format: Format for data file when include_data=True.
                 Must be specified if include_data=True.
@@ -268,7 +320,9 @@ class MetaEvaluator:
                 final_data_filename = f"{base_name}_data.{data_format}"
 
         # Generate state
-        state = self._serialize(include_data, data_format, final_data_filename)
+        state = self._serialize(
+            include_task, include_data, data_format, final_data_filename
+        )
 
         # Ensure directory exists
         directory.mkdir(parents=True, exist_ok=True)
@@ -281,11 +335,13 @@ class MetaEvaluator:
         if include_data and self.data is not None:
             data_filepath = directory / cast(str, final_data_filename)
             self.data.write_data(
-                str(data_filepath), cast(Literal["json", "csv", "parquet"], data_format)
+                filepath=str(data_filepath),
+                data_format=cast(Literal["json", "csv", "parquet"], data_format),
             )
 
     def _serialize(
         self,
+        include_task: bool,
         include_data: bool,
         data_format: Optional[Literal["json", "csv", "parquet"]],
         data_filename: Optional[str],
@@ -293,6 +349,7 @@ class MetaEvaluator:
         """Create complete state object - no I/O operations.
 
         Args:
+            include_task: Whether to include EvaluationTask serialization.
             include_data: Whether to include data serialization metadata.
             data_format: Format for data serialization.
             data_filename: Name of data file if applicable.
@@ -303,6 +360,7 @@ class MetaEvaluator:
         return MetaEvaluatorState(
             client_registry=self._serialize_client_registry(),
             data=self._serialize_data(include_data, data_format, data_filename),
+            evaluation_task=self._serialize_evaluation_task(include_task),
         )
 
     def _serialize_client_registry(self) -> dict[str, dict]:
@@ -336,14 +394,6 @@ class MetaEvaluator:
         serialized_state = client.config.serialize()
         return serialized_state.model_dump(mode="json")
 
-    def get_client_list(self) -> list[tuple[LLMClientEnum, LLMClient]]:
-        """Get a list of client tuples (type, client).
-
-        Returns:
-            List of client tuples.
-        """
-        return list(self.client_registry.items())
-
     def _serialize_data(
         self,
         include_data: bool,
@@ -358,20 +408,41 @@ class MetaEvaluator:
             data_filename: Name of data file if applicable.
 
         Returns:
-            Data metadata object or None if data should not be included.
+            Serialized DataMetaData dictionary.
 
         Note:
             If data exists but id_column is None, a TypeError is raised by the underlying serialize method.
         """
         if not include_data or self.data is None:
             return None
-        return self.data.serialize(data_format, data_filename)
+        serialized_metadata = self.data.serialize_metadata(
+            data_filename=data_filename, data_format=data_format
+        )
+        return serialized_metadata
+
+    def _serialize_evaluation_task(
+        self,
+        include_task: bool,
+    ) -> Optional[EvaluationTaskState]:
+        """Serialize EvaluationTask.
+
+        Returns:
+            Serialized EvaluationTask dictionary.
+        """
+        if not include_task or self.evaluation_task is None:
+            return None
+        serialized_state = self.evaluation_task.serialize()
+
+        return serialized_state
+
+    # ===== DESERIALIZATION METHODS =====
 
     @classmethod
     def load_state(
         cls,
         state_file: str,
         load_data: bool = True,
+        load_task: bool = True,
         openai_api_key: Optional[str] = None,
         azure_openai_api_key: Optional[str] = None,
     ) -> "MetaEvaluator":
@@ -382,11 +453,20 @@ class MetaEvaluator:
         to provide the path to the state file - data files are automatically located
         and loaded based on information stored in the state.
 
+        The loaded evaluator will include:
+        - LLM client configurations (requires API keys to be provided or in environment)
+        - Evaluation task configuration (task schemas, input/output columns, answering method)
+        - Data files (if load_data=True and data was included in the saved state)
+
         Args:
             state_file: Path to JSON file containing the state.
             load_data: Whether to load the data file referenced in the state. Defaults to True.
                 When True, automatically finds and loads the data file that was saved with this state.
                 When False, only loads client configurations and skips data loading.
+            load_task: Whether to load the evaluation task configuration. Defaults to True.
+                When True, loads the evaluation task with all its configuration including
+                task schemas, input/output columns, and answering method.
+                When False, skips evaluation task loading.
             openai_api_key: API key for OpenAI clients. If None, will look for OPENAI_API_KEY in environment.
             azure_openai_api_key: API key for Azure OpenAI clients. If None, will look for AZURE_OPENAI_API_KEY in environment.
 
@@ -394,11 +474,14 @@ class MetaEvaluator:
             MetaEvaluator: A new MetaEvaluator instance loaded from the JSON state.
 
         Examples:
-            # Load everything (clients + data)
+            # Load everything (clients + data + task)
             evaluator = MetaEvaluator.load_state("my_state.json")
 
-            # Load only clients, skip data
-            evaluator = MetaEvaluator.load_state("my_state.json", load_data=False)
+            # Load only clients, skip data and task
+            evaluator = MetaEvaluator.load_state("my_state.json", load_data=False, load_task=False)
+
+            # Load clients and task, skip data
+            evaluator = MetaEvaluator.load_state("my_state.json", load_data=False, load_task=True)
 
             # Provide custom API keys
             evaluator = MetaEvaluator.load_state("my_state.json",
@@ -411,7 +494,7 @@ class MetaEvaluator:
         if not state_file.endswith(".json"):
             raise ValueError("state_file must end with .json")
 
-        # Load JSON state
+        # Load JSON MetaEvaluatorState
         state = cls._load_json_state(state_file)
 
         # Create new MetaEvaluator instance
@@ -422,7 +505,6 @@ class MetaEvaluator:
         azure_openai_api_key = azure_openai_api_key or os.getenv(
             _AZURE_OPENAI_API_KEY_ENV_VAR
         )
-
         # Reconstruct clients
         evaluator._reconstruct_clients(
             state.client_registry, openai_api_key, azure_openai_api_key
@@ -430,7 +512,11 @@ class MetaEvaluator:
 
         # Load data if requested and available
         if load_data and state.data is not None:
-            evaluator._load_data_from_state(state.data, state_file)
+            evaluator._reconstruct_data(state.data, state_file)
+
+        # Load task if requested and available
+        if load_task and state.evaluation_task is not None:
+            evaluator._reconstruct_task(state.evaluation_task)
 
         return evaluator
 
@@ -518,83 +604,35 @@ class MetaEvaluator:
             case _:
                 raise ValueError(f"Unsupported client type: {client_enum}")
 
-    def _load_data_from_state(
-        self, data_metadata: DataMetadata, state_file: str
-    ) -> None:
-        """Load data from external file based on metadata.
+    def _reconstruct_task(self, state: EvaluationTaskState) -> None:
+        """Reconstruct the evaluation task from serialized data.
 
         Args:
-            data_metadata: DataMetadata object containing data file metadata.
+            state: EvaluationTaskState object containing serialized evaluation task.
+        """
+        self.evaluation_task = EvaluationTask.deserialize(state)
+
+    def _reconstruct_data(self, metadata: DataMetadata, state_file: str) -> None:
+        """Reconstruct the data from the data file metadata.
+
+        Args:
+            metadata: DataMetadata object containing data file metadata.
             state_file: Path to the original state file (for resolving relative paths).
         """
         # Resolve data file path relative to state file
         state_path = Path(state_file)
-        data_filepath = state_path.parent / data_metadata.data_file
+        data_filepath = state_path.parent / metadata.data_file
 
         # Load the data based on format
-        df = self._load_dataframe_from_file(
-            str(data_filepath), data_metadata.data_format
+        df = EvalData.load_data(
+            filepath=str(data_filepath), data_format=metadata.data_format
         )
 
         # Create appropriate EvalData object
-        eval_data = self._create_eval_data_from_metadata(data_metadata, df)
+        if metadata.type == "SampleEvalData":
+            eval_data = SampleEvalData.deserialize(data=df, metadata=metadata)
+        else:
+            eval_data = EvalData.deserialize(data=df, metadata=metadata)
 
         # Add to evaluator
         self.add_data(eval_data, overwrite=True)
-
-    def _load_dataframe_from_file(self, filepath: str, data_format: str):
-        """Load DataFrame from file in specified format.
-
-        Args:
-            filepath: Path to the data file.
-            data_format: Format of the data file.
-
-        Returns:
-            Loaded DataFrame (polars).
-
-        Raises:
-            FileNotFoundError: If the data file doesn't exist.
-            ValueError: If the data format is not supported.
-        """
-        try:
-            match data_format:
-                case "parquet":
-                    return pl.read_parquet(filepath)
-                case "csv":
-                    return pl.read_csv(filepath)
-                case "json":
-                    with open(filepath, "r") as f:
-                        data_dict = json.load(f)
-                    return pl.DataFrame(data_dict)
-                case _:
-                    raise ValueError(f"Unsupported data format: {data_format}")
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Data file not found: {filepath}")
-
-    def _create_eval_data_from_metadata(self, data_metadata: DataMetadata, df):
-        """Create EvalData or SampleEvalData object from metadata and DataFrame.
-
-        Args:
-            data_metadata: DataMetadata object containing data metadata.
-            df: The loaded DataFrame.
-
-        Returns:
-            EvalData or SampleEvalData object.
-        """
-        if data_metadata.type == "SampleEvalData":
-            return SampleEvalData(
-                data=df,
-                name=data_metadata.name,
-                id_column=data_metadata.id_column,
-                sample_name=cast(str, data_metadata.sample_name),
-                stratification_columns=cast(list, data_metadata.stratification_columns),
-                sample_percentage=cast(float, data_metadata.sample_percentage),
-                seed=cast(int, data_metadata.seed),
-                sampling_method=cast(str, data_metadata.sampling_method),
-            )
-        else:
-            return EvalData(
-                data=df,
-                name=data_metadata.name,
-                id_column=data_metadata.id_column,
-            )
