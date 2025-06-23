@@ -185,9 +185,9 @@ class Judge(BaseModel):
             task_class: The dynamically created Pydantic model for responses
             builder: The JudgeResultsBuilder instance
         """
-        assert (
-            eval_data.id_column is not None
-        ), f"EvalData {eval_data.name} has no ID column, but was expected to have one."
+        assert eval_data.id_column is not None, (
+            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
+        )
 
         try:
             # Create messages
@@ -311,9 +311,9 @@ class Judge(BaseModel):
             tag_configs: List of TagConfigs for parsing XML response (one per task)
             builder: The JudgeResultsBuilder instance
         """
-        assert (
-            eval_data.id_column is not None
-        ), f"EvalData {eval_data.name} has no ID column, but was expected to have one."
+        assert eval_data.id_column is not None, (
+            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
+        )
 
         try:
             # Create messages with XML instructions
@@ -420,9 +420,9 @@ class Judge(BaseModel):
         Raises:
             IncorrectClientError: If the LLMClient is not equal to the configured LLMClient.
         """
-        assert (
-            eval_data.id_column is not None
-        ), f"EvalData {eval_data.name} has no ID column, but was expected to have one."
+        assert eval_data.id_column is not None, (
+            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
+        )
 
         # Validate LLM client matches configuration
         if llm_client.enum_value != self.llm_client_enum:
@@ -489,9 +489,9 @@ class Judge(BaseModel):
                         builder=builder,
                     )
                 else:  # xml
-                    assert (
-                        tag_configs is not None
-                    ), "tag_configs was to be set previously"
+                    assert tag_configs is not None, (
+                        "tag_configs was to be set previously"
+                    )
                     self._evaluate_row_xml(
                         row=row,
                         eval_data=eval_data,
