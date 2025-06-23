@@ -371,9 +371,9 @@ class MetaEvaluator:
         for client_enum, client in self.client_registry.items():
             client_data = self._serialize_single_client(client_enum, client)
             # ASSERT: api_key not in client_data
-            assert "api_key" not in str(
-                client_data
-            ), f"API key found in serialized {client_enum.value} client"
+            assert "api_key" not in str(client_data), (
+                f"API key found in serialized {client_enum.value} client"
+            )
             serialized_clients[client_enum.value] = client_data
         return serialized_clients
 

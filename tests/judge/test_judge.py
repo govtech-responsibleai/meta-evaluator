@@ -38,8 +38,8 @@ class TestJudge:
         """
         return EvalTask(
             task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-            input_columns=["text"],
-            output_columns=["response"],
+            prompt_columns=["text"],
+            response_columns=["response"],
             answering_method="structured",
         )
 
@@ -52,8 +52,8 @@ class TestJudge:
         """
         return EvalTask(
             task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-            input_columns=["text"],
-            output_columns=["response"],
+            prompt_columns=["text"],
+            response_columns=["response"],
             answering_method="xml",
         )
 
@@ -69,8 +69,8 @@ class TestJudge:
                 "sentiment": ["positive", "negative", "neutral"],
                 "toxicity": ["toxic", "non_toxic"],
             },
-            input_columns=["text"],
-            output_columns=["response"],
+            prompt_columns=["text"],
+            response_columns=["response"],
             answering_method="structured",
         )
 
@@ -273,8 +273,8 @@ class TestJudge:
         """Test row data formatting with both input and output columns."""
         task = EvalTask(
             task_schemas={"sentiment": ["positive", "negative"]},
-            input_columns=["text"],
-            output_columns=["response"],
+            prompt_columns=["text"],
+            response_columns=["response"],
             answering_method="structured",
         )
         judge = Judge(
@@ -288,9 +288,9 @@ class TestJudge:
         row = {"text": "Good movie", "response": "I liked it"}
         formatted = judge._format_row_data(row)
 
-        assert "The inputs given to the LLM were text" in formatted
+        assert "The prompts to be evaluated are text" in formatted
         assert "text: Good movie" in formatted
-        assert "The outputs given by the LLM were response" in formatted
+        assert "The responses to be evaluated are response" in formatted
         assert "response: I liked it" in formatted
 
     def test_format_row_data_both_input_output(self, basic_judge):
@@ -298,10 +298,61 @@ class TestJudge:
         row = {"text": "Good movie", "response": "I liked it"}
         formatted = basic_judge._format_row_data(row)
 
-        assert "The inputs given to the LLM were text" in formatted
+        assert "The prompts to be evaluated are text" in formatted
         assert "text: Good movie" in formatted
-        assert "The outputs given by the LLM were response" in formatted
+        assert "The responses to be evaluated are response" in formatted
         assert "response: I liked it" in formatted
+
+    def test_format_row_data_no_prompt_columns(self, basic_prompt):
+        """Test row data formatting when prompt_columns is None."""
+        task = EvalTask(
+            task_schemas={"sentiment": ["positive", "negative"]},
+            prompt_columns=None,  # No prompt columns
+            response_columns=["response"],
+            answering_method="structured",
+        )
+        judge = Judge(
+            id="test_judge_no_prompt",
+            eval_task=task,
+            llm_client_enum=LLMClientEnum.OPENAI,
+            model="gpt-4",
+            prompt=basic_prompt,
+        )
+
+        row = {"response": "bad movie"}
+        formatted = judge._format_row_data(row)
+
+        # Should not contain any input column information
+        assert "The prompts to be evaluated are" not in formatted
+        assert "text:" not in formatted
+        # Should still contain output column information
+        assert "The texts to be evaluated are response" in formatted
+        assert "response: bad movie" in formatted
+
+    def test_format_row_data_empty_prompt_columns(self, basic_prompt):
+        """Test row data formatting when prompt_columns is empty list."""
+        task = EvalTask(
+            task_schemas={"sentiment": ["positive", "negative"]},
+            prompt_columns=[],  # Empty prompt columns
+            response_columns=["response"],
+            answering_method="structured",
+        )
+        judge = Judge(
+            id="test_judge_empty_prompt",
+            eval_task=task,
+            llm_client_enum=LLMClientEnum.OPENAI,
+            model="gpt-4",
+            prompt=basic_prompt,
+        )
+
+        row = {"response": "bad movie"}
+        formatted = judge._format_row_data(row)
+
+        # Should not contain any input column information
+        assert "The prompts to be evaluated are" not in formatted
+        # Should still contain output column information
+        assert "The texts to be evaluated are response" in formatted
+        assert "response: bad movie" in formatted
 
     def test_get_dicts_as_generator(self, basic_judge, eval_data):
         """Test generator functionality over eval data."""
@@ -578,8 +629,8 @@ class TestJudge:
                 "sentiment": ["positive", "negative", "neutral"],
                 "toxicity": ["toxic", "non_toxic"],
             },
-            input_columns=["text"],
-            output_columns=["response"],
+            prompt_columns=["text"],
+            response_columns=["response"],
             answering_method="xml",
         )
         judge = Judge(
@@ -813,8 +864,8 @@ class TestJudge:
         # Create task with skip function that skips all rows
         task_with_skip = EvalTask(
             task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-            input_columns=["text"],
-            output_columns=["response"],
+            prompt_columns=["text"],
+            response_columns=["response"],
             answering_method="structured",
             skip_function=lambda row: True,  # Skip all rows
         )
@@ -853,8 +904,8 @@ class TestJudge:
         # Create task with skip function that skips no rows
         task_with_skip = EvalTask(
             task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-            input_columns=["text"],
-            output_columns=["response"],
+            prompt_columns=["text"],
+            response_columns=["response"],
             answering_method="structured",
             skip_function=lambda row: False,  # Skip no rows
         )
@@ -934,8 +985,8 @@ class TestJudge:
 
         task_with_error = EvalTask(
             task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-            input_columns=["text"],
-            output_columns=["response"],
+            prompt_columns=["text"],
+            response_columns=["response"],
             answering_method="structured",
             skip_function=error_skip_function,
         )
@@ -993,6 +1044,53 @@ class TestJudge:
             assert config_call.is_sampled_run is True
             assert result == mock_results
 
+    def test_evaluate_eval_data_no_prompt_columns(
+        self, basic_prompt, eval_data, mock_llm_client, mock_llm_response
+    ):
+        """Test full evaluation run with no prompt columns."""
+        # Create task with no prompt columns
+        task_no_prompt = EvalTask(
+            task_schemas={"sentiment": ["positive", "negative", "neutral"]},
+            prompt_columns=None,  # No prompt columns
+            response_columns=["response"],
+            answering_method="structured",
+        )
+        judge = Judge(
+            id="no_prompt_judge",
+            eval_task=task_no_prompt,
+            llm_client_enum=LLMClientEnum.OPENAI,
+            model="gpt-4",
+            prompt=basic_prompt,
+        )
+
+        class MockTaskClass(BaseModel):
+            sentiment: str
+
+        # Mock structured response
+        structured_response = MockTaskClass(sentiment="positive")
+        mock_llm_client.prompt_with_structured_response.return_value = (
+            structured_response,
+            mock_llm_response,
+        )
+
+        with patch(
+            "meta_evaluator.judge.judge.JudgeResultsBuilder"
+        ) as mock_builder_class:
+            mock_builder = create_autospec(JudgeResultsBuilder, instance=True)
+            mock_results = create_autospec(JudgeResults, instance=True)
+            mock_builder.complete.return_value = mock_results
+            mock_builder_class.return_value = mock_builder
+
+            result = judge.evaluate_eval_data(eval_data, mock_llm_client, "test_run")
+
+            # Verify builder was created and used
+            mock_builder_class.assert_called_once()
+            assert (
+                mock_builder.create_success_row.call_count == 3
+            )  # 3 rows in eval_data
+            mock_builder.complete.assert_called_once()
+            assert result == mock_results
+
     # === Edge Cases ===
 
     def test_evaluate_eval_data_empty_dataset(self, mock_llm_client, basic_prompt):
@@ -1002,8 +1100,8 @@ class TestJudge:
 
         task_with_skip = EvalTask(
             task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-            input_columns=["text"],
-            output_columns=["response"],
+            prompt_columns=["text"],
+            response_columns=["response"],
             answering_method="structured",
             skip_function=lambda row: True,  # Skip all rows
         )
@@ -1053,8 +1151,8 @@ class TestJudge:
                 "summary": None,  # Free form
                 "explanation": None,  # Free form
             },
-            input_columns=["text"],
-            output_columns=["response"],
+            prompt_columns=["text"],
+            response_columns=["response"],
             answering_method="structured",
         )
 

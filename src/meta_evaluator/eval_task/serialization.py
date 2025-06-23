@@ -11,6 +11,6 @@ class EvalTaskState(BaseModel):
     """
 
     task_schemas: Dict[str, Optional[List[str]]]
-    input_columns: List[str]
-    output_columns: List[str]
+    prompt_columns: Optional[List[str]]
+    response_columns: List[str]
     answering_method: Literal["structured", "xml"]

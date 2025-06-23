@@ -1,6 +1,6 @@
 """Main class for evaluation tasks."""
 
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, Optional
 from pydantic import BaseModel, Field, create_model, model_validator
 from .serialization import EvalTaskState
 
@@ -12,8 +12,8 @@ class EvalTask(BaseModel):
         ...,
         description="Dictionary mapping task names to their allowed outcome values. Use None for free form text outputs.",
     )
-    input_columns: list[str] = Field(..., min_length=1)
-    output_columns: list[str] = Field(..., min_length=1)
+    prompt_columns: Optional[list[str]] = Field(default=None)
+    response_columns: list[str] = Field(..., min_length=1)
     skip_function: Callable[[dict[str, Any]], bool] = lambda x: False
     answering_method: Literal["structured", "xml"]
 
@@ -102,8 +102,8 @@ class EvalTask(BaseModel):
         """
         return EvalTaskState(
             task_schemas=self.task_schemas,
-            input_columns=self.input_columns,
-            output_columns=self.output_columns,
+            prompt_columns=self.prompt_columns,
+            response_columns=self.response_columns,
             answering_method=self.answering_method,
         )
 
@@ -119,8 +119,8 @@ class EvalTask(BaseModel):
         """
         return cls(
             task_schemas=state.task_schemas,
-            input_columns=state.input_columns,
-            output_columns=state.output_columns,
+            prompt_columns=state.prompt_columns,
+            response_columns=state.response_columns,
             answering_method=state.answering_method,
             # skip_function must be set manually or defaulted
         )

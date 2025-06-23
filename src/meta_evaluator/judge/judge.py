@@ -133,14 +133,21 @@ class Judge(BaseModel):
             str: Formatted string with input and output data.
         """
         content = ""
-        if self.eval_task.input_columns:
-            content += f"The inputs given to the LLM were {', '.join(self.eval_task.input_columns)}."
-            for column in self.eval_task.input_columns:
+        if self.eval_task.prompt_columns:
+            content += f"The prompts to be evaluated are {', '.join(self.eval_task.prompt_columns)}."
+            for column in self.eval_task.prompt_columns:
                 content += f"\n{column}: {row[column]}"
 
-        if self.eval_task.output_columns:
-            content += f"\n\nThe outputs given by the LLM were {', '.join(self.eval_task.output_columns)}."
-            for column in self.eval_task.output_columns:
+        if self.eval_task.response_columns:
+            prompt_prefix = (
+                "The responses to be evaluated are"
+                if self.eval_task.prompt_columns
+                else "The texts to be evaluated are"
+            )
+            content += (
+                f"\n\n{prompt_prefix} {', '.join(self.eval_task.response_columns)}."
+            )
+            for column in self.eval_task.response_columns:
                 content += f"\n{column}: {row[column]}"
 
         return content

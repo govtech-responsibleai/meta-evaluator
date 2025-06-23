@@ -149,8 +149,8 @@ class TestMetaEvaluatorIntegration:
                 "accuracy": ["correct", "incorrect"],
                 "difficulty_agreement": None,  # Free form text output
             },
-            input_columns=["question", "answer"],
-            output_columns=["category", "difficulty"],
+            prompt_columns=["question", "answer"],
+            response_columns=["category", "difficulty"],
             answering_method="structured",
         )
 
@@ -362,14 +362,9 @@ class TestMetaEvaluatorIntegration:
             # Verify evaluation task reconstruction
             assert loaded.eval_task is not None
             assert loaded.eval_task.task_schemas == eval_task.task_schemas
-            assert loaded.eval_task.input_columns == eval_task.input_columns
-            assert (
-                loaded.eval_task.output_columns == eval_task.output_columns
-            )
-            assert (
-                loaded.eval_task.answering_method
-                == eval_task.answering_method
-            )
+            assert loaded.eval_task.prompt_columns == eval_task.prompt_columns
+            assert loaded.eval_task.response_columns == eval_task.response_columns
+            assert loaded.eval_task.answering_method == eval_task.answering_method
             assert loaded.data is not None
             assert LLMClientEnum.OPENAI in loaded.client_registry
 

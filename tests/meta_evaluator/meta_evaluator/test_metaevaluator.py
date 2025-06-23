@@ -337,8 +337,8 @@ class TestMetaEvaluator:
         """
         return EvalTask(
             task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-            input_columns=["text"],
-            output_columns=["response"],
+            prompt_columns=["text"],
+            response_columns=["response"],
             answering_method="structured",
         )
 
@@ -351,8 +351,36 @@ class TestMetaEvaluator:
         """
         return EvalTask(
             task_schemas={"rejection": ["rejected", "accepted"]},
-            input_columns=["prompt"],
-            output_columns=["response"],
+            prompt_columns=["prompt"],
+            response_columns=["response"],
+            answering_method="structured",
+        )
+
+    @pytest.fixture
+    def basic_eval_task_no_prompt(self) -> EvalTask:
+        """Provides a basic evaluation task for testing.
+
+        Returns:
+            EvalTask: A basic evaluation task with sentiment analysis schema.
+        """
+        return EvalTask(
+            task_schemas={"sentiment": ["positive", "negative", "neutral"]},
+            prompt_columns=None,
+            response_columns=["response"],
+            answering_method="structured",
+        )
+
+    @pytest.fixture
+    def basic_eval_task_empty_prompt(self) -> EvalTask:
+        """Provides a basic evaluation task for testing.
+
+        Returns:
+            EvalTask: A basic evaluation task with sentiment analysis schema.
+        """
+        return EvalTask(
+            task_schemas={"sentiment": ["positive", "negative", "neutral"]},
+            prompt_columns=[],
+            response_columns=["response"],
             answering_method="structured",
         )
 
@@ -904,6 +932,30 @@ class TestMetaEvaluator:
                 meta_evaluator.client_registry[LLMClientEnum.OPENAI] == original_client
             )
             assert meta_evaluator.eval_task == basic_eval_task
+
+    def test_add_eval_task_no_prompt_columns(
+        self, meta_evaluator, basic_eval_task_no_prompt
+    ):
+        """Test adding evaluation task with no prompt columns."""
+        # Add evaluation task
+        meta_evaluator.add_eval_task(basic_eval_task_no_prompt)
+
+        # Verify task was added correctly
+        assert meta_evaluator.eval_task == basic_eval_task_no_prompt
+        assert meta_evaluator.eval_task.prompt_columns is None
+        assert meta_evaluator.eval_task.response_columns == ["response"]
+
+    def test_add_eval_task_empty_prompt_columns(
+        self, meta_evaluator, basic_eval_task_empty_prompt
+    ):
+        """Test adding evaluation task with empty prompt columns."""
+        # Add evaluation task
+        meta_evaluator.add_eval_task(basic_eval_task_empty_prompt)
+
+        # Verify task was added correctly
+        assert meta_evaluator.eval_task == basic_eval_task_empty_prompt
+        assert meta_evaluator.eval_task.prompt_columns == []
+        assert meta_evaluator.eval_task.response_columns == ["response"]
 
     # === Integration Tests ===
 
@@ -1583,6 +1635,68 @@ class TestMetaEvaluator:
 
         assert state_data["data"]["data_file"] == "test_state_data.json"
 
+    def test_save_and_load_eval_task_no_prompt_columns(
+        self, meta_evaluator, basic_eval_task_no_prompt, tmp_path, openai_environment
+    ):
+        """Test saving and loading MetaEvaluator with EvalTask that has no prompt columns."""
+        # Add task to evaluator
+        meta_evaluator.add_eval_task(basic_eval_task_no_prompt)
+
+        # Save state
+        state_file = tmp_path / "test_state.json"
+        meta_evaluator.save_state(
+            str(state_file),
+            include_task=True,
+            include_data=True,
+            data_format="json",
+            data_filename=None,
+        )
+
+        # Load state
+        loaded_evaluator = MetaEvaluator.load_state(
+            str(state_file), load_task=True, openai_api_key="test-api-key"
+        )
+
+        # Verify task was loaded correctly with no prompt columns
+        assert loaded_evaluator.eval_task is not None
+        assert loaded_evaluator.eval_task.prompt_columns is None
+        assert loaded_evaluator.eval_task.response_columns == ["response"]
+        assert loaded_evaluator.eval_task.task_schemas == {
+            "sentiment": ["positive", "negative", "neutral"]
+        }
+        assert loaded_evaluator.eval_task.answering_method == "structured"
+
+    def test_save_and_load_eval_task_empty_prompt_columns(
+        self, meta_evaluator, basic_eval_task_empty_prompt, tmp_path, openai_environment
+    ):
+        """Test saving and loading MetaEvaluator with EvalTask that has empty prompt columns."""
+        # Add task to evaluator
+        meta_evaluator.add_eval_task(basic_eval_task_empty_prompt)
+
+        # Save state
+        state_file = tmp_path / "test_state.json"
+        meta_evaluator.save_state(
+            str(state_file),
+            include_task=True,
+            include_data=True,
+            data_format="json",
+            data_filename=None,
+        )
+
+        # Load state
+        loaded_evaluator = MetaEvaluator.load_state(
+            str(state_file), load_task=True, openai_api_key="test-api-key"
+        )
+
+        # Verify task was loaded correctly with empty prompt columns
+        assert loaded_evaluator.eval_task is not None
+        assert loaded_evaluator.eval_task.prompt_columns == []
+        assert loaded_evaluator.eval_task.response_columns == ["response"]
+        assert loaded_evaluator.eval_task.task_schemas == {
+            "sentiment": ["positive", "negative", "neutral"]
+        }
+        assert loaded_evaluator.eval_task.answering_method == "structured"
+
     # === Private Serialization Method Tests ===
 
     def test_serialize_include_data_false(self, meta_evaluator):
@@ -1825,8 +1939,8 @@ class TestMetaEvaluator:
             assert eval_task_config["task_schemas"] == {
                 "sentiment": ["positive", "negative", "neutral"]
             }
-            assert eval_task_config["input_columns"] == ["text"]
-            assert eval_task_config["output_columns"] == ["response"]
+            assert eval_task_config["prompt_columns"] == ["text"]
+            assert eval_task_config["response_columns"] == ["response"]
             assert eval_task_config["answering_method"] == "structured"
 
             # Verify DataFrame method was called
@@ -2210,12 +2324,12 @@ class TestMetaEvaluator:
                 loaded_evaluator.eval_task.task_schemas == basic_eval_task.task_schemas
             )
             assert (
-                loaded_evaluator.eval_task.input_columns
-                == basic_eval_task.input_columns
+                loaded_evaluator.eval_task.prompt_columns
+                == basic_eval_task.prompt_columns
             )
             assert (
-                loaded_evaluator.eval_task.output_columns
-                == basic_eval_task.output_columns
+                loaded_evaluator.eval_task.response_columns
+                == basic_eval_task.response_columns
             )
             assert (
                 loaded_evaluator.eval_task.answering_method
