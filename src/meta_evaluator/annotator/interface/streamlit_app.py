@@ -10,9 +10,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import polars as pl
 import streamlit as st
-
-from meta_evaluator.data.EvalData import EvalData
-from meta_evaluator.evaluation_task.evaluation_task import EvaluationTask
+from meta_evaluator.data import EvalData
+from meta_evaluator.eval_task import EvalTask
 
 
 @st.cache_data
@@ -36,22 +35,26 @@ class StreamlitAnnotator:
     """
 
     def __init__(
-        self, eval_data: EvalData, task: EvaluationTask, path_to_save_annotations: str
+        self,
+        eval_data: EvalData,
+        eval_task: EvalTask,
+        annotations_dir: str,
     ):
         """Initialize the Streamlit annotator.
 
         Args:
             eval_data: EvalData object containing the evaluation data.
-            task: EvaluationTask object containing task configuration.
-            path_to_save_annotations: Path where annotations will be saved.
+            eval_task: EvalTask object containing task configuration.
+            annotations_dir: Path where annotations will be saved.
         """
         self.df: pl.DataFrame = eval_data.data
-        self.input_cols: List[str] = eval_data.input_columns
-        self.output_cols: List[str] = eval_data.output_columns
         # EvalData guarantees the ID column will be set after initialization. This is a case where the type system's Optional doesn't match the runtime guarantees of the class.
         self.id_col: str = eval_data.id_column  # type: ignore
-        self.outcomes: Dict[str, Any] = task.task_schemas
-        self.path_to_save_annotations: str = path_to_save_annotations
+
+        self.outcomes: Dict[str, Any] = eval_task.task_schemas
+        self.prompt_columns: Optional[List[str]] = eval_task.prompt_columns
+        self.response_columns: List[str] = eval_task.response_columns
+        self.annotations_dir: str = annotations_dir
 
     @property
     def annotated_count(self) -> int:
@@ -94,6 +97,14 @@ class StreamlitAnnotator:
                 unsafe_allow_html=True,
             )
 
+    def display_h4_header(self, text: str) -> None:
+        """Display an h4 header with the given text.
+
+        Args:
+            text: The text to display in the header
+        """
+        st.markdown(f"<h4>{text}</h4>", unsafe_allow_html=True)
+
     def display_h5_header(self, text: str) -> None:
         """Display an h5 header with the given text.
 
@@ -102,13 +113,30 @@ class StreamlitAnnotator:
         """
         st.markdown(f"<h5>{text}</h5>", unsafe_allow_html=True)
 
-    def display_input_columns(self, current_row: Tuple[Any, ...]) -> None:
+    def display_prompt_columns(self, current_row: Tuple[Any, ...]) -> None:
         """Display the input columns for the current sample.
 
         Args:
             current_row: Current row data as a tuple.
         """
-        for col in self.input_cols:
+        if self.prompt_columns is None:
+            return
+        for col in self.prompt_columns:
+            st.write(f"**{col}:**")
+            with st.container():
+                st.markdown(
+                    '<style>div[data-testid="stVerticalBlock"] > div:has(> div.stText) {background-color: #f0f2f6; padding: 20px; border-radius: 5px; margin-bottom: 20px;}</style>',
+                    unsafe_allow_html=True,
+                )
+                st.text(current_row[self.df.columns.index(col)])
+
+    def display_response_columns(self, current_row: Tuple[Any, ...]) -> None:
+        """Display the response columns for the current sample.
+
+        Args:
+            current_row: Current row data as a tuple.
+        """
+        for col in self.response_columns:
             st.write(f"**{col}:**")
             with st.container():
                 st.markdown(
@@ -269,14 +297,14 @@ class StreamlitAnnotator:
 
     def display_export_button(
         self,
-        path_to_save_annotations: str,
+        annotations_dir: str,
         total_samples: int,
         name: str,
     ) -> None:
         """Display export button when all samples are annotated.
 
         Args:
-            path_to_save_annotations: Path to save the annotations
+            annotations_dir: Path to save the annotations
             total_samples: Total number of samples
             name: Name of the annotator
         """
@@ -296,8 +324,8 @@ class StreamlitAnnotator:
         filename = f"annotations_{name}.json"
 
         # Define save path for filename file
-        os.makedirs(path_to_save_annotations, exist_ok=True)
-        save_path = os.path.join(path_to_save_annotations, filename)
+        os.makedirs(annotations_dir, exist_ok=True)
+        save_path = os.path.join(annotations_dir, filename)
 
         json_data = self.convert_annotations_to_json(st.session_state.annotations)
 
@@ -327,10 +355,11 @@ class StreamlitAnnotator:
             total_samples=len(self.df),
         )
         st.markdown("---")
-        self.display_h5_header(
-            text="Label the following text as positive, negative, or neutral"
+        self.display_h4_header(
+            text="Label the following texts as positive, negative, or neutral (placeholder)"
         )
-        self.display_input_columns(current_row=current_row)
+        self.display_prompt_columns(current_row=current_row)
+        self.display_response_columns(current_row=current_row)
         st.markdown("---")
 
         self.display_h5_header(text="Your response:")
@@ -344,7 +373,7 @@ class StreamlitAnnotator:
         st.markdown("---")
 
         self.display_export_button(
-            path_to_save_annotations=self.path_to_save_annotations,
+            annotations_dir=self.annotations_dir,
             total_samples=len(self.df),
             name=name,
         )

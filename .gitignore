@@ -12,3 +12,6 @@ wheels/
 node_modules/
 package-lock.json
 plan.md
+
+# OS generated files
+.DS_Store
