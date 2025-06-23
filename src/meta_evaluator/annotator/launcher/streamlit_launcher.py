@@ -44,9 +44,6 @@ class StreamlitLauncher:
 
         Args:
             tmp_dir: The string path to the temporary directory
-
-        Returns:
-            None
         """
         # Serialize evaluation task and data metadata
         evaluation_task_state = self.eval_task.serialize()
@@ -150,7 +147,6 @@ class StreamlitLauncher:
         streamlit_process = subprocess.Popen(
             streamlit_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
-
         try:
             # Wait a moment for Streamlit to start
             time.sleep(2)
@@ -176,6 +172,7 @@ class StreamlitLauncher:
         Args:
             use_ngrok: Whether to use ngrok to expose the Streamlit interface to the internet. Defaults to False.
         """
+        print("Launching Streamlit interface...")
         # Create temporary folder to store files needed for the annotation interface
         with tempfile.TemporaryDirectory(
             dir=self.annotations_dir, prefix="tmp_"
