@@ -13,9 +13,9 @@ from unittest.mock import MagicMock, patch
 import polars as pl
 import pytest
 
-from meta_evaluator.data.EvalData import EvalData, SampleEvalData
-from meta_evaluator.evaluation_task.evaluation_task import EvaluationTask
-from meta_evaluator.meta_evaluator.metaevaluator import MetaEvaluator
+from meta_evaluator.data import EvalData, SampleEvalData
+from meta_evaluator.evaluation_task import EvaluationTask
+from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.llm_client.openai_client import OpenAIClient, OpenAIConfig
 from meta_evaluator.llm_client.azureopenai_client import (
     AzureOpenAIClient,

@@ -16,9 +16,9 @@ from ..llm_client.serialization import (
     OpenAISerializedState,
     AzureOpenAISerializedState,
 )
-from ..data.EvalData import EvalData, SampleEvalData
+from ..data import EvalData, SampleEvalData
 from ..data.serialization import DataMetadata
-from ..evaluation_task.evaluation_task import EvaluationTask
+from ..evaluation_task import EvaluationTask
 from ..evaluation_task.serialization import EvaluationTaskState
 from .exceptions import (
     MissingConfigurationException,
