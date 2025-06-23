@@ -10,8 +10,8 @@ Main Classes:
 
 """
 
-from .EvalData import EvalData, SampleEvalData
-from .DataLoader import DataLoader
+from .eval_data import EvalData, SampleEvalData
+from .dataloader import DataLoader
 
 __all__ = [
     "EvalData",

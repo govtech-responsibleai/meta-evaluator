@@ -16,17 +16,17 @@ from ..llm_client.serialization import (
     OpenAISerializedState,
     AzureOpenAISerializedState,
 )
-from ..data.EvalData import EvalData, SampleEvalData
+from ..data import EvalData, SampleEvalData
 from ..data.serialization import DataMetadata
-from ..evaluation_task.evaluation_task import EvaluationTask
-from ..evaluation_task.serialization import EvaluationTaskState
+from ..eval_task import EvalTask
+from ..eval_task.serialization import EvalTaskState
 from .exceptions import (
     MissingConfigurationException,
     ClientAlreadyExistsException,
     ClientNotFoundException,
     DataAlreadyExistsException,
     DataFilenameExtensionMismatchException,
-    EvaluationTaskAlreadyExistsException,
+    EvalTaskAlreadyExistsException,
 )
 from .serialization import MetaEvaluatorState
 
@@ -66,7 +66,7 @@ class MetaEvaluator:
         """
         self.client_registry: dict[LLMClientEnum, LLMClient] = {}
         self.data: Optional[EvalData] = None
-        self.evaluation_task: Optional[EvaluationTask] = None  # NEW
+        self.eval_task: Optional[EvalTask] = None  # NEW
 
     # ===== CLIENT MANAGEMENT METHODS =====
 
@@ -240,22 +240,20 @@ class MetaEvaluator:
 
         self.data = eval_data
 
-    def add_evaluation_task(
-        self, evaluation_task: EvaluationTask, overwrite: bool = False
-    ) -> None:
+    def add_eval_task(self, eval_task: EvalTask, overwrite: bool = False) -> None:
         """Add evaluation task to the evaluator.
 
         Args:
-            evaluation_task: The EvaluationTask object to add to the evaluator.
+            eval_task: The EvalTask object to add to the evaluator.
             overwrite: Whether to overwrite existing evaluation task. Defaults to False.
 
         Raises:
-            EvaluationTaskAlreadyExistsException: If evaluation task already exists and overwrite is False.
+            EvalTaskAlreadyExistsException: If evaluation task already exists and overwrite is False.
         """
-        if self.evaluation_task is not None and not overwrite:
-            raise EvaluationTaskAlreadyExistsException()
+        if self.eval_task is not None and not overwrite:
+            raise EvalTaskAlreadyExistsException()
 
-        self.evaluation_task = evaluation_task
+        self.eval_task = eval_task
 
     # ===== SERIALIZATION METHODS =====
 
@@ -276,7 +274,7 @@ class MetaEvaluator:
 
         Args:
             state_file: Path to JSON file for state (must end with .json).
-            include_task: Whether to serialize EvaluationTask. Defaults to True.
+            include_task: Whether to serialize EvalTask. Defaults to True.
             include_data: Whether to serialize EvalData. Defaults to True.
             data_format: Format for data file when include_data=True.
                 Must be specified if include_data=True.
@@ -349,7 +347,7 @@ class MetaEvaluator:
         """Create complete state object - no I/O operations.
 
         Args:
-            include_task: Whether to include EvaluationTask serialization.
+            include_task: Whether to include EvalTask serialization.
             include_data: Whether to include data serialization metadata.
             data_format: Format for data serialization.
             data_filename: Name of data file if applicable.
@@ -360,7 +358,7 @@ class MetaEvaluator:
         return MetaEvaluatorState(
             client_registry=self._serialize_client_registry(),
             data=self._serialize_data(include_data, data_format, data_filename),
-            evaluation_task=self._serialize_evaluation_task(include_task),
+            eval_task=self._serialize_eval_task(include_task),
         )
 
     def _serialize_client_registry(self) -> dict[str, dict]:
@@ -420,18 +418,18 @@ class MetaEvaluator:
         )
         return serialized_metadata
 
-    def _serialize_evaluation_task(
+    def _serialize_eval_task(
         self,
         include_task: bool,
-    ) -> Optional[EvaluationTaskState]:
-        """Serialize EvaluationTask.
+    ) -> Optional[EvalTaskState]:
+        """Serialize EvalTask.
 
         Returns:
-            Serialized EvaluationTask dictionary.
+            Serialized EvalTask dictionary.
         """
-        if not include_task or self.evaluation_task is None:
+        if not include_task or self.eval_task is None:
             return None
-        serialized_state = self.evaluation_task.serialize()
+        serialized_state = self.eval_task.serialize()
 
         return serialized_state
 
@@ -515,8 +513,8 @@ class MetaEvaluator:
             evaluator._reconstruct_data(state.data, state_file)
 
         # Load task if requested and available
-        if load_task and state.evaluation_task is not None:
-            evaluator._reconstruct_task(state.evaluation_task)
+        if load_task and state.eval_task is not None:
+            evaluator._reconstruct_task(state.eval_task)
 
         return evaluator
 
@@ -604,13 +602,13 @@ class MetaEvaluator:
             case _:
                 raise ValueError(f"Unsupported client type: {client_enum}")
 
-    def _reconstruct_task(self, state: EvaluationTaskState) -> None:
+    def _reconstruct_task(self, state: EvalTaskState) -> None:
         """Reconstruct the evaluation task from serialized data.
 
         Args:
-            state: EvaluationTaskState object containing serialized evaluation task.
+            state: EvalTaskState object containing serialized evaluation task.
         """
-        self.evaluation_task = EvaluationTask.deserialize(state)
+        self.eval_task = EvalTask.deserialize(state)
 
     def _reconstruct_data(self, metadata: DataMetadata, state_file: str) -> None:
         """Reconstruct the data from the data file metadata.
