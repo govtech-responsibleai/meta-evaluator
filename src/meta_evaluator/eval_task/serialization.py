@@ -4,10 +4,10 @@ from pydantic import BaseModel
 from typing import Optional, Dict, List, Literal
 
 
-class EvaluationTaskState(BaseModel):
+class EvalTaskState(BaseModel):
     """Serialized state for Evaluation Task.
 
-    Contains all information needed to reconstruct an EvaluationTask object.
+    Contains all information needed to reconstruct an EvalTask object.
     """
 
     task_schemas: Dict[str, Optional[List[str]]]

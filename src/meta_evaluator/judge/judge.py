@@ -1,7 +1,7 @@
 """Main class of judge module."""
 
 from typing import Any, Optional, cast
-from ..evaluation_task import EvaluationTask
+from ..eval_task import EvalTask
 from ..llm_client import LLMClientEnum, LLMClient
 from ..llm_client.models import Message, RoleEnum, TagConfig
 from ..llm_client.exceptions import LLMAPIError
@@ -33,7 +33,7 @@ class Judge(BaseModel):
             characters and underscores to ensure compatibility with file paths
             and other system identifiers. This ID must be explicitly provided
             and is never auto-generated.
-        evaluation_task (EvaluationTask): An instance of the EvaluationTask class
+        eval_task (EvalTask): An instance of the EvalTask class
             defining the criteria and desired outcomes for the evaluation. This
             specifies *what* is being evaluated (e.g., toxicity, relevance) and
             the possible labels or scores the Judge is expected to produce.
@@ -61,7 +61,7 @@ class Judge(BaseModel):
 
     id: str
     model_config = ConfigDict(frozen=True)
-    evaluation_task: EvaluationTask
+    eval_task: EvalTask
     llm_client_enum: LLMClientEnum
     model: str
     prompt: Prompt
@@ -93,7 +93,7 @@ class Judge(BaseModel):
         """
         instructions = "\n\nPlease provide your evaluation results in XML format using the following tags:\n"
 
-        for task_name, outcomes in self.evaluation_task.task_schemas.items():
+        for task_name, outcomes in self.eval_task.task_schemas.items():
             instructions += (
                 f"<{task_name}>YOUR_ANSWER_FOR_{task_name.upper()}</{task_name}>\n"
             )
@@ -133,14 +133,14 @@ class Judge(BaseModel):
             str: Formatted string with input and output data.
         """
         content = ""
-        if self.evaluation_task.input_columns:
-            content += f"The inputs given to the LLM were {', '.join(self.evaluation_task.input_columns)}."
-            for column in self.evaluation_task.input_columns:
+        if self.eval_task.input_columns:
+            content += f"The inputs given to the LLM were {', '.join(self.eval_task.input_columns)}."
+            for column in self.eval_task.input_columns:
                 content += f"\n{column}: {row[column]}"
 
-        if self.evaluation_task.output_columns:
-            content += f"\n\nThe outputs given by the LLM were {', '.join(self.evaluation_task.output_columns)}."
-            for column in self.evaluation_task.output_columns:
+        if self.eval_task.output_columns:
+            content += f"\n\nThe outputs given by the LLM were {', '.join(self.eval_task.output_columns)}."
+            for column in self.eval_task.output_columns:
                 content += f"\n{column}: {row[column]}"
 
         return content
@@ -178,9 +178,9 @@ class Judge(BaseModel):
             task_class: The dynamically created Pydantic model for responses
             builder: The JudgeResultsBuilder instance
         """
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
+        assert (
+            eval_data.id_column is not None
+        ), f"EvalData {eval_data.name} has no ID column, but was expected to have one."
 
         try:
             # Create messages
@@ -203,7 +203,7 @@ class Judge(BaseModel):
                 outcomes = {}
                 missing_tasks = []
 
-                for task_name in self.evaluation_task.task_schemas.keys():
+                for task_name in self.eval_task.task_schemas.keys():
                     try:
                         outcome = getattr(structured_response, task_name)
                         outcomes[task_name] = outcome
@@ -304,9 +304,9 @@ class Judge(BaseModel):
             tag_configs: List of TagConfigs for parsing XML response (one per task)
             builder: The JudgeResultsBuilder instance
         """
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
+        assert (
+            eval_data.id_column is not None
+        ), f"EvalData {eval_data.name} has no ID column, but was expected to have one."
 
         try:
             # Create messages with XML instructions
@@ -323,7 +323,7 @@ class Judge(BaseModel):
             call_duration = time.time() - start_time
 
             # Check parsing results - we need all tasks to succeed for a success row
-            task_names = set(self.evaluation_task.task_schemas.keys())
+            task_names = set(self.eval_task.task_schemas.keys())
             parsed_tasks = set(parse_result.data.keys())
 
             if parse_result.success and parsed_tasks == task_names:
@@ -413,9 +413,9 @@ class Judge(BaseModel):
         Raises:
             IncorrectClientError: If the LLMClient is not equal to the configured LLMClient.
         """
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
+        assert (
+            eval_data.id_column is not None
+        ), f"EvalData {eval_data.name} has no ID column, but was expected to have one."
 
         # Validate LLM client matches configuration
         if llm_client.enum_value != self.llm_client_enum:
@@ -429,7 +429,7 @@ class Judge(BaseModel):
         config = JudgeResultsConfig(
             run_id=run_id,
             judge_id=self.id,
-            task_schemas=self.evaluation_task.task_schemas,
+            task_schemas=self.eval_task.task_schemas,
             llm_client_enum=self.llm_client_enum,
             model_used=self.model,
             timestamp_local=datetime.now(),
@@ -442,11 +442,11 @@ class Judge(BaseModel):
         task_class: Optional[type[BaseModel]] = None
         tag_configs: Optional[list[TagConfig]] = None
 
-        if self.evaluation_task.answering_method == "structured":
-            task_class = self.evaluation_task.create_task_class()
-        elif self.evaluation_task.answering_method == "xml":
+        if self.eval_task.answering_method == "structured":
+            task_class = self.eval_task.create_task_class()
+        elif self.eval_task.answering_method == "xml":
             tag_configs = []
-            for task_name, outcomes in self.evaluation_task.task_schemas.items():
+            for task_name, outcomes in self.eval_task.task_schemas.items():
                 tag_configs.append(
                     TagConfig(
                         name=task_name,
@@ -463,10 +463,7 @@ class Judge(BaseModel):
 
             try:
                 # Check if this row should be skipped
-                if (
-                    self.evaluation_task.skip_function
-                    and self.evaluation_task.skip_function(row)
-                ):
+                if self.eval_task.skip_function and self.eval_task.skip_function(row):
                     builder.create_skipped_row(
                         sample_example_id=sample_example_id,
                         original_id=row[eval_data.id_column],
@@ -474,7 +471,7 @@ class Judge(BaseModel):
                     continue
 
                 # Evaluate the row based on answering method
-                if self.evaluation_task.answering_method == "structured":
+                if self.eval_task.answering_method == "structured":
                     assert task_class is not None, "task_class was to be set previously"
                     self._evaluate_row_structured(
                         row=row,
@@ -485,9 +482,9 @@ class Judge(BaseModel):
                         builder=builder,
                     )
                 else:  # xml
-                    assert tag_configs is not None, (
-                        "tag_configs was to be set previously"
-                    )
+                    assert (
+                        tag_configs is not None
+                    ), "tag_configs was to be set previously"
                     self._evaluate_row_xml(
                         row=row,
                         eval_data=eval_data,

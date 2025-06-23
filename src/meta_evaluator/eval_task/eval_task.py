@@ -2,10 +2,10 @@
 
 from typing import Any, Callable, Literal
 from pydantic import BaseModel, Field, create_model, model_validator
-from .serialization import EvaluationTaskState
+from .serialization import EvalTaskState
 
 
-class EvaluationTask(BaseModel):
+class EvalTask(BaseModel):
     """Main class for evaluation tasks."""
 
     task_schemas: dict[str, list[str] | None] = Field(
@@ -18,11 +18,11 @@ class EvaluationTask(BaseModel):
     answering_method: Literal["structured", "xml"]
 
     @model_validator(mode="after")
-    def validate_task_configuration(self) -> "EvaluationTask":
+    def validate_task_configuration(self) -> "EvalTask":
         """Validate task schemas configuration.
 
         Returns:
-            EvaluationTask: The validated instance
+            EvalTask: The validated instance
 
         Raises:
             ValueError: If task_schemas is empty or any task has fewer than 2 outcomes
@@ -94,13 +94,13 @@ class EvaluationTask(BaseModel):
 
         return DynamicTaskOutcome
 
-    def serialize(self) -> EvaluationTaskState:
-        """Serialize the EvaluationTask to metadata (excluding skip_function).
+    def serialize(self) -> EvalTaskState:
+        """Serialize the EvalTask to metadata (excluding skip_function).
 
         Returns:
-            EvaluationTaskState: Serialized state for EvaluationTask.
+            EvalTaskState: Serialized state for EvalTask.
         """
-        return EvaluationTaskState(
+        return EvalTaskState(
             task_schemas=self.task_schemas,
             input_columns=self.input_columns,
             output_columns=self.output_columns,
@@ -108,14 +108,14 @@ class EvaluationTask(BaseModel):
         )
 
     @classmethod
-    def deserialize(cls, state: EvaluationTaskState) -> "EvaluationTask":
-        """Deserialize EvaluationTask from state.
+    def deserialize(cls, state: EvalTaskState) -> "EvalTask":
+        """Deserialize EvalTask from state.
 
         Args:
-            state: Serialized state for EvaluationTask.
+            state: Serialized state for EvalTask.
 
         Returns:
-            EvaluationTask: Reconstructed EvaluationTask instance.
+            EvalTask: Reconstructed EvalTask instance.
         """
         return cls(
             task_schemas=state.task_schemas,

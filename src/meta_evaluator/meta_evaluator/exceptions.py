@@ -62,7 +62,7 @@ class DataAlreadyExistsException(MetaEvaluatorException):
         super().__init__("Data already exists. Use overwrite=True to replace it.")
 
 
-class EvaluationTaskAlreadyExistsException(MetaEvaluatorException):
+class EvalTaskAlreadyExistsException(MetaEvaluatorException):
     """Exception raised when trying to add evaluation task that already exists."""
 
     def __init__(self):

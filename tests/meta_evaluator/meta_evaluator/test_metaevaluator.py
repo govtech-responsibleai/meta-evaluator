@@ -14,7 +14,7 @@ from meta_evaluator.meta_evaluator.exceptions import (
     ClientNotFoundException,
     DataAlreadyExistsException,
     DataFilenameExtensionMismatchException,
-    EvaluationTaskAlreadyExistsException,
+    EvalTaskAlreadyExistsException,
 )
 from meta_evaluator.llm_client.models import LLMClientEnum
 from meta_evaluator.llm_client.openai_client import OpenAIClient
@@ -25,7 +25,7 @@ from meta_evaluator.llm_client.serialization import (
 )
 from meta_evaluator.data import EvalData, SampleEvalData
 from meta_evaluator.data.serialization import DataMetadata
-from meta_evaluator.evaluation_task import EvaluationTask
+from meta_evaluator.eval_task import EvalTask
 
 
 class TestMetaEvaluator:
@@ -329,13 +329,13 @@ class TestMetaEvaluator:
         return mock_sample_data
 
     @pytest.fixture
-    def basic_evaluation_task(self) -> EvaluationTask:
+    def basic_eval_task(self) -> EvalTask:
         """Provides a basic evaluation task for testing.
 
         Returns:
-            EvaluationTask: A basic evaluation task with sentiment analysis schema.
+            EvalTask: A basic evaluation task with sentiment analysis schema.
         """
-        return EvaluationTask(
+        return EvalTask(
             task_schemas={"sentiment": ["positive", "negative", "neutral"]},
             input_columns=["text"],
             output_columns=["response"],
@@ -343,13 +343,13 @@ class TestMetaEvaluator:
         )
 
     @pytest.fixture
-    def another_basic_evaluation_task(self) -> EvaluationTask:
+    def another_basic_eval_task(self) -> EvalTask:
         """Provides a basic evaluation task for testing.
 
         Returns:
-            EvaluationTask: A basic evaluation task with sentiment analysis schema.
+            EvalTask: A basic evaluation task with sentiment analysis schema.
         """
-        return EvaluationTask(
+        return EvalTask(
             task_schemas={"rejection": ["rejected", "accepted"]},
             input_columns=["prompt"],
             output_columns=["response"],
@@ -431,7 +431,7 @@ class TestMetaEvaluator:
         assert meta_evaluator.client_registry == {}
         assert isinstance(meta_evaluator.client_registry, dict)
         assert meta_evaluator.data is None
-        assert meta_evaluator.evaluation_task is None
+        assert meta_evaluator.eval_task is None
 
     # === add_openai() Method Tests ===
 
@@ -837,55 +837,51 @@ class TestMetaEvaluator:
             )
             assert meta_evaluator.data == sample_eval_data
 
-    # === add_evaluation_task() Method Tests ===
+    # === add_eval_task() Method Tests ===
 
-    def test_add_evaluation_task_first_time(
-        self, meta_evaluator, basic_evaluation_task
-    ):
+    def test_add_eval_task_first_time(self, meta_evaluator, basic_eval_task):
         """Test adding evaluation task when no task exists."""
-        assert meta_evaluator.evaluation_task is None
+        assert meta_evaluator.eval_task is None
 
-        meta_evaluator.add_evaluation_task(basic_evaluation_task)
+        meta_evaluator.add_eval_task(basic_eval_task)
 
-        assert meta_evaluator.evaluation_task == basic_evaluation_task
+        assert meta_evaluator.eval_task == basic_eval_task
 
-    def test_add_evaluation_task_already_exists_no_overwrite(
-        self, meta_evaluator, basic_evaluation_task, another_basic_evaluation_task
+    def test_add_eval_task_already_exists_no_overwrite(
+        self, meta_evaluator, basic_eval_task, another_basic_eval_task
     ):
-        """Test EvaluationTaskAlreadyExistsException when task exists and overwrite is False (default)."""
+        """Test EvalTaskAlreadyExistsException when task exists and overwrite is False (default)."""
         # Add task first time
-        meta_evaluator.add_evaluation_task(basic_evaluation_task)
-        assert meta_evaluator.evaluation_task == basic_evaluation_task
+        meta_evaluator.add_eval_task(basic_eval_task)
+        assert meta_evaluator.eval_task == basic_eval_task
 
         # Try to add again without overwrite
         with pytest.raises(
-            EvaluationTaskAlreadyExistsException, match="Evaluation task already exists"
+            EvalTaskAlreadyExistsException, match="Evaluation task already exists"
         ):
-            meta_evaluator.add_evaluation_task(another_basic_evaluation_task)
+            meta_evaluator.add_eval_task(another_basic_eval_task)
 
         # Verify original task is unchanged
-        assert meta_evaluator.evaluation_task == basic_evaluation_task
+        assert meta_evaluator.eval_task == basic_eval_task
 
-    def test_add_evaluation_task_already_exists_with_overwrite(
-        self, meta_evaluator, basic_evaluation_task, another_basic_evaluation_task
+    def test_add_eval_task_already_exists_with_overwrite(
+        self, meta_evaluator, basic_eval_task, another_basic_eval_task
     ):
         """Test successful replacement when task exists and overwrite is True."""
         # Add task first time
-        meta_evaluator.add_evaluation_task(basic_evaluation_task)
-        original_task = meta_evaluator.evaluation_task
-        assert original_task == basic_evaluation_task
+        meta_evaluator.add_eval_task(basic_eval_task)
+        original_task = meta_evaluator.eval_task
+        assert original_task == basic_eval_task
 
         # Overwrite with new task
-        meta_evaluator.add_evaluation_task(
-            another_basic_evaluation_task, overwrite=True
-        )
-        new_task = meta_evaluator.evaluation_task
+        meta_evaluator.add_eval_task(another_basic_eval_task, overwrite=True)
+        new_task = meta_evaluator.eval_task
 
-        assert new_task == another_basic_evaluation_task
+        assert new_task == another_basic_eval_task
         assert new_task != original_task
 
-    def test_add_evaluation_task_preserves_client_registry(
-        self, meta_evaluator, basic_evaluation_task, openai_environment
+    def test_add_eval_task_preserves_client_registry(
+        self, meta_evaluator, basic_eval_task, openai_environment
     ):
         """Test that adding evaluation task doesn't affect client registry."""
         with patch(
@@ -900,14 +896,14 @@ class TestMetaEvaluator:
             original_client = meta_evaluator.client_registry[LLMClientEnum.OPENAI]
 
             # Add evaluation task
-            meta_evaluator.add_evaluation_task(basic_evaluation_task)
+            meta_evaluator.add_eval_task(basic_eval_task)
 
             # Verify client registry is unchanged
             assert LLMClientEnum.OPENAI in meta_evaluator.client_registry
             assert (
                 meta_evaluator.client_registry[LLMClientEnum.OPENAI] == original_client
             )
-            assert meta_evaluator.evaluation_task == basic_evaluation_task
+            assert meta_evaluator.eval_task == basic_eval_task
 
     # === Integration Tests ===
 
@@ -991,7 +987,7 @@ class TestMetaEvaluator:
         self,
         meta_evaluator,
         sample_eval_data,
-        basic_evaluation_task,
+        basic_eval_task,
         openai_environment,
     ):
         """Test adding OpenAI client, data, and evaluation task together, verify all exist independently."""
@@ -1004,13 +1000,13 @@ class TestMetaEvaluator:
             # Add both client and data
             meta_evaluator.add_openai()
             meta_evaluator.add_data(sample_eval_data)
-            meta_evaluator.add_evaluation_task(basic_evaluation_task)
+            meta_evaluator.add_eval_task(basic_eval_task)
 
             # Verify both exist and are independent
             assert LLMClientEnum.OPENAI in meta_evaluator.client_registry
             assert meta_evaluator.client_registry[LLMClientEnum.OPENAI] == mock_client
             assert meta_evaluator.data == sample_eval_data
-            assert meta_evaluator.evaluation_task == basic_evaluation_task
+            assert meta_evaluator.eval_task == basic_eval_task
 
     def test_add_data_then_client(
         self, meta_evaluator, sample_eval_data, openai_environment
@@ -1087,8 +1083,8 @@ class TestMetaEvaluator:
     def test_overwrite_task_preserves_clients(
         self,
         meta_evaluator,
-        basic_evaluation_task,
-        another_basic_evaluation_task,
+        basic_eval_task,
+        another_basic_eval_task,
         openai_environment,
     ):
         """Test that overwriting data doesn't affect client registry."""
@@ -1100,27 +1096,25 @@ class TestMetaEvaluator:
 
             # Add client and task
             meta_evaluator.add_openai()
-            meta_evaluator.add_evaluation_task(basic_evaluation_task)
+            meta_evaluator.add_eval_task(basic_eval_task)
 
             original_client = meta_evaluator.client_registry[LLMClientEnum.OPENAI]
 
             # Overwrite task
-            meta_evaluator.add_evaluation_task(
-                another_basic_evaluation_task, overwrite=True
-            )
+            meta_evaluator.add_eval_task(another_basic_eval_task, overwrite=True)
 
             # Verify client preserved, data changed
             assert (
                 meta_evaluator.client_registry[LLMClientEnum.OPENAI] == original_client
             )
-            assert meta_evaluator.evaluation_task == another_basic_evaluation_task
-            assert meta_evaluator.evaluation_task != basic_evaluation_task
+            assert meta_evaluator.eval_task == another_basic_eval_task
+            assert meta_evaluator.eval_task != basic_eval_task
 
     def test_complete_evaluator_state(
         self,
         meta_evaluator,
         sample_eval_data,
-        basic_evaluation_task,
+        basic_eval_task,
         openai_environment,
         azure_openai_environment,
     ):
@@ -1142,7 +1136,7 @@ class TestMetaEvaluator:
             meta_evaluator.add_openai()
             meta_evaluator.add_azure_openai()
             meta_evaluator.add_data(sample_eval_data)
-            meta_evaluator.add_evaluation_task(basic_evaluation_task)
+            meta_evaluator.add_eval_task(basic_eval_task)
 
             # Verify complete state
             assert len(meta_evaluator.client_registry) == 2
@@ -1157,7 +1151,7 @@ class TestMetaEvaluator:
                 == mock_azure_client
             )
             assert meta_evaluator.data == sample_eval_data
-            assert meta_evaluator.evaluation_task == basic_evaluation_task
+            assert meta_evaluator.eval_task == basic_eval_task
 
     # === Edge Cases and Error Handling ===
 
@@ -1396,7 +1390,7 @@ class TestMetaEvaluator:
 
         assert state_data["version"] == "1.0"
         assert "openai" in state_data["client_registry"]
-        assert state_data["evaluation_task"] is None
+        assert state_data["eval_task"] is None
 
     def test_save_state_creates_directories(self, meta_evaluator, tmp_path):
         """Test that parent directories are created when they don't exist."""
@@ -1603,7 +1597,7 @@ class TestMetaEvaluator:
         assert state.version == "1.0"
         assert state.data is None
         assert state.client_registry is not None
-        assert state.evaluation_task is None
+        assert state.eval_task is None
 
     def test_serialize_include_data_true(
         self, meta_evaluator, mock_eval_data_with_dataframe
@@ -1622,9 +1616,9 @@ class TestMetaEvaluator:
         assert state.data is not None
         assert state.data.data_format == "parquet"
         assert state.data.data_file == "test_data.parquet"
-        assert state.evaluation_task is None
+        assert state.eval_task is None
 
-    def test_serialize_include_task_false(self, meta_evaluator, basic_evaluation_task):
+    def test_serialize_include_task_false(self, meta_evaluator, basic_eval_task):
         """Test _serialize when task should not be included."""
         state = meta_evaluator._serialize(
             include_task=False,
@@ -1635,11 +1629,11 @@ class TestMetaEvaluator:
 
         assert state.version == "1.0"
         assert state.data is None
-        assert state.evaluation_task is None
+        assert state.eval_task is None
 
-    def test_serialize_include_task_true(self, meta_evaluator, basic_evaluation_task):
+    def test_serialize_include_task_true(self, meta_evaluator, basic_eval_task):
         """Test _serialize when task should be included."""
-        meta_evaluator.add_evaluation_task(basic_evaluation_task)
+        meta_evaluator.add_eval_task(basic_eval_task)
 
         state = meta_evaluator._serialize(
             include_task=True,
@@ -1650,7 +1644,7 @@ class TestMetaEvaluator:
 
         assert state.version == "1.0"
         assert state.data is None
-        assert state.evaluation_task is not None
+        assert state.eval_task is not None
 
     def test_serialize_client_registry_empty(self, meta_evaluator):
         """Test _serialize_client_registry with empty registry."""
@@ -1772,7 +1766,7 @@ class TestMetaEvaluator:
         meta_evaluator,
         openai_environment,
         mock_eval_data_with_dataframe,
-        basic_evaluation_task,
+        basic_eval_task,
         tmp_path,
     ):
         """Test complete save operation and verify actual file contents match expected structure."""
@@ -1788,7 +1782,7 @@ class TestMetaEvaluator:
 
             meta_evaluator.add_openai()
             meta_evaluator.add_data(mock_eval_data_with_dataframe)
-            meta_evaluator.add_evaluation_task(basic_evaluation_task)
+            meta_evaluator.add_eval_task(basic_eval_task)
 
             # Save state
             meta_evaluator.save_state(
@@ -1806,7 +1800,7 @@ class TestMetaEvaluator:
             assert state_data["version"] == "1.0"
             assert "client_registry" in state_data
             assert "data" in state_data
-            assert "evaluation_task" in state_data
+            assert "eval_task" in state_data
 
             # Verify client registry structure
             assert "openai" in state_data["client_registry"]
@@ -1827,13 +1821,13 @@ class TestMetaEvaluator:
             assert data_config["type"] == "EvalData"
 
             # Verify evaluation task structure
-            evaluation_task_config = state_data["evaluation_task"]
-            assert evaluation_task_config["task_schemas"] == {
+            eval_task_config = state_data["eval_task"]
+            assert eval_task_config["task_schemas"] == {
                 "sentiment": ["positive", "negative", "neutral"]
             }
-            assert evaluation_task_config["input_columns"] == ["text"]
-            assert evaluation_task_config["output_columns"] == ["response"]
-            assert evaluation_task_config["answering_method"] == "structured"
+            assert eval_task_config["input_columns"] == ["text"]
+            assert eval_task_config["output_columns"] == ["response"]
+            assert eval_task_config["answering_method"] == "structured"
 
             # Verify DataFrame method was called
             mock_eval_data_with_dataframe.write_data.assert_called_once_with(
@@ -2037,7 +2031,7 @@ class TestMetaEvaluator:
             assert loaded_evaluator.data is None
 
     def test_load_state_with_eval_data_json_format(
-        self, tmp_path, sample_eval_data, openai_environment, basic_evaluation_task
+        self, tmp_path, sample_eval_data, openai_environment, basic_eval_task
     ):
         """Test loading MetaEvaluator with EvalData in JSON format."""
         with patch(
@@ -2072,7 +2066,7 @@ class TestMetaEvaluator:
             original_evaluator = MetaEvaluator()
             original_evaluator.add_openai()
             original_evaluator.add_data(sample_eval_data)
-            original_evaluator.add_evaluation_task(basic_evaluation_task)
+            original_evaluator.add_eval_task(basic_eval_task)
 
             state_file = tmp_path / "test_state.json"
             original_evaluator.save_state(
@@ -2091,7 +2085,7 @@ class TestMetaEvaluator:
             assert isinstance(loaded_evaluator.data, EvalData)
 
     def test_load_state_with_sample_eval_data_csv_format(
-        self, tmp_path, mock_sample_eval_data, openai_environment, basic_evaluation_task
+        self, tmp_path, mock_sample_eval_data, openai_environment, basic_eval_task
     ):
         """Test loading MetaEvaluator with SampleEvalData in CSV format."""
         with patch(
@@ -2126,7 +2120,7 @@ class TestMetaEvaluator:
             original_evaluator = MetaEvaluator()
             original_evaluator.add_openai()
             original_evaluator.add_data(mock_sample_eval_data)
-            original_evaluator.add_evaluation_task(basic_evaluation_task)
+            original_evaluator.add_eval_task(basic_eval_task)
 
             state_file = tmp_path / "test_state.json"
             original_evaluator.save_state(
@@ -2162,8 +2156,8 @@ class TestMetaEvaluator:
                 == mock_sample_eval_data.sampling_method
             )
 
-    def test_load_state_with_evaluation_task(
-        self, tmp_path, sample_eval_data, openai_environment, basic_evaluation_task
+    def test_load_state_with_eval_task(
+        self, tmp_path, sample_eval_data, openai_environment, basic_eval_task
     ):
         """Test loading MetaEvaluator with evaluation task from JSON."""
         with patch(
@@ -2198,7 +2192,7 @@ class TestMetaEvaluator:
             original_evaluator = MetaEvaluator()
             original_evaluator.add_openai()
             original_evaluator.add_data(sample_eval_data)
-            original_evaluator.add_evaluation_task(basic_evaluation_task)
+            original_evaluator.add_eval_task(basic_eval_task)
 
             state_file = tmp_path / "test_state.json"
             original_evaluator.save_state(
@@ -2211,26 +2205,25 @@ class TestMetaEvaluator:
             )
 
             # Verify evaluation task was loaded
-            assert loaded_evaluator.evaluation_task is not None
+            assert loaded_evaluator.eval_task is not None
             assert (
-                loaded_evaluator.evaluation_task.task_schemas
-                == basic_evaluation_task.task_schemas
+                loaded_evaluator.eval_task.task_schemas == basic_eval_task.task_schemas
             )
             assert (
-                loaded_evaluator.evaluation_task.input_columns
-                == basic_evaluation_task.input_columns
+                loaded_evaluator.eval_task.input_columns
+                == basic_eval_task.input_columns
             )
             assert (
-                loaded_evaluator.evaluation_task.output_columns
-                == basic_evaluation_task.output_columns
+                loaded_evaluator.eval_task.output_columns
+                == basic_eval_task.output_columns
             )
             assert (
-                loaded_evaluator.evaluation_task.answering_method
-                == basic_evaluation_task.answering_method
+                loaded_evaluator.eval_task.answering_method
+                == basic_eval_task.answering_method
             )
 
-    def test_load_state_skip_data_and_evaluation_task_loading(
-        self, tmp_path, sample_eval_data, openai_environment, basic_evaluation_task
+    def test_load_state_skip_data_and_eval_task_loading(
+        self, tmp_path, sample_eval_data, openai_environment, basic_eval_task
     ):
         """Test loading MetaEvaluator while skipping data loading."""
         with patch(
@@ -2265,7 +2258,7 @@ class TestMetaEvaluator:
             original_evaluator = MetaEvaluator()
             original_evaluator.add_openai()
             original_evaluator.add_data(sample_eval_data)
-            original_evaluator.add_evaluation_task(basic_evaluation_task)
+            original_evaluator.add_eval_task(basic_eval_task)
 
             state_file = tmp_path / "test_state.json"
             original_evaluator.save_state(
@@ -2283,7 +2276,7 @@ class TestMetaEvaluator:
             # Verify client loaded but data and evaluation task skipped
             assert LLMClientEnum.OPENAI in loaded_evaluator.client_registry
             assert loaded_evaluator.data is None
-            assert loaded_evaluator.evaluation_task is None
+            assert loaded_evaluator.eval_task is None
 
     def test_load_state_invalid_file_extension(self):
         """Test ValueError when state file doesn't end with .json."""
