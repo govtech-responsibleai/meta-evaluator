@@ -1,8 +1,4 @@
-"""Streamlit-based annotation interface for meta-evaluator.
-
-This module provides a Streamlit-based interface for annotating evaluation data.
-It handles the display and collection of annotations through a web interface.
-"""
+"""Streamlit-based annotation interface for meta-evaluator."""
 
 import os
 from typing import Any, Dict, List, Optional, Tuple, Literal
@@ -12,23 +8,15 @@ import polars as pl
 import streamlit as st
 from meta_evaluator.data import EvalData
 from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.annotator.results import (
-    HumanAnnotationResultsBuilder,
-    HumanAnnotationResultsConfig,
-)
 from meta_evaluator.annotator.exceptions import (
-    AnnotatorInitializationError,
     AnnotationValidationError,
     SaveError,
 )
+from .streamlit_session_manager import StreamlitSessionManager
 
 
 class StreamlitAnnotator:
-    """Streamlit-based interface for annotating evaluation data.
-
-    This class provides a web interface for annotating evaluation data using Streamlit.
-    It handles the display of data, collection of annotations, and saving of results.
-    """
+    """Streamlit-based interface for annotating evaluation data."""
 
     def __init__(
         self,
@@ -46,17 +34,16 @@ class StreamlitAnnotator:
         Raises:
             SaveError: If the annotations directory cannot be created.
         """
-        self.run_id: str = "run_id"
-        self.annotator_id: str = "streamlit_annotator"
-        self.annotator_name: str | None = None
-
         self.df: pl.DataFrame = eval_data.data
-        # EvalData guarantees the ID column will be set after initialization. This is a case where the type system's Optional doesn't match the runtime guarantees of the class.
         self.id_col: str = eval_data.id_column  # type: ignore
         self.task_schemas: dict[str, List[str] | None] = eval_task.task_schemas
         self.prompt_columns: Optional[List[str]] = eval_task.prompt_columns
         self.response_columns: List[str] = eval_task.response_columns
         self.annotations_dir: str = annotations_dir
+        self.annotator_name: str | None = None
+
+        # Initialize session manager
+        self.session_manager = StreamlitSessionManager()
 
         # Validate annotations directory
         if not os.path.exists(self.annotations_dir):
@@ -67,77 +54,23 @@ class StreamlitAnnotator:
                     f"Cannot create annotations directory: {e}", self.annotations_dir, e
                 )
 
-    @property
-    def annotated_count(self) -> int:
-        """Calculate the number of samples that have been annotated.
-
-        Returns:
-            int: Number of annotated samples
-        """
-        if "results_builder" not in st.session_state:
-            return 0
-        return st.session_state.results_builder.completed_count
-
-    def initialize_session_state(self) -> None:
-        """Initialize Streamlit session state variables.
-
-        Raises:
-            AnnotatorInitializationError: If the annotator fails to initialize.
-        """
-        try:
-            if "current_row" not in st.session_state:
-                st.session_state.current_row = 0
-
-            # Initialize the results builder if not already done
-            if "results_builder" not in st.session_state:
-                # Get expected IDs from the dataframe
-                expected_ids = self.df[self.id_col].to_list()
-
-                config = HumanAnnotationResultsConfig(
-                    run_id="streamlit_annotation_run",
-                    annotator_id="streamlit_annotator",
-                    task_schemas=self.task_schemas,
-                    timestamp_local=datetime.now(),
-                    is_sampled_run=False,  # This could be determined from eval_data type
-                    expected_ids=expected_ids,
-                )
-                st.session_state.results_builder = HumanAnnotationResultsBuilder(config)
-
-        except Exception as e:
-            raise AnnotatorInitializationError(
-                f"Failed to initialize session state: {e}"
-            )
-
     def display_header(self, current_row_idx: int, total_samples: int) -> None:
-        """Display the header section with sample number and progress.
-
-        Args:
-            current_row_idx: Current row index
-            total_samples: Total number of samples
-        """
+        """Display the header section with sample number and progress."""
         col1, col2 = st.columns([0.5, 0.5], vertical_alignment="center")
         with col1:
             st.subheader(f"Sample {current_row_idx + 1}")
         with col2:
             st.markdown(
-                f"<div style='text-align: right'>Progress: {self.annotated_count}/{total_samples} samples annotated</div>",
+                f"<div style='text-align: right'>Progress: {self.session_manager.annotated_count}/{total_samples} samples annotated</div>",
                 unsafe_allow_html=True,
             )
 
     def display_h4_header(self, text: str) -> None:
-        """Display an h4 header with the given text.
-
-        Args:
-            text: The text to display in the header
-        """
+        """Display an h4 header with the given text."""
         st.markdown(f"<h4>{text}</h4>", unsafe_allow_html=True)
 
     def display_h5_header(self, text: str) -> None:
-        """Display an h5 header with the given text.
-
-        Args:
-            text: The text to display in the header
-        """
+        """Display an h5 header with the given text."""
         st.markdown(f"<h5>{text}</h5>", unsafe_allow_html=True)
 
     def display_columns_to_evaluate(
@@ -145,12 +78,7 @@ class StreamlitAnnotator:
         col_type: Literal["prompt", "response"],
         current_row: Tuple[Any, ...],
     ) -> None:
-        """Display the input columns for the current sample.
-
-        Args:
-            col_type: The type of column to display (prompt_columns or response_columns).
-            current_row: Current row data as a tuple.
-        """
+        """Display the input columns for the current sample."""
         columns = self.prompt_columns if col_type == "prompt" else self.response_columns
         if not columns:
             return
@@ -158,12 +86,10 @@ class StreamlitAnnotator:
         st.write(f"**{col_type.capitalize()}s to Evaluate:**")
         for col in columns:
             with st.container():
-                # Add col name
                 st.markdown(
                     f'<div style="position: absolute; top: 10px; left: 10px; font-size: 12px; color: #666; font-weight: bold;">{col}:</div>',
                     unsafe_allow_html=True,
                 )
-                # Add text
                 st.markdown(
                     '<style>div[data-testid="stVerticalBlock"] > div:has(> div.stText) {background-color: #f0f2f6; padding: 20px; border-radius: 5px; margin-bottom: 20px;}</style>',
                     unsafe_allow_html=True,
@@ -177,14 +103,7 @@ class StreamlitAnnotator:
         key: str,
         selected_index: Optional[int] = None,
     ) -> None:
-        """Display radio buttons for annotation.
-
-        Args:
-            label: Label for the radio button group.
-            outcomes: List of possible outcomes.
-            key: Unique key for the radio button group.
-            selected_index: Index of the currently selected outcome.
-        """
+        """Display radio buttons for annotation."""
         st.radio(
             label=f"{label}:",
             options=outcomes,
@@ -198,13 +117,7 @@ class StreamlitAnnotator:
         value: Optional[str] = None,
         key: Optional[str] = None,
     ) -> None:
-        """Display a free form text input.
-
-        Args:
-            label: Label for the text input.
-            value: Initial value for the text input.
-            key: Unique key for the text input.
-        """
+        """Display a free form text input."""
         st.text_area(label=label, value=value, key=key)
 
     def handle_annotation(
@@ -212,14 +125,11 @@ class StreamlitAnnotator:
     ) -> Dict[str, Optional[str]]:
         """Handle the annotation process for the current sample.
 
-        Args:
-            current_row: Current row data as a tuple.
-
         Returns:
-            Dict[str, Optional[str]]: The annotation for the current sample.
+            Dict[str, Optional[str]]: A dictionary of the annotation outcomes
 
         Raises:
-            AnnotationValidationError: If the annotation fails to process.
+            AnnotationValidationError: If there is an error processing the annotation
         """
         annotation = {}
         current_id = current_row[self.df.columns.index(self.id_col)]
@@ -229,15 +139,12 @@ class StreamlitAnnotator:
                 return annotation
 
             for task_name, schema in self.task_schemas.items():
-                input_key = f"outcome_{task_name}_{st.session_state.current_row}"
+                input_key = self.session_manager.get_input_key(task_name)
 
-                # Get previous annotation from the builder if it exists
-                prev_outcome = None
-                existing_result = st.session_state.results_builder._results.get(
-                    current_id
+                # Get previous annotation
+                prev_outcome = self.session_manager.get_previous_outcome(
+                    task_name, current_id
                 )
-                if existing_result:
-                    prev_outcome = getattr(existing_result, task_name, None)
 
                 if isinstance(schema, list):
                     prev_selected_index = (
@@ -264,15 +171,10 @@ class StreamlitAnnotator:
                 task_name in annotation and annotation[task_name] is not None
                 for task_name in self.task_schemas
             ):
-                # All tasks completed - add/update the row in the builder
-                sample_example_id = f"sample_{st.session_state.current_row + 1}"
+                # All tasks completed - add/update the row
+                sample_example_id = f"sample_{self.session_manager.current_row + 1}"
 
-                # Remove existing result if it exists (to update it)
-                if current_id in st.session_state.results_builder._results:
-                    del st.session_state.results_builder._results[current_id]
-
-                # Add the new result
-                st.session_state.results_builder.create_success_row(
+                self.session_manager.create_success_row(
                     sample_example_id=sample_example_id,
                     original_id=current_id,
                     outcomes=annotation,
@@ -287,42 +189,40 @@ class StreamlitAnnotator:
             )
 
     def display_navigation_buttons(self) -> None:
-        """Display navigation buttons and handle navigation logic.
-
-        Args:
-            current_row: Current row data as a tuple.
-            annotation: Current annotation data.
-        """
+        """Display navigation buttons and handle navigation logic."""
         col1, col2, col3 = st.columns([0.15, 0.7, 0.15], vertical_alignment="center")
 
         with col1:
-            if st.button("Previous", disabled=st.session_state.current_row == 0):
-                st.session_state.current_row -= 1
+            if st.button(
+                "Previous",
+                disabled=not self.session_manager.can_go_previous(len(self.df)),
+            ):
+                self.session_manager.previous_row()
                 st.rerun()
 
         with col2:
             st.markdown(
-                f"<div style='text-align: center'>Sample {st.session_state.current_row + 1} of {len(self.df)}</div>",
+                f"<div style='text-align: center'>Sample {self.session_manager.current_row + 1} of {len(self.df)}</div>",
                 unsafe_allow_html=True,
             )
 
         with col3:
             if st.button(
-                "Next", disabled=st.session_state.current_row == len(self.df) - 1
+                "Next", disabled=not self.session_manager.can_go_next(len(self.df))
             ):
-                st.session_state.current_row += 1
+                self.session_manager.next_row()
                 st.rerun()
 
     def save_results(self) -> None:
         """Save the results to the results builder.
 
         Raises:
-            SaveError: If the results cannot be saved.
-            AnnotationValidationError: If the annotator name is not provided.
+            SaveError: If there is an error saving the results
+            AnnotationValidationError: If there is an error validating the annotator name
         """
         try:
             # Validate that we have results to save
-            if "results_builder" not in st.session_state:
+            if not self.session_manager.has_user_session:
                 raise SaveError("No results to save")
 
             # Validate annotator name
@@ -332,9 +232,16 @@ class StreamlitAnnotator:
                 )
 
             # Complete the builder to get HumanAnnotationResults
-            results = st.session_state.results_builder.complete()
-            metadata_filename = f"{results.run_id}_{results.annotator_id}_{self.annotator_name}_metadata.json"
-            data_filename = f"{results.run_id}_{results.annotator_id}_{self.annotator_name}_data.json"
+            results = self.session_manager.complete_session()
+
+            # Use the user-specific IDs
+            run_id = self.session_manager.run_id
+            annotator_id = self.session_manager.annotator_id
+
+            metadata_filename = (
+                f"{run_id}_{annotator_id}_{self.annotator_name}_metadata.json"
+            )
+            data_filename = f"{run_id}_{annotator_id}_{self.annotator_name}_data.json"
 
             # Save the results
             try:
@@ -350,13 +257,11 @@ class StreamlitAnnotator:
                     e,
                 )
 
-            # Show additional success information
-            st.success("✅ Export completed successfully!", icon="🎉")
-
-            # Show summary of exported data
+            # Show success information
+            st.success("✅ Export completed successfully!")
             self.display_h5_header("Export Summary:")
-            st.write(f"> **Run ID:** {results.run_id}")
-            st.write(f"> **Annotator:** {results.annotator_id}")
+            st.write(f"> **Run ID:** {run_id}")
+            st.write(f"> **Annotator:** {annotator_id}")
             st.write(
                 f"> **Time Completed:** {results.timestamp_local.strftime('%Y-%m-%d %H:%M')}"
             )
@@ -390,17 +295,9 @@ class StreamlitAnnotator:
             """
             )
 
-    def display_export_button(
-        self,
-        total_samples: int,
-    ) -> None:
-        """Display export button when all samples are annotated.
-
-        Args:
-            annotations_dir: Path to save the annotations
-            total_samples: Total number of samples
-        """
-        if self.annotated_count != total_samples:
+    def display_export_button(self, total_samples: int) -> None:
+        """Display export button when all samples are annotated."""
+        if self.session_manager.annotated_count != total_samples:
             return
 
         self.display_h5_header("All done here, export your annotations:")
@@ -426,33 +323,45 @@ class StreamlitAnnotator:
                 help="This will be used to identify your annotations!",
             )
 
-            self.initialize_session_state()
-            current_row = self.df.row(st.session_state.current_row)
+            # Check if user has entered a name and initialize their session
+            if self.annotator_name and self.annotator_name.strip():
+                # Initialize user-specific session if not already done
+                if not self.session_manager.has_user_session:
+                    expected_ids = self.df[self.id_col].to_list()
+                    self.session_manager.initialize_user_session(
+                        annotator_name=self.annotator_name,
+                        task_schemas=self.task_schemas,
+                        expected_ids=expected_ids,
+                    )
 
-            self.display_header(
-                current_row_idx=st.session_state.current_row,
-                total_samples=len(self.df),
-            )
-            st.markdown("---")
-            self.display_h4_header(
-                text="Label the following texts as positive, negative, or neutral (placeholder)"
-            )
-            self.display_columns_to_evaluate(col_type="prompt", current_row=current_row)
-            self.display_columns_to_evaluate(
-                col_type="response", current_row=current_row
-            )
-            st.markdown("---")
+                current_row = self.df.row(self.session_manager.current_row)
 
-            self.display_h5_header(text="Your response:")
-            self.handle_annotation(current_row=current_row)
+                self.display_header(
+                    current_row_idx=self.session_manager.current_row,
+                    total_samples=len(self.df),
+                )
+                st.markdown("---")
+                self.display_h4_header(
+                    text="Label the following texts as positive, negative, or neutral (placeholder)"
+                )
+                self.display_columns_to_evaluate(
+                    col_type="prompt", current_row=current_row
+                )
+                self.display_columns_to_evaluate(
+                    col_type="response", current_row=current_row
+                )
+                st.markdown("---")
 
-            st.markdown("---")
-            self.display_navigation_buttons()
-            st.markdown("---")
+                self.display_h5_header(text="Your response:")
+                self.handle_annotation(current_row=current_row)
 
-            self.display_export_button(
-                total_samples=len(self.df),
-            )
+                st.markdown("---")
+                self.display_navigation_buttons()
+                st.markdown("---")
+
+                self.display_export_button(total_samples=len(self.df))
+            else:
+                st.info("Please enter your name to start annotating.")
 
         except Exception as e:
             st.error(f"An error occurred while building the app: {e}")
