@@ -94,6 +94,7 @@ def mock_eval_task():
             - prompt_columns: ["question"] - columns to display as prompts
             - response_columns: ["answer"] - columns to display as responses
             - answering_method: "structured" - annotation method type
+            - annotation_prompt: Default prompt text for annotations
     """
     mock_task = Mock(spec=EvalTask)
     mock_task.task_schemas = {
@@ -104,6 +105,7 @@ def mock_eval_task():
     mock_task.prompt_columns = ["question"]
     mock_task.response_columns = ["answer"]
     mock_task.answering_method = "structured"
+    mock_task.annotation_prompt = "Please evaluate the following response:"
     return mock_task
 
 
@@ -172,6 +174,7 @@ def create_test_app():
         mock_eval_task.prompt_columns = ["question"]
         mock_eval_task.response_columns = ["answer"]
         mock_eval_task.answering_method = "structured"
+        mock_eval_task.annotation_prompt = "Please evaluate the following response:"
 
         # Create temp directory
         temp_annotations_dir = "/tmp/test_annotations"
@@ -259,6 +262,7 @@ def create_complete_test_app():
         mock_eval_task.prompt_columns = ["question"]
         mock_eval_task.response_columns = ["answer"]
         mock_eval_task.answering_method = "structured"
+        mock_eval_task.annotation_prompt = "Please evaluate the following response:"
 
         # Create temp directory
         temp_annotations_dir = "/tmp/test_annotations"
@@ -516,6 +520,7 @@ class TestStreamlitAppUI:
             mock_eval_task.prompt_columns = ["question"]
             mock_eval_task.response_columns = ["answer"]
             mock_eval_task.answering_method = "structured"
+            mock_eval_task.annotation_prompt = "Please evaluate the following response:"
 
             temp_annotations_dir = "/tmp/test_annotations"
 
@@ -682,6 +687,7 @@ class TestStreamlitAppUI:
             }
             mock_eval_task.prompt_columns = ["prompt"]
             mock_eval_task.response_columns = ["response"]
+            mock_eval_task.annotation_prompt = "Please evaluate the following response:"
 
             temp_annotations_dir = "/tmp/test_annotations"
 

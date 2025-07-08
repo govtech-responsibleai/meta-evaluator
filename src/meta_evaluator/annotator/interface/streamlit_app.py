@@ -40,6 +40,7 @@ class StreamlitAnnotator:
         self.task_schemas: dict[str, list[str] | None] = eval_task.task_schemas
         self.prompt_columns: Optional[list[str]] = eval_task.prompt_columns
         self.response_columns: list[str] = eval_task.response_columns
+        self.annotation_prompt: str = eval_task.annotation_prompt
         self.annotations_dir: str = annotations_dir
         self.annotator_name: str | None = None
 
@@ -337,9 +338,7 @@ class StreamlitAnnotator:
                     total_samples=len(self.df),
                 )
                 st.markdown("---")
-                self.display_h4_header(
-                    text="Label the following texts as positive, negative, or neutral (placeholder)"
-                )
+                self.display_h4_header(text=self.annotation_prompt)
                 self.display_columns_to_evaluate(
                     col_type="prompt", current_row=current_row
                 )
