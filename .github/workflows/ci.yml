@@ -24,7 +24,7 @@ jobs:
 
       # 4 — Install all declared dependencies every run
       - name: Sync dependencies
-        run: uv sync --extra dev
+        run: uv sync --group dev
 
       # 5 — Run the same hooks you use locally
       - name: Run pre-commit hooks
