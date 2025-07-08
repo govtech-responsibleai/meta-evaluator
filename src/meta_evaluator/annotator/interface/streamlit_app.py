@@ -1,7 +1,7 @@
 """Streamlit-based annotation interface for meta-evaluator."""
 
 import os
-from typing import Any, Dict, List, Optional, Tuple, Literal
+from typing import Any, Optional, Literal
 from datetime import datetime
 
 import polars as pl
@@ -10,6 +10,7 @@ from meta_evaluator.data import EvalData
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.annotator.exceptions import (
     AnnotationValidationError,
+    NameValidationError,
     SaveError,
 )
 from .streamlit_session_manager import StreamlitSessionManager
@@ -36,9 +37,9 @@ class StreamlitAnnotator:
         """
         self.df: pl.DataFrame = eval_data.data
         self.id_col: str = eval_data.id_column  # type: ignore
-        self.task_schemas: dict[str, List[str] | None] = eval_task.task_schemas
-        self.prompt_columns: Optional[List[str]] = eval_task.prompt_columns
-        self.response_columns: List[str] = eval_task.response_columns
+        self.task_schemas: dict[str, list[str] | None] = eval_task.task_schemas
+        self.prompt_columns: Optional[list[str]] = eval_task.prompt_columns
+        self.response_columns: list[str] = eval_task.response_columns
         self.annotations_dir: str = annotations_dir
         self.annotator_name: str | None = None
 
@@ -51,7 +52,7 @@ class StreamlitAnnotator:
                 os.makedirs(self.annotations_dir, exist_ok=True)
             except Exception as e:
                 raise SaveError(
-                    f"Cannot create annotations directory: {e}", self.annotations_dir, e
+                    f"Cannot create annotations directory ({e})", self.annotations_dir
                 )
 
     def display_header(self, current_row_idx: int, total_samples: int) -> None:
@@ -76,7 +77,7 @@ class StreamlitAnnotator:
     def display_columns_to_evaluate(
         self,
         col_type: Literal["prompt", "response"],
-        current_row: Tuple[Any, ...],
+        current_row: tuple[Any, ...],
     ) -> None:
         """Display the input columns for the current sample."""
         columns = self.prompt_columns if col_type == "prompt" else self.response_columns
@@ -99,7 +100,7 @@ class StreamlitAnnotator:
     def display_radio_buttons(
         self,
         label: str,
-        outcomes: List[str],
+        outcomes: list[str],
         key: str,
         selected_index: Optional[int] = None,
     ) -> None:
@@ -121,8 +122,8 @@ class StreamlitAnnotator:
         st.text_area(label=label, value=value, key=key)
 
     def handle_annotation(
-        self, current_row: Tuple[Any, ...]
-    ) -> Dict[str, Optional[str]]:
+        self, current_row: tuple[Any, ...]
+    ) -> dict[str, Optional[str]]:
         """Handle the annotation process for the current sample.
 
         Returns:
@@ -163,7 +164,7 @@ class StreamlitAnnotator:
                         key=input_key,
                     )
 
-                outcome = st.session_state.get(input_key)
+                outcome = self.session_manager.get_input_value(input_key)
                 annotation[task_name] = outcome
 
             # Check if all tasks are completed for this row
@@ -184,9 +185,7 @@ class StreamlitAnnotator:
             return annotation
 
         except Exception as e:
-            raise AnnotationValidationError(
-                f"Error processing annotation: {e}", "annotation"
-            )
+            raise AnnotationValidationError(current_id, e)
 
     def display_navigation_buttons(self) -> None:
         """Display navigation buttons and handle navigation logic."""
@@ -218,19 +217,17 @@ class StreamlitAnnotator:
 
         Raises:
             SaveError: If there is an error saving the results
-            AnnotationValidationError: If there is an error validating the annotator name
+            NameValidationError: If there is an error validating the annotator name
         """
+        # Validate that we have results to save
+        if not self.session_manager.has_user_session:
+            raise SaveError("No results to save")
+
+        # Validate annotator name
+        if not self.annotator_name or not self.annotator_name.strip():
+            raise NameValidationError()
+
         try:
-            # Validate that we have results to save
-            if not self.session_manager.has_user_session:
-                raise SaveError("No results to save")
-
-            # Validate annotator name
-            if not self.annotator_name or not self.annotator_name.strip():
-                raise AnnotationValidationError(
-                    "Annotator name is required", "annotator_name"
-                )
-
             # Complete the builder to get HumanAnnotationResults
             results = self.session_manager.complete_session()
 
@@ -252,9 +249,8 @@ class StreamlitAnnotator:
                 )
             except Exception as e:
                 raise SaveError(
-                    f"Failed to save results: {e}",
+                    f"Failed to save results ({e})",
                     os.path.join(self.annotations_dir, metadata_filename),
-                    e,
                 )
 
             # Show success information

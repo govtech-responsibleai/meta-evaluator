@@ -1,8 +1,10 @@
 """Launcher for the Streamlit annotation interface."""
 
-import tempfile
-import subprocess
+import os
 from pathlib import Path
+import socket
+import subprocess
+import tempfile
 import time
 from typing import Optional, List
 
@@ -10,6 +12,7 @@ from meta_evaluator.data import EvalData
 from meta_evaluator.data.serialization import DataMetadata
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.eval_task.serialization import EvalTaskState
+from meta_evaluator.annotator.exceptions import PortOccupiedError
 
 
 class StreamlitLauncher:
@@ -38,6 +41,23 @@ class StreamlitLauncher:
         self.eval_data = eval_data
         self.annotations_dir = annotations_dir
         self.port = port
+
+        # Create the annotations directory if it doesn't exist
+        os.makedirs(self.annotations_dir, exist_ok=True)
+
+    def _is_port_occupied(self) -> bool:
+        """Check if a port is occupied.
+
+        Returns:
+            bool: True if port is occupied, False otherwise
+        """
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(1)
+                result = sock.connect_ex(("localhost", self.port))
+                return result == 0
+        except Exception:
+            return False
 
     def _save_files_for_annotations(self, tmp_dir: str) -> None:
         """Save the evaluation task and data metadata to the temporary directory.
@@ -137,11 +157,16 @@ class StreamlitLauncher:
         """
         subprocess.run(streamlit_cmd)
 
-    def _launch_streamlit_with_ngrok(self, streamlit_cmd: List[str]) -> None:
+    def _launch_streamlit_with_ngrok(
+        self, streamlit_cmd: List[str], traffic_policy_file: Optional[str] = None
+    ) -> None:
         """Launch Streamlit with ngrok.
 
         Args:
             streamlit_cmd: The command to launch Streamlit
+            traffic_policy_file: Optional path to an ngrok traffic policy file for advanced
+                configuration. See https://ngrok.com/docs/traffic-policy/ for details.
+                Only used when use_ngrok=True.
         """
         # Launch Streamlit in background
         streamlit_process = subprocess.Popen(
@@ -152,7 +177,9 @@ class StreamlitLauncher:
             time.sleep(2)
 
             # Launch ngrok in foreground
-            ngrok_cmd = self._create_ngrok_command()
+            ngrok_cmd = self._create_ngrok_command(
+                traffic_policy_file=traffic_policy_file
+            )
             ngrok_process = subprocess.Popen(ngrok_cmd)
 
             # Wait for ngrok to finish (user closes it)
@@ -166,12 +193,28 @@ class StreamlitLauncher:
             except subprocess.TimeoutExpired:
                 streamlit_process.kill()
 
-    def launch(self, use_ngrok: bool = False) -> None:
+    def launch(
+        self,
+        use_ngrok: bool = False,
+        traffic_policy_file: Optional[str] = None,
+    ) -> None:
         """Launch the Streamlit interface in a separate process.
 
         Args:
             use_ngrok: Whether to use ngrok to expose the Streamlit interface to the internet. Defaults to False.
+            traffic_policy_file: Optional path to an ngrok traffic policy file for advanced
+                configuration. See https://ngrok.com/docs/traffic-policy/ for details.
+                Only used when use_ngrok=True.
+
+        Raises:
+            ValueError: If a traffic policy file is provided but ngrok is not being used.
+            PortOccupiedError: If the specified port is already in use.
         """
+        if traffic_policy_file and not use_ngrok:
+            raise ValueError(
+                "Traffic policy file provided but ngrok is not being used."
+            )
+
         print("Launching Streamlit interface...")
         # Create temporary folder to store files needed for the annotation interface
         with tempfile.TemporaryDirectory(
@@ -189,7 +232,14 @@ class StreamlitLauncher:
             launch_script = Path(__file__).parent / "entry_point.py"
             streamlit_cmd.extend([str(launch_script), tmp_dir])
 
+            if self.port and self._is_port_occupied():
+                raise PortOccupiedError(
+                    f"Port {self.port} is already in use. Please specify a different port."
+                )
+
             if use_ngrok:
-                self._launch_streamlit_with_ngrok(streamlit_cmd)
+                self._launch_streamlit_with_ngrok(
+                    streamlit_cmd, traffic_policy_file=traffic_policy_file
+                )
             else:
                 self._launch_streamlit_locally(streamlit_cmd)

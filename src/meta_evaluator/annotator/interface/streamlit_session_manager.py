@@ -10,6 +10,7 @@ from meta_evaluator.annotator.results import (
     HumanAnnotationResultsBuilder,
     HumanAnnotationResultsConfig,
 )
+from meta_evaluator.annotator.exceptions import AnnotatorInitializationError
 
 
 def generate_run_id() -> str:
@@ -85,11 +86,11 @@ class StreamlitSessionManager:
         """Get the current results builder.
 
         Raises:
-            RuntimeError: If no user session is initialized
+            AnnotatorInitializationError: If no user session is initialized
         """
         results_builder = st.session_state.get("results_builder")
         if not results_builder:
-            raise RuntimeError("No user session initialized")
+            raise AnnotatorInitializationError("User Session")
         return results_builder
 
     @property
@@ -149,6 +150,17 @@ class StreamlitSessionManager:
         """
         return f"outcome_{task_name}_{self.current_row}"
 
+    def get_input_value(self, input_key: str) -> Optional[str]:
+        """Get the value of an input from session state.
+
+        Args:
+            input_key: The key to look up in session state
+
+        Returns:
+            Optional[str]: The value from session state, or None if not found
+        """
+        return st.session_state.get(input_key)
+
     def get_previous_outcome(self, task_name: str, current_id: str) -> Optional[str]:
         """Get the previous outcome for a task.
 
@@ -183,10 +195,10 @@ class StreamlitSessionManager:
             annotation_timestamp: Timestamp of annotation
 
         Raises:
-            RuntimeError: If no user session is initialized
+            AnnotatorInitializationError: If no user session is initialized
         """
         if not self.has_user_session:
-            raise RuntimeError("No user session initialized")
+            raise AnnotatorInitializationError("User Session")
 
         # Remove existing result if it exists
         if original_id in self.results_builder._results:
@@ -207,10 +219,10 @@ class StreamlitSessionManager:
             HumanAnnotationResults: Completed results
 
         Raises:
-            RuntimeError: If no user session is initialized
+            AnnotatorInitializationError: If no user session is initialized
         """
         if not self.has_user_session:
-            raise RuntimeError("No user session to complete")
+            raise AnnotatorInitializationError("User Session")
 
         return self.results_builder.complete()
 

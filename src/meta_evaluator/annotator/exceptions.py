@@ -1,51 +1,43 @@
 """Custom exceptions for the annotator module."""
 
-from typing import Optional, Any, Dict
+from typing import Optional
 
 
 class AnnotationError(Exception):
     """Base exception for all annotation-related errors."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
-        """Initialize the exception with a message and details.
+    def __init__(self, message: str):
+        """Initialize the exception with a message.
 
         Args:
             message: The error message.
-            details: Additional details about the error.
         """
-        super().__init__(message)
         self.message = message
-        self.details = details or {}
+        super().__init__(self.message)
 
 
 class AnnotatorInitializationError(AnnotationError):
     """Exception raised when the annotator app faces initialization errors."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
-        """Initialize the exception with a message and details.
+    def __init__(self, part: str):
+        """Initialize the exception."""
+        super().__init__(f"Initialization error: No {part} initialized")
 
-        Args:
-            message: The error message.
-            details: Additional details about the error.
-        """
-        super().__init__(message, details)
+
+class NameValidationError(AnnotationError):
+    """Exception raised when annotator name validation fails."""
+
+    def __init__(self):
+        """Initialize the exception."""
+        super().__init__("Missing annotator name")
 
 
 class AnnotationValidationError(AnnotationError):
     """Exception raised when annotation validation fails."""
 
-    def __init__(
-        self, message: str, field: Optional[str] = None, value: Optional[Any] = None
-    ):
-        """Initialize the exception with a message and the field that failed validation.
-
-        Args:
-            message: The error message.
-            field: The field that failed validation.
-            value: The value that failed validation.
-        """
-        details = {"field": field, "value": value}
-        super().__init__(message, details)
+    def __init__(self, field: str, error: Exception):
+        """Initialize the exception."""
+        super().__init__(f"Error processing annotation for {field}: {error}")
 
 
 class SaveError(AnnotationError):
@@ -55,17 +47,16 @@ class SaveError(AnnotationError):
         self,
         message: str,
         filepath: Optional[str] = None,
-        original_error: Optional[Exception] = None,
     ):
-        """Initialise the exception with a message and the path to the file that failed to save.
+        """Initialize the exception."""
+        super().__init__(f"{message}: {filepath}")
 
-        Args:
-            message: The error message.
-            filepath: The path to the file that failed to save.
-            original_error: The original error that occurred.
-        """
-        details = {
-            "filepath": filepath,
-            "original_error": str(original_error) if original_error else None,
-        }
-        super().__init__(message, details)
+
+class PortOccupiedError(AnnotationError):
+    """Exception raised when the specified port is already in use."""
+
+    def __init__(self, port: str | int):
+        """Initialize the exception."""
+        super().__init__(
+            f"Port {port} is already in use. Please specify a different port.",
+        )

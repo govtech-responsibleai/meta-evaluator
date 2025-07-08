@@ -6,8 +6,7 @@ from meta_evaluator.annotator.interface import StreamlitAnnotator
 from meta_evaluator.annotator.launcher import StreamlitLauncher
 
 if len(sys.argv) != 2:
-    print("Usage: python launch_streamlit_app.py <config_file_path>")
-    sys.exit(1)
+    raise ValueError("Usage: python launch_streamlit_app.py <config_file_path>")
 
 tmp_dir = sys.argv[1]
 
