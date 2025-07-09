@@ -431,12 +431,14 @@ class Judge(BaseModel):
             )
 
         # Create builder
+        expected_ids = eval_data.data[eval_data.id_column].to_list()
         builder = JudgeResultsBuilder(
             run_id=run_id,
             judge_id=self.id,
             llm_client_enum=self.llm_client_enum,
             model_used=self.model,
             task_schemas=self.eval_task.task_schemas,
+            expected_ids=expected_ids,
             is_sampled_run=isinstance(eval_data, SampleEvalData),
         )
 

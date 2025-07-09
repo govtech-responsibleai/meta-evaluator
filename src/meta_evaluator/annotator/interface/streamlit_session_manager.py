@@ -126,6 +126,7 @@ class StreamlitSessionManager:
             run_id=run_id,
             annotator_id=annotator_id,
             task_schemas=task_schemas,
+            expected_ids=expected_ids,
             is_sampled_run=False,
         )
         st.session_state.current_run_id = run_id

@@ -517,48 +517,6 @@ class BaseEvaluationResults(BaseModel, ABC):
             logger.error(f"Failed to load state from {state_file}: {e}")
             raise
 
-    def to_dict(self) -> dict:
-        """Convert evaluation results to dictionary format.
-
-        Returns:
-            dict: Dictionary representation of the evaluation results.
-        """
-        return {
-            "run_id": self.run_id,
-            "evaluator_id": self.get_evaluator_id(),
-            "task_schemas": self.task_schemas,
-            "timestamp_local": self.timestamp_local.isoformat(),
-            "total_count": self.total_count,
-            "succeeded_count": self.succeeded_count,
-            "error_count": self.get_error_count(),
-            "is_sampled_run": self.is_sampled_run,
-            "results_data": self.results_data.to_dict(as_series=False),
-        }
-
-    @classmethod
-    def from_dict(
-        cls: type[EvaluationResultsType], data: dict
-    ) -> EvaluationResultsType:
-        """Create evaluation results from dictionary format.
-
-        Args:
-            data: Dictionary containing evaluation results data.
-
-        Returns:
-            EvaluationResultsType: Created evaluation results instance of the specific child class type.
-        """
-        # Convert timestamp back to datetime
-        data["timestamp_local"] = datetime.fromisoformat(data["timestamp_local"])
-
-        # Convert results_data back to DataFrame
-        data["results_data"] = pl.DataFrame(data["results_data"])
-
-        # Remove evaluator_id and error_count as they're computed properties
-        data.pop("evaluator_id", None)
-        data.pop("error_count", None)
-
-        return cls(**data)
-
 
 class BaseEvaluationResultsBuilder(ABC):
     """Base class for building evaluation results with common functionality."""
@@ -568,8 +526,8 @@ class BaseEvaluationResultsBuilder(ABC):
         run_id: str,
         evaluator_id: str,
         task_schemas: Dict[str, List[str] | None],
+        expected_ids: List[str | int],
         is_sampled_run: bool = False,
-        expected_ids: Optional[List[str | int]] = None,
     ):
         """Initialize the base evaluation results builder.
 
@@ -577,8 +535,11 @@ class BaseEvaluationResultsBuilder(ABC):
             run_id: Unique identifier for this evaluation run.
             evaluator_id: ID of the evaluator (judge_id or annotator_id).
             task_schemas: Dictionary mapping task names to their allowed outcome values.
+            expected_ids: List of expected original IDs.
             is_sampled_run: True if input was sampled data.
-            expected_ids: Optional list of expected original IDs.
+
+        Raises:
+            ValueError: If expected_ids is empty.
         """
         self.run_id = run_id
         self.evaluator_id = evaluator_id
@@ -586,8 +547,10 @@ class BaseEvaluationResultsBuilder(ABC):
         self.is_sampled_run = is_sampled_run
         self._results: Dict[str | int, BaseResultRow] = {}
 
-        # Convert expected_ids to set for O(1) lookup
-        self._expected_ids = set(expected_ids) if expected_ids is not None else None
+        # Validate and convert expected_ids to set for O(1) lookup
+        if len(expected_ids) == 0:
+            raise ValueError("expected_ids cannot be empty.")
+        self._expected_ids = set(expected_ids)
 
     def _validate_and_store(self, result_row: BaseResultRow) -> None:
         """Validate and store a result row.
@@ -598,11 +561,8 @@ class BaseEvaluationResultsBuilder(ABC):
         Raises:
             ValueError: If validation fails
         """
-        # Validate original_id is in expected_ids (if provided)
-        if (
-            self._expected_ids is not None
-            and result_row.original_id not in self._expected_ids
-        ):
+        # Validate original_id is in expected_ids
+        if result_row.original_id not in self._expected_ids:
             raise ValueError(
                 f"Unexpected original_id '{result_row.original_id}' not in expected IDs"
             )
@@ -632,11 +592,7 @@ class BaseEvaluationResultsBuilder(ABC):
         Returns:
             int: Total number of expected results.
         """
-        return (
-            len(self._expected_ids)
-            if self._expected_ids is not None
-            else self.completed_count
-        )
+        return len(self._expected_ids)
 
     @property
     def is_complete(self) -> bool:
@@ -645,8 +601,6 @@ class BaseEvaluationResultsBuilder(ABC):
         Returns:
             bool: True if all expected results are received.
         """
-        if self._expected_ids is None:
-            return True  # No expected IDs specified, so always complete
         return self.completed_count == len(self._expected_ids)
 
     @abstractmethod

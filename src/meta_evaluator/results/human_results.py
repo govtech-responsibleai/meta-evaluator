@@ -134,8 +134,8 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
         run_id: str,
         annotator_id: str,
         task_schemas: Dict[str, List[str] | None],
+        expected_ids: List[str | int],
         is_sampled_run: bool = False,
-        expected_ids: Optional[List[str | int]] = None,
     ):
         """Initialize the human annotation results builder.
 
@@ -143,11 +143,11 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
             run_id: Unique identifier for this evaluation run.
             annotator_id: ID of the human annotator.
             task_schemas: Dictionary mapping task names to their allowed outcome values.
+            expected_ids: List of expected original IDs.
             is_sampled_run: True if input was sampled data.
-            expected_ids: Optional list of expected original IDs.
         """
         super().__init__(
-            run_id, annotator_id, task_schemas, is_sampled_run, expected_ids
+            run_id, annotator_id, task_schemas, expected_ids, is_sampled_run
         )
 
     def create_success_row(
@@ -169,7 +169,17 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
 
         Returns:
             HumanAnnotationResultRow: The created success row.
+
+        Raises:
+            ValueError: If outcomes do not contain all tasks.
         """
+        # Validate that outcomes contain exactly all tasks
+        expected_tasks = set(self.task_schemas.keys())
+        outcome_tasks = set(outcomes.keys())
+
+        if expected_tasks != outcome_tasks:
+            raise ValueError("Success row must contain outcomes for ALL tasks")
+
         row = HumanAnnotationResultRow(
             sample_example_id=sample_example_id,
             original_id=original_id,
@@ -228,10 +238,17 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
             HumanAnnotationResults: The completed annotation results.
 
         Raises:
-            ValueError: If no rows were added to the builder.
+            ValueError: If no rows were added to the builder or missing expected results.
         """
         if not self._results:
             raise ValueError("No rows added to builder")
+
+        # Check for missing results
+        if not self.is_complete:
+            received_ids = set(self._results.keys())
+            expected_ids = self._expected_ids
+            missing_ids = expected_ids - received_ids
+            raise ValueError(f"Missing results for IDs: {sorted(missing_ids)}")
 
         # Create DataFrame
         results_data = self._create_dataframe()

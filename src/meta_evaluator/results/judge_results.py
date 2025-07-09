@@ -239,8 +239,8 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         llm_client_enum: LLMClientEnum,
         model_used: str,
         task_schemas: Dict[str, List[str] | None],
+        expected_ids: List[str | int],
         is_sampled_run: bool = False,
-        expected_ids: Optional[List[str | int]] = None,
     ):
         """Initialize the judge results builder.
 
@@ -250,10 +250,10 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
             llm_client_enum: The LLM client provider used.
             model_used: Name of the LLM model used.
             task_schemas: Dictionary mapping task names to their allowed outcome values.
+            expected_ids: List of expected original IDs.
             is_sampled_run: True if input was sampled data.
-            expected_ids: Optional list of expected original IDs.
         """
-        super().__init__(run_id, judge_id, task_schemas, is_sampled_run, expected_ids)
+        super().__init__(run_id, judge_id, task_schemas, expected_ids, is_sampled_run)
         self.llm_client_enum = llm_client_enum
         self.model_used = model_used
 
@@ -531,14 +531,12 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         if not self._results:
             raise ValueError("No rows added to builder")
 
-        # Check for missing results if expected_ids were provided
-        if self._expected_ids is not None:
+        # Check for missing results
+        if not self.is_complete:
             received_ids = set(self._results.keys())
-            expected_ids = set(self._expected_ids)
+            expected_ids = self._expected_ids
             missing_ids = expected_ids - received_ids
-
-            if missing_ids:
-                raise ValueError(f"Missing results for IDs: {sorted(missing_ids)}")
+            raise ValueError(f"Missing results for IDs: {sorted(missing_ids)}")
 
         # Create DataFrame
         results_data = self._create_dataframe()
