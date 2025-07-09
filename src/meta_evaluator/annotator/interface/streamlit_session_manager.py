@@ -6,10 +6,7 @@ from typing import Optional
 import uuid
 import streamlit as st
 
-from meta_evaluator.annotator.results import (
-    HumanAnnotationResultsBuilder,
-    HumanAnnotationResultsConfig,
-)
+from meta_evaluator.results import HumanAnnotationResultsBuilder
 from meta_evaluator.annotator.exceptions import AnnotatorInitializationError
 
 
@@ -124,18 +121,13 @@ class StreamlitSessionManager:
         run_id = generate_run_id()
         annotator_id = generate_annotator_id(annotator_name)
 
-        # Create configuration
-        config = HumanAnnotationResultsConfig(
+        # Store in session state
+        st.session_state.results_builder = HumanAnnotationResultsBuilder(
             run_id=run_id,
             annotator_id=annotator_id,
             task_schemas=task_schemas,
-            timestamp_local=datetime.now(),
             is_sampled_run=False,
-            expected_ids=expected_ids,
         )
-
-        # Store in session state
-        st.session_state.results_builder = HumanAnnotationResultsBuilder(config)
         st.session_state.current_run_id = run_id
         st.session_state.current_annotator_id = annotator_id
 

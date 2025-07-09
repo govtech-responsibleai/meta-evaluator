@@ -36,7 +36,7 @@ import polars as pl
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.data import EvalData
 from meta_evaluator.annotator.launcher import StreamlitLauncher
-from meta_evaluator.annotator.results import HumanAnnotationResults
+from meta_evaluator.results import HumanAnnotationResults
 
 
 # -------------------------
@@ -303,21 +303,14 @@ def test_streamlit_launcher_basic_integration(
 
         # Step 4: Simulate user interaction by creating mock results
         # This tests the results system without browser automation
-        from meta_evaluator.annotator.results import (
-            HumanAnnotationResultsBuilder,
-            HumanAnnotationResultsConfig,
-        )
+        from meta_evaluator.results import HumanAnnotationResultsBuilder
 
-        config = HumanAnnotationResultsConfig(
+        builder = HumanAnnotationResultsBuilder(
             run_id="test_run_001",
             annotator_id="test_annotator",
             task_schemas=test_eval_task.task_schemas,
-            timestamp_local=datetime.now(),
             is_sampled_run=False,
-            expected_ids=["sample_1", "sample_2", "sample_3"],
         )
-
-        builder = HumanAnnotationResultsBuilder(config)
 
         # Add mock annotations
         for sample_id in ["sample_1", "sample_2", "sample_3"]:

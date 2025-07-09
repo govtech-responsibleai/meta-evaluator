@@ -10,8 +10,7 @@ from ..common.models import Prompt
 from pydantic import BaseModel, ConfigDict, model_validator
 import re
 import time
-from datetime import datetime
-from .models import JudgeResults, JudgeResultsConfig, JudgeResultsBuilder
+from ..results import JudgeResults, JudgeResultsBuilder
 from ..data import EvalData, SampleEvalData
 from .exceptions import IncorrectClientError
 
@@ -228,11 +227,11 @@ class Judge(BaseModel):
                             original_id=row[eval_data.id_column],
                             outcomes=outcomes,
                             error_message=error_message,
-                            llm_raw_response=llm_response.content,
-                            prompt_tokens=llm_response.usage.prompt_tokens,
-                            completion_tokens=llm_response.usage.completion_tokens,
-                            total_tokens=llm_response.usage.total_tokens,
-                            call_duration=call_duration,
+                            llm_raw_response_content=llm_response.content,
+                            llm_prompt_tokens=llm_response.usage.prompt_tokens,
+                            llm_completion_tokens=llm_response.usage.completion_tokens,
+                            llm_total_tokens=llm_response.usage.total_tokens,
+                            llm_call_duration_seconds=call_duration,
                         )
                     else:
                         # Complete failure - no tasks found
@@ -242,11 +241,11 @@ class Judge(BaseModel):
                             error=AttributeError(
                                 f"Structured response missing all tasks: {missing_tasks}"
                             ),
-                            llm_raw_response=llm_response.content,
-                            prompt_tokens=llm_response.usage.prompt_tokens,
-                            completion_tokens=llm_response.usage.completion_tokens,
-                            total_tokens=llm_response.usage.total_tokens,
-                            call_duration=call_duration,
+                            llm_raw_response_content=llm_response.content,
+                            llm_prompt_tokens=llm_response.usage.prompt_tokens,
+                            llm_completion_tokens=llm_response.usage.completion_tokens,
+                            llm_total_tokens=llm_response.usage.total_tokens,
+                            llm_call_duration_seconds=call_duration,
                         )
                 else:
                     # Perfect success - all tasks found
@@ -254,11 +253,11 @@ class Judge(BaseModel):
                         sample_example_id=sample_example_id,
                         original_id=row[eval_data.id_column],
                         outcomes=outcomes,
-                        llm_raw_response=llm_response.content,
-                        prompt_tokens=llm_response.usage.prompt_tokens,
-                        completion_tokens=llm_response.usage.completion_tokens,
-                        total_tokens=llm_response.usage.total_tokens,
-                        call_duration=call_duration,
+                        llm_raw_response_content=llm_response.content,
+                        llm_prompt_tokens=llm_response.usage.prompt_tokens,
+                        llm_completion_tokens=llm_response.usage.completion_tokens,
+                        llm_total_tokens=llm_response.usage.total_tokens,
+                        llm_call_duration_seconds=call_duration,
                     )
                 return
 
@@ -268,11 +267,11 @@ class Judge(BaseModel):
                     sample_example_id=sample_example_id,
                     original_id=row[eval_data.id_column],
                     error=attr_error,
-                    llm_raw_response=llm_response.content,
-                    prompt_tokens=llm_response.usage.prompt_tokens,
-                    completion_tokens=llm_response.usage.completion_tokens,
-                    total_tokens=llm_response.usage.total_tokens,
-                    call_duration=call_duration,
+                    llm_raw_response_content=llm_response.content,
+                    llm_prompt_tokens=llm_response.usage.prompt_tokens,
+                    llm_completion_tokens=llm_response.usage.completion_tokens,
+                    llm_total_tokens=llm_response.usage.total_tokens,
+                    llm_call_duration_seconds=call_duration,
                 )
                 return
 
@@ -345,11 +344,11 @@ class Judge(BaseModel):
                     sample_example_id=sample_example_id,
                     original_id=row[eval_data.id_column],
                     outcomes=outcomes,
-                    llm_raw_response=llm_response.content,
-                    prompt_tokens=llm_response.usage.prompt_tokens,
-                    completion_tokens=llm_response.usage.completion_tokens,
-                    total_tokens=llm_response.usage.total_tokens,
-                    call_duration=call_duration,
+                    llm_raw_response_content=llm_response.content,
+                    llm_prompt_tokens=llm_response.usage.prompt_tokens,
+                    llm_completion_tokens=llm_response.usage.completion_tokens,
+                    llm_total_tokens=llm_response.usage.total_tokens,
+                    llm_call_duration_seconds=call_duration,
                 )
             elif (
                 parse_result.partial_success
@@ -368,11 +367,11 @@ class Judge(BaseModel):
                     original_id=row[eval_data.id_column],
                     outcomes=outcomes,
                     error_message=error_message,
-                    llm_raw_response=llm_response.content,
-                    prompt_tokens=llm_response.usage.prompt_tokens,
-                    completion_tokens=llm_response.usage.completion_tokens,
-                    total_tokens=llm_response.usage.total_tokens,
-                    call_duration=call_duration,
+                    llm_raw_response_content=llm_response.content,
+                    llm_prompt_tokens=llm_response.usage.prompt_tokens,
+                    llm_completion_tokens=llm_response.usage.completion_tokens,
+                    llm_total_tokens=llm_response.usage.total_tokens,
+                    llm_call_duration_seconds=call_duration,
                 )
             else:
                 # Complete parsing failure
@@ -381,11 +380,11 @@ class Judge(BaseModel):
                     sample_example_id=sample_example_id,
                     original_id=row[eval_data.id_column],
                     error=ValueError(error_message),
-                    llm_raw_response=llm_response.content,
-                    prompt_tokens=llm_response.usage.prompt_tokens,
-                    completion_tokens=llm_response.usage.completion_tokens,
-                    total_tokens=llm_response.usage.total_tokens,
-                    call_duration=call_duration,
+                    llm_raw_response_content=llm_response.content,
+                    llm_prompt_tokens=llm_response.usage.prompt_tokens,
+                    llm_completion_tokens=llm_response.usage.completion_tokens,
+                    llm_total_tokens=llm_response.usage.total_tokens,
+                    llm_call_duration_seconds=call_duration,
                 )
 
         except LLMAPIError as llm_error:
@@ -431,19 +430,15 @@ class Judge(BaseModel):
                 actual_client=llm_client.enum_value.value,
             )
 
-        # Create builder configuration and builder
-        expected_ids = eval_data.data[eval_data.id_column].to_list()
-        config = JudgeResultsConfig(
+        # Create builder
+        builder = JudgeResultsBuilder(
             run_id=run_id,
             judge_id=self.id,
-            task_schemas=self.eval_task.task_schemas,
             llm_client_enum=self.llm_client_enum,
             model_used=self.model,
-            timestamp_local=datetime.now(),
+            task_schemas=self.eval_task.task_schemas,
             is_sampled_run=isinstance(eval_data, SampleEvalData),
-            expected_ids=expected_ids,
         )
-        builder = JudgeResultsBuilder(config)
 
         # Pre-create models/configs once to avoid recreating in loop
         task_class: Optional[type[BaseModel]] = None

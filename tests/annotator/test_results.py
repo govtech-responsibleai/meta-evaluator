@@ -10,11 +10,10 @@ Covers:
 import pytest
 from datetime import datetime
 
-from meta_evaluator.annotator.results import (
-    BaseResultRow,
+from meta_evaluator.results import (
     HumanAnnotationResults,
-    HumanAnnotationResultsConfig,
     HumanAnnotationResultsBuilder,
+    HumanAnnotationResultRow,
 )
 
 # -------------------------
@@ -45,40 +44,37 @@ def example_expected_ids():
 
 
 @pytest.fixture
-def example_config(example_task_schemas, example_expected_ids):
-    """Provide a complete HumanAnnotationResultsConfig for testing.
+def example_builder(example_task_schemas):
+    """Provide a complete HumanAnnotationResultsBuilder for testing.
 
     Args:
         example_task_schemas: Fixture providing task schemas
-        example_expected_ids: Fixture providing expected IDs
 
     Returns:
-        HumanAnnotationResultsConfig: A fully configured config object with
+        HumanAnnotationResultsBuilder: A fully configured builder object with
                                      run_id="run_001", annotator_id="annotator_1",
                                      and other test values.
     """
-    return HumanAnnotationResultsConfig(
+    return HumanAnnotationResultsBuilder(
         run_id="run_001",
         annotator_id="annotator_1",
         task_schemas=example_task_schemas,
-        timestamp_local=datetime.now(),
         is_sampled_run=False,
-        expected_ids=example_expected_ids,
     )
 
 
 @pytest.fixture
-def builder(example_config):
+def builder(example_builder):
     """Provide a HumanAnnotationResultsBuilder instance for testing.
 
     Args:
-        example_config: Fixture providing the configuration
+        example_builder: Fixture providing the builder
 
     Returns:
         HumanAnnotationResultsBuilder: A builder instance ready to create
                                       annotation result rows for testing.
     """
-    return HumanAnnotationResultsBuilder(example_config)
+    return example_builder
 
 
 # -------------------------
@@ -86,8 +82,15 @@ def builder(example_config):
 # -------------------------
 
 
-def test_original_id_in_expected_ids(builder):
+def test_original_id_in_expected_ids(example_task_schemas, example_expected_ids):
     """Test that creating a row with an original_id not in expected_ids raises an error."""
+    builder = HumanAnnotationResultsBuilder(
+        run_id="run_001",
+        annotator_id="annotator_1",
+        task_schemas=example_task_schemas,
+        is_sampled_run=False,
+        expected_ids=example_expected_ids,
+    )
     with pytest.raises(ValueError):
         builder.create_success_row(
             sample_example_id="sample_1",
@@ -97,12 +100,11 @@ def test_original_id_in_expected_ids(builder):
         )
 
 
-def test_ids_in_eval_data_match_expected_ids(example_config):
-    """Test that the ids in eval_data (simulated here) match with expected_ids."""
-    # Simulate eval_data ids
-    eval_data_ids = set(example_config.expected_ids)
-    # All ids in expected_ids should be present
-    assert eval_data_ids == set(["id1", "id2"])
+def test_builder_initialization(example_builder):
+    """Test that the builder is initialized correctly."""
+    assert example_builder.run_id == "run_001"
+    assert example_builder.evaluator_id == "annotator_1"
+    assert len(example_builder.task_schemas) > 0
 
 
 def test_error_when_original_id_already_exists(builder):
@@ -123,10 +125,10 @@ def test_error_when_original_id_already_exists(builder):
 
 
 def test_field_tag_selection():
-    """Test that BaseResultRow tag-based field selection works as expected."""
-    metadata_fields = BaseResultRow.get_metadata_fields()
-    error_fields = BaseResultRow.get_error_fields()
-    diagnostic_fields = BaseResultRow.get_annotation_diagnostic_fields()
+    """Test that HumanAnnotationResultRow tag-based field selection works as expected."""
+    metadata_fields = HumanAnnotationResultRow.get_metadata_fields()
+    error_fields = HumanAnnotationResultRow.get_error_fields()
+    diagnostic_fields = HumanAnnotationResultRow.get_annotation_diagnostic_fields()
     assert "sample_example_id" in metadata_fields
     assert "error_message" in error_fields
     assert "annotation_timestamp" in diagnostic_fields
@@ -185,7 +187,7 @@ def test_get_successful_and_failed_results(builder):
     builder.create_error_row(
         sample_example_id="sample_2",
         original_id="id2",
-        error=Exception("Test error"),
+        error_message="Test error",
     )
     results = builder.complete()
     successful = results.get_successful_results()
