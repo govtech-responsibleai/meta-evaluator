@@ -1,14 +1,18 @@
 """Base classes for evaluation results that provide common functionality."""
 
-from abc import ABC, abstractmethod
-from enum import Enum
-import polars as pl
-from pydantic import BaseModel, Field, ConfigDict, model_validator
-from datetime import datetime
-from typing import TypeVar, List, Literal, Optional, Dict, Annotated
+import json
 import logging
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Annotated, Dict, List, Literal, Optional, TypeVar
 
+import polars as pl
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from .serialization import BaseResultsSerializedState
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +331,56 @@ class BaseEvaluationResults(BaseModel, ABC):
         """
         pass
 
+    @abstractmethod
+    def serialize(
+        self, data_format: Literal["json", "csv", "parquet"], data_filename: str
+    ) -> BaseModel:
+        """Serialize the evaluation results to a Pydantic model.
+
+        Args:
+            data_format: Format for data serialization.
+            data_filename: Name of data file.
+
+        Returns:
+            BaseModel: Serialized state as a Pydantic model.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def deserialize(
+        cls: type[EvaluationResultsType],
+        results_data: pl.DataFrame,
+        state: BaseResultsSerializedState,
+    ) -> EvaluationResultsType:
+        """Deserialize evaluation results from serialized state.
+
+        Args:
+            results_data: The loaded DataFrame.
+            state: Serialized state as a Pydantic model.
+
+        Returns:
+            EvaluationResultsType: Reconstructed evaluation results instance.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _load_json_state(cls, state_file: str) -> BaseResultsSerializedState:
+        """Load and validate JSON state file.
+
+        Args:
+            state_file: Path to the JSON state file.
+
+        Returns:
+            BaseResultsSerializedState: The loaded and validated state object.
+
+        Raises:
+            FileNotFoundError: If the state file doesn't exist.
+            ValueError: If the JSON structure is invalid.
+        """
+        pass
+
     def __len__(self) -> int:
         """Return the number of results in the DataFrame.
 
@@ -434,9 +488,6 @@ class BaseEvaluationResults(BaseModel, ABC):
         Raises:
             ValueError: If data_filename extension does not match data_format.
         """
-        from pathlib import Path
-        import json
-
         state_path = Path(state_file)
         base_name = state_path.stem
         directory = state_path.parent
@@ -448,20 +499,16 @@ class BaseEvaluationResults(BaseModel, ABC):
                 f"data_filename extension for '{data_filename}' must match data_format '{data_format}'"
             )
 
-        # Create a final state object for serialization
-        state_to_save = {
-            "metadata": self.model_dump(mode="json", exclude={"results_data"}),
-            "data_format": data_format,
-            "data_filename": final_data_filename,
-        }
-
         directory.mkdir(parents=True, exist_ok=True)
+
+        # Serialize results to state object
+        serialized_state = self.serialize(data_format, final_data_filename)
 
         # Write state to JSON
         with open(state_file, "w") as f:
-            json.dump(state_to_save, f, indent=2)
+            json.dump(serialized_state.model_dump(mode="json"), f, indent=2)
 
-        # Write DataFrame to separate file
+        # Write DataFrame to separate file using write_data()
         data_filepath = directory / final_data_filename
         self.write_data(filepath=str(data_filepath), data_format=data_format)
 
@@ -478,44 +525,22 @@ class BaseEvaluationResults(BaseModel, ABC):
 
         Returns:
             EvaluationResultsType: Loaded evaluation results of children of BaseEvaluationResults.
-
-        Raises:
-            FileNotFoundError: If the state or data file doesn't exist.
-            ValueError: If the JSON is invalid or missing required keys.
         """
-        from pathlib import Path
-        import json
-        from pydantic import ValidationError
+        # Load JSON state from disk
+        serialized_state = cls._load_json_state(state_file)
 
-        try:
-            with open(state_file, "r") as f:
-                state_data = json.load(f)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"State file not found: {state_file}")
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in state file: {e}")
-
-        try:
-            metadata = state_data["metadata"]
-            data_format = state_data["data_format"]
-            data_filename = state_data["data_filename"]
-        except KeyError as e:
-            raise ValueError(f"State file missing required key: {e}")
+        # Extract data file information
+        data_format = serialized_state.data_format
+        data_filename = serialized_state.data_file
 
         state_path = Path(state_file)
         data_filepath = state_path.parent / data_filename
 
-        # Load the data from the referenced file
+        # Load the data from the referenced file using load_data()
         results_data = cls.load_data(str(data_filepath), data_format=data_format)
 
-        # Reconstruct the evaluation results object
-        try:
-            return cls(**metadata, results_data=results_data)
-        except ValidationError as e:
-            raise ValueError(f"Invalid JSON structure in state file: {e}")
-        except Exception as e:
-            logger.error(f"Failed to load state from {state_file}: {e}")
-            raise
+        # Deserialize using the state and data
+        return cls.deserialize(results_data, serialized_state)
 
 
 class BaseEvaluationResultsBuilder(ABC):

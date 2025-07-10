@@ -4,6 +4,10 @@ import pytest
 
 from meta_evaluator.results import JudgeResults, JudgeResultsBuilder
 from meta_evaluator.llm_client import LLMClientEnum
+from meta_evaluator.results.judge_results import (
+    INVALID_JSON_STRUCTURE_MSG,
+    STATE_FILE_NOT_FOUND_MSG,
+)
 
 
 class TestJudgeResultsBuilder:
@@ -572,13 +576,13 @@ class TestJudgeResultsSerialization:
     def test_load_state_error_handling(self, tmp_path, sample_judge_results):
         """Test load_state error handling for various failure scenarios."""
         # Test missing file
-        with pytest.raises(FileNotFoundError, match="State file not found"):
+        with pytest.raises(FileNotFoundError, match=STATE_FILE_NOT_FOUND_MSG):
             JudgeResults.load_state("nonexistent_state.json")
 
         # Test invalid JSON
         state_file = tmp_path / "invalid.json"
         state_file.write_text("{invalid json")
-        with pytest.raises(ValueError, match="Invalid JSON in state file"):
+        with pytest.raises(ValueError, match=INVALID_JSON_STRUCTURE_MSG):
             JudgeResults.load_state(str(state_file))
 
         # Test missing required keys
@@ -586,7 +590,7 @@ class TestJudgeResultsSerialization:
         state_file.write_text(
             '{"metadata": {}}'
         )  # Missing data_format and data_filename
-        with pytest.raises(ValueError, match="State file missing required key"):
+        with pytest.raises(ValueError, match=INVALID_JSON_STRUCTURE_MSG):
             JudgeResults.load_state(str(state_file))
 
         # Test missing data file

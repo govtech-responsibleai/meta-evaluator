@@ -15,6 +15,10 @@ from meta_evaluator.results import (
     HumanAnnotationResultsBuilder,
     HumanAnnotationResultRow,
 )
+from meta_evaluator.results.human_results import (
+    INVALID_JSON_STRUCTURE_MSG,
+    STATE_FILE_NOT_FOUND_MSG,
+)
 
 
 class TestHumanAnnotationResultsBuilder:
@@ -594,13 +598,13 @@ class TestHumanAnnotationResultsSerialization:
     def test_load_state_error_handling(self, tmp_path, single_task_builder):
         """Test load_state error handling for various failure scenarios."""
         # Test missing file
-        with pytest.raises(FileNotFoundError, match="State file not found"):
+        with pytest.raises(FileNotFoundError, match=STATE_FILE_NOT_FOUND_MSG):
             HumanAnnotationResults.load_state("nonexistent_state.json")
 
         # Test invalid JSON
         state_file = tmp_path / "invalid.json"
         state_file.write_text("{invalid json")
-        with pytest.raises(ValueError, match="Invalid JSON in state file"):
+        with pytest.raises(ValueError, match=INVALID_JSON_STRUCTURE_MSG):
             HumanAnnotationResults.load_state(str(state_file))
 
         # Test missing required keys
@@ -608,7 +612,7 @@ class TestHumanAnnotationResultsSerialization:
         state_file.write_text(
             '{"metadata": {}}'
         )  # Missing data_format and data_filename
-        with pytest.raises(ValueError, match="State file missing required key"):
+        with pytest.raises(ValueError, match=INVALID_JSON_STRUCTURE_MSG):
             HumanAnnotationResults.load_state(str(state_file))
 
         # Test missing data file

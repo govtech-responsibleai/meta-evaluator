@@ -1,11 +1,13 @@
 """Human annotation results implementation using the shared base classes."""
 
-from enum import Enum
-import polars as pl
-from pydantic import Field, ConfigDict
-from datetime import datetime
-from typing import List, Optional, Annotated, Dict
+import json
 import logging
+from datetime import datetime
+from enum import Enum
+from typing import Annotated, Dict, List, Literal, Optional, cast
+
+import polars as pl
+from pydantic import ConfigDict, Field, ValidationError
 
 from .base import (
     BaseEvaluationResults,
@@ -13,9 +15,18 @@ from .base import (
     BaseResultRow,
     FieldTags,
 )
+from .serialization import (
+    BaseResultsSerializedState,
+    HumanAnnotationResultsSerializedState,
+)
 
 
 logger = logging.getLogger(__name__)
+
+# Error message constants
+INVALID_JSON_STRUCTURE_MSG = "Invalid JSON structure in state file"
+INVALID_JSON_MSG = "Invalid JSON in state file"
+STATE_FILE_NOT_FOUND_MSG = "State file not found"
 
 
 class HumanAnnotationStatusEnum(str, Enum):
@@ -95,6 +106,87 @@ class HumanAnnotationResults(BaseEvaluationResults):
             type[BaseResultRow]: The HumanAnnotationResultRow class.
         """
         return HumanAnnotationResultRow
+
+    def serialize(
+        self,
+        data_format: Literal["json", "csv", "parquet"],
+        data_filename: str,
+    ) -> HumanAnnotationResultsSerializedState:
+        """Serialize HumanAnnotationResults to metadata.
+
+        Args:
+            data_format: Format for data serialization.
+            data_filename: Name of data file.
+
+        Returns:
+            HumanAnnotationResultsSerializedState: Serialized state for HumanAnnotationResults.
+        """
+        return HumanAnnotationResultsSerializedState(
+            run_id=self.run_id,
+            annotator_id=self.annotator_id,
+            task_schemas=self.task_schemas,
+            timestamp_local=self.timestamp_local,
+            total_count=self.total_count,
+            succeeded_count=self.succeeded_count,
+            error_count=self.error_count,
+            is_sampled_run=self.is_sampled_run,
+            data_file=data_filename,
+            data_format=data_format,
+        )
+
+    @classmethod
+    def deserialize(
+        cls,
+        results_data: pl.DataFrame,
+        state: BaseResultsSerializedState,
+    ) -> "HumanAnnotationResults":
+        """Deserialize HumanAnnotationResults from serialized state.
+
+        Args:
+            results_data: The loaded DataFrame.
+            state: Serialized state for HumanAnnotationResults.
+
+        Returns:
+            HumanAnnotationResults: Reconstructed HumanAnnotationResults instance.
+        """
+        human_state = cast(HumanAnnotationResultsSerializedState, state)
+        return cls(
+            run_id=human_state.run_id,
+            annotator_id=human_state.annotator_id,
+            task_schemas=human_state.task_schemas,
+            timestamp_local=human_state.timestamp_local,
+            total_count=human_state.total_count,
+            succeeded_count=human_state.succeeded_count,
+            error_count=human_state.error_count,
+            is_sampled_run=human_state.is_sampled_run,
+            results_data=results_data,
+        )
+
+    @classmethod
+    def _load_json_state(cls, state_file: str) -> HumanAnnotationResultsSerializedState:
+        """Load and validate JSON state file.
+
+        Args:
+            state_file: Path to the JSON state file.
+
+        Returns:
+            HumanAnnotationResultsSerializedState: The loaded and validated state object.
+
+        Raises:
+            FileNotFoundError: If the state file doesn't exist.
+            ValueError: If the JSON structure is invalid.
+        """
+        try:
+            with open(state_file, "r") as f:
+                return HumanAnnotationResultsSerializedState.model_validate_json(
+                    f.read()
+                )
+        except FileNotFoundError:
+            raise FileNotFoundError(f"{STATE_FILE_NOT_FOUND_MSG}: {state_file}")
+        except ValidationError as e:
+            raise ValueError(f"{INVALID_JSON_STRUCTURE_MSG}: {e}")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"{INVALID_JSON_MSG}: {e}")
 
     def get_successful_results(self) -> pl.DataFrame:
         """Get all successful annotation results.

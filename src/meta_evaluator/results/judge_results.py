@@ -1,12 +1,13 @@
 """Judge results implementation using the shared base classes."""
 
-from enum import Enum
 import json
-import polars as pl
-from pydantic import Field, ConfigDict
-from datetime import datetime
-from typing import List, Optional, Annotated, Dict
 import logging
+from datetime import datetime
+from enum import Enum
+from typing import Annotated, Dict, List, Literal, Optional, cast
+
+import polars as pl
+from pydantic import ConfigDict, Field, ValidationError
 
 from .base import (
     BaseEvaluationResults,
@@ -15,9 +16,15 @@ from .base import (
     FieldTags,
 )
 from ..llm_client import LLMClientEnum
+from .serialization import BaseResultsSerializedState, JudgeResultsSerializedState
 
 
 logger = logging.getLogger(__name__)
+
+# Error message constants
+INVALID_JSON_STRUCTURE_MSG = "Invalid JSON structure in state file"
+INVALID_JSON_MSG = "Invalid JSON in state file"
+STATE_FILE_NOT_FOUND_MSG = "State file not found"
 
 
 class EvaluationStatusEnum(str, Enum):
@@ -151,6 +158,97 @@ class JudgeResults(BaseEvaluationResults):
             type[BaseResultRow]: The JudgeResultRow class.
         """
         return JudgeResultRow
+
+    def serialize(
+        self,
+        data_format: Literal["json", "csv", "parquet"],
+        data_filename: str,
+    ) -> JudgeResultsSerializedState:
+        """Serialize JudgeResults to metadata.
+
+        Args:
+            data_format: Format for data serialization.
+            data_filename: Name of data file.
+
+        Returns:
+            JudgeResultsSerializedState: Serialized state for JudgeResults.
+        """
+        return JudgeResultsSerializedState(
+            run_id=self.run_id,
+            judge_id=self.judge_id,
+            task_schemas=self.task_schemas,
+            llm_client_enum=self.llm_client_enum,
+            model_used=self.model_used,
+            timestamp_local=self.timestamp_local,
+            total_count=self.total_count,
+            succeeded_count=self.succeeded_count,
+            skipped_count=self.skipped_count,
+            partial_count=self.partial_count,
+            llm_error_count=self.llm_error_count,
+            parsing_error_count=self.parsing_error_count,
+            other_error_count=self.other_error_count,
+            is_sampled_run=self.is_sampled_run,
+            data_file=data_filename,
+            data_format=data_format,
+        )
+
+    @classmethod
+    def deserialize(
+        cls,
+        results_data: pl.DataFrame,
+        state: BaseResultsSerializedState,
+    ) -> "JudgeResults":
+        """Deserialize JudgeResults from serialized state.
+
+        Args:
+            results_data: The loaded DataFrame.
+            state: Serialized state for JudgeResults.
+
+        Returns:
+            JudgeResults: Reconstructed JudgeResults instance.
+        """
+        judge_state = cast(JudgeResultsSerializedState, state)
+        return cls(
+            run_id=judge_state.run_id,
+            judge_id=judge_state.judge_id,
+            task_schemas=judge_state.task_schemas,
+            llm_client_enum=judge_state.llm_client_enum,
+            model_used=judge_state.model_used,
+            timestamp_local=judge_state.timestamp_local,
+            total_count=judge_state.total_count,
+            succeeded_count=judge_state.succeeded_count,
+            skipped_count=judge_state.skipped_count,
+            partial_count=judge_state.partial_count,
+            llm_error_count=judge_state.llm_error_count,
+            parsing_error_count=judge_state.parsing_error_count,
+            other_error_count=judge_state.other_error_count,
+            is_sampled_run=judge_state.is_sampled_run,
+            results_data=results_data,
+        )
+
+    @classmethod
+    def _load_json_state(cls, state_file: str) -> JudgeResultsSerializedState:
+        """Load and validate JSON state file.
+
+        Args:
+            state_file: Path to the JSON state file.
+
+        Returns:
+            JudgeResultsSerializedState: The loaded and validated state object.
+
+        Raises:
+            FileNotFoundError: If the state file doesn't exist.
+            ValueError: If the JSON structure is invalid.
+        """
+        try:
+            with open(state_file, "r") as f:
+                return JudgeResultsSerializedState.model_validate_json(f.read())
+        except FileNotFoundError:
+            raise FileNotFoundError(f"{STATE_FILE_NOT_FOUND_MSG}: {state_file}")
+        except ValidationError as e:
+            raise ValueError(f"{INVALID_JSON_STRUCTURE_MSG}: {e}")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"{INVALID_JSON_MSG}: {e}")
 
     def get_successful_results(self) -> pl.DataFrame:
         """Get all successful evaluation results.
