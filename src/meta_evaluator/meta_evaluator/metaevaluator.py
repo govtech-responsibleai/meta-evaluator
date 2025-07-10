@@ -2,9 +2,10 @@
 
 import json
 import os
+import yaml
 from pathlib import Path
 from typing import Literal, Optional, cast
-from pydantic import ValidationError
+from pydantic import ValidationError, BaseModel
 
 from dotenv import load_dotenv
 
@@ -20,6 +21,8 @@ from ..data import EvalData, SampleEvalData
 from ..data.serialization import DataMetadata
 from ..eval_task import EvalTask
 from ..eval_task.serialization import EvalTaskState
+from ..judge import Judge
+from ..common.models import Prompt
 from .exceptions import (
     MissingConfigurationException,
     ClientAlreadyExistsException,
@@ -27,6 +30,10 @@ from .exceptions import (
     DataAlreadyExistsException,
     DataFilenameExtensionMismatchException,
     EvalTaskAlreadyExistsException,
+    JudgeAlreadyExistsException,
+    JudgeNotFoundException,
+    InvalidYAMLStructureException,
+    PromptFileNotFoundException,
 )
 from .serialization import MetaEvaluatorState
 
@@ -48,6 +55,46 @@ _AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR = "AZURE_OPENAI_DEFAULT_EMBEDDING_
 load_dotenv()
 
 
+class JudgeConfig(BaseModel):
+    """Pydantic model for validating a single judge configuration from YAML."""
+
+    id: str
+    llm_client: str
+    model: str
+    prompt_file: str
+
+
+class JudgeConfigList(BaseModel):
+    """Pydantic model for validating the entire judges YAML configuration."""
+
+    judges: list[JudgeConfig]
+
+
+class Paths:
+    """Simple namespace for managing project directory structure."""
+
+    def __init__(self, project_dir: str | Path):
+        """Initialize paths from project directory.
+
+        Args:
+            project_dir: Root project directory path.
+        """
+        self.project = Path(project_dir)
+        self.data = self.project / "data"
+        self.results = self.project / "results"
+        self.annotations = self.project / "annotations"
+
+    def ensure_directories(self) -> None:
+        """Create all project directories."""
+        for path in [
+            self.project,
+            self.data,
+            self.results,
+            self.annotations,
+        ]:
+            path.mkdir(parents=True, exist_ok=True)
+
+
 class MetaEvaluator:
     """Main class for managing evaluation workflows with LLM clients, data, and evaluation tasks.
 
@@ -65,91 +112,30 @@ class MetaEvaluator:
         Creates an empty evaluator with no clients, data, or evaluation tasks configured.
 
         Args:
-            project_dir:  Directory for organizing all evaluation files. If provided, all file operations
-                will be organized within this directory structure. If None,creates 'my_project' directory in current working directory.
+            project_dir: Directory for organizing all evaluation files. If provided, all file operations
+                will be organized within this directory structure. If None, creates 'my_project' directory in current working directory.
         """
         self.client_registry: dict[LLMClientEnum, LLMClient] = {}
         self.data: Optional[EvalData] = None
-        self.eval_task: Optional[EvalTask] = None  # NEW
+        self.eval_task: Optional[EvalTask] = None
+        self.judge_registry: dict[str, Judge] = {}
 
+        # If no project directory is provided, create a default directory in the current working directory
         if project_dir is None:
-            project_dir = "my_project"
-        self.project_dir = Path(project_dir)
+            project_dir = "./my_project"
 
-    # ===== PATH RESOLUTION METHODS =====
+        # Initialize project paths and create directory structure
+        self.paths = Paths(project_dir)
+        self.paths.ensure_directories()
 
-    def _ensure_project_dir(self) -> None:
-        """Ensure project directory exists."""
-        self.project_dir.mkdir(parents=True, exist_ok=True)
-
-    def _resolve_path(self, relative_path: str, dir_type: Optional[str] = None) -> Path:
-        """Resolve relative path within project directory and create parent directories.
-
-        Args:
-            relative_path: Relative filename or path
-            dir_type: Type of directory to use as base path. Options: 'data', 'results', 'configs', 'annotations'.
-                    If None, uses project_dir as base.
+    @property
+    def project_dir(self) -> Path:
+        """Get the project directory path.
 
         Returns:
-            Path: Absolute path within project directory with parent directories created
-
-        Raises:
-            ValueError: If dir_type is not one of the valid options.
+            Path: The project directory path.
         """
-        if dir_type is None:
-            # Use project_dir as base
-            resolved_path = self.project_dir / relative_path
-        else:
-            # Use the appropriate directory getter method
-            dir_getter_map = {
-                "data": self._get_data_dir,
-                "results": self._get_results_dir,
-                "configs": self._get_configs_dir,
-                "annotations": self._get_annotations_dir,
-            }
-
-            if dir_type not in dir_getter_map:
-                raise ValueError(
-                    f"Invalid dir_type: {dir_type}. Must be one of: {list(dir_getter_map.keys())}"
-                )
-
-            base_dir = dir_getter_map[dir_type]()
-            resolved_path = base_dir / relative_path
-
-        resolved_path.parent.mkdir(parents=True, exist_ok=True)
-        return resolved_path
-
-    def _get_data_dir(self) -> Path:
-        """Get data subdirectory path.
-
-        Returns:
-            Path: The data subdirectory path.
-        """
-        return self.project_dir / "data"
-
-    def _get_results_dir(self) -> Path:
-        """Get results subdirectory path.
-
-        Returns:
-            Path: The results subdirectory path.
-        """
-        return self.project_dir / "results"
-
-    def _get_configs_dir(self) -> Path:
-        """Get configs subdirectory path.
-
-        Returns:
-            Path: The configs subdirectory path.
-        """
-        return self.project_dir / "configs"
-
-    def _get_annotations_dir(self) -> Path:
-        """Get annotations subdirectory path.
-
-        Returns:
-            Path: The annotations subdirectory path.
-        """
-        return self.project_dir / "annotations"
+        return self.paths.project
 
     # ===== CLIENT MANAGEMENT METHODS =====
 
@@ -338,6 +324,205 @@ class MetaEvaluator:
 
         self.eval_task = eval_task
 
+    # ===== JUDGE MANAGEMENT METHODS =====
+
+    def add_judge(
+        self,
+        judge_id: str,
+        llm_client_enum: LLMClientEnum,
+        model: str,
+        prompt: Prompt,
+        override_existing: bool = False,
+    ) -> None:
+        """Add a judge to the evaluator programmatically.
+
+        Args:
+            judge_id: Unique identifier for the judge.
+            llm_client_enum: The LLM client enum to use.
+            model: The model name to use.
+            prompt: The Prompt object containing the evaluation instructions.
+            override_existing: Whether to override existing judge. Defaults to False.
+
+        Raises:
+            JudgeAlreadyExistsException: If judge already exists and override_existing is False.
+            ValueError: If eval_task is not set.
+        """
+        if self.eval_task is None:
+            raise ValueError("eval_task must be set before adding judges")
+
+        if judge_id in self.judge_registry and not override_existing:
+            raise JudgeAlreadyExistsException(judge_id)
+
+        judge = Judge(
+            id=judge_id,
+            eval_task=self.eval_task,
+            llm_client_enum=llm_client_enum,
+            model=model,
+            prompt=prompt,
+        )
+
+        self.judge_registry[judge_id] = judge
+
+    def get_judge(self, judge_id: str) -> Judge:
+        """Get a judge from the registry by ID.
+
+        Args:
+            judge_id: The judge ID to retrieve.
+
+        Returns:
+            Judge: The requested Judge instance.
+
+        Raises:
+            JudgeNotFoundException: If the judge ID is not found in the registry.
+        """
+        if judge_id not in self.judge_registry:
+            raise JudgeNotFoundException(judge_id)
+
+        return self.judge_registry[judge_id]
+
+    def get_judge_list(self) -> list[tuple[str, Judge]]:
+        """Get a list of judge tuples (id, judge).
+
+        Returns:
+            List of judge tuples.
+        """
+        return list(self.judge_registry.items())
+
+    def load_judges_from_yaml(
+        self,
+        yaml_file: str,
+        override_existing: bool = False,
+    ) -> None:
+        """Load judges from a YAML configuration file.
+
+        The YAML file should have the following structure:
+        ```yaml
+        judges:
+          - id: judge_id_1
+            llm_client: openai
+            model: gpt-4
+            prompt_file: /absolute/path/to/toxicity_prompt.md
+          - id: judge_id_2
+            llm_client: azure_openai
+            model: gpt-4
+            prompt_file: ./relative/path/to/relevance_prompt.txt
+        ```
+
+        Args:
+            yaml_file: Absolute or relative path to the YAML configuration file.
+            override_existing: Whether to override existing judges. Defaults to False.
+
+        Raises:
+            FileNotFoundError: If the YAML file is not found.
+            InvalidYAMLStructureException: If the YAML structure is invalid.
+            ValueError: If eval_task is not set or if llm_client value is invalid.
+        """
+        if self.eval_task is None:
+            raise ValueError("eval_task must be set before loading judges from YAML")
+
+        # Resolve YAML file path (can be absolute or relative)
+        yaml_path = Path(yaml_file)
+
+        # Load and validate YAML
+        try:
+            with open(yaml_path, "r") as f:
+                yaml_data = yaml.safe_load(f)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"YAML file not found: {yaml_path}")
+        except yaml.YAMLError as e:
+            raise InvalidYAMLStructureException(f"Invalid YAML syntax: {e}")
+
+        # Validate YAML structure
+        try:
+            judges_config = JudgeConfigList.model_validate(yaml_data)
+        except ValidationError as e:
+            raise InvalidYAMLStructureException(f"YAML validation failed: {e}")
+
+        # Load each judge
+        for judge_config in judges_config.judges:
+            self._load_single_judge_from_config(
+                judge_config, override_existing, yaml_path
+            )
+
+    def _load_single_judge_from_config(
+        self,
+        judge_config: JudgeConfig,
+        override_existing: bool,
+        yaml_path: Path,
+    ) -> None:
+        """Load a single judge from YAML configuration.
+
+        Args:
+            judge_config: The judge configuration from YAML.
+            override_existing: Whether to override existing judges.
+            yaml_path: Path to the YAML file (for resolving relative prompt paths).
+
+        Raises:
+            ValueError: If llm_client value is invalid.
+        """
+        # Parse LLM client enum
+        try:
+            llm_client_enum = LLMClientEnum(judge_config.llm_client)
+        except ValueError:
+            valid_clients = [e.value for e in LLMClientEnum]
+            raise ValueError(
+                f"Invalid llm_client '{judge_config.llm_client}'. "
+                f"Valid options: {valid_clients}"
+            )
+
+        # Load prompt file from absolute or relative path
+        prompt = self._load_prompt_from_file(judge_config.prompt_file, yaml_path)
+
+        # Use add_judge method to avoid duplication
+        self.add_judge(
+            judge_id=judge_config.id,
+            llm_client_enum=llm_client_enum,
+            model=judge_config.model,
+            prompt=prompt,
+            override_existing=override_existing,
+        )
+
+    def _load_prompt_from_file(
+        self, prompt_file: str, yaml_path: Optional[Path] = None
+    ) -> Prompt:
+        """Load prompt content from file using absolute or relative path.
+
+        Args:
+            prompt_file: Absolute or relative path to the prompt file.
+            yaml_path: Optional path to YAML file for resolving relative prompt paths.
+
+        Returns:
+            Prompt: The loaded Prompt object.
+
+        Raises:
+            PromptFileNotFoundException: If prompt file cannot be found.
+        """
+        # Resolve prompt file path
+        prompt_path = Path(prompt_file)
+
+        if prompt_path.is_absolute():
+            # Use absolute path as-is
+            resolved_prompt_path = prompt_path
+        else:
+            # Resolve relative path
+            if yaml_path is not None:
+                # Relative to YAML file directory
+                resolved_prompt_path = yaml_path.parent / prompt_path
+            else:
+                # Relative to current working directory
+                resolved_prompt_path = prompt_path
+
+        # Load prompt content
+        try:
+            with open(resolved_prompt_path, "r", encoding="utf-8") as f:
+                prompt_content = f.read().strip()
+        except FileNotFoundError:
+            raise PromptFileNotFoundException(str(resolved_prompt_path))
+
+        # Create prompt with file stem as ID
+        prompt_id = resolved_prompt_path.stem
+        return Prompt(id=prompt_id, prompt=prompt_content)
+
     # ===== SERIALIZATION METHODS =====
 
     def save_state(
@@ -408,19 +593,24 @@ class MetaEvaluator:
         )
 
         # Ensure project directory and subdirectories exist
-        self._ensure_project_dir()
-        self._get_data_dir().mkdir(exist_ok=True)
+        self.paths.ensure_directories()
 
-        # Resolve absolute paths
-        state_file_path = self._resolve_path(state_filename)
-        data_filepath = self._resolve_path(str(final_data_filename), "data")
+        # Resolve state file path within project directory
+        state_file_path = self.paths.project / state_filename
+
+        # Ensure parent directories exist for state file (for nested paths)
+        state_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        data_filepath = (
+            self.paths.data / final_data_filename if final_data_filename else None
+        )
 
         # Write state.json to disk
         with open(state_file_path, "w") as f:
             f.write(state.model_dump_json(indent=2))
 
         # Write data file if needed
-        if include_data and self.data is not None:
+        if include_data and self.data is not None and data_filepath is not None:
             self.data.write_data(
                 filepath=str(data_filepath),
                 data_format=cast(Literal["json", "csv", "parquet"], data_format),
@@ -746,7 +936,7 @@ class MetaEvaluator:
             metadata: DataMetadata object containing data file metadata.
         """
         # Resolve data file path within project directory structure
-        data_filepath = self._resolve_path(metadata.data_file, "data")
+        data_filepath = self.paths.data / metadata.data_file
 
         # Load the data based on format
         df = EvalData.load_data(

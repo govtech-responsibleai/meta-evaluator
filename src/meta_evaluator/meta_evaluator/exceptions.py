@@ -87,3 +87,53 @@ class DataFilenameExtensionMismatchException(MetaEvaluatorException):
             f"Data filename '{filename}' must have extension '.{expected_extension}' "
             f"to match data_format '{data_format}'"
         )
+
+
+class JudgeAlreadyExistsException(MetaEvaluatorException):
+    """Exception raised when trying to add a judge that already exists."""
+
+    def __init__(self, judge_id: str):
+        """Initialize with judge ID.
+
+        Args:
+            judge_id: The ID of the judge that already exists.
+        """
+        super().__init__(
+            f"Judge with ID '{judge_id}' already exists. Use override_existing=True to replace it."
+        )
+
+
+class JudgeNotFoundException(MetaEvaluatorException):
+    """Exception raised when trying to get a judge that doesn't exist."""
+
+    def __init__(self, judge_id: str):
+        """Initialize with judge ID.
+
+        Args:
+            judge_id: The ID of the judge that was not found.
+        """
+        super().__init__(f"Judge with ID '{judge_id}' not found in registry.")
+
+
+class InvalidYAMLStructureException(MetaEvaluatorException):
+    """Exception raised when YAML structure is invalid."""
+
+    def __init__(self, details: str):
+        """Initialize with validation details.
+
+        Args:
+            details: Details about what's wrong with the YAML structure.
+        """
+        super().__init__(f"Invalid YAML structure: {details}")
+
+
+class PromptFileNotFoundException(MetaEvaluatorException):
+    """Exception raised when a prompt file referenced in YAML cannot be found."""
+
+    def __init__(self, file_path: str):
+        """Initialize with file path.
+
+        Args:
+            file_path: The path to the prompt file that was not found.
+        """
+        super().__init__(f"Prompt file not found: {file_path}")
