@@ -167,11 +167,9 @@ class TestMetaEvaluatorIntegration:
             MetaEvaluator: A loaded MetaEvaluator instance from saved state.
         """
         with tempfile.TemporaryDirectory() as tmp_dir:
-            state_file = Path(tmp_dir) / "test_state.json"
-
             # Save evaluator
             evaluator.save_state(
-                str(state_file),
+                state_filename="test_state.json",
                 include_data=True,
                 include_task=True,
                 data_format=data_format,
@@ -179,7 +177,8 @@ class TestMetaEvaluatorIntegration:
 
             # Load evaluator back
             return MetaEvaluator.load_state(
-                str(state_file),
+                project_dir=tmp_dir,
+                state_filename="test_state.json",
                 load_data=load_data,
                 load_task=load_task,
                 openai_api_key="test-key",  # Mock key for integration tests
@@ -384,19 +383,17 @@ class TestMetaEvaluatorIntegration:
             evaluator.add_eval_task(eval_task)
 
             with tempfile.TemporaryDirectory() as tmp_dir:
-                state_file = Path(tmp_dir) / "state.json"
-
                 # Save with parquet data format
                 evaluator.save_state(
-                    str(state_file),
+                    state_filename="test_state.json",
                     include_data=True,
                     data_format="parquet",
                     include_task=True,
                 )
 
                 # Verify files exist
-                assert state_file.exists()
-                data_file = state_file.parent / "state_data.parquet"
+                assert (Path(tmp_dir) / "test_state.json").exists()
+                data_file = Path(tmp_dir) / "data" / "test_state_data.parquet"
                 assert data_file.exists()
 
                 # Verify data file is readable by polars directly
@@ -405,7 +402,8 @@ class TestMetaEvaluatorIntegration:
 
                 # Verify MetaEvaluator can load it
                 loaded = MetaEvaluator.load_state(
-                    str(state_file),
+                    project_dir=tmp_dir,
+                    state_filename="test_state.json",
                     load_data=True,
                     load_task=True,
                     openai_api_key="test-key",
@@ -473,7 +471,7 @@ class TestMetaEvaluatorIntegration:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 state_file = Path(tmp_dir) / "state.json"
                 evaluator.save_state(
-                    str(state_file),
+                    state_filename="test_state.json",
                     include_data=True,
                     data_format="csv",
                     include_task=True,
@@ -486,7 +484,8 @@ class TestMetaEvaluatorIntegration:
                 # Should raise FileNotFoundError with clear message
                 with pytest.raises(FileNotFoundError) as exc:
                     MetaEvaluator.load_state(
-                        str(state_file),
+                        project_dir=tmp_dir,
+                        state_filename="test_state.json",
                         load_data=True,
                         load_task=True,
                         openai_api_key="test-key",
@@ -505,7 +504,8 @@ class TestMetaEvaluatorIntegration:
 
             with pytest.raises(ValueError) as exc:
                 MetaEvaluator.load_state(
-                    str(state_file),
+                    project_dir=tmp_dir,
+                    state_filename="corrupted.json",
                     openai_api_key="test-key",
                     azure_openai_api_key="test-azure-key",
                 )
@@ -634,7 +634,7 @@ class TestMetaEvaluatorIntegration:
 
                 # Save with custom filename
                 evaluator.save_state(
-                    str(state_file),
+                    state_filename="test_state.json",
                     include_data=True,
                     data_format="parquet",
                     data_filename=custom_data_filename,
@@ -651,7 +651,8 @@ class TestMetaEvaluatorIntegration:
 
                 # Verify loading works with custom filename
                 loaded = MetaEvaluator.load_state(
-                    str(state_file),
+                    project_dir=tmp_dir,
+                    state_filename="test_state.json",
                     load_data=True,
                     openai_api_key="test-key",
                     azure_openai_api_key="test-azure-key",
