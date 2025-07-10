@@ -1,14 +1,15 @@
-"""Main class for MetaEvaluator."""
+"""Base functionality for MetaEvaluator including initialization, paths, and core data/task management."""
 
 import json
 import os
-import yaml
 from pathlib import Path
-from typing import Literal, Optional, cast
-from pydantic import ValidationError, BaseModel
+from typing import Optional, Literal, cast
+from pydantic import ValidationError
 
-from dotenv import load_dotenv
-
+from ..data import EvalData, SampleEvalData
+from ..data.serialization import DataMetadata
+from ..eval_task import EvalTask
+from ..eval_task.serialization import EvalTaskState
 from ..llm_client.models import LLMClientEnum
 from ..llm_client.LLM_client import LLMClient
 from ..llm_client.openai_client import OpenAIClient, OpenAIConfig
@@ -17,24 +18,14 @@ from ..llm_client.serialization import (
     OpenAISerializedState,
     AzureOpenAISerializedState,
 )
-from ..data import EvalData, SampleEvalData
-from ..data.serialization import DataMetadata
-from ..eval_task import EvalTask
-from ..eval_task.serialization import EvalTaskState
-from ..judge import Judge
-from ..common.models import Prompt
 from .exceptions import (
-    MissingConfigurationException,
-    ClientAlreadyExistsException,
-    ClientNotFoundException,
     DataAlreadyExistsException,
-    DataFilenameExtensionMismatchException,
     EvalTaskAlreadyExistsException,
-    JudgeAlreadyExistsException,
-    JudgeNotFoundException,
-    InvalidYAMLStructureException,
-    PromptFileNotFoundException,
+    DataFilenameExtensionMismatchException,
+    MissingConfigurationException,
 )
+from .clients import ClientsMixin
+from .judge import JudgesMixin
 from .serialization import MetaEvaluatorState
 
 # Error message constants
@@ -43,31 +34,7 @@ INVALID_JSON_MSG = "Invalid JSON in state file"
 STATE_FILE_NOT_FOUND_MSG = "State file not found"
 
 _OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY"
-_OPENAI_DEFAULT_MODEL_ENV_VAR = "OPENAI_DEFAULT_MODEL"
-_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR = "OPENAI_DEFAULT_EMBEDDING_MODEL"
-
 _AZURE_OPENAI_API_KEY_ENV_VAR = "AZURE_OPENAI_API_KEY"
-_AZURE_OPENAI_ENDPOINT_ENV_VAR = "AZURE_OPENAI_ENDPOINT"
-_AZURE_OPENAI_API_VERSION_ENV_VAR = "AZURE_OPENAI_API_VERSION"
-_AZURE_OPENAI_DEFAULT_MODEL_ENV_VAR = "AZURE_OPENAI_DEFAULT_MODEL"
-_AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR = "AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL"
-
-load_dotenv()
-
-
-class JudgeConfig(BaseModel):
-    """Pydantic model for validating a single judge configuration from YAML."""
-
-    id: str
-    llm_client: str
-    model: str
-    prompt_file: str
-
-
-class JudgeConfigList(BaseModel):
-    """Pydantic model for validating the entire judges YAML configuration."""
-
-    judges: list[JudgeConfig]
 
 
 class Paths:
@@ -95,13 +62,14 @@ class Paths:
             path.mkdir(parents=True, exist_ok=True)
 
 
-class MetaEvaluator:
+class MetaEvaluator(ClientsMixin, JudgesMixin):
     """Main class for managing evaluation workflows with LLM clients, data, and evaluation tasks.
 
     The MetaEvaluator provides a unified interface for:
     - Managing multiple LLM client configurations (OpenAI, Azure OpenAI)
     - Loading and managing evaluation datasets
     - Configuring evaluation tasks with support for both predefined outcomes and free form text outputs
+    - Managing judges for evaluation
     - Serializing and deserializing complete evaluation states
     - Supporting both structured and XML-based evaluation methods
     """
@@ -115,10 +83,9 @@ class MetaEvaluator:
             project_dir: Directory for organizing all evaluation files. If provided, all file operations
                 will be organized within this directory structure. If None, creates 'my_project' directory in current working directory.
         """
-        self.client_registry: dict[LLMClientEnum, LLMClient] = {}
+        super().__init__()
         self.data: Optional[EvalData] = None
         self.eval_task: Optional[EvalTask] = None
-        self.judge_registry: dict[str, Judge] = {}
 
         # If no project directory is provided, create a default directory in the current working directory
         if project_dir is None:
@@ -136,161 +103,6 @@ class MetaEvaluator:
             Path: The project directory path.
         """
         return self.paths.project
-
-    # ===== CLIENT MANAGEMENT METHODS =====
-
-    def add_openai(
-        self,
-        api_key: Optional[str] = None,
-        default_model: Optional[str] = None,
-        default_embedding_model: Optional[str] = None,
-        override_existing: bool = False,
-    ):
-        """Add an OpenAI client to the registry.
-
-        Args:
-            api_key: OpenAI API key. If None, will look for OPENAI_API_KEY in environment.
-            default_model: Default model to use. If None, will look for OPENAI_DEFAULT_MODEL in environment.
-            default_embedding_model: Default embedding model. If None, will look for OPENAI_DEFAULT_EMBEDDING_MODEL in environment.
-            override_existing: Whether to override existing client. Defaults to False.
-
-        Raises:
-            MissingConfigurationException: If required parameters are missing from both arguments and environment.
-            ClientAlreadyExistsException: If client already exists and override_existing is False.
-        """
-        # Check if client already exists
-        if LLMClientEnum.OPENAI in self.client_registry and not override_existing:
-            raise ClientAlreadyExistsException("OPENAI")
-
-        # Get configuration values, fallback to environment variables
-        final_api_key = api_key or os.getenv(_OPENAI_API_KEY_ENV_VAR)
-        final_default_model = default_model or os.getenv(_OPENAI_DEFAULT_MODEL_ENV_VAR)
-        final_default_embedding_model = default_embedding_model or os.getenv(
-            _OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR
-        )
-
-        # Validate required parameters
-        if not final_api_key:
-            raise MissingConfigurationException(
-                f"api_key (or {_OPENAI_API_KEY_ENV_VAR} environment variable)"
-            )
-        if not final_default_model:
-            raise MissingConfigurationException(
-                f"default_model (or {_OPENAI_DEFAULT_MODEL_ENV_VAR} environment variable)"
-            )
-        if not final_default_embedding_model:
-            raise MissingConfigurationException(
-                f"default_embedding_model (or {_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR} environment variable)"
-            )
-
-        # Create configuration and client
-        config = OpenAIConfig(
-            api_key=final_api_key,
-            default_model=final_default_model,
-            default_embedding_model=final_default_embedding_model,
-        )
-        client = OpenAIClient(config)
-
-        # Add to registry
-        self.client_registry[LLMClientEnum.OPENAI] = client
-
-    def add_azure_openai(
-        self,
-        api_key: Optional[str] = None,
-        endpoint: Optional[str] = None,
-        api_version: Optional[str] = None,
-        default_model: Optional[str] = None,
-        default_embedding_model: Optional[str] = None,
-        override_existing: bool = False,
-    ):
-        """Add an Azure OpenAI client to the registry.
-
-        Args:
-            api_key: Azure OpenAI API key. If None, will look for AZURE_OPENAI_API_KEY in environment.
-            endpoint: Azure OpenAI endpoint. If None, will look for AZURE_OPENAI_ENDPOINT in environment.
-            api_version: Azure OpenAI API version. If None, will look for AZURE_OPENAI_API_VERSION in environment.
-            default_model: Default model to use. If None, will look for AZURE_OPENAI_DEFAULT_MODEL in environment.
-            default_embedding_model: Default embedding model. If None, will look for AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL in environment.
-            override_existing: Whether to override existing client. Defaults to False.
-
-        Raises:
-            MissingConfigurationException: If required parameters are missing from both arguments and environment.
-            ClientAlreadyExistsException: If client already exists and override_existing is False.
-        """
-        # Check if client already exists
-        if LLMClientEnum.AZURE_OPENAI in self.client_registry and not override_existing:
-            raise ClientAlreadyExistsException("AZURE_OPENAI")
-
-        # Get configuration values, fallback to environment variables
-        final_api_key = api_key or os.getenv(_AZURE_OPENAI_API_KEY_ENV_VAR)
-        final_endpoint = endpoint or os.getenv(_AZURE_OPENAI_ENDPOINT_ENV_VAR)
-        final_api_version = api_version or os.getenv(_AZURE_OPENAI_API_VERSION_ENV_VAR)
-        final_default_model = default_model or os.getenv(
-            _AZURE_OPENAI_DEFAULT_MODEL_ENV_VAR
-        )
-        final_default_embedding_model = default_embedding_model or os.getenv(
-            _AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR
-        )
-
-        # Validate required parameters
-        if not final_api_key:
-            raise MissingConfigurationException(
-                f"api_key (or {_AZURE_OPENAI_API_KEY_ENV_VAR} environment variable)"
-            )
-        if not final_endpoint:
-            raise MissingConfigurationException(
-                f"endpoint (or {_AZURE_OPENAI_ENDPOINT_ENV_VAR} environment variable)"
-            )
-        if not final_api_version:
-            raise MissingConfigurationException(
-                f"api_version (or {_AZURE_OPENAI_API_VERSION_ENV_VAR} environment variable)"
-            )
-        if not final_default_model:
-            raise MissingConfigurationException(
-                f"default_model (or {_AZURE_OPENAI_DEFAULT_MODEL_ENV_VAR} environment variable)"
-            )
-        if not final_default_embedding_model:
-            raise MissingConfigurationException(
-                f"default_embedding_model (or {_AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR} environment variable)"
-            )
-
-        # Create configuration and client
-        config = AzureOpenAIConfig(
-            api_key=final_api_key,
-            endpoint=final_endpoint,
-            api_version=final_api_version,
-            default_model=final_default_model,
-            default_embedding_model=final_default_embedding_model,
-        )
-        client = AzureOpenAIClient(config)
-
-        # Add to registry
-        self.client_registry[LLMClientEnum.AZURE_OPENAI] = client
-
-    def get_client(self, client_type: LLMClientEnum) -> LLMClient:
-        """Get a client from the registry by type.
-
-        Args:
-            client_type: The LLM client enum type to retrieve.
-
-        Returns:
-            LLMClient: The requested LLM client instance.
-
-        Raises:
-            ClientNotFoundException: If the client type is not found in the registry.
-        """
-        if client_type not in self.client_registry:
-            raise ClientNotFoundException(client_type.value)
-
-        return self.client_registry[client_type]
-
-    def get_client_list(self) -> list[tuple[LLMClientEnum, LLMClient]]:
-        """Get a list of client tuples (type, client).
-
-        Returns:
-            List of client tuples.
-        """
-        return list(self.client_registry.items())
 
     # ===== DATA AND TASK MANAGEMENT METHODS =====
 
@@ -323,205 +135,6 @@ class MetaEvaluator:
             raise EvalTaskAlreadyExistsException()
 
         self.eval_task = eval_task
-
-    # ===== JUDGE MANAGEMENT METHODS =====
-
-    def add_judge(
-        self,
-        judge_id: str,
-        llm_client_enum: LLMClientEnum,
-        model: str,
-        prompt: Prompt,
-        override_existing: bool = False,
-    ) -> None:
-        """Add a judge to the evaluator programmatically.
-
-        Args:
-            judge_id: Unique identifier for the judge.
-            llm_client_enum: The LLM client enum to use.
-            model: The model name to use.
-            prompt: The Prompt object containing the evaluation instructions.
-            override_existing: Whether to override existing judge. Defaults to False.
-
-        Raises:
-            JudgeAlreadyExistsException: If judge already exists and override_existing is False.
-            ValueError: If eval_task is not set.
-        """
-        if self.eval_task is None:
-            raise ValueError("eval_task must be set before adding judges")
-
-        if judge_id in self.judge_registry and not override_existing:
-            raise JudgeAlreadyExistsException(judge_id)
-
-        judge = Judge(
-            id=judge_id,
-            eval_task=self.eval_task,
-            llm_client_enum=llm_client_enum,
-            model=model,
-            prompt=prompt,
-        )
-
-        self.judge_registry[judge_id] = judge
-
-    def get_judge(self, judge_id: str) -> Judge:
-        """Get a judge from the registry by ID.
-
-        Args:
-            judge_id: The judge ID to retrieve.
-
-        Returns:
-            Judge: The requested Judge instance.
-
-        Raises:
-            JudgeNotFoundException: If the judge ID is not found in the registry.
-        """
-        if judge_id not in self.judge_registry:
-            raise JudgeNotFoundException(judge_id)
-
-        return self.judge_registry[judge_id]
-
-    def get_judge_list(self) -> list[tuple[str, Judge]]:
-        """Get a list of judge tuples (id, judge).
-
-        Returns:
-            List of judge tuples.
-        """
-        return list(self.judge_registry.items())
-
-    def load_judges_from_yaml(
-        self,
-        yaml_file: str,
-        override_existing: bool = False,
-    ) -> None:
-        """Load judges from a YAML configuration file.
-
-        The YAML file should have the following structure:
-        ```yaml
-        judges:
-          - id: judge_id_1
-            llm_client: openai
-            model: gpt-4
-            prompt_file: /absolute/path/to/toxicity_prompt.md
-          - id: judge_id_2
-            llm_client: azure_openai
-            model: gpt-4
-            prompt_file: ./relative/path/to/relevance_prompt.txt
-        ```
-
-        Args:
-            yaml_file: Absolute or relative path to the YAML configuration file.
-            override_existing: Whether to override existing judges. Defaults to False.
-
-        Raises:
-            FileNotFoundError: If the YAML file is not found.
-            InvalidYAMLStructureException: If the YAML structure is invalid.
-            ValueError: If eval_task is not set or if llm_client value is invalid.
-        """
-        if self.eval_task is None:
-            raise ValueError("eval_task must be set before loading judges from YAML")
-
-        # Resolve YAML file path (can be absolute or relative)
-        yaml_path = Path(yaml_file)
-
-        # Load and validate YAML
-        try:
-            with open(yaml_path, "r") as f:
-                yaml_data = yaml.safe_load(f)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"YAML file not found: {yaml_path}")
-        except yaml.YAMLError as e:
-            raise InvalidYAMLStructureException(f"Invalid YAML syntax: {e}")
-
-        # Validate YAML structure
-        try:
-            judges_config = JudgeConfigList.model_validate(yaml_data)
-        except ValidationError as e:
-            raise InvalidYAMLStructureException(f"YAML validation failed: {e}")
-
-        # Load each judge
-        for judge_config in judges_config.judges:
-            self._load_single_judge_from_config(
-                judge_config, override_existing, yaml_path
-            )
-
-    def _load_single_judge_from_config(
-        self,
-        judge_config: JudgeConfig,
-        override_existing: bool,
-        yaml_path: Path,
-    ) -> None:
-        """Load a single judge from YAML configuration.
-
-        Args:
-            judge_config: The judge configuration from YAML.
-            override_existing: Whether to override existing judges.
-            yaml_path: Path to the YAML file (for resolving relative prompt paths).
-
-        Raises:
-            ValueError: If llm_client value is invalid.
-        """
-        # Parse LLM client enum
-        try:
-            llm_client_enum = LLMClientEnum(judge_config.llm_client)
-        except ValueError:
-            valid_clients = [e.value for e in LLMClientEnum]
-            raise ValueError(
-                f"Invalid llm_client '{judge_config.llm_client}'. "
-                f"Valid options: {valid_clients}"
-            )
-
-        # Load prompt file from absolute or relative path
-        prompt = self._load_prompt_from_file(judge_config.prompt_file, yaml_path)
-
-        # Use add_judge method to avoid duplication
-        self.add_judge(
-            judge_id=judge_config.id,
-            llm_client_enum=llm_client_enum,
-            model=judge_config.model,
-            prompt=prompt,
-            override_existing=override_existing,
-        )
-
-    def _load_prompt_from_file(
-        self, prompt_file: str, yaml_path: Optional[Path] = None
-    ) -> Prompt:
-        """Load prompt content from file using absolute or relative path.
-
-        Args:
-            prompt_file: Absolute or relative path to the prompt file.
-            yaml_path: Optional path to YAML file for resolving relative prompt paths.
-
-        Returns:
-            Prompt: The loaded Prompt object.
-
-        Raises:
-            PromptFileNotFoundException: If prompt file cannot be found.
-        """
-        # Resolve prompt file path
-        prompt_path = Path(prompt_file)
-
-        if prompt_path.is_absolute():
-            # Use absolute path as-is
-            resolved_prompt_path = prompt_path
-        else:
-            # Resolve relative path
-            if yaml_path is not None:
-                # Relative to YAML file directory
-                resolved_prompt_path = yaml_path.parent / prompt_path
-            else:
-                # Relative to current working directory
-                resolved_prompt_path = prompt_path
-
-        # Load prompt content
-        try:
-            with open(resolved_prompt_path, "r", encoding="utf-8") as f:
-                prompt_content = f.read().strip()
-        except FileNotFoundError:
-            raise PromptFileNotFoundException(str(resolved_prompt_path))
-
-        # Create prompt with file stem as ID
-        prompt_id = resolved_prompt_path.stem
-        return Prompt(id=prompt_id, prompt=prompt_content)
 
     # ===== SERIALIZATION METHODS =====
 
@@ -752,20 +365,6 @@ class MetaEvaluator:
 
         Returns:
             MetaEvaluator: A new MetaEvaluator instance loaded from the JSON state.
-
-        Examples:
-            # Load everything (clients + data + task)
-            evaluator = MetaEvaluator.load_state("my_state.json")
-
-            # Load only clients, skip data and task
-            evaluator = MetaEvaluator.load_state("my_state.json", load_data=False, load_task=False)
-
-            # Load clients and task, skip data
-            evaluator = MetaEvaluator.load_state("my_state.json", load_data=False, load_task=True)
-
-            # Provide custom API keys
-            evaluator = MetaEvaluator.load_state("my_state.json",
-                                                   openai_api_key="custom-key")
 
         Raises:
             ValueError: If state_file doesn't end with .json or if the JSON structure is invalid.
