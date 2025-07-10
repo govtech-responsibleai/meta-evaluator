@@ -495,28 +495,15 @@ class MetaEvaluator:
         # Load JSON MetaEvaluatorState
         state = cls._load_json_state(state_file)
 
-        # Create new MetaEvaluator instance
-        evaluator = cls()
-
-        # Use environment variables if API keys are not provided
-        openai_api_key = openai_api_key or os.getenv(_OPENAI_API_KEY_ENV_VAR)
-        azure_openai_api_key = azure_openai_api_key or os.getenv(
-            _AZURE_OPENAI_API_KEY_ENV_VAR
+        # Deserialize state to MetaEvaluator instance
+        return cls._deserialize(
+            state=state,
+            state_file=state_file,
+            load_data=load_data,
+            load_task=load_task,
+            openai_api_key=openai_api_key,
+            azure_openai_api_key=azure_openai_api_key,
         )
-        # Reconstruct clients
-        evaluator._reconstruct_clients(
-            state.client_registry, openai_api_key, azure_openai_api_key
-        )
-
-        # Load data if requested and available
-        if load_data and state.data is not None:
-            evaluator._reconstruct_data(state.data, state_file)
-
-        # Load task if requested and available
-        if load_task and state.eval_task is not None:
-            evaluator._reconstruct_task(state.eval_task)
-
-        return evaluator
 
     @classmethod
     def _load_json_state(cls, state_file: str) -> MetaEvaluatorState:
@@ -541,6 +528,53 @@ class MetaEvaluator:
             raise ValueError(f"{INVALID_JSON_STRUCTURE_MSG}: {e}")
         except json.JSONDecodeError as e:
             raise ValueError(f"{INVALID_JSON_MSG}: {e}")
+
+    @classmethod
+    def _deserialize(
+        cls,
+        state: MetaEvaluatorState,
+        state_file: str,
+        load_data: bool = True,
+        load_task: bool = True,
+        openai_api_key: Optional[str] = None,
+        azure_openai_api_key: Optional[str] = None,
+    ) -> "MetaEvaluator":
+        """Deserialize MetaEvaluatorState to MetaEvaluator instance.
+
+        Args:
+            state: MetaEvaluatorState object containing serialized state.
+            state_file: Path to the original state file (for resolving relative paths).
+            load_data: Whether to load the data file referenced in the state.
+            load_task: Whether to load the evaluation task configuration.
+            openai_api_key: API key for OpenAI clients.
+            azure_openai_api_key: API key for Azure OpenAI clients.
+
+        Returns:
+            MetaEvaluator: A new MetaEvaluator instance.
+        """
+        # Create new MetaEvaluator instance
+        evaluator = cls()
+
+        # Use environment variables if API keys are not provided
+        openai_api_key = openai_api_key or os.getenv(_OPENAI_API_KEY_ENV_VAR)
+        azure_openai_api_key = azure_openai_api_key or os.getenv(
+            _AZURE_OPENAI_API_KEY_ENV_VAR
+        )
+
+        # Reconstruct clients
+        evaluator._reconstruct_clients(
+            state.client_registry, openai_api_key, azure_openai_api_key
+        )
+
+        # Load data if requested and available
+        if load_data and state.data is not None:
+            evaluator._reconstruct_data(state.data, state_file)
+
+        # Load task if requested and available
+        if load_task and state.eval_task is not None:
+            evaluator._reconstruct_task(state.eval_task)
+
+        return evaluator
 
     def _reconstruct_clients(
         self,
