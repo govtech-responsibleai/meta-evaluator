@@ -16,6 +16,10 @@ class EvalTask(BaseModel):
     response_columns: list[str] = Field(..., min_length=1)
     skip_function: Callable[[dict[str, Any]], bool] = lambda x: False
     answering_method: Literal["structured", "xml"]
+    annotation_prompt: str = Field(
+        default="Please evaluate the following response:",
+        description="If necessary, this is the prompt text shown to human annotators in the annotation interface.",
+    )
 
     @model_validator(mode="after")
     def validate_task_configuration(self) -> "EvalTask":
