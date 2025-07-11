@@ -882,7 +882,7 @@ class TestSaveResults:
                 with patch("streamlit.write"):
                     with patch("streamlit.progress"):
                         with patch("streamlit.markdown"):
-                            with patch.object(annotator, "display_h5_header"):
+                            with patch.object(annotator, "display_subheader"):
                                 annotator.save_results()
 
             mock_results.save_state.assert_called_once()
