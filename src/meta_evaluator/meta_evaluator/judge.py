@@ -2,18 +2,31 @@
 
 import yaml
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union, Literal, TYPE_CHECKING
 from pydantic import ValidationError, BaseModel
+from datetime import datetime
+import uuid
+
+if TYPE_CHECKING:
+    from .base import Paths
 
 from ..eval_task import EvalTask
 from ..llm_client.models import LLMClientEnum
 from ..judge import Judge
 from ..common.models import Prompt
+from ..data import EvalData
+from ..results import JudgeResults
 from .exceptions import (
     JudgeAlreadyExistsException,
     JudgeNotFoundException,
     InvalidYAMLStructureException,
     PromptFileNotFoundException,
+    EvalTaskNotSetException,
+    EvalDataNotSetException,
+    NoJudgesAvailableException,
+    LLMClientNotConfiguredException,
+    JudgeExecutionException,
+    ResultsSaveException,
 )
 
 
@@ -37,6 +50,8 @@ class JudgesMixin:
 
     # Type hints for attributes that will be provided by MetaEvaluator
     eval_task: Optional[EvalTask]
+    data: Optional[EvalData]
+    paths: "Paths"
 
     def __init__(self, *args, **kwargs):
         """Initialize judge registry."""
@@ -239,3 +254,150 @@ class JudgesMixin:
         # Create prompt with file stem as ID
         prompt_id = resolved_prompt_path.stem
         return Prompt(id=prompt_id, prompt=prompt_content)
+
+    def run_judges(
+        self,
+        judge_ids: Optional[Union[str, list[str]]] = None,
+        run_id: Optional[str] = None,
+        save_results: bool = True,
+        results_format: Literal["json", "csv", "parquet"] = "json",
+    ) -> dict[str, JudgeResults]:
+        """Execute evaluations using specified judges and save results.
+
+        This function runs evaluations on the loaded data using the specified judges.
+        Each judge will evaluate the data using its configured LLM client and prompt.
+        Results are automatically saved to the project's results directory.
+
+        Args:
+            judge_ids: Judge ID(s) to run. Can be:
+                - None: Run all judges in the registry
+                - str: Run a single judge by ID
+                - list[str]: Run specified judges by ID
+            run_id: Unique identifier for this evaluation run. If None,
+                auto-generates a timestamp-based ID.
+            save_results: Whether to save results to disk. Defaults to True.
+            results_format: Format for saving results files. Defaults to "json".
+
+        Returns:
+            dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
+
+        Raises:
+            EvalTaskNotSetException: If eval_task is not set.
+            EvalDataNotSetException: If data is not set.
+            JudgeNotFoundException: If specified judge_ids don't exist.
+            NoJudgesAvailableException: If no judges are available to run.
+            LLMClientNotConfiguredException: If required LLM client is not configured.
+            JudgeExecutionException: If judge execution fails.
+            ResultsSaveException: If saving results fails.
+
+        Example:
+            >>> # Run all judges
+            >>> results = evaluator.run_judges()
+
+            >>> # Run specific judges
+            >>> results = evaluator.run_judges(judge_ids=["judge_1", "judge_2"])
+
+            >>> # Run with custom run ID
+            >>> results = evaluator.run_judges(run_id="experiment_1")
+        """
+        # Validate prerequisites
+        if self.eval_task is None:
+            raise EvalTaskNotSetException()
+
+        if self.data is None:
+            raise EvalDataNotSetException()
+
+        # Determine which judges to run
+        if judge_ids is None:
+            # Run all judges
+            judges_to_run = list(self.judge_registry.keys())
+        elif isinstance(judge_ids, str):
+            # Run single judge
+            judges_to_run = [judge_ids]
+        else:
+            # Run specified judges
+            judges_to_run = judge_ids
+
+        # Validate that all specified judges exist
+        missing_judges = [
+            j_id for j_id in judges_to_run if j_id not in self.judge_registry
+        ]
+        if missing_judges:
+            raise JudgeNotFoundException(
+                f"Judge IDs not found in registry: {missing_judges}"
+            )
+
+        # Check if any judges are available
+        if not judges_to_run:
+            raise NoJudgesAvailableException()
+
+        # Generate run ID if not provided
+        if run_id is None:
+            run_id = (
+                f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+            )
+
+        # Ensure results directory exists
+        self.paths.ensure_directories()
+
+        # Run each judge and collect results
+        results = {}
+
+        for judge_id in judges_to_run:
+            judge = self.judge_registry[judge_id]
+
+            # Get the appropriate LLM client for this judge
+            llm_client = getattr(self, "client_registry", {}).get(judge.llm_client_enum)
+            if llm_client is None:
+                raise LLMClientNotConfiguredException(
+                    judge_id, judge.llm_client_enum.value
+                )
+
+            # Run the evaluation
+            try:
+                judge_results = judge.evaluate_eval_data(
+                    eval_data=self.data,
+                    llm_client=llm_client,
+                    run_id=f"{run_id}_{judge_id}",
+                )
+                results[judge_id] = judge_results
+            except Exception as e:
+                raise JudgeExecutionException(judge_id, str(e))
+
+            # Save results if requested
+            if save_results:
+                try:
+                    self._save_judge_results(
+                        judge_results=judge_results,
+                        judge_id=judge_id,
+                        run_id=run_id,
+                        results_format=results_format,
+                    )
+                except Exception as e:
+                    raise ResultsSaveException(judge_id, run_id, str(e))
+
+        return results
+
+    def _save_judge_results(
+        self,
+        judge_results: JudgeResults,
+        judge_id: str,
+        run_id: str,
+        results_format: Literal["json", "csv", "parquet"],
+    ) -> None:
+        """Save judge results to disk.
+
+        Args:
+            judge_results: The JudgeResults object to save.
+            judge_id: ID of the judge.
+            run_id: ID of the run.
+            results_format: Format for saving results.
+        """
+        # Generate filenames
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        data_filename = f"{run_id}_{judge_id}_{timestamp}_results.{results_format}"
+        state_filename = f"{run_id}_{judge_id}_{timestamp}_state.json"
+
+        # Save results using save_state method
+        state_filepath = self.paths.results / state_filename
+        judge_results.save_state(str(state_filepath), results_format, data_filename)
