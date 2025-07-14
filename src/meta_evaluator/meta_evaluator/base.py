@@ -1,6 +1,7 @@
 """Base functionality for MetaEvaluator including initialization, paths, and core data/task management."""
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Optional, Literal, cast
@@ -18,6 +19,7 @@ from ..llm_client.serialization import (
     OpenAISerializedState,
     AzureOpenAISerializedState,
 )
+from ..results import JudgeResults, HumanAnnotationResults
 from .exceptions import (
     DataAlreadyExistsException,
     EvalTaskAlreadyExistsException,
@@ -27,6 +29,7 @@ from .exceptions import (
 from .clients import ClientsMixin
 from .judge import JudgesMixin
 from .serialization import MetaEvaluatorState
+
 
 # Error message constants
 INVALID_JSON_STRUCTURE_MSG = "Invalid JSON structure in state file"
@@ -116,10 +119,15 @@ class MetaEvaluator(ClientsMixin, JudgesMixin):
         Raises:
             DataAlreadyExistsException: If data already exists and overwrite is False.
         """
+        logger = logging.getLogger(__name__)
+
         if self.data is not None and not overwrite:
             raise DataAlreadyExistsException()
 
         self.data = eval_data
+        logger.info(
+            f"Added evaluation data '{eval_data.name}' with {len(eval_data.data)} rows"
+        )
 
     def add_eval_task(self, eval_task: EvalTask, overwrite: bool = False) -> None:
         """Add evaluation task to the evaluator.
@@ -131,10 +139,16 @@ class MetaEvaluator(ClientsMixin, JudgesMixin):
         Raises:
             EvalTaskAlreadyExistsException: If evaluation task already exists and overwrite is False.
         """
+        logger = logging.getLogger(__name__)
+
         if self.eval_task is not None and not overwrite:
             raise EvalTaskAlreadyExistsException()
 
         self.eval_task = eval_task
+        task_names = list(eval_task.task_schemas.keys())
+        logger.info(
+            f"Added evaluation task with {len(task_names)} task(s): {', '.join(task_names)}"
+        )
 
     # ===== SERIALIZATION METHODS =====
 
@@ -550,3 +564,80 @@ class MetaEvaluator(ClientsMixin, JudgesMixin):
 
         # Add to evaluator
         self.add_data(eval_data, overwrite=True)
+
+    # ===== RESULTS LOADING METHODS =====
+
+    def load_all_judge_results(self):
+        """Load all judge results from the project's results directory.
+
+        Searches for all *_state.json files in the results directory and attempts
+        to load them as judge results. Files that fail to load are skipped with
+        a warning logged.
+
+        Returns:
+            dict[str, JudgeResults]: Dictionary mapping run_ids to their loaded JudgeResults objects.
+        """
+        logger = logging.getLogger(__name__)
+        results = {}
+
+        # Find all state files in results directory
+        if not self.paths.results.exists():
+            logger.warning(f"Results directory does not exist: {self.paths.results}")
+            return results
+
+        state_files = list(self.paths.results.glob("*_state.json"))
+
+        for state_file in state_files:
+            try:
+                # Load directly using absolute path from glob
+                judge_results = JudgeResults.load_state(str(state_file))
+                # Use run_id as key
+                key = judge_results.run_id
+                results[key] = judge_results
+                logger.info(f"Loaded judge results from {state_file.name}")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load judge results from {state_file.name}: {e}"
+                )
+                continue
+
+        return results
+
+    def load_all_human_results(self):
+        """Load all human annotation results from the project's annotations directory.
+
+        Searches for all *_metadata.json files in the annotations directory and attempts
+        to load them as human annotation results. Files that fail to load are skipped
+        with a warning logged.
+
+        Returns:
+            dict[str, HumanAnnotationResults]: Dictionary mapping run_ids to their loaded HumanAnnotationResults objects.
+        """
+        logger = logging.getLogger(__name__)
+        results = {}
+
+        # Find all metadata files in annotations directory
+        if not self.paths.annotations.exists():
+            logger.warning(
+                f"Annotations directory does not exist: {self.paths.annotations}"
+            )
+            return results
+
+        metadata_files = list(self.paths.annotations.glob("*_metadata.json"))
+
+        for metadata_file in metadata_files:
+            try:
+                human_results = HumanAnnotationResults.load_state(str(metadata_file))
+                # Use run_id as key
+                key = human_results.run_id
+                results[key] = human_results
+                logger.info(
+                    f"Loaded human annotation results from {metadata_file.name}"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load human annotation results from {metadata_file.name}: {e}"
+                )
+                continue
+
+        return results

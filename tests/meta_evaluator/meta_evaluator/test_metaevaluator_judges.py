@@ -16,6 +16,7 @@ from meta_evaluator.meta_evaluator.exceptions import (
     ResultsSaveException,
 )
 import polars as pl
+from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.llm_client.models import LLMClientEnum
 from meta_evaluator.common.models import Prompt
 from meta_evaluator.results import JudgeResults
@@ -101,10 +102,7 @@ class TestMetaEvaluatorJudges:
 
         Returns:
             MetaEvaluator instance with mock judges and data.
-        """
-        from meta_evaluator.eval_task import EvalTask
-
-        # Create a custom eval_task that matches the sample_eval_data columns
+        """  # Create a custom eval_task that matches the sample_eval_data columns
         eval_task = EvalTask(
             task_schemas={"sentiment": ["positive", "negative", "neutral"]},
             prompt_columns=["question"],  # matches sample_eval_data
@@ -123,12 +121,16 @@ class TestMetaEvaluatorJudges:
         mock_judge1.llm_client_enum = LLMClientEnum.OPENAI
         mock_results1 = Mock(spec=JudgeResults)
         mock_results1.save_state = Mock()
+        mock_results1.succeeded_count = 2
+        mock_results1.total_count = 3
         mock_judge1.evaluate_eval_data.return_value = mock_results1
 
         mock_judge2 = Mock()
         mock_judge2.llm_client_enum = LLMClientEnum.OPENAI
         mock_results2 = Mock(spec=JudgeResults)
         mock_results2.save_state = Mock()
+        mock_results2.succeeded_count = 2
+        mock_results2.total_count = 2
         mock_judge2.evaluate_eval_data.return_value = mock_results2
 
         # Add mock judges to registry
@@ -721,6 +723,8 @@ class TestMetaEvaluatorJudges:
                 json.dump(state_data, f)
 
         mock_results.save_state = mock_save_state
+        mock_results.succeeded_count = 2
+        mock_results.total_count = 2
         judge.evaluate_eval_data = Mock(return_value=mock_results)
 
         # Run judge to save results
@@ -751,6 +755,8 @@ class TestMetaEvaluatorJudges:
         judge = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
         mock_results = Mock(spec=JudgeResults)
         mock_results.save_state = Mock(side_effect=Exception("Save failed"))
+        mock_results.succeeded_count = 2
+        mock_results.total_count = 2
         judge.evaluate_eval_data = Mock(return_value=mock_results)
 
         # Run judge and expect ResultsSaveException

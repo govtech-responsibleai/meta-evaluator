@@ -3,6 +3,7 @@
 import json
 import re
 import pytest
+from datetime import datetime
 from unittest.mock import patch
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.meta_evaluator.base import INVALID_JSON_STRUCTURE_MSG
@@ -13,6 +14,7 @@ from meta_evaluator.meta_evaluator.exceptions import (
 )
 from meta_evaluator.llm_client.models import LLMClientEnum
 from meta_evaluator.data import EvalData, SampleEvalData
+from meta_evaluator.results import JudgeResultsBuilder, HumanAnnotationResultsBuilder
 from tests.conftest import create_mock_openai_client
 
 
@@ -924,3 +926,259 @@ class TestMetaEvaluatorBase:
                     load_data=True,
                     openai_api_key="test-api-key",
                 )
+
+
+class TestMetaEvaluatorResultsLoading:
+    """Test suite for MetaEvaluator results loading methods."""
+
+    @pytest.fixture
+    def completed_judge_results(self):
+        """Fixture for creating completed JudgeResults.
+
+        Returns:
+            JudgeResults: A completed JudgeResults instance for testing.
+        """
+        builder = JudgeResultsBuilder(
+            run_id="test_run",
+            judge_id="test_judge",
+            llm_client_enum=LLMClientEnum.OPENAI,
+            model_used="gpt-4",
+            task_schemas={"sentiment": ["positive", "negative"]},
+            expected_ids=["id1"],
+        )
+        builder.create_success_row(
+            sample_example_id="test_1",
+            original_id="id1",
+            outcomes={"sentiment": "positive"},
+            llm_raw_response_content="positive",
+            llm_prompt_tokens=10,
+            llm_completion_tokens=5,
+            llm_total_tokens=15,
+            llm_call_duration_seconds=1.0,
+        )
+        return builder.complete()
+
+    @pytest.fixture
+    def completed_human_results(self):
+        """Fixture for creating completed HumanAnnotationResults.
+
+        Returns:
+            HumanAnnotationResults: A completed HumanAnnotationResults instance for testing.
+        """
+        builder = HumanAnnotationResultsBuilder(
+            run_id="test_annotation_run",
+            annotator_id="test_annotator",
+            task_schemas={"accuracy": ["accurate", "inaccurate"]},
+            expected_ids=["id1"],
+        )
+        builder.create_success_row(
+            sample_example_id="test_1",
+            original_id="id1",
+            outcomes={"accuracy": "accurate"},
+            annotation_timestamp=datetime.now(),
+        )
+        return builder.complete()
+
+    # === Judge Results Loading Tests ===
+
+    def test_load_all_judge_results_empty_directory(self, meta_evaluator):
+        """Test loading all judge results when results directory is empty."""
+        meta_evaluator.paths.results.mkdir(parents=True, exist_ok=True)
+        results = meta_evaluator.load_all_judge_results()
+        assert results == {}
+
+    def test_load_all_judge_results_no_directory(self, meta_evaluator):
+        """Test loading all judge results when results directory doesn't exist."""
+        import shutil
+
+        if meta_evaluator.paths.results.exists():
+            shutil.rmtree(meta_evaluator.paths.results)
+        results = meta_evaluator.load_all_judge_results()
+        assert results == {}
+
+    def test_load_all_judge_results_absolute_directory(
+        self, tmp_path, completed_judge_results
+    ):
+        """Test loading judge results with absolute project directory."""
+        project_dir = str(tmp_path / "abs_project")
+        meta_evaluator = MetaEvaluator(project_dir=project_dir)
+
+        state_file = meta_evaluator.paths.results / "test_judge_state.json"
+        completed_judge_results.save_state(str(state_file), data_format="json")
+
+        results = meta_evaluator.load_all_judge_results()
+        assert len(results) == 1
+        assert "test_run" in results
+        assert results["test_run"].judge_id == "test_judge"
+
+    def test_load_all_judge_results_relative_directory(
+        self, tmp_path, completed_judge_results
+    ):
+        """Test loading judge results with relative project directory."""
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(str(tmp_path))
+            project_dir = "./rel_project"
+            meta_evaluator = MetaEvaluator(project_dir=project_dir)
+
+            state_file = meta_evaluator.paths.results / "test_judge_state.json"
+            completed_judge_results.save_state(str(state_file), data_format="json")
+
+            results = meta_evaluator.load_all_judge_results()
+            assert len(results) == 1
+            assert "test_run" in results
+            assert results["test_run"].judge_id == "test_judge"
+        finally:
+            os.chdir(original_cwd)
+
+    def test_load_all_judge_results_multiple_files(self, meta_evaluator):
+        """Test loading all judge results with multiple valid files."""
+        for i, judge_id in enumerate(["judge_1", "judge_2"]):
+            builder = JudgeResultsBuilder(
+                run_id=f"test_run_{i}",
+                judge_id=judge_id,
+                llm_client_enum=LLMClientEnum.OPENAI,
+                model_used="gpt-4",
+                task_schemas={"sentiment": ["positive", "negative"]},
+                expected_ids=[f"id{i}"],
+            )
+            builder.create_success_row(
+                sample_example_id=f"test_{i}",
+                original_id=f"id{i}",
+                outcomes={"sentiment": "positive"},
+                llm_raw_response_content="positive",
+                llm_prompt_tokens=10,
+                llm_completion_tokens=5,
+                llm_total_tokens=15,
+                llm_call_duration_seconds=1.0,
+            )
+            judge_results = builder.complete()
+            state_file = meta_evaluator.paths.results / f"test_{judge_id}_state.json"
+            judge_results.save_state(str(state_file))
+
+        results = meta_evaluator.load_all_judge_results()
+        assert len(results) == 2
+        assert "test_run_0" in results
+        assert "test_run_1" in results
+        assert results["test_run_0"].judge_id == "judge_1"
+        assert results["test_run_1"].judge_id == "judge_2"
+
+    def test_load_all_judge_results_invalid_files(
+        self, meta_evaluator, completed_judge_results
+    ):
+        """Test loading all judge results with some invalid files that should be skipped."""
+        valid_state_file = meta_evaluator.paths.results / "valid_judge_state.json"
+        completed_judge_results.save_state(str(valid_state_file))
+
+        # Create an invalid state file in results directory
+        invalid_state_file = meta_evaluator.paths.results / "invalid_state.json"
+        invalid_state_file.write_text("{ invalid json }")
+
+        results = meta_evaluator.load_all_judge_results()
+        assert len(results) == 1
+        assert "test_run" in results
+        assert results["test_run"].judge_id == "test_judge"
+
+    # === Human Results Loading Tests ===
+
+    def test_load_all_human_results_empty_directory(self, meta_evaluator):
+        """Test loading all human results when annotations directory is empty."""
+        meta_evaluator.paths.annotations.mkdir(parents=True, exist_ok=True)
+        results = meta_evaluator.load_all_human_results()
+        assert results == {}
+
+    def test_load_all_human_results_no_directory(self, meta_evaluator):
+        """Test loading all human results when annotations directory doesn't exist."""
+        import shutil
+
+        if meta_evaluator.paths.annotations.exists():
+            shutil.rmtree(meta_evaluator.paths.annotations)
+        results = meta_evaluator.load_all_human_results()
+        assert results == {}
+
+    def test_load_all_human_results_absolute_directory(
+        self, tmp_path, completed_human_results
+    ):
+        """Test loading human results with absolute project directory."""
+        project_dir = str(tmp_path / "abs_project")
+        meta_evaluator = MetaEvaluator(project_dir=project_dir)
+
+        state_file = meta_evaluator.paths.annotations / "test_annotator_metadata.json"
+        completed_human_results.save_state(str(state_file))
+
+        results = meta_evaluator.load_all_human_results()
+        assert len(results) == 1
+        assert "test_annotation_run" in results
+        assert results["test_annotation_run"].annotator_id == "test_annotator"
+
+    def test_load_all_human_results_relative_directory(
+        self, tmp_path, completed_human_results
+    ):
+        """Test loading human results with relative project directory."""
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(str(tmp_path))
+            project_dir = "./rel_project"
+            meta_evaluator = MetaEvaluator(project_dir=project_dir)
+
+            state_file = (
+                meta_evaluator.paths.annotations / "test_annotator_metadata.json"
+            )
+            completed_human_results.save_state(str(state_file))
+
+            results = meta_evaluator.load_all_human_results()
+            assert len(results) == 1
+            assert "test_annotation_run" in results
+            assert results["test_annotation_run"].annotator_id == "test_annotator"
+        finally:
+            os.chdir(original_cwd)
+
+    def test_load_all_human_results_multiple_files(self, meta_evaluator):
+        """Test loading all human results with multiple valid files."""
+        for i, annotator_id in enumerate(["annotator_1", "annotator_2"]):
+            builder = HumanAnnotationResultsBuilder(
+                run_id=f"test_annotation_run_{i}",
+                annotator_id=annotator_id,
+                task_schemas={"accuracy": ["accurate", "inaccurate"]},
+                expected_ids=[f"id{i}"],
+            )
+            builder.create_success_row(
+                sample_example_id=f"test_{i}",
+                original_id=f"id{i}",
+                outcomes={"accuracy": "accurate"},
+                annotation_timestamp=datetime.now(),
+            )
+            human_results = builder.complete()
+            state_file = (
+                meta_evaluator.paths.annotations / f"test_{annotator_id}_metadata.json"
+            )
+            human_results.save_state(str(state_file))
+
+        results = meta_evaluator.load_all_human_results()
+        assert len(results) == 2
+        assert "test_annotation_run_0" in results
+        assert "test_annotation_run_1" in results
+        assert results["test_annotation_run_0"].annotator_id == "annotator_1"
+        assert results["test_annotation_run_1"].annotator_id == "annotator_2"
+
+    def test_load_all_human_results_invalid_files(
+        self, meta_evaluator, completed_human_results
+    ):
+        """Test loading all human results with some invalid files that should be skipped."""
+        valid_state_file = (
+            meta_evaluator.paths.annotations / "valid_annotator_metadata.json"
+        )
+        completed_human_results.save_state(str(valid_state_file))
+
+        # Create an invalid metadata file
+        invalid_state_file = meta_evaluator.paths.annotations / "invalid_metadata.json"
+        invalid_state_file.write_text("{ invalid json }")
+
+        results = meta_evaluator.load_all_human_results()
+        assert len(results) == 1
+        assert "test_annotation_run" in results
+        assert results["test_annotation_run"].annotator_id == "test_annotator"

@@ -1,5 +1,6 @@
 """Client management functionality for MetaEvaluator."""
 
+import logging
 import os
 from typing import Optional
 
@@ -88,6 +89,9 @@ class ClientsMixin:
         # Add to registry
         self.client_registry[LLMClientEnum.OPENAI] = client
 
+        logger = logging.getLogger(__name__)
+        logger.info(f"Added OpenAI client with model '{final_default_model}'")
+
     def add_azure_openai(
         self,
         api_key: Optional[str] = None,
@@ -160,6 +164,9 @@ class ClientsMixin:
 
         # Add to registry
         self.client_registry[LLMClientEnum.AZURE_OPENAI] = client
+
+        logger = logging.getLogger(__name__)
+        logger.info(f"Added Azure OpenAI client with model '{final_default_model}'")
 
     def get_client(self, client_type: LLMClientEnum) -> LLMClient:
         """Get a client from the registry by type.

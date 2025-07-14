@@ -1,5 +1,6 @@
 """Judge management functionality for MetaEvaluator."""
 
+import logging
 import yaml
 from pathlib import Path
 from typing import Optional, Union, Literal, TYPE_CHECKING
@@ -94,6 +95,11 @@ class JudgesMixin:
         )
 
         self.judge_registry[judge_id] = judge
+
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"Added judge '{judge_id}' using {llm_client_enum.value} client with model '{model}'"
+        )
 
     def get_judge(self, judge_id: str) -> Judge:
         """Get a judge from the registry by ID.
@@ -340,6 +346,11 @@ class JudgesMixin:
         # Ensure results directory exists
         self.paths.ensure_directories()
 
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"Starting judge evaluation run '{run_id}' with {len(judges_to_run)} judge(s): {', '.join(judges_to_run)}"
+        )
+
         # Run each judge and collect results
         results = {}
 
@@ -355,12 +366,16 @@ class JudgesMixin:
 
             # Run the evaluation
             try:
+                logger.info(f"Running evaluation for judge '{judge_id}'...")
                 judge_results = judge.evaluate_eval_data(
                     eval_data=self.data,
                     llm_client=llm_client,
                     run_id=f"{run_id}_{judge_id}",
                 )
                 results[judge_id] = judge_results
+                logger.info(
+                    f"Judge '{judge_id}' completed: {judge_results.succeeded_count}/{judge_results.total_count} successful evaluations"
+                )
             except Exception as e:
                 raise JudgeExecutionException(judge_id, str(e))
 
@@ -373,9 +388,15 @@ class JudgesMixin:
                         run_id=run_id,
                         results_format=results_format,
                     )
+                    logger.info(
+                        f"Saved results for judge '{judge_id}' to results directory"
+                    )
                 except Exception as e:
                     raise ResultsSaveException(judge_id, run_id, str(e))
 
+        logger.info(
+            f"Judge evaluation run '{run_id}' completed successfully with {len(results)} judge(s)"
+        )
         return results
 
     def _save_judge_results(
