@@ -56,7 +56,7 @@ class StreamlitAnnotator:
                     f"Cannot create annotations directory ({e})", self.annotations_dir
                 )
 
-    def display_header(self, current_row_idx: int, total_samples: int) -> None:
+    def display_top_header(self, current_row_idx: int, total_samples: int) -> None:
         """Display the header section with sample number and progress."""
         col1, col2 = st.columns([0.5, 0.5], vertical_alignment="center")
         with col1:
@@ -67,13 +67,9 @@ class StreamlitAnnotator:
                 unsafe_allow_html=True,
             )
 
-    def display_h4_header(self, text: str) -> None:
-        """Display an h4 header with the given text."""
-        st.markdown(f"<h4>{text}</h4>", unsafe_allow_html=True)
-
-    def display_h5_header(self, text: str) -> None:
-        """Display an h5 header with the given text."""
-        st.markdown(f"<h5>{text}</h5>", unsafe_allow_html=True)
+    def display_subheader(self, text: str, level: int = 3) -> None:
+        """Display a header with the given text."""
+        st.markdown(f"<h{level}>{text}</h{level}>", unsafe_allow_html=True)
 
     def display_columns_to_evaluate(
         self,
@@ -256,7 +252,7 @@ class StreamlitAnnotator:
 
             # Show success information
             st.success("✅ Export completed successfully!")
-            self.display_h5_header("Export Summary:")
+            self.display_subheader("Export Summary:", level=5)
             st.write(f"> **Run ID:** {run_id}")
             st.write(f"> **Annotator:** {annotator_id}")
             st.write(
@@ -264,7 +260,7 @@ class StreamlitAnnotator:
             )
 
             # Show task completion rates
-            self.display_h5_header("Task Completion Rates:")
+            self.display_subheader("Task Completion Rates:", level=5)
             for task_name in results.task_schemas.keys():
                 success_rate = results.get_task_success_rate(task_name)
                 st.progress(
@@ -272,7 +268,7 @@ class StreamlitAnnotator:
                 )
 
             # Provide next steps
-            self.display_h5_header("Next Steps:")
+            self.display_subheader("Next Steps:", level=5)
             st.markdown(
                 """
             - Your annotations have been saved successfully
@@ -297,7 +293,7 @@ class StreamlitAnnotator:
         if self.session_manager.annotated_count != total_samples:
             return
 
-        self.display_h5_header("All done here, export your annotations:")
+        self.display_subheader("All done here, export your annotations:", level=5)
 
         # Validate name
         if not self.annotator_name or not self.annotator_name.strip():
@@ -333,12 +329,12 @@ class StreamlitAnnotator:
 
                 current_row = self.df.row(self.session_manager.current_row)
 
-                self.display_header(
+                self.display_top_header(
                     current_row_idx=self.session_manager.current_row,
                     total_samples=len(self.df),
                 )
                 st.markdown("---")
-                self.display_h4_header(text=self.annotation_prompt)
+                self.display_subheader(text=self.annotation_prompt, level=4)
                 self.display_columns_to_evaluate(
                     col_type="prompt", current_row=current_row
                 )
@@ -346,8 +342,7 @@ class StreamlitAnnotator:
                     col_type="response", current_row=current_row
                 )
                 st.markdown("---")
-
-                self.display_h5_header(text="Your response:")
+                self.display_subheader(text="Your response:", level=5)
                 self.handle_annotation(current_row=current_row)
 
                 st.markdown("---")

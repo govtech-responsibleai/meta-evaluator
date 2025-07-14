@@ -22,7 +22,7 @@ from meta_evaluator.annotator.interface.streamlit_session_manager import (
     generate_run_id,
     generate_annotator_id,
 )
-from meta_evaluator.annotator.results import (
+from meta_evaluator.results import (
     HumanAnnotationResultsBuilder,
     HumanAnnotationResults,
 )

@@ -6,7 +6,7 @@ from typing import cast
 
 from meta_evaluator.judge.judge import Judge
 from meta_evaluator.judge.exceptions import IncorrectClientError
-from meta_evaluator.judge.models import JudgeResultsBuilder, JudgeResults
+from meta_evaluator.results import JudgeResultsBuilder, JudgeResults
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.llm_client import LLMClientEnum, LLMClient
 from meta_evaluator.llm_client.models import (
@@ -1040,8 +1040,8 @@ class TestJudge:
             )
 
             # Verify config was created with is_sampled_run=True
-            config_call = mock_builder_class.call_args[0][0]
-            assert config_call.is_sampled_run is True
+            call_kwargs = mock_builder_class.call_args[1]
+            assert call_kwargs["is_sampled_run"] is True
             assert result == mock_results
 
     def test_evaluate_eval_data_no_prompt_columns(
