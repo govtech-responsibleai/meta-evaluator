@@ -20,11 +20,14 @@ from ..llm_client.serialization import (
     AzureOpenAISerializedState,
 )
 from ..results import JudgeResults, HumanAnnotationResults
+from ..annotator.launcher import StreamlitLauncher
 from .exceptions import (
     DataAlreadyExistsException,
     EvalTaskAlreadyExistsException,
     DataFilenameExtensionMismatchException,
     MissingConfigurationException,
+    EvalTaskNotSetException,
+    EvalDataNotSetException,
 )
 from .clients import ClientsMixin
 from .judge import JudgesMixin
@@ -641,3 +644,44 @@ class MetaEvaluator(ClientsMixin, JudgesMixin):
                 continue
 
         return results
+
+    def launch_annotator(
+        self,
+        port: Optional[int] = None,
+        use_ngrok: bool = False,
+        traffic_policy_file: Optional[str] = None,
+    ) -> None:
+        """Launch the Streamlit annotator interface.
+
+        This method launches the Streamlit annotation interface using the data and task
+        that have been added to the MetaEvaluator. The annotations will be saved to
+        the project's annotations directory.
+
+        Args:
+            port: Optional port number for Streamlit server. If None, uses default Streamlit port.
+            use_ngrok: Whether to use ngrok to expose the Streamlit interface to the internet. Defaults to False.
+            traffic_policy_file: Optional path to an ngrok traffic policy file for advanced
+                configuration. See https://ngrok.com/docs/traffic-policy/ for details.
+                Only used when use_ngrok=True.
+
+        Raises:
+            EvalTaskNotSetException: If the evaluation task is not set.
+            EvalDataNotSetException: If the evaluation data is not set.
+        """
+        # Validate prerequisites
+        if self.eval_task is None:
+            raise EvalTaskNotSetException()
+
+        if self.data is None:
+            raise EvalDataNotSetException()
+
+        # Create launcher with data and task from MetaEvaluator
+        launcher = StreamlitLauncher(
+            eval_data=self.data,
+            eval_task=self.eval_task,
+            annotations_dir=str(self.paths.annotations),
+            port=port,
+        )
+
+        # Launch the interface
+        launcher.launch(use_ngrok=use_ngrok, traffic_policy_file=traffic_policy_file)

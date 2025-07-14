@@ -11,6 +11,8 @@ from meta_evaluator.meta_evaluator.exceptions import (
     DataAlreadyExistsException,
     DataFilenameExtensionMismatchException,
     EvalTaskAlreadyExistsException,
+    EvalDataNotSetException,
+    EvalTaskNotSetException,
 )
 from meta_evaluator.llm_client.models import LLMClientEnum
 from meta_evaluator.data import EvalData, SampleEvalData
@@ -1182,3 +1184,47 @@ class TestMetaEvaluatorResultsLoading:
         assert len(results) == 1
         assert "test_annotation_run" in results
         assert results["test_annotation_run"].annotator_id == "test_annotator"
+
+
+class TestMetaEvaluatorAnnotator:
+    """Test suite for MetaEvaluator annotator methods."""
+
+    # === launch_annotator() Method Tests ===
+
+    def test_launch_annotator_no_data(self, meta_evaluator, basic_eval_task):
+        """Test that launch_annotator raises ValueError when no data is set."""
+        meta_evaluator.add_eval_task(basic_eval_task)
+
+        with pytest.raises(EvalDataNotSetException):
+            meta_evaluator.launch_annotator()
+
+    def test_launch_annotator_no_eval_task(self, meta_evaluator, sample_eval_data):
+        """Test that launch_annotator raises ValueError when no eval_task is set."""
+        meta_evaluator.add_data(sample_eval_data)
+
+        with pytest.raises(EvalTaskNotSetException):
+            meta_evaluator.launch_annotator()
+
+    @patch("meta_evaluator.meta_evaluator.base.StreamlitLauncher")
+    def test_launch_annotator_called(
+        self, mock_launcher_class, meta_evaluator, sample_eval_data, basic_eval_task
+    ):
+        """Test that launch_annotator calls the StreamlitLauncher with the correct arguments."""
+        # Setup
+        meta_evaluator.add_data(sample_eval_data)
+        meta_evaluator.add_eval_task(basic_eval_task)
+        mock_launcher = mock_launcher_class.return_value
+
+        # Execute
+        meta_evaluator.launch_annotator()
+
+        # Verify
+        mock_launcher_class.assert_called_once_with(
+            eval_data=sample_eval_data,
+            eval_task=basic_eval_task,
+            annotations_dir=str(meta_evaluator.paths.annotations),
+            port=None,
+        )
+        mock_launcher.launch.assert_called_once_with(
+            use_ngrok=False, traffic_policy_file=None
+        )
