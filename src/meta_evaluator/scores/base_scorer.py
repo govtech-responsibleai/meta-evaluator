@@ -1,0 +1,67 @@
+"""Base classes for scoring functionality."""
+
+from abc import ABC, abstractmethod
+from typing import List, Optional
+
+import polars as pl
+
+from .base_scoring_result import BaseScoringResult
+
+
+class BaseScorer(ABC):
+    """Base class for all scorers."""
+
+    def __init__(self, scorer_name: str):
+        """Initialize the scorer.
+
+        Args:
+            scorer_name: Name identifier for this scorer
+        """
+        self.scorer_name = scorer_name
+
+    @abstractmethod
+    def can_score_task(self, task_schema: Optional[List[str]]) -> bool:
+        """Check if this scorer can handle a task with the given schema.
+
+        Args:
+            task_schema: List of allowed outcomes (None for free-form text)
+
+        Returns:
+            bool: True if this scorer can handle the task
+        """
+        pass
+
+    @abstractmethod
+    def compute_score(
+        self,
+        judge_id: str,
+        consolidated_judge_df: pl.DataFrame,
+        consolidated_human_df: pl.DataFrame,
+        task_names: List[str],
+        task_schemas: dict,
+    ) -> BaseScoringResult:
+        """Compute the score for a single judge vs many humans.
+
+        Args:
+            judge_id: ID of the judge being scored
+            consolidated_judge_df: DataFrame with single judge outcomes (columns: original_id, judge_id, task_name, task_value)
+            consolidated_human_df: DataFrame with human outcomes (columns: original_id, annotator_id, task_name, task_value)
+            task_names: List of task names to score
+            task_schemas: Dictionary mapping task names to their schemas
+
+        Returns:
+            BaseScoringResult: The scoring result for this judge
+        """
+        pass
+
+    @classmethod
+    def aggregate_results(
+        cls, results: List[BaseScoringResult], scores_dir: str
+    ) -> None:
+        """Generate aggregate plots from scoring results.
+
+        Args:
+            results: List of scoring results
+            scores_dir: Directory to save aggregate plots
+        """
+        pass

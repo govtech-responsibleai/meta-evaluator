@@ -19,7 +19,6 @@ from ..llm_client.serialization import (
     OpenAISerializedState,
     AzureOpenAISerializedState,
 )
-from ..results import JudgeResults, HumanAnnotationResults
 from ..annotator.launcher import StreamlitLauncher
 from .exceptions import (
     DataAlreadyExistsException,
@@ -31,6 +30,7 @@ from .exceptions import (
 )
 from .clients import ClientsMixin
 from .judge import JudgesMixin
+from .scoring import ScoringMixin
 from .serialization import MetaEvaluatorState
 
 
@@ -56,6 +56,7 @@ class Paths:
         self.data = self.project / "data"
         self.results = self.project / "results"
         self.annotations = self.project / "annotations"
+        self.scores = self.project / "scores"
 
     def ensure_directories(self) -> None:
         """Create all project directories."""
@@ -64,11 +65,12 @@ class Paths:
             self.data,
             self.results,
             self.annotations,
+            self.scores,
         ]:
             path.mkdir(parents=True, exist_ok=True)
 
 
-class MetaEvaluator(ClientsMixin, JudgesMixin):
+class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
     """Main class for managing evaluation workflows with LLM clients, data, and evaluation tasks.
 
     The MetaEvaluator provides a unified interface for:
@@ -76,6 +78,8 @@ class MetaEvaluator(ClientsMixin, JudgesMixin):
     - Loading and managing evaluation datasets
     - Configuring evaluation tasks with support for both predefined outcomes and free form text outputs
     - Managing judges for evaluation
+    - Loading judge and human annotation results
+    - Comparing judge and human results using various scoring metrics
     - Serializing and deserializing complete evaluation states
     - Supporting both structured and XML-based evaluation methods
     """
@@ -567,83 +571,6 @@ class MetaEvaluator(ClientsMixin, JudgesMixin):
 
         # Add to evaluator
         self.add_data(eval_data, overwrite=True)
-
-    # ===== RESULTS LOADING METHODS =====
-
-    def load_all_judge_results(self):
-        """Load all judge results from the project's results directory.
-
-        Searches for all *_state.json files in the results directory and attempts
-        to load them as judge results. Files that fail to load are skipped with
-        a warning logged.
-
-        Returns:
-            dict[str, JudgeResults]: Dictionary mapping run_ids to their loaded JudgeResults objects.
-        """
-        logger = logging.getLogger(__name__)
-        results = {}
-
-        # Find all state files in results directory
-        if not self.paths.results.exists():
-            logger.warning(f"Results directory does not exist: {self.paths.results}")
-            return results
-
-        state_files = list(self.paths.results.glob("*_state.json"))
-
-        for state_file in state_files:
-            try:
-                # Load directly using absolute path from glob
-                judge_results = JudgeResults.load_state(str(state_file))
-                # Use run_id as key
-                key = judge_results.run_id
-                results[key] = judge_results
-                logger.info(f"Loaded judge results from {state_file.name}")
-            except Exception as e:
-                logger.warning(
-                    f"Failed to load judge results from {state_file.name}: {e}"
-                )
-                continue
-
-        return results
-
-    def load_all_human_results(self):
-        """Load all human annotation results from the project's annotations directory.
-
-        Searches for all *_metadata.json files in the annotations directory and attempts
-        to load them as human annotation results. Files that fail to load are skipped
-        with a warning logged.
-
-        Returns:
-            dict[str, HumanAnnotationResults]: Dictionary mapping run_ids to their loaded HumanAnnotationResults objects.
-        """
-        logger = logging.getLogger(__name__)
-        results = {}
-
-        # Find all metadata files in annotations directory
-        if not self.paths.annotations.exists():
-            logger.warning(
-                f"Annotations directory does not exist: {self.paths.annotations}"
-            )
-            return results
-
-        metadata_files = list(self.paths.annotations.glob("*_metadata.json"))
-
-        for metadata_file in metadata_files:
-            try:
-                human_results = HumanAnnotationResults.load_state(str(metadata_file))
-                # Use run_id as key
-                key = human_results.run_id
-                results[key] = human_results
-                logger.info(
-                    f"Loaded human annotation results from {metadata_file.name}"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Failed to load human annotation results from {metadata_file.name}: {e}"
-                )
-                continue
-
-        return results
 
     def launch_annotator(
         self,
