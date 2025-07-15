@@ -15,6 +15,7 @@ from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
 from tests.conftest import create_mock_openai_client, create_mock_azure_openai_client
 
 
+@pytest.mark.integration
 class TestMetaEvaluatorClients:
     """Test suite for MetaEvaluator client management functionality."""
 

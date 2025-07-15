@@ -18,6 +18,7 @@ from meta_evaluator.data import EvalData, SampleEvalData
 from tests.conftest import create_mock_openai_client
 
 
+@pytest.mark.integration
 class TestMetaEvaluatorBase:
     """Test suite for MetaEvaluator base functionality (initialization, data, tasks, serialization)."""
 
