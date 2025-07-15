@@ -125,12 +125,57 @@ class CohensKappaScorer(BaseScorer):
         Returns:
             float: The Cohen's kappa score.
         """
-        # Data is already aligned by original_id, so we can directly extract labels
-        # Use task_value column instead of task_name column
-        judge_labels = consolidated_judge_df["task_value"].to_list()
-        human_labels = consolidated_human_df["task_value"].to_list()
+        # Sort both DataFrames by original_id to ensure proper alignment
+        judge_df_sorted = consolidated_judge_df.sort("original_id")
+        human_df_sorted = consolidated_human_df.sort("original_id")
 
-        # Filter out None values
+        # Handle multiple human annotators per original_id by using majority vote
+        # Group human annotations by original_id and compute majority vote
+        human_aggregated = (
+            human_df_sorted.group_by("original_id")
+            .agg(
+                [
+                    pl.col("task_value")
+                    .mode()
+                    .first()
+                    .alias("task_value")  # Mode (majority vote)
+                ]
+            )
+            .sort("original_id")
+        )
+
+        # Judge data should have one entry per original_id, but group just in case
+        judge_aggregated = (
+            judge_df_sorted.group_by("original_id")
+            .agg(
+                [
+                    pl.col("task_value").first().alias("task_value")  # Take first entry
+                ]
+            )
+            .sort("original_id")
+        )
+
+        # Find common original_ids between judge and human data
+        judge_ids = set(judge_aggregated["original_id"].to_list())
+        human_ids = set(human_aggregated["original_id"].to_list())
+        common_ids = judge_ids & human_ids
+
+        if len(common_ids) < 2:
+            return 0.0
+
+        # Filter to common IDs and ensure same order
+        judge_final = judge_aggregated.filter(
+            pl.col("original_id").is_in(list(common_ids))
+        ).sort("original_id")
+        human_final = human_aggregated.filter(
+            pl.col("original_id").is_in(list(common_ids))
+        ).sort("original_id")
+
+        # Extract labels
+        judge_labels = judge_final["task_value"].to_list()
+        human_labels = human_final["task_value"].to_list()
+
+        # Filter out None values while maintaining alignment
         valid_pairs = [
             (j, h)
             for j, h in zip(judge_labels, human_labels)
