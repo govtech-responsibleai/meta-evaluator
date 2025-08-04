@@ -379,7 +379,7 @@ class TestTextSimilarityScorer:
         scores_dir = str(tmp_path)
 
         # Call aggregate_results
-        TextSimilarityScorer.aggregate_results(results, scores_dir)
+        text_similarity_scorer.aggregate_results(results, scores_dir)
 
         # Verify text_similarity directory was created
         text_similarity_dir = tmp_path / "text_similarity"
@@ -402,12 +402,14 @@ class TestTextSimilarityScorer:
             assert loaded_result.judge_id in ["judge_1", "judge_2"]
             assert isinstance(loaded_result.score, float)
 
-    def test_aggregate_results_handles_empty_list(self, tmp_path):
+    def test_aggregate_results_handles_empty_list(
+        self, text_similarity_scorer, tmp_path
+    ):
         """Test that aggregate_results handles empty results list gracefully."""
         scores_dir = str(tmp_path)
 
         # Should not crash with empty list
-        TextSimilarityScorer.aggregate_results([], scores_dir)
+        text_similarity_scorer.aggregate_results([], scores_dir)
 
         # Should not create directory
         text_similarity_dir = tmp_path / "text_similarity"

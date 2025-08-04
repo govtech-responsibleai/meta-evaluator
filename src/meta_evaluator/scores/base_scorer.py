@@ -1,5 +1,6 @@
 """Base classes for scoring functionality."""
 
+import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -58,9 +59,8 @@ class BaseScorer(ABC):
         """
         pass
 
-    @classmethod
     def aggregate_results(
-        cls, results: List[BaseScoringResult], scores_dir: str
+        self, results: List[BaseScoringResult], scores_dir: str
     ) -> None:
         """Generate aggregate plots from scoring results.
 
@@ -69,3 +69,22 @@ class BaseScorer(ABC):
             scores_dir: Directory to save aggregate plots
         """
         pass
+
+    def save_results(self, results: List[BaseScoringResult], output_dir: str) -> None:
+        """Save individual ScoringResult objects as JSON files.
+
+        This method provides common functionality for saving scoring results
+        to disk. Each result is saved as a separate JSON file with the naming
+        pattern: {judge_id}_{task_name}_result.json
+
+        Args:
+            results: List of scoring results to save
+            output_dir: Directory where the result files will be saved
+        """
+        for result in results:
+            # Create filename: judge_id_task_name_result.json
+            filename = f"{result.judge_id}_{result.task_name}_result.json"
+            file_path = os.path.join(output_dir, filename)
+
+            result.save_state(file_path)
+            print(f"Saved individual result to {file_path}")

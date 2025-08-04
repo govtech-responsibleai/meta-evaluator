@@ -170,9 +170,8 @@ class TextSimilarityScorer(BaseScorer):
         matcher = SequenceMatcher(None, text1, text2)
         return matcher.ratio()
 
-    @classmethod
     def aggregate_results(
-        cls, results: List[BaseScoringResult], scores_dir: str
+        self, results: List[BaseScoringResult], scores_dir: str
     ) -> None:
         """Generate aggregate plots and save individual results for text similarity scorer.
 
@@ -189,21 +188,8 @@ class TextSimilarityScorer(BaseScorer):
         os.makedirs(text_similarity_dir, exist_ok=True)
 
         # Save individual results
-        cls._save_results(results, text_similarity_dir)
+        self.save_results(results, text_similarity_dir)
 
         print(
             f"Generated text similarity results for {len(results)} judge(s) in {text_similarity_dir}"
         )
-
-    @classmethod
-    def _save_results(
-        cls, results: List[BaseScoringResult], text_similarity_dir: str
-    ) -> None:
-        """Save individual ScoringResult objects as JSON files."""
-        for result in results:
-            # Create filename: judge_id_task_name_result.json
-            filename = f"{result.judge_id}_{result.task_name}_result.json"
-            file_path = os.path.join(text_similarity_dir, filename)
-
-            result.save_state(file_path)
-            print(f"Saved individual result to {file_path}")

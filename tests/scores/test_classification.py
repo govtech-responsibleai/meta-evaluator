@@ -343,7 +343,7 @@ class TestAccuracyScorer:
         scores_dir = str(tmp_path)
 
         # Call aggregate_results
-        AccuracyScorer.aggregate_results(results, scores_dir)
+        accuracy_scorer.aggregate_results(results, scores_dir)
 
         # Verify accuracy directory was created
         accuracy_dir = tmp_path / "accuracy"
@@ -366,12 +366,12 @@ class TestAccuracyScorer:
             assert loaded_result.judge_id in ["judge_1", "judge_2"]
             assert isinstance(loaded_result.score, float)
 
-    def test_aggregate_results_handles_empty_list(self, tmp_path):
+    def test_aggregate_results_handles_empty_list(self, accuracy_scorer, tmp_path):
         """Test that aggregate_results handles empty results list gracefully."""
         scores_dir = str(tmp_path)
 
         # Should not crash with empty list
-        AccuracyScorer.aggregate_results([], scores_dir)
+        accuracy_scorer.aggregate_results([], scores_dir)
 
         # Should not create directory
         accuracy_dir = tmp_path / "accuracy"

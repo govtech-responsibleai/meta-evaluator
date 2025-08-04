@@ -360,7 +360,7 @@ class TestCohensKappaScorer:
         scores_dir = str(tmp_path)
 
         # Call aggregate_results
-        CohensKappaScorer.aggregate_results(results, scores_dir)
+        cohens_kappa_scorer.aggregate_results(results, scores_dir)
 
         # Verify cohens_kappa directory was created
         cohens_kappa_dir = tmp_path / "cohens_kappa"
@@ -383,12 +383,12 @@ class TestCohensKappaScorer:
             assert loaded_result.judge_id in ["judge_1", "judge_2"]
             assert isinstance(loaded_result.score, float)
 
-    def test_aggregate_results_handles_empty_list(self, tmp_path):
+    def test_aggregate_results_handles_empty_list(self, cohens_kappa_scorer, tmp_path):
         """Test that aggregate_results handles empty results list gracefully."""
         scores_dir = str(tmp_path)
 
         # Should not crash with empty list
-        CohensKappaScorer.aggregate_results([], scores_dir)
+        cohens_kappa_scorer.aggregate_results([], scores_dir)
 
         # Should not create directory
         cohens_kappa_dir = tmp_path / "cohens_kappa"
@@ -890,7 +890,7 @@ class TestAltTestScorer:
         scores_dir = str(tmp_path)
 
         # Call aggregate_results
-        AltTestScorer.aggregate_results(results, scores_dir)
+        alt_test_scorer.aggregate_results(results, scores_dir)
 
         # Check that alt_test directory was created
         alt_test_dir = tmp_path / "alt_test"
@@ -925,7 +925,7 @@ class TestAltTestScorer:
         scores_dir = str(tmp_path)
 
         # Should work with single judge too
-        AltTestScorer.aggregate_results([result], scores_dir)
+        alt_test_scorer.aggregate_results([result], scores_dir)
 
         # Check that plots were generated
         alt_test_dir = tmp_path / "alt_test"
@@ -969,7 +969,7 @@ class TestAltTestScorer:
         scores_dir = str(tmp_path)
 
         # Call aggregate_results
-        AltTestScorer.aggregate_results(results, scores_dir)
+        alt_test_scorer.aggregate_results(results, scores_dir)
 
         # Verify alt_test directory was created
         alt_test_dir = tmp_path / "alt_test"
@@ -996,12 +996,12 @@ class TestAltTestScorer:
             assert "advantage_probability" in loaded_result.metadata
             assert "scoring_function" in loaded_result.metadata
 
-    def test_aggregate_results_empty_list(self, tmp_path):
+    def test_aggregate_results_empty_list(self, alt_test_scorer, tmp_path):
         """Test that aggregate_results handles empty results list gracefully."""
         scores_dir = str(tmp_path)
 
         # Should not crash with empty list
-        AltTestScorer.aggregate_results([], scores_dir)
+        alt_test_scorer.aggregate_results([], scores_dir)
 
         # Should not create directory
         alt_test_dir = tmp_path / "alt_test"

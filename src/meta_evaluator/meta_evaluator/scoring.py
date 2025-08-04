@@ -302,7 +302,7 @@ class ScoringMixin:
                     f"Running aggregation for {scorer_name} scorer with {len(scorer_results)} results"
                 )
                 try:
-                    scorer.__class__.aggregate_results(scorer_results, scores_dir)
+                    scorer.aggregate_results(scorer_results, scores_dir)
                 except Exception as e:
                     self.logger.info(
                         f"Warning: Failed to run aggregation for {scorer_name}: {e}"

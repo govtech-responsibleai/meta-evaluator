@@ -199,9 +199,8 @@ class CohensKappaScorer(BaseScorer):
         # Compute Cohen's kappa
         return cohen_kappa_score(human_labels, judge_labels)
 
-    @classmethod
     def aggregate_results(
-        cls, results: List[BaseScoringResult], scores_dir: str
+        self, results: List[BaseScoringResult], scores_dir: str
     ) -> None:
         """Generate aggregate plots and save individual results for Cohen's kappa scorer.
 
@@ -218,21 +217,8 @@ class CohensKappaScorer(BaseScorer):
         os.makedirs(cohens_kappa_dir, exist_ok=True)
 
         # Save individual results
-        cls._save_results(results, cohens_kappa_dir)
+        self.save_results(results, cohens_kappa_dir)
 
         print(
             f"Generated Cohen's kappa results for {len(results)} judge(s) in {cohens_kappa_dir}"
         )
-
-    @classmethod
-    def _save_results(
-        cls, results: List[BaseScoringResult], cohens_kappa_dir: str
-    ) -> None:
-        """Save individual ScoringResult objects as JSON files."""
-        for result in results:
-            # Create filename: judge_id_task_name_result.json
-            filename = f"{result.judge_id}_{result.task_name}_result.json"
-            file_path = os.path.join(cohens_kappa_dir, filename)
-
-            result.save_state(file_path)
-            print(f"Saved individual result to {file_path}")

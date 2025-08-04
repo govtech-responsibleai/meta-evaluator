@@ -464,9 +464,8 @@ class AltTestScorer(BaseScorer):
 
         return winning_rate, advantage_prob, human_advantage_probs
 
-    @classmethod
     def aggregate_results(
-        cls, results: List[BaseScoringResult], scores_dir: str
+        self, results: List[BaseScoringResult], scores_dir: str
     ) -> None:
         """Generate aggregate plots from alt-test results.
 
@@ -486,39 +485,27 @@ class AltTestScorer(BaseScorer):
         scoring_function = results[0].metadata["scoring_function"]
 
         # Save individual ScoringResult objects as JSON files
-        cls._save_results(results, alt_test_dir)
+        self.save_results(results, alt_test_dir)
         print(
             f"Generated alt-test results for {len(results)} judge(s) in {alt_test_dir}"
         )
 
         # Generate the 3 aggregate plots using stored detailed results
-        cls._generate_aggregate_winning_rates_plot(
+        self.generate_aggregate_winning_rates_plot(
             results, alt_test_dir, scoring_function
         )
-        cls._generate_aggregate_advantage_probabilities_plot(
+        self.generate_aggregate_advantage_probabilities_plot(
             results, alt_test_dir, scoring_function
         )
-        cls._generate_aggregate_human_vs_llm_plot(results, alt_test_dir)
+        self.generate_aggregate_human_vs_llm_plot(results, alt_test_dir)
 
         judge_count = len(results)
         print(
             f"Generated alt-test aggregate plots for {judge_count} judge(s) in {alt_test_dir}"
         )
 
-    @classmethod
-    def _save_results(cls, results: List[BaseScoringResult], alt_test_dir: str) -> None:
-        """Save individual ScoringResult objects as JSON files."""
-        for result in results:
-            # Create filename: judge_id_task_name_result.json
-            filename = f"{result.judge_id}_{result.task_name}_result.json"
-            file_path = os.path.join(alt_test_dir, filename)
-
-            result.save_state(file_path)
-            print(f"Saved individual result to {file_path}")
-
-    @classmethod
-    def _generate_aggregate_winning_rates_plot(
-        cls, results: List[BaseScoringResult], alt_test_dir: str, scoring_function: str
+    def generate_aggregate_winning_rates_plot(
+        self, results: List[BaseScoringResult], alt_test_dir: str, scoring_function: str
     ) -> None:
         """Generate aggregate winning rates plot as line chart across epsilon values."""
         fig, ax = plt.subplots(figsize=(12, 6))
@@ -569,12 +556,11 @@ class AltTestScorer(BaseScorer):
 
         # Save plot
         save_path = os.path.join(alt_test_dir, "aggregate_winning_rates.png")
-        cls._save_plot(fig, save_path)
+        self.save_plot(fig, save_path)
         plt.close(fig)
 
-    @classmethod
-    def _generate_aggregate_advantage_probabilities_plot(
-        cls, results: List[BaseScoringResult], alt_test_dir: str, scoring_function: str
+    def generate_aggregate_advantage_probabilities_plot(
+        self, results: List[BaseScoringResult], alt_test_dir: str, scoring_function: str
     ) -> None:
         """Generate aggregate advantage probabilities plot for all judges."""
         fig, ax = plt.subplots(figsize=(12, 8))
@@ -618,12 +604,11 @@ class AltTestScorer(BaseScorer):
 
         # Save plot
         save_path = os.path.join(alt_test_dir, "aggregate_advantage_probabilities.png")
-        cls._save_plot(fig, save_path)
+        self.save_plot(fig, save_path)
         plt.close(fig)
 
-    @classmethod
-    def _generate_aggregate_human_vs_llm_plot(
-        cls, results: List[BaseScoringResult], alt_test_dir: str
+    def generate_aggregate_human_vs_llm_plot(
+        self, results: List[BaseScoringResult], alt_test_dir: str
     ) -> None:
         """Generate human vs LLM advantage probabilities plot - one chart per LLM."""
         num_llms = len(results)
@@ -698,11 +683,11 @@ class AltTestScorer(BaseScorer):
 
         # Save plot
         save_path = os.path.join(alt_test_dir, "aggregate_human_vs_llm_advantage.png")
-        cls._save_plot(fig, save_path)
+        self.save_plot(fig, save_path)
         plt.close(fig)
 
     @staticmethod
-    def _save_plot(fig, save_path: str):
+    def save_plot(fig, save_path: str):
         """Save a matplotlib figure."""
         fig.savefig(
             save_path, dpi=300, bbox_inches="tight", facecolor="white", edgecolor="none"

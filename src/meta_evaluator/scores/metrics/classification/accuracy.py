@@ -151,9 +151,8 @@ class AccuracyScorer(BaseScorer):
         else:
             return np.nan
 
-    @classmethod
     def aggregate_results(
-        cls, results: List[BaseScoringResult], scores_dir: str
+        self, results: List[BaseScoringResult], scores_dir: str
     ) -> None:
         """Generate aggregate plots and save individual results for accuracy scorer.
 
@@ -170,19 +169,8 @@ class AccuracyScorer(BaseScorer):
         os.makedirs(accuracy_dir, exist_ok=True)
 
         # Save individual results
-        cls._save_results(results, accuracy_dir)
+        self.save_results(results, accuracy_dir)
 
         print(
             f"Generated accuracy results for {len(results)} judge(s) in {accuracy_dir}"
         )
-
-    @classmethod
-    def _save_results(cls, results: List[BaseScoringResult], accuracy_dir: str) -> None:
-        """Save individual ScoringResult objects as JSON files."""
-        for result in results:
-            # Create filename: judge_id_task_name_result.json
-            filename = f"{result.judge_id}_{result.task_name}_result.json"
-            file_path = os.path.join(accuracy_dir, filename)
-
-            result.save_state(file_path)
-            print(f"Saved individual result to {file_path}")
