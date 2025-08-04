@@ -273,7 +273,7 @@ class AltTestScorer(BaseScorer):
             # TODO: Add a text similarity function
             return "accuracy"
         elif classification_tasks > 1:
-            # For multilabel classification (multiple classification tasks), use macro jaccard as requested
+            # For multilabel classification (multiple classification tasks), use macro jaccard
             return "jaccard_similarity"
         else:
             # For single classification tasks, use accuracy
@@ -382,9 +382,9 @@ class AltTestScorer(BaseScorer):
 
         # prepare sets - i_set has humans as keys, h_set has instances as keys
         i_set, h_set = {}, {}
-        for h, anns in humans_annotations.items():
-            i_set[h] = list(anns.keys())
-            for i, ann in anns.items():
+        for h, anns in sorted(humans_annotations.items()):
+            i_set[h] = sorted(list(anns.keys()))
+            for i, ann in sorted(anns.items()):
                 if i not in h_set:
                     h_set[i] = []
                 h_set[i].append(h)
@@ -392,20 +392,25 @@ class AltTestScorer(BaseScorer):
         # remove instances with less than min_humans_per_instance
         instances_to_keep = {
             i
-            for i in h_set
+            for i in sorted(h_set.keys())
             if len(h_set[i]) >= self.min_humans_per_instance and i in llm_annotations
         }
-        i_set = {h: [i for i in i_set[h] if i in instances_to_keep] for h in i_set}
-        h_set = {i: h_set[i] for i in h_set if i in instances_to_keep}
+        i_set = {
+            h: sorted([i for i in i_set[h] if i in instances_to_keep])
+            for h in sorted(i_set.keys())
+        }
+        h_set = {
+            i: sorted(h_set[i]) for i in sorted(h_set.keys()) if i in instances_to_keep
+        }
 
         # Save llm vs human advantage probability
         human_advantage_probs = {}
 
         p_values, advantage_probs, humans = [], [], []
-        for excluded_h in humans_annotations:
+        for excluded_h in sorted(humans_annotations.keys()):
             llm_indicators = []
             excluded_indicators = []
-            instances = [i for i in i_set[excluded_h] if i in llm_annotations]
+            instances = sorted([i for i in i_set[excluded_h] if i in llm_annotations])
             if len(instances) < self.min_instances_per_human:
                 print(
                     f"Skipping annotator {excluded_h} with only {len(instances)} instances < {self.min_instances_per_human}."
