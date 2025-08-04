@@ -94,6 +94,7 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
                 will be organized within this directory structure. If None, creates 'my_project' directory in current working directory.
         """
         super().__init__()
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.data: Optional[EvalData] = None
         self.eval_task: Optional[EvalTask] = None
 

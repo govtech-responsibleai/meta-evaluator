@@ -22,6 +22,10 @@ class ScoringMixin:
     data: Optional[EvalData]
     paths: "Paths"
 
+    def __init__(self, *args, **kwargs):
+        """Initialize scoring mixin."""
+        super().__init__(*args, **kwargs)
+
     # ===== RESULTS LOADING METHODS =====
 
     def load_all_judge_results(self) -> Dict[str, JudgeResults]:
@@ -34,12 +38,13 @@ class ScoringMixin:
         Returns:
             Dict[str, JudgeResults]: Dictionary mapping run_ids to their loaded JudgeResults objects.
         """
-        logger = logging.getLogger(__name__)
         results = {}
 
         # Find all state files in results directory
         if not self.paths.results.exists():  # type: ignore
-            logger.warning(f"Results directory does not exist: {self.paths.results}")  # type: ignore
+            self.logger.warning(
+                f"Results directory does not exist: {self.paths.results}"
+            )  # type: ignore
             return results
 
         state_files = list(self.paths.results.glob("*_state.json"))  # type: ignore
@@ -51,9 +56,9 @@ class ScoringMixin:
                 # Use run_id as key
                 key = judge_results.run_id
                 results[key] = judge_results
-                logger.info(f"Loaded judge results from {state_file.name}")
+                self.logger.info(f"Loaded judge results from {state_file.name}")
             except Exception as e:
-                logger.warning(
+                self.logger.warning(
                     f"Failed to load judge results from {state_file.name}: {e}"
                 )
                 continue
@@ -70,12 +75,12 @@ class ScoringMixin:
         Returns:
             Dict[str, HumanAnnotationResults]: Dictionary mapping run_ids to their loaded HumanAnnotationResults objects.
         """
-        logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(__name__)
         results = {}
 
         # Find all metadata files in annotations directory
         if not self.paths.annotations.exists():  # type: ignore
-            logger.warning(
+            self.logger.warning(
                 f"Annotations directory does not exist: {self.paths.annotations}"  # type: ignore
             )
             return results
@@ -88,11 +93,11 @@ class ScoringMixin:
                 # Use run_id as key
                 key = human_results.run_id
                 results[key] = human_results
-                logger.info(
+                self.logger.info(
                     f"Loaded human annotation results from {metadata_file.name}"
                 )
             except Exception as e:
-                logger.warning(
+                self.logger.warning(
                     f"Failed to load human annotation results from {metadata_file.name}: {e}"
                 )
                 continue
@@ -158,7 +163,7 @@ class ScoringMixin:
 
     def _find_common_ids(
         self, consolidated_judge_df: pl.DataFrame, consolidated_human_df: pl.DataFrame
-    ) -> set:
+    ) -> dict[str, set]:
         """Find original_ids that exist in both judge and human results.
 
         Returns:
@@ -166,7 +171,14 @@ class ScoringMixin:
         """
         judge_ids = set(consolidated_judge_df["original_id"].unique())
         human_ids = set(consolidated_human_df["original_id"].unique())
-        return judge_ids & human_ids  # Use set intersection operator
+        common_ids = judge_ids & human_ids  # Use set intersection operator
+        judge_only_ids = judge_ids - human_ids
+        human_only_ids = human_ids - judge_ids
+        return {
+            "common_ids": common_ids,
+            "judge_only_ids": judge_only_ids,
+            "human_only_ids": human_only_ids,
+        }
 
     def _align_results_by_id(
         self,
@@ -202,8 +214,17 @@ class ScoringMixin:
         consolidated_judge_df = pl.concat(judge_outcomes)
         consolidated_human_df = pl.concat(human_outcomes)
 
-        # Find and filter to common IDs
-        common_ids = self._find_common_ids(consolidated_judge_df, consolidated_human_df)
+        # Find common IDs and differences for sanity check
+        id_sets = self._find_common_ids(consolidated_judge_df, consolidated_human_df)
+        common_ids = id_sets["common_ids"]
+        judge_only_ids = id_sets["judge_only_ids"]
+        human_only_ids = id_sets["human_only_ids"]
+
+        # Log sanity check information
+        self.logger.info(f"Judge IDs not found in human: {len(judge_only_ids)}")
+        self.logger.info(f"Human IDs not found in judge: {len(human_only_ids)}")
+        self.logger.info(f"Common IDs for alignment: {len(common_ids)}")
+
         if not common_ids:
             raise ValueError("No aligned judge-human data found")
 
@@ -277,15 +298,17 @@ class ScoringMixin:
             # Check if scorer has aggregation capability
             scorer_results = results.get(scorer_name, [])
             if scorer_results:
-                print(
+                self.logger.info(
                     f"Running aggregation for {scorer_name} scorer with {len(scorer_results)} results"
                 )
                 try:
                     scorer.__class__.aggregate_results(scorer_results, scores_dir)
                 except Exception as e:
-                    print(f"Warning: Failed to run aggregation for {scorer_name}: {e}")
+                    self.logger.info(
+                        f"Warning: Failed to run aggregation for {scorer_name}: {e}"
+                    )
             else:
-                print(f"Scorer {scorer_name} does not support aggregation")
+                self.logger.info(f"Scorer {scorer_name} does not support aggregation")
 
             processed_scorers.add(scorer_name)
 

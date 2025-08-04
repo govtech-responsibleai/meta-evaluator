@@ -1,6 +1,7 @@
 """Tests for ScoringMixin data processing functionality."""
 
 from datetime import datetime
+import logging
 import pytest
 from unittest.mock import Mock
 import polars as pl
@@ -32,6 +33,7 @@ class MockMetaEvaluator(ScoringMixin):
         self.paths.results = Mock()
         self.paths.annotations = Mock()
         self.paths.scores = scores_dir or Mock()
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
 
 @pytest.fixture
@@ -254,11 +256,13 @@ class TestDataProcessing:
         consolidated_judge_df = pl.DataFrame({"original_id": ["1", "2", "3", "4"]})
         consolidated_human_df = pl.DataFrame({"original_id": ["2", "3", "4", "5"]})
 
-        common_ids = mock_evaluator._find_common_ids(
+        id_sets = mock_evaluator._find_common_ids(
             consolidated_judge_df, consolidated_human_df
         )
 
-        assert common_ids == {"2", "3", "4"}
+        assert id_sets["common_ids"] == {"2", "3", "4"}
+        assert id_sets["judge_only_ids"] == {"1"}
+        assert id_sets["human_only_ids"] == {"5"}
 
     def test_align_results_by_id(
         self, mock_evaluator, judge_results_dict, human_results_dict
