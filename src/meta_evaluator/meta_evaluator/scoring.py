@@ -282,7 +282,6 @@ class ScoringMixin:
                 )
                 try:
                     scorer.__class__.aggregate_results(scorer_results, scores_dir)
-                    processed_scorers.add(scorer_name)
                 except Exception as e:
                     print(f"Warning: Failed to run aggregation for {scorer_name}: {e}")
             else:
