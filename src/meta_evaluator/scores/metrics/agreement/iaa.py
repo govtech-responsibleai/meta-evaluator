@@ -21,8 +21,14 @@ class CohensKappaScorer(BaseScorer):
     def can_score_task(self, task_schema: Optional[List[str]]) -> bool:
         """Cohen's kappa only works with classification tasks (categorical data).
 
+        Cohen's kappa measures inter-annotator agreement for categorical variables.
+        It requires discrete categories to calculate agreement beyond chance.
+
+        Args:
+            task_schema: List of allowed categorical outcomes, or None for free-form text tasks
+
         Returns:
-            bool: True if the task is a classification task, False otherwise.
+            bool: True if task_schema is not None (classification task), False otherwise
         """
         return task_schema is not None
 

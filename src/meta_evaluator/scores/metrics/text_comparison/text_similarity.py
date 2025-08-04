@@ -21,8 +21,14 @@ class TextSimilarityScorer(BaseScorer):
     def can_score_task(self, task_schema: Optional[List[str]]) -> bool:
         """Text similarity scorer only works with free-form text tasks.
 
+        Text similarity measures semantic similarity between text responses.
+        It requires free-form text content, not discrete categorical choices.
+
+        Args:
+            task_schema: List of allowed categorical outcomes, or None for free-form text tasks
+
         Returns:
-            bool: True if the task is a free-form text task, False otherwise.
+            bool: True if task_schema is None (free-form text task), False otherwise
         """
         return task_schema is None
 

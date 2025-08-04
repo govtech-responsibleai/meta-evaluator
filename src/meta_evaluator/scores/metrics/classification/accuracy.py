@@ -21,8 +21,14 @@ class AccuracyScorer(BaseScorer):
     def can_score_task(self, task_schema: Optional[List[str]]) -> bool:
         """Accuracy scorer only works with classification tasks (predefined outcomes).
 
+        Accuracy requires discrete, categorical predictions to compare against ground truth.
+        Free-form text tasks cannot be evaluated with accuracy metrics.
+
+        Args:
+            task_schema: List of allowed categorical outcomes, or None for free-form text tasks
+
         Returns:
-            bool: True if the task is a classification task, False otherwise.
+            bool: True if task_schema is not None (classification task), False otherwise
         """
         return task_schema is not None
 

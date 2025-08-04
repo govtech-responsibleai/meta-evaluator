@@ -50,12 +50,22 @@ class AltTestScorer(BaseScorer):
         plt.rcParams["font.sans-serif"] = ["Verdana"]
 
     def can_score_task(self, task_schema: Optional[List[str]]) -> bool:
-        """Alt-Test can work with both classification and text tasks.
+        """Alt-Test can work with both classification and free-form text tasks.
+
+        Alt-Test evaluates human-vs-LLM performance differences for supported task types.
+        For classification tasks, it compares categorical predictions.
+        For text tasks, it can compare text similarity or semantic equivalence.
+
+        Args:
+            task_schema: List of allowed categorical outcomes, or None for free-form text tasks
 
         Returns:
-            bool: True, since Alt-Test can work with both classification and text tasks.
+            bool: True for classification tasks (task_schema is not None) and free-form text tasks (task_schema is None)
         """
-        return True
+        # Alt-Test supports both classification and free-form text tasks
+        # For classification: task_schema is a list of categories
+        # For free-form text: task_schema is None
+        return task_schema is None or isinstance(task_schema, list)
 
     def compute_score(
         self,

@@ -21,13 +21,17 @@ class BaseScorer(ABC):
 
     @abstractmethod
     def can_score_task(self, task_schema: Optional[List[str]]) -> bool:
-        """Check if this scorer can handle a task with the given schema.
+        """Determine if this scorer is compatible with the given task type.
+
+        Task compatibility is determined by the task schema:
+        - task_schema=None: Free-form text task (no predefined categories)
+        - task_schema=[...]: Classification task with predefined categories
 
         Args:
-            task_schema: List of allowed outcomes (None for free-form text)
+            task_schema: List of allowed categorical outcomes, or None for free-form text tasks
 
         Returns:
-            bool: True if this scorer can handle the task
+            bool: True if this scorer can compute meaningful metrics for this task type
         """
         pass
 
