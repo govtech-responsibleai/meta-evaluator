@@ -1,9 +1,9 @@
 """Cohen's kappa scorer for inter-annotator agreement."""
 
 from typing import List, Optional
-import statistics
 import os
 
+import numpy as np
 import polars as pl
 from sklearn.metrics import cohen_kappa_score
 
@@ -85,7 +85,7 @@ class CohensKappaScorer(BaseScorer):
         task_human_df = consolidated_human_df.filter(pl.col("task_name") == task_name)
 
         if task_judge_df.is_empty() or task_human_df.is_empty():
-            return 0.0
+            return np.nan
 
         # Cohen's kappa only works with classification tasks
         return self._compute_classification_kappa(
@@ -112,7 +112,10 @@ class CohensKappaScorer(BaseScorer):
             )
             task_kappas.append(task_kappa)
 
-        return statistics.mean(task_kappas) if task_kappas else 0.0
+        if task_kappas:
+            return float(np.mean(task_kappas))
+        else:
+            return np.nan
 
     def _compute_classification_kappa(
         self,
@@ -161,7 +164,7 @@ class CohensKappaScorer(BaseScorer):
         common_ids = judge_ids & human_ids
 
         if len(common_ids) < 2:
-            return 0.0
+            return np.nan
 
         # Filter to common IDs and ensure same order
         judge_final = judge_aggregated.filter(
@@ -183,7 +186,7 @@ class CohensKappaScorer(BaseScorer):
         ]
 
         if len(valid_pairs) < 2:
-            return 0.0
+            return np.nan
 
         judge_labels, human_labels = zip(*valid_pairs)
 

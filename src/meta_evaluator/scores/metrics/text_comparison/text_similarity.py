@@ -1,9 +1,9 @@
 """Text similarity scorer for free-form text tasks."""
 
 from typing import List, Optional
-import statistics
 import os
 
+import numpy as np
 import polars as pl
 from difflib import SequenceMatcher
 
@@ -79,24 +79,23 @@ class TextSimilarityScorer(BaseScorer):
         Returns:
             float: The text similarity score.
         """
-        # Filter data for this specific task
-        task_judge_df = consolidated_judge_df.filter(pl.col("task_name") == task_name)
-        task_human_df = consolidated_human_df.filter(pl.col("task_name") == task_name)
+        # Filter judge data
+        task_judge_df = (
+            consolidated_judge_df.filter(pl.col("task_name") == task_name)
+            .filter(pl.col("task_value").is_not_null())
+            .with_columns(pl.col("task_value").cast(pl.Utf8).alias("judge_text"))
+        )
 
+        # Filter human data
+        task_human_df = (
+            consolidated_human_df.filter(pl.col("task_name") == task_name)
+            .filter(pl.col("task_value").is_not_null())
+            .with_columns(pl.col("task_value").cast(pl.Utf8).alias("human_text"))
+        )
+
+        # Check if there are any valid predictions
         if task_judge_df.is_empty() or task_human_df.is_empty():
-            return 0.0
-
-        # Filter out null values and convert to strings
-        task_judge_df = task_judge_df.filter(
-            pl.col("task_value").is_not_null()
-        ).with_columns(pl.col("task_value").cast(pl.Utf8).alias("judge_text"))
-
-        task_human_df = task_human_df.filter(
-            pl.col("task_value").is_not_null()
-        ).with_columns(pl.col("task_value").cast(pl.Utf8).alias("human_text"))
-
-        if task_judge_df.is_empty() or task_human_df.is_empty():
-            return 0.0
+            return np.nan
 
         # Group human texts by original_id for each judge prediction
         judge_similarities = []
@@ -119,11 +118,14 @@ class TextSimilarityScorer(BaseScorer):
                 human_text_clean = human_text.lower().strip()
                 similarity = self._compute_text_similarity(judge_text, human_text_clean)
                 text_similarities.append(similarity)
-            avg_similarity = statistics.mean(text_similarities)
+            avg_similarity = float(np.mean(text_similarities))
             judge_similarities.append(avg_similarity)
 
         # Return average across all judge predictions
-        return statistics.mean(judge_similarities) if judge_similarities else 0.0
+        if judge_similarities:
+            return float(np.mean(judge_similarities))
+        else:
+            return np.nan
 
     def _compute_single_judge_multi_task_similarity(
         self,
@@ -143,7 +145,10 @@ class TextSimilarityScorer(BaseScorer):
             )
             task_similarities.append(task_similarity)
 
-        return statistics.mean(task_similarities) if task_similarities else 0.0
+        if task_similarities:
+            return float(np.mean(task_similarities))
+        else:
+            return np.nan
 
     def _compute_text_similarity(self, text1: str, text2: str) -> float:
         """Compute similarity between two text strings using SequenceMatcher.

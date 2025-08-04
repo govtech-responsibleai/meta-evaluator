@@ -1,6 +1,7 @@
 """Tests for agreement metrics."""
 
 import pytest
+import numpy as np
 import polars as pl
 from meta_evaluator.scores import CohensKappaScorer
 from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
@@ -282,11 +283,11 @@ class TestCohensKappaScorer:
         judge_df = null_values_judge_df
         human_df = null_values_human_df
 
-        # Should return 0.0 when all values are null
+        # Should return np.nan when all values are null
         kappa = cohens_kappa_scorer._compute_classification_kappa(
             judge_df, human_df, "task1"
         )
-        assert kappa == 0.0
+        assert np.isnan(kappa)
 
     def test_mixed_null_and_valid_data(self, cohens_kappa_scorer):
         """Test some valid, some null values in same task."""
@@ -312,8 +313,8 @@ class TestCohensKappaScorer:
         kappa = cohens_kappa_scorer._compute_classification_kappa(
             judge_df, human_df, "task1"
         )
-        # With only 1 valid pair, should return 0.0
-        assert kappa == 0.0
+        # With only 1 valid pair, should return np.nan (Cohen's kappa requires >=2 samples)
+        assert np.isnan(kappa)
 
     def test_compute_classification_kappa_multiple_humans(
         self, cohens_kappa_scorer, basic_judge_df, multi_human_df

@@ -1,6 +1,7 @@
 """Tests for text similarity metrics."""
 
 import pytest
+import numpy as np
 import polars as pl
 from meta_evaluator.scores import TextSimilarityScorer
 
@@ -312,11 +313,11 @@ class TestTextSimilarityScorer:
             }
         )
 
-        # Should return 0.0 when all values are null
+        # Should return np.nan when all values are null
         similarity = text_similarity_scorer._compute_single_judge_task_similarity(
             judge_df, human_df, "task1"
         )
-        assert similarity == 0.0
+        assert np.isnan(similarity)
 
     def test_mixed_null_and_valid_data(self, text_similarity_scorer):
         """Test some valid, some null values in same task."""

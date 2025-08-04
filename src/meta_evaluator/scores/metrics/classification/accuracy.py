@@ -1,10 +1,9 @@
 """Accuracy scorer for classification tasks."""
 
 from typing import List, Optional
-import statistics
-import math
 import os
 
+import numpy as np
 import polars as pl
 from sklearn.metrics import accuracy_score
 
@@ -85,7 +84,7 @@ class AccuracyScorer(BaseScorer):
         task_human_df = consolidated_human_df.filter(pl.col("task_name") == task_name)
 
         if task_judge_df.is_empty() or task_human_df.is_empty():
-            return 0.0
+            return np.nan
 
         # Compute majority vote for each original_id
         task_human_df = (
@@ -118,7 +117,10 @@ class AccuracyScorer(BaseScorer):
         accuracy = accuracy_score(y_true=human_predictions, y_pred=judge_predictions)
 
         # Handle case where sklearn returns nan (no valid comparisons)
-        return 0.0 if math.isnan(accuracy) else accuracy
+        if np.isnan(accuracy):
+            return np.nan
+        else:
+            return accuracy
 
     def _compute_single_judge_multi_task_accuracy(
         self,
@@ -138,7 +140,10 @@ class AccuracyScorer(BaseScorer):
             )
             task_accuracies.append(task_accuracy)
 
-        return statistics.mean(task_accuracies) if task_accuracies else 0.0
+        if task_accuracies:
+            return float(np.nanmean(task_accuracies))
+        else:
+            return np.nan
 
     @classmethod
     def aggregate_results(

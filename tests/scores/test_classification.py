@@ -1,6 +1,7 @@
 """Tests for classification Metrics."""
 
 import pytest
+import numpy as np
 import polars as pl
 from meta_evaluator.scores import AccuracyScorer
 
@@ -254,11 +255,11 @@ class TestAccuracyScorer:
             }
         )
 
-        # Should return 0.0 when all values are null
+        # Should return np.nan when all values are null
         accuracy = accuracy_scorer._compute_single_judge_task_accuracy(
             consolidated_judge_df, consolidated_human_df, "task1"
         )
-        assert accuracy == 0.0
+        assert np.isnan(accuracy)
 
     def test_mixed_null_and_valid_data(self, accuracy_scorer):
         """Test some valid, some null values in same task."""

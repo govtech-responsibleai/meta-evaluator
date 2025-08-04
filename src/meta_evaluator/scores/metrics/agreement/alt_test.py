@@ -445,7 +445,7 @@ class AltTestScorer(BaseScorer):
 
         rejected_indices = self._by_procedure(p_values, self.q_fdr)
         advantage_prob = float(np.mean(advantage_probs))
-        winning_rate = len(rejected_indices) / len(humans) if humans else 0.0
+        winning_rate = len(rejected_indices) / len(humans) if humans else np.nan
 
         return winning_rate, advantage_prob, human_advantage_probs
 
