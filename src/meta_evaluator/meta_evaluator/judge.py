@@ -53,6 +53,7 @@ class JudgesMixin:
     eval_task: Optional[EvalTask]
     data: Optional[EvalData]
     paths: "Paths"
+    logger: logging.Logger
 
     def __init__(self, *args, **kwargs):
         """Initialize judge registry."""
@@ -96,8 +97,7 @@ class JudgesMixin:
 
         self.judge_registry[judge_id] = judge
 
-        logger = logging.getLogger(__name__)
-        logger.info(
+        self.logger.info(
             f"Added judge '{judge_id}' using {llm_client_enum.value} client with model '{model}'"
         )
 
@@ -155,6 +155,8 @@ class JudgesMixin:
             InvalidYAMLStructureException: If the YAML structure is invalid.
             ValueError: If eval_task is not set or if llm_client value is invalid.
         """
+        self.logger.info(f"Loading judges from YAML file: {yaml_file}")
+
         if self.eval_task is None:
             raise ValueError("eval_task must be set before loading judges from YAML")
 
@@ -173,6 +175,9 @@ class JudgesMixin:
         # Validate YAML structure
         try:
             judges_config = JudgeConfigList.model_validate(yaml_data)
+            self.logger.info(
+                f"Found {len(judges_config.judges)} judge configurations in YAML"
+            )
         except ValidationError as e:
             raise InvalidYAMLStructureException(f"YAML validation failed: {e}")
 
@@ -181,6 +186,10 @@ class JudgesMixin:
             self._load_single_judge_from_config(
                 judge_config, override_existing, yaml_path
             )
+
+        self.logger.info(
+            f"Successfully loaded {len(judges_config.judges)} judges from YAML"
+        )
 
     def _load_single_judge_from_config(
         self,
@@ -346,8 +355,7 @@ class JudgesMixin:
         # Ensure results directory exists
         self.paths.ensure_directories()
 
-        logger = logging.getLogger(__name__)
-        logger.info(
+        self.logger.info(
             f"Starting judge evaluation run '{run_id}' with {len(judges_to_run)} judge(s): {', '.join(judges_to_run)}"
         )
 
@@ -366,14 +374,14 @@ class JudgesMixin:
 
             # Run the evaluation
             try:
-                logger.info(f"Running evaluation for judge '{judge_id}'...")
+                self.logger.info(f"Running evaluation for judge '{judge_id}'...")
                 judge_results = judge.evaluate_eval_data(
                     eval_data=self.data,
                     llm_client=llm_client,
                     run_id=f"{run_id}_{judge_id}",
                 )
                 results[judge_id] = judge_results
-                logger.info(
+                self.logger.info(
                     f"Judge '{judge_id}' completed: {judge_results.succeeded_count}/{judge_results.total_count} successful evaluations"
                 )
             except Exception as e:
@@ -388,13 +396,13 @@ class JudgesMixin:
                         run_id=run_id,
                         results_format=results_format,
                     )
-                    logger.info(
+                    self.logger.info(
                         f"Saved results for judge '{judge_id}' to results directory"
                     )
                 except Exception as e:
                     raise ResultsSaveException(judge_id, run_id, str(e))
 
-        logger.info(
+        self.logger.info(
             f"Judge evaluation run '{run_id}' completed successfully with {len(results)} judge(s)"
         )
         return results

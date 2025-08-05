@@ -180,7 +180,7 @@ class TextSimilarityScorer(BaseScorer):
             scores_dir: Directory to save results and plots
         """
         if not results:
-            print("No text similarity results to aggregate")
+            self.logger.info("No text similarity results to aggregate")
             return
 
         # Create text_similarity directory for results and plots
@@ -190,6 +190,6 @@ class TextSimilarityScorer(BaseScorer):
         # Save individual results
         self.save_results(results, text_similarity_dir)
 
-        print(
+        self.logger.info(
             f"Generated text similarity results for {len(results)} judge(s) in {text_similarity_dir}"
         )

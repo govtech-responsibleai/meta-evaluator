@@ -412,7 +412,7 @@ class AltTestScorer(BaseScorer):
             excluded_indicators = []
             instances = sorted([i for i in i_set[excluded_h] if i in llm_annotations])
             if len(instances) < self.min_instances_per_human:
-                print(
+                self.logger.info(
                     f"Skipping annotator {excluded_h} with only {len(instances)} instances < {self.min_instances_per_human}."
                 )
                 continue
@@ -474,7 +474,9 @@ class AltTestScorer(BaseScorer):
             scores_dir: Directory to save aggregate plots
         """
         if len(results) == 0:
-            print("Alt-test aggregation skipped: no alt-test results provided")
+            self.logger.info(
+                "Alt-test aggregation skipped: no alt-test results provided"
+            )
             return
 
         # Create alt_test directory for aggregate plots
@@ -486,7 +488,7 @@ class AltTestScorer(BaseScorer):
 
         # Save individual ScoringResult objects as JSON files
         self.save_results(results, alt_test_dir)
-        print(
+        self.logger.info(
             f"Generated alt-test results for {len(results)} judge(s) in {alt_test_dir}"
         )
 
@@ -500,7 +502,7 @@ class AltTestScorer(BaseScorer):
         self.generate_aggregate_human_vs_llm_plot(results, alt_test_dir)
 
         judge_count = len(results)
-        print(
+        self.logger.info(
             f"Generated alt-test aggregate plots for {judge_count} judge(s) in {alt_test_dir}"
         )
 
@@ -686,10 +688,9 @@ class AltTestScorer(BaseScorer):
         self.save_plot(fig, save_path)
         plt.close(fig)
 
-    @staticmethod
-    def save_plot(fig, save_path: str):
+    def save_plot(self, fig, save_path: str):
         """Save a matplotlib figure."""
         fig.savefig(
             save_path, dpi=300, bbox_inches="tight", facecolor="white", edgecolor="none"
         )
-        print(f"Saved plot to {save_path}")
+        self.logger.info(f"Saved plot to {save_path}")

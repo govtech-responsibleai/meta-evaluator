@@ -9,7 +9,7 @@ column names and ensuring immutability after initialization.
 import json
 from typing import Any, Optional, Literal, cast
 import polars as pl
-from pydantic import BaseModel, PrivateAttr, model_validator
+from pydantic import BaseModel, PrivateAttr, model_validator, Field
 import logging
 from .exceptions import (
     EmptyDataFrameError,
@@ -24,7 +24,6 @@ from .exceptions import (
 )
 from .serialization import DataMetadata
 
-logger = logging.getLogger(__name__)
 ID_COLUMN_NAME = "id"
 
 
@@ -64,11 +63,14 @@ class EvalData(BaseModel):
     data: pl.DataFrame
     name: str
     id_column: Optional[str] = None  # id_column is never None after initalisation
+    logger: logging.Logger = Field(
+        default_factory=lambda: logging.getLogger(f"{__name__}.EvalData")
+    )
     _initialized: bool = PrivateAttr(default=False)
     _user_set_id: bool = PrivateAttr(default=False)
 
     model_config = {
-        "arbitrary_types_allowed": True,  # Allow Polars DataFrame
+        "arbitrary_types_allowed": True,  # Allow Polars DataFrame and Logger
     }
 
     @staticmethod
@@ -249,13 +251,13 @@ class EvalData(BaseModel):
             self.id_column = ID_COLUMN_NAME
             self._user_set_id = False
 
-            logger.info(
+            self.logger.info(
                 f"Auto-generated ID column '{ID_COLUMN_NAME}' with {len(final_data)} entries"
             )
         else:
             # User provided an ID column
             self._user_set_id = True
-            logger.debug(f"Using user-provided ID column: '{self.id_column}'")
+            self.logger.info(f"Using user-provided ID column: '{self.id_column}'")
 
         return self
 
@@ -403,7 +405,7 @@ class EvalData(BaseModel):
                     .to_list()
                 )
                 coordinates = [(row, col) for row in empty_rows]
-                logger.warning(
+                self.logger.warning(
                     f"Column '{col}' has empty strings at rows {empty_rows} (coordinates: {coordinates})"
                 )
 
@@ -420,7 +422,7 @@ class EvalData(BaseModel):
                     .to_list()
                 )
                 coordinates = [(row, col) for row in whitespace_rows]
-                logger.warning(
+                self.logger.warning(
                     f"Column '{col}' has whitespace-only values at rows {whitespace_rows} (coordinates: {coordinates})"
                 )
 
@@ -506,9 +508,14 @@ class EvalData(BaseModel):
             cols_str = "_".join(columns)
             sample_name = f"Stratified Sample ({self.name}, {cols_str}, {sample_percentage * 100:.1f}%)"
 
+        self.logger.info(
+            f"Starting stratified sampling: {sample_percentage * 100:.1f}% from {len(self.data)} rows using columns {columns}"
+        )
+
         # Perform stratified sampling
         # Partition by specified columns and sample from each partition
         partitioned = self.data.partition_by(columns, as_dict=False)
+        self.logger.info(f"Created {len(partitioned)} strata for sampling")
         sampled_partitions = []
 
         for partition in partitioned:
@@ -530,7 +537,7 @@ class EvalData(BaseModel):
         if len(sampled_df) == 0:
             raise NoDataLeftError("stratified sampling", len(self.data))
 
-        return SampleEvalData(
+        sample_result = SampleEvalData(
             data=sampled_df,
             name=self.name,  # Inherit the original dataset name
             id_column=self.id_column,
@@ -540,6 +547,11 @@ class EvalData(BaseModel):
             seed=seed,
             sampling_method="stratified_by_columns",
         )
+
+        self.logger.info(
+            f"Completed stratified sampling: created '{sample_name}' with {len(sampled_df)} rows"
+        )
+        return sample_result
 
     def write_data(
         self, filepath: str, data_format: Literal["json", "csv", "parquet"]
@@ -553,6 +565,10 @@ class EvalData(BaseModel):
         Raises:
             ValueError: If data_format is not one of json, csv, or parquet.
         """
+        self.logger.info(
+            f"Writing data to {filepath} in {data_format} format ({len(self.data)} rows)"
+        )
+
         match data_format:
             case "parquet":
                 self.data.write_parquet(filepath)
@@ -614,6 +630,10 @@ class EvalData(BaseModel):
         Raises:
             TypeError: If id_column is None during serialization.
         """
+        self.logger.info(
+            f"Serializing metadata for {self.name} in {data_format} format"
+        )
+
         if self.id_column is None:
             raise TypeError(
                 "Cannot serialize EvalData: id_column is None. "
@@ -851,6 +871,10 @@ class SampleEvalData(EvalData):
         Raises:
             TypeError: If id_column is None during serialization.
         """
+        self.logger.info(
+            f"Serializing metadata for {self.name} in {data_format} format"
+        )
+
         if self.id_column is None:
             raise TypeError(
                 "Cannot serialize SampleEvalData: id_column is None. "

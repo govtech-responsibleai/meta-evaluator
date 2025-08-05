@@ -42,6 +42,7 @@ class StreamlitLauncher:
         self.eval_data = eval_data
         self.annotations_dir = annotations_dir
         self.port = port
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
         # Create the annotations directory if it doesn't exist
         os.makedirs(self.annotations_dir, exist_ok=True)

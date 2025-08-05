@@ -1,5 +1,6 @@
 """Streamlit-based annotation interface for meta-evaluator."""
 
+import logging
 import os
 from typing import Any, Optional, Literal
 from datetime import datetime
@@ -43,6 +44,7 @@ class StreamlitAnnotator:
         self.annotation_prompt: str = eval_task.annotation_prompt
         self.annotations_dir: str = annotations_dir
         self.annotator_name: str | None = None
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
         # Initialize session manager
         self.session_manager = StreamlitSessionManager()

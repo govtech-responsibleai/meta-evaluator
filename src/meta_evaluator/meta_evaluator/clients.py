@@ -29,6 +29,9 @@ _AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR = "AZURE_OPENAI_DEFAULT_EMBEDDING_
 class ClientsMixin:
     """Mixin class for MetaEvaluator client management functionality."""
 
+    # Type hint for logger attribute provided by MetaEvaluator
+    logger: logging.Logger
+
     def __init__(self, *args, **kwargs):
         """Initialize client registry."""
         super().__init__(*args, **kwargs)
@@ -53,6 +56,8 @@ class ClientsMixin:
             MissingConfigurationException: If required parameters are missing from both arguments and environment.
             ClientAlreadyExistsException: If client already exists and override_existing is False.
         """
+        self.logger.info("Adding OpenAI client to registry...")
+
         # Check if client already exists
         if LLMClientEnum.OPENAI in self.client_registry and not override_existing:
             raise ClientAlreadyExistsException("OPENAI")
@@ -88,9 +93,9 @@ class ClientsMixin:
 
         # Add to registry
         self.client_registry[LLMClientEnum.OPENAI] = client
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"Added OpenAI client with model '{final_default_model}'")
+        self.logger.info(
+            f"...Successfully added OpenAI client with default model: {final_default_model}"
+        )
 
     def add_azure_openai(
         self,
@@ -115,6 +120,8 @@ class ClientsMixin:
             MissingConfigurationException: If required parameters are missing from both arguments and environment.
             ClientAlreadyExistsException: If client already exists and override_existing is False.
         """
+        self.logger.info("Adding Azure OpenAI client to registry...")
+
         # Check if client already exists
         if LLMClientEnum.AZURE_OPENAI in self.client_registry and not override_existing:
             raise ClientAlreadyExistsException("AZURE_OPENAI")
@@ -164,9 +171,9 @@ class ClientsMixin:
 
         # Add to registry
         self.client_registry[LLMClientEnum.AZURE_OPENAI] = client
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"Added Azure OpenAI client with model '{final_default_model}'")
+        self.logger.info(
+            f"...Successfully added Azure OpenAI client with default model: {final_default_model}"
+        )
 
     def get_client(self, client_type: LLMClientEnum) -> LLMClient:
         """Get a client from the registry by type.

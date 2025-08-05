@@ -127,13 +127,11 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
         Raises:
             DataAlreadyExistsException: If data already exists and overwrite is False.
         """
-        logger = logging.getLogger(__name__)
-
         if self.data is not None and not overwrite:
             raise DataAlreadyExistsException()
 
         self.data = eval_data
-        logger.info(
+        self.logger.info(
             f"Added evaluation data '{eval_data.name}' with {len(eval_data.data)} rows"
         )
 
@@ -147,14 +145,12 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
         Raises:
             EvalTaskAlreadyExistsException: If evaluation task already exists and overwrite is False.
         """
-        logger = logging.getLogger(__name__)
-
         if self.eval_task is not None and not overwrite:
             raise EvalTaskAlreadyExistsException()
 
         self.eval_task = eval_task
         task_names = list(eval_task.task_schemas.keys())
-        logger.info(
+        self.logger.info(
             f"Added evaluation task with {len(task_names)} task(s): {', '.join(task_names)}"
         )
 

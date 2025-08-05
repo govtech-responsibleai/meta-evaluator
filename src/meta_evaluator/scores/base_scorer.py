@@ -1,5 +1,6 @@
 """Base classes for scoring functionality."""
 
+import logging
 import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
@@ -19,6 +20,7 @@ class BaseScorer(ABC):
             scorer_name: Name identifier for this scorer
         """
         self.scorer_name = scorer_name
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     @abstractmethod
     def can_score_task(self, task_schema: Optional[List[str]]) -> bool:
@@ -87,4 +89,4 @@ class BaseScorer(ABC):
             file_path = os.path.join(output_dir, filename)
 
             result.save_state(file_path)
-            print(f"Saved individual result to {file_path}")
+            self.logger.info(f"Saved individual result to {file_path}")

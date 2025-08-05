@@ -1,5 +1,6 @@
 """File for DataLoader Class."""
 
+import logging
 import os
 from pathlib import Path
 from typing import Optional
@@ -11,10 +12,6 @@ from .exceptions import DataFileError, DataException
 
 class DataLoader:
     """Universal data ingestion from multiple sources, returns structured EvalData."""
-
-    def __init__(self) -> None:
-        """Initialize the DataLoader with default settings."""
-        pass
 
     @staticmethod
     def load_csv(
@@ -46,6 +43,9 @@ class DataLoader:
                 permissions, or CSV parsing errors).
             DataException: If there is an error validating the loaded data structure.
         """
+        logger = logging.getLogger(__name__)
+        logger.info(f"Loading CSV file: {file_path} as dataset '{name}'")
+
         # Convert to Path object for easier manipulation
         file_path_obj = Path(file_path)
 
@@ -62,6 +62,9 @@ class DataLoader:
         # Attempt CSV parsing with error wrapping
         try:
             data = pl.read_csv(file_path, has_header=True)
+            logger.info(
+                f"Successfully loaded {data.height} rows and {data.width} columns"
+            )
         except Exception as e:
             raise DataFileError(f"Failed to parse CSV file '{file_path}': {e}") from e
 
@@ -72,6 +75,7 @@ class DataLoader:
                 name=name,
                 id_column=id_column,
             )
+            logger.info(f"Created EvalData '{name}' with {len(output.data)} rows")
         except DataException:
             # Re-raise DataExceptions from EvalData validation unchanged
             raise

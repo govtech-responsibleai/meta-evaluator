@@ -21,6 +21,7 @@ class ScoringMixin:
     eval_task: Optional[EvalTask]
     data: Optional[EvalData]
     paths: "Paths"
+    logger: logging.Logger
 
     def __init__(self, *args, **kwargs):
         """Initialize scoring mixin."""
@@ -333,6 +334,10 @@ class ScoringMixin:
         Raises:
             ValueError: If no metrics configured, no results found, or scoring fails
         """
+        self.logger.info(
+            f"Starting comparison with {len(comparison_config.metrics)} metrics"
+        )
+
         # Validate comparison configuration
         if not comparison_config.metrics:
             raise ValueError("No metrics configured for comparison")
@@ -343,8 +348,10 @@ class ScoringMixin:
 
         # Load results if not provided
         if judge_results is None:
+            self.logger.info("Loading all judge results from results directory")
             judge_results = self.load_all_judge_results()
         if human_results is None:
+            self.logger.info("Loading all human results from annotations directory")
             human_results = self.load_all_human_results()
 
         # Validate we have results
@@ -353,10 +360,17 @@ class ScoringMixin:
         if not human_results:
             raise ValueError("No human results provided or found")
 
+        self.logger.info(
+            f"Comparing {len(judge_results)} judge result sets with {len(human_results)} human result sets"
+        )
+
         results = {}  # Dict[str, List[BaseScoringResult]]
 
         # Process each metric configuration
-        for metric_config in comparison_config.metrics:
+        for i, metric_config in enumerate(comparison_config.metrics, 1):
+            self.logger.info(
+                f"Processing metric {i}/{len(comparison_config.metrics)}: {metric_config.scorer.scorer_name} on tasks {metric_config.task_names}"
+            )
             # Extract task schemas for this metric
             task_schemas = self._extract_task_schemas(
                 judge_results, metric_config.task_names
@@ -372,7 +386,14 @@ class ScoringMixin:
 
             # Compute score for each judge
             all_judges = consolidated_judge_df["judge_id"].unique().to_list()
-            for judge_id in all_judges:
+            self.logger.info(
+                f"Computing scores for {len(all_judges)} judges: {all_judges}"
+            )
+
+            for j, judge_id in enumerate(all_judges, 1):
+                self.logger.info(
+                    f"  Computing score for judge {j}/{len(all_judges)}: {judge_id}"
+                )
                 # Filter judge data for this specific judge
                 consolidated_judge_subset = consolidated_judge_df.filter(
                     pl.col("judge_id") == judge_id
@@ -394,6 +415,12 @@ class ScoringMixin:
                 results[scorer_name].append(score_result)
 
         # Run scorer aggregations after all individual scoring is complete
+        self.logger.info("Running scorer aggregations for comparison results")
         self._run_scorer_aggregations(results, comparison_config)
+
+        total_results = sum(len(scorer_results) for scorer_results in results.values())
+        self.logger.info(
+            f"Comparison completed successfully. Generated {total_results} total scoring results across {len(results)} scorer types"
+        )
 
         return results

@@ -1,5 +1,6 @@
 """Main class for evaluation tasks."""
 
+import logging
 from typing import Any, Callable, Literal, Optional
 from pydantic import BaseModel, Field, create_model, model_validator
 from .serialization import EvalTaskState
@@ -20,6 +21,13 @@ class EvalTask(BaseModel):
         default="Please evaluate the following response:",
         description="If necessary, this is the prompt text shown to human annotators in the annotation interface.",
     )
+    logger: logging.Logger = Field(
+        default_factory=lambda: logging.getLogger(f"{__name__}.EvalTask")
+    )
+
+    model_config = {
+        "arbitrary_types_allowed": True,  # Allow Logger
+    }
 
     @model_validator(mode="after")
     def validate_task_configuration(self) -> "EvalTask":
@@ -68,6 +76,10 @@ class EvalTask(BaseModel):
         Returns:
             type[BaseModel]: A new evaluation task class with appropriate field types.
         """
+        self.logger.info(
+            f"Creating task class with {len(self.task_schemas)} tasks: {list(self.task_schemas.keys())}"
+        )
+
         model_fields: dict[str, Any] = {}
 
         # Create one field per task
@@ -104,6 +116,8 @@ class EvalTask(BaseModel):
         Returns:
             EvalTaskState: Serialized state for EvalTask.
         """
+        self.logger.info(f"Serializing EvalTask with {len(self.task_schemas)} tasks")
+
         return EvalTaskState(
             task_schemas=self.task_schemas,
             prompt_columns=self.prompt_columns,
