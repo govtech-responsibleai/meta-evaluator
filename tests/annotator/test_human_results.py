@@ -19,6 +19,14 @@ from meta_evaluator.results.human_results import (
     INVALID_JSON_STRUCTURE_MSG,
     STATE_FILE_NOT_FOUND_MSG,
 )
+from meta_evaluator.results.exceptions import (
+    BuilderInitializationError,
+    IncompleteResultsError,
+    InvalidFileError,
+    MismatchedTasksError,
+    ResultsDataFormatError,
+    TaskNotFoundError,
+)
 
 
 class TestHumanAnnotationResultsBuilder:
@@ -139,7 +147,7 @@ class TestHumanAnnotationResultsBuilder:
     def test_create_row_validation_errors(self, builder):
         """Test validation errors for row creation."""
         # Missing tasks in success row
-        with pytest.raises(ValueError):
+        with pytest.raises(MismatchedTasksError):
             builder.create_success_row(
                 sample_example_id="test_1",
                 original_id="id1",
@@ -148,7 +156,7 @@ class TestHumanAnnotationResultsBuilder:
             )
 
         # Extra tasks in success row
-        with pytest.raises(ValueError):
+        with pytest.raises(MismatchedTasksError):
             builder.create_success_row(
                 sample_example_id="test_1",
                 original_id="id1",
@@ -160,7 +168,7 @@ class TestHumanAnnotationResultsBuilder:
 
     def test_validate_and_store_invalid_original_id_error(self, builder):
         """Test that creating a row with an original_id not in expected_ids raises an error."""
-        with pytest.raises(ValueError):
+        with pytest.raises(BuilderInitializationError):
             builder.create_success_row(
                 sample_example_id="sample_1",
                 original_id="not_in_expected",
@@ -176,7 +184,7 @@ class TestHumanAnnotationResultsBuilder:
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        with pytest.raises(ValueError):
+        with pytest.raises(BuilderInitializationError):
             builder.create_success_row(
                 sample_example_id="sample_2",
                 original_id="id1",  # Duplicate
@@ -247,12 +255,12 @@ class TestHumanAnnotationResultsBuilder:
             annotation_timestamp=datetime.now(),
         )
 
-        with pytest.raises(ValueError, match="Missing results for IDs"):
+        with pytest.raises(IncompleteResultsError, match="Missing results for IDs"):
             builder.complete()
 
     def test_complete_no_rows_error(self, builder):
         """Test error when no rows added to builder."""
-        with pytest.raises(ValueError, match="No rows added to builder"):
+        with pytest.raises(IncompleteResultsError, match="No rows added to builder"):
             builder.complete()
 
     def test_complete_status_count_calculation(self, builder):
@@ -279,7 +287,9 @@ class TestHumanAnnotationResultsBuilder:
 
     def test_builder_empty_expected_ids_error(self):
         """Test that empty expected_ids raises an error."""
-        with pytest.raises(ValueError, match="expected_ids cannot be empty"):
+        with pytest.raises(
+            BuilderInitializationError, match="expected_ids cannot be empty"
+        ):
             HumanAnnotationResultsBuilder(
                 run_id="run_001",
                 annotator_id="annotator_1",
@@ -343,7 +353,7 @@ class TestHumanAnnotationResultsBuilder:
         results = single_task_builder.complete()
 
         with pytest.raises(
-            ValueError, match="Task 'invalid_task' not found in task schema"
+            TaskNotFoundError, match="Task 'invalid_task' not found in task schema"
         ):
             results.get_task_success_rate("invalid_task")
 
@@ -566,7 +576,8 @@ class TestHumanAnnotationResultsSerialization:
         state_file = tmp_path / "state.json"
 
         with pytest.raises(
-            ValueError, match="data_filename extension.*must match data_format"
+            ResultsDataFormatError,
+            match="Unsupported results data format.*json.*for.*wrong_extension.csv",
         ):
             results.save_state(
                 str(state_file), data_format="json", data_filename="wrong_extension.csv"
@@ -598,13 +609,13 @@ class TestHumanAnnotationResultsSerialization:
     def test_load_state_error_handling(self, tmp_path, single_task_builder):
         """Test load_state error handling for various failure scenarios."""
         # Test missing file
-        with pytest.raises(FileNotFoundError, match=STATE_FILE_NOT_FOUND_MSG):
+        with pytest.raises(InvalidFileError, match=STATE_FILE_NOT_FOUND_MSG):
             HumanAnnotationResults.load_state("nonexistent_state.json")
 
         # Test invalid JSON
         state_file = tmp_path / "invalid.json"
         state_file.write_text("{invalid json")
-        with pytest.raises(ValueError, match=INVALID_JSON_STRUCTURE_MSG):
+        with pytest.raises(InvalidFileError, match=INVALID_JSON_STRUCTURE_MSG):
             HumanAnnotationResults.load_state(str(state_file))
 
         # Test missing required keys
@@ -612,7 +623,7 @@ class TestHumanAnnotationResultsSerialization:
         state_file.write_text(
             '{"metadata": {}}'
         )  # Missing data_format and data_filename
-        with pytest.raises(ValueError, match=INVALID_JSON_STRUCTURE_MSG):
+        with pytest.raises(InvalidFileError, match=INVALID_JSON_STRUCTURE_MSG):
             HumanAnnotationResults.load_state(str(state_file))
 
         # Test missing data file

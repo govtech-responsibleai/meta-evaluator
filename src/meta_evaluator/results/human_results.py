@@ -19,14 +19,19 @@ from .serialization import (
     BaseResultsSerializedState,
     HumanAnnotationResultsSerializedState,
 )
+from .exceptions import (
+    InvalidFileError,
+    MismatchedTasksError,
+    IncompleteResultsError,
+)
 
 
 logger = logging.getLogger(__name__)
 
 # Error message constants
+STATE_FILE_NOT_FOUND_MSG = "State file not found"
 INVALID_JSON_STRUCTURE_MSG = "Invalid JSON structure in state file"
 INVALID_JSON_MSG = "Invalid JSON in state file"
-STATE_FILE_NOT_FOUND_MSG = "State file not found"
 
 
 class HumanAnnotationStatusEnum(str, Enum):
@@ -173,20 +178,19 @@ class HumanAnnotationResults(BaseEvaluationResults):
             HumanAnnotationResultsSerializedState: The loaded and validated state object.
 
         Raises:
-            FileNotFoundError: If the state file doesn't exist.
-            ValueError: If the JSON structure is invalid.
+            InvalidFileError: If the state file doesn't exist or the JSON structure is invalid.
         """
         try:
             with open(state_file, "r") as f:
                 return HumanAnnotationResultsSerializedState.model_validate_json(
                     f.read()
                 )
-        except FileNotFoundError:
-            raise FileNotFoundError(f"{STATE_FILE_NOT_FOUND_MSG}: {state_file}")
+        except FileNotFoundError as e:
+            raise InvalidFileError(f"{STATE_FILE_NOT_FOUND_MSG}: {state_file}", e)
         except ValidationError as e:
-            raise ValueError(f"{INVALID_JSON_STRUCTURE_MSG}: {e}")
+            raise InvalidFileError(INVALID_JSON_STRUCTURE_MSG, e)
         except json.JSONDecodeError as e:
-            raise ValueError(f"{INVALID_JSON_MSG}: {e}")
+            raise InvalidFileError(INVALID_JSON_MSG, e)
 
     def get_successful_results(self) -> pl.DataFrame:
         """Get all successful annotation results.
@@ -263,14 +267,17 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
             HumanAnnotationResultRow: The created success row.
 
         Raises:
-            ValueError: If outcomes do not contain all tasks.
+            MismatchedTasksError: If outcomes do not contain all tasks.
         """
         # Validate that outcomes contain exactly all tasks
         expected_tasks = set(self.task_schemas.keys())
         outcome_tasks = set(outcomes.keys())
 
         if expected_tasks != outcome_tasks:
-            raise ValueError("Success row must contain outcomes for ALL tasks")
+            raise MismatchedTasksError(
+                list(expected_tasks - outcome_tasks),
+                "Success row must contain outcomes for ALL tasks",
+            )
 
         row = HumanAnnotationResultRow(
             sample_example_id=sample_example_id,
@@ -330,17 +337,19 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
             HumanAnnotationResults: The completed annotation results.
 
         Raises:
-            ValueError: If no rows were added to the builder or missing expected results.
+            IncompleteResultsError: If no rows were added to the builder or missing expected results.
         """
         if not self._results:
-            raise ValueError("No rows added to builder")
+            raise IncompleteResultsError("No rows added to builder")
 
         # Check for missing results
         if not self.is_complete:
             received_ids = set(self._results.keys())
             expected_ids = self._expected_ids
             missing_ids = expected_ids - received_ids
-            raise ValueError(f"Missing results for IDs: {sorted(missing_ids)}")
+            raise IncompleteResultsError(
+                f"Missing results for IDs: {sorted(missing_ids)}"
+            )
 
         # Create DataFrame
         results_data = self._create_dataframe()

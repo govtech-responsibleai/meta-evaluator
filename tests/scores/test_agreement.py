@@ -5,6 +5,9 @@ import numpy as np
 import polars as pl
 from meta_evaluator.scores import CohensKappaScorer
 from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
+from meta_evaluator.scores.exceptions import (
+    AltTestInsufficientAnnotationsError,
+)
 
 
 # Shared fixtures that can be used across test classes
@@ -858,7 +861,8 @@ class TestAltTestScorer:
 
         # With only 3 instances and min_instances_per_human = 10, should raise error
         with pytest.raises(
-            ValueError, match="No annotators meet the minimum threshold"
+            AltTestInsufficientAnnotationsError,
+            match="No annotators meet the minimum threshold",
         ):
             alt_test_scorer._alt_test(judge_annotations, human_annotations, "accuracy")
 

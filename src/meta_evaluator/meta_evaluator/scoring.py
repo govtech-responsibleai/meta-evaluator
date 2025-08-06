@@ -12,6 +12,12 @@ from ..eval_task import EvalTask
 from ..data import EvalData
 from ..results import JudgeResults, HumanAnnotationResults
 from ..scores import MetricsConfig, BaseScoringResult
+from .exceptions import (
+    InsufficientDataError,
+    EvalTaskNotFoundError,
+    IncompatibleTaskError,
+    ScoringConfigError,
+)
 
 
 class ScoringMixin:
@@ -198,7 +204,7 @@ class ScoringMixin:
             tuple: Tuple containing consolidated judge and human DataFrames
 
         Raises:
-            ValueError: If no aligned judge-human data is found.
+            InsufficientDataError: If no aligned judge-human data is found.
         """
         # Collect all outcomes from judge and human results
         judge_outcomes = self._collect_all_outcomes(
@@ -208,8 +214,11 @@ class ScoringMixin:
             human_results, task_names, "annotator_id"
         )
 
-        if not judge_outcomes or not human_outcomes:
-            raise ValueError("No aligned judge-human data found")
+        if not judge_outcomes:
+            raise InsufficientDataError("No judge outcomes found")
+
+        if not human_outcomes:
+            raise InsufficientDataError("No human outcomes found")
 
         # Combine all outcomes into single DataFrames
         consolidated_judge_df = pl.concat(judge_outcomes)
@@ -227,7 +236,7 @@ class ScoringMixin:
         self.logger.info(f"Common IDs for alignment: {len(common_ids)}")
 
         if not common_ids:
-            raise ValueError("No aligned judge-human data found")
+            raise InsufficientDataError("No aligned judge-human data found")
 
         consolidated_judge_df = consolidated_judge_df.filter(
             pl.col("original_id").is_in(list(common_ids))
@@ -247,13 +256,13 @@ class ScoringMixin:
             dict: A dictionary mapping task names to their schemas.
 
         Raises:
-            ValueError: If a task is not found in the judge results schemas.
+            EvalTaskNotFoundError: If a task is not found in the judge results schemas.
         """
         first_judge_result = next(iter(judge_results.values()))
         task_schemas = {}
         for task_name in task_names:
             if task_name not in first_judge_result.task_schemas:
-                raise ValueError(
+                raise EvalTaskNotFoundError(
                     f"Task '{task_name}' not found in judge results schemas"
                 )
             task_schemas[task_name] = first_judge_result.task_schemas.get(task_name)
@@ -263,12 +272,12 @@ class ScoringMixin:
         """Validate that a scorer can handle all tasks.
 
         Raises:
-            ValueError: If a scorer cannot handle a task.
+            IncompatibleTaskError: If a scorer cannot handle a task.
         """
         for task_name, task_schema in task_schemas.items():
             if not scorer.can_score_task(task_schema):
-                raise ValueError(
-                    f"Scorer {scorer.scorer_name} cannot handle task {task_name}"
+                raise IncompatibleTaskError(
+                    f"Scorer '{scorer.scorer_name}' cannot score task '{task_name}'"
                 )
 
     # ===== SCORING AND COMPARISON METHODS =====
@@ -305,11 +314,13 @@ class ScoringMixin:
                 try:
                     scorer.aggregate_results(scorer_results, scores_dir)
                 except Exception as e:
-                    self.logger.info(
+                    self.logger.warning(
                         f"Warning: Failed to run aggregation for {scorer_name}: {e}"
                     )
             else:
-                self.logger.info(f"Scorer {scorer_name} does not support aggregation")
+                self.logger.warning(
+                    f"Scorer {scorer_name} does not support aggregation"
+                )
 
             processed_scorers.add(scorer_name)
 
@@ -332,7 +343,8 @@ class ScoringMixin:
             Dict[str, List[BaseScoringResult]]: Dictionary mapping scorer names to lists of results
 
         Raises:
-            ValueError: If no metrics configured, no results found, or scoring fails
+            ScoringConfigError: If no metrics configured, no results found, or scoring fails
+            InsufficientDataError: If insufficient data is available for scoring
         """
         self.logger.info(
             f"Starting comparison with {len(comparison_config.metrics)} metrics"
@@ -340,11 +352,11 @@ class ScoringMixin:
 
         # Validate comparison configuration
         if not comparison_config.metrics:
-            raise ValueError("No metrics configured for comparison")
+            raise ScoringConfigError("No metrics configured for comparison")
 
         for i, metric_config in enumerate(comparison_config.metrics):
             if not metric_config.task_names:
-                raise ValueError(f"No task names specified for metric {i}")
+                raise ScoringConfigError(f"No task names specified for metric {i}")
 
         # Load results if not provided
         if judge_results is None:
@@ -356,9 +368,9 @@ class ScoringMixin:
 
         # Validate we have results
         if not judge_results:
-            raise ValueError("No judge results provided or found")
+            raise InsufficientDataError("No judge results provided or found")
         if not human_results:
-            raise ValueError("No human results provided or found")
+            raise InsufficientDataError("No human results provided or found")
 
         self.logger.info(
             f"Comparing {len(judge_results)} judge result sets with {len(human_results)} human result sets"

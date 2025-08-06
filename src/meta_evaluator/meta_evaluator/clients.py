@@ -9,9 +9,9 @@ from ..llm_client.LLM_client import LLMClient
 from ..llm_client.openai_client import OpenAIClient, OpenAIConfig
 from ..llm_client.azureopenai_client import AzureOpenAIClient, AzureOpenAIConfig
 from .exceptions import (
-    MissingConfigurationException,
-    ClientAlreadyExistsException,
-    ClientNotFoundException,
+    MissingConfigurationError,
+    ClientAlreadyExistsError,
+    ClientNotFoundError,
 )
 
 # Environment variable constants
@@ -53,14 +53,14 @@ class ClientsMixin:
             override_existing: Whether to override existing client. Defaults to False.
 
         Raises:
-            MissingConfigurationException: If required parameters are missing from both arguments and environment.
-            ClientAlreadyExistsException: If client already exists and override_existing is False.
+            MissingConfigurationError: If required parameters are missing from both arguments and environment.
+            ClientAlreadyExistsError: If client already exists and override_existing is False.
         """
         self.logger.info("Adding OpenAI client to registry...")
 
         # Check if client already exists
         if LLMClientEnum.OPENAI in self.client_registry and not override_existing:
-            raise ClientAlreadyExistsException("OPENAI")
+            raise ClientAlreadyExistsError("OPENAI")
 
         # Get configuration values, fallback to environment variables
         final_api_key = api_key or os.getenv(_OPENAI_API_KEY_ENV_VAR)
@@ -71,15 +71,15 @@ class ClientsMixin:
 
         # Validate required parameters
         if not final_api_key:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"api_key (or {_OPENAI_API_KEY_ENV_VAR} environment variable)"
             )
         if not final_default_model:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"default_model (or {_OPENAI_DEFAULT_MODEL_ENV_VAR} environment variable)"
             )
         if not final_default_embedding_model:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"default_embedding_model (or {_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR} environment variable)"
             )
 
@@ -117,14 +117,14 @@ class ClientsMixin:
             override_existing: Whether to override existing client. Defaults to False.
 
         Raises:
-            MissingConfigurationException: If required parameters are missing from both arguments and environment.
-            ClientAlreadyExistsException: If client already exists and override_existing is False.
+            MissingConfigurationError: If required parameters are missing from both arguments and environment.
+            ClientAlreadyExistsError: If client already exists and override_existing is False.
         """
         self.logger.info("Adding Azure OpenAI client to registry...")
 
         # Check if client already exists
         if LLMClientEnum.AZURE_OPENAI in self.client_registry and not override_existing:
-            raise ClientAlreadyExistsException("AZURE_OPENAI")
+            raise ClientAlreadyExistsError("AZURE_OPENAI")
 
         # Get configuration values, fallback to environment variables
         final_api_key = api_key or os.getenv(_AZURE_OPENAI_API_KEY_ENV_VAR)
@@ -139,23 +139,23 @@ class ClientsMixin:
 
         # Validate required parameters
         if not final_api_key:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"api_key (or {_AZURE_OPENAI_API_KEY_ENV_VAR} environment variable)"
             )
         if not final_endpoint:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"endpoint (or {_AZURE_OPENAI_ENDPOINT_ENV_VAR} environment variable)"
             )
         if not final_api_version:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"api_version (or {_AZURE_OPENAI_API_VERSION_ENV_VAR} environment variable)"
             )
         if not final_default_model:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"default_model (or {_AZURE_OPENAI_DEFAULT_MODEL_ENV_VAR} environment variable)"
             )
         if not final_default_embedding_model:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"default_embedding_model (or {_AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR} environment variable)"
             )
 
@@ -185,10 +185,10 @@ class ClientsMixin:
             LLMClient: The requested LLM client instance.
 
         Raises:
-            ClientNotFoundException: If the client type is not found in the registry.
+            ClientNotFoundError: If the client type is not found in the registry.
         """
         if client_type not in self.client_registry:
-            raise ClientNotFoundException(client_type.value)
+            raise ClientNotFoundError(client_type.value)
 
         return self.client_registry[client_type]
 

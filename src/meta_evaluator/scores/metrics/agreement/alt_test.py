@@ -15,6 +15,10 @@ from sklearn.metrics import jaccard_score
 
 from meta_evaluator.scores.base_scorer import BaseScorer
 from meta_evaluator.scores.base_scoring_result import BaseScoringResult
+from meta_evaluator.scores.exceptions import (
+    AltTestInsufficientAnnotationsError,
+    AltTestInvalidScoringFunctionError,
+)
 
 
 class AltTestScorer(BaseScorer):
@@ -319,7 +323,7 @@ class AltTestScorer(BaseScorer):
             Callable: The scoring function.
 
         Raises:
-            ValueError: If the scoring function is unknown.
+            AltTestInvalidScoringFunctionError: If the scoring function is unknown.
         """
         if scoring_function_name == "accuracy":
             return self._accuracy
@@ -328,7 +332,9 @@ class AltTestScorer(BaseScorer):
         elif scoring_function_name == "jaccard_similarity":
             return self._jaccard_similarity
         else:
-            raise ValueError(f"Unknown scoring function: {scoring_function_name}")
+            raise AltTestInvalidScoringFunctionError(
+                f"Unknown scoring function: {scoring_function_name}"
+            )
 
     # Alt-test core functions
     def _by_procedure(self, p_values: List[float], q: float) -> List[Any]:
@@ -375,7 +381,7 @@ class AltTestScorer(BaseScorer):
             Tuple[float, float, Dict[str, Tuple[float, float]]]: A tuple containing the winning rate, advantage probability, and human advantage probabilities.
 
         Raises:
-            ValueError: If no annotators meet the minimum threshold of instances per human.
+            AltTestInsufficientAnnotationsError: If no annotators meet the minimum threshold of instances per human.
         """
         # Use provided epsilon or fall back to default epsilon == 0.0
         scoring_function = self._get_scoring_function(scoring_function_name)
@@ -454,7 +460,7 @@ class AltTestScorer(BaseScorer):
 
         # Check if we have any valid humans to analyze
         if not humans:
-            raise ValueError(
+            raise AltTestInsufficientAnnotationsError(
                 f"No annotators meet the minimum threshold of {self.min_instances_per_human} instances per human"
             )
 

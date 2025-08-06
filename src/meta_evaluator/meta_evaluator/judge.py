@@ -18,16 +18,15 @@ from ..common.models import Prompt
 from ..data import EvalData
 from ..results import JudgeResults
 from .exceptions import (
-    JudgeAlreadyExistsException,
-    JudgeNotFoundException,
-    InvalidYAMLStructureException,
-    PromptFileNotFoundException,
-    EvalTaskNotSetException,
-    EvalDataNotSetException,
-    NoJudgesAvailableException,
-    LLMClientNotConfiguredException,
-    JudgeExecutionException,
-    ResultsSaveException,
+    JudgeAlreadyExistsError,
+    JudgeNotFoundError,
+    InvalidYAMLStructureError,
+    PromptFileNotFoundError,
+    EvalTaskNotFoundError,
+    EvalDataNotFoundError,
+    LLMClientNotConfiguredError,
+    JudgeExecutionError,
+    ResultsSaveError,
 )
 
 
@@ -78,14 +77,14 @@ class JudgesMixin:
             override_existing: Whether to override existing judge. Defaults to False.
 
         Raises:
-            JudgeAlreadyExistsException: If judge already exists and override_existing is False.
-            ValueError: If eval_task is not set.
+            JudgeAlreadyExistsError: If judge already exists and override_existing is False.
+            EvalTaskNotFoundError: If eval_task is not set.
         """
         if self.eval_task is None:
-            raise ValueError("eval_task must be set before adding judges")
+            raise EvalTaskNotFoundError("eval_task must be set before adding judges")
 
         if judge_id in self.judge_registry and not override_existing:
-            raise JudgeAlreadyExistsException(judge_id)
+            raise JudgeAlreadyExistsError(judge_id)
 
         judge = Judge(
             id=judge_id,
@@ -111,10 +110,10 @@ class JudgesMixin:
             Judge: The requested Judge instance.
 
         Raises:
-            JudgeNotFoundException: If the judge ID is not found in the registry.
+            JudgeNotFoundError: If the judge ID is not found in the registry.
         """
         if judge_id not in self.judge_registry:
-            raise JudgeNotFoundException(judge_id)
+            raise JudgeNotFoundError(judge_id)
 
         return self.judge_registry[judge_id]
 
@@ -152,13 +151,15 @@ class JudgesMixin:
 
         Raises:
             FileNotFoundError: If the YAML file is not found.
-            InvalidYAMLStructureException: If the YAML structure is invalid.
-            ValueError: If eval_task is not set or if llm_client value is invalid.
+            InvalidYAMLStructureError: If the YAML structure is invalid.
+            EvalTaskNotFoundError: If eval_task is not set.
         """
         self.logger.info(f"Loading judges from YAML file: {yaml_file}")
 
         if self.eval_task is None:
-            raise ValueError("eval_task must be set before loading judges from YAML")
+            raise EvalTaskNotFoundError(
+                "eval_task must be set before loading judges from YAML"
+            )
 
         # Resolve YAML file path (can be absolute or relative)
         yaml_path = Path(yaml_file)
@@ -170,7 +171,7 @@ class JudgesMixin:
         except FileNotFoundError:
             raise FileNotFoundError(f"YAML file not found: {yaml_path}")
         except yaml.YAMLError as e:
-            raise InvalidYAMLStructureException(f"Invalid YAML syntax: {e}")
+            raise InvalidYAMLStructureError(f"Invalid YAML syntax: {e}")
 
         # Validate YAML structure
         try:
@@ -179,7 +180,7 @@ class JudgesMixin:
                 f"Found {len(judges_config.judges)} judge configurations in YAML"
             )
         except ValidationError as e:
-            raise InvalidYAMLStructureException(f"YAML validation failed: {e}")
+            raise InvalidYAMLStructureError(f"YAML validation failed: {e}")
 
         # Load each judge
         for judge_config in judges_config.judges:
@@ -213,8 +214,7 @@ class JudgesMixin:
         except ValueError:
             valid_clients = [e.value for e in LLMClientEnum]
             raise ValueError(
-                f"Invalid llm_client '{judge_config.llm_client}'. "
-                f"Valid options: {valid_clients}"
+                f"Invalid llm_client '{judge_config.llm_client}'. Valid options: {valid_clients}"
             )
 
         # Load prompt file from absolute or relative path
@@ -242,7 +242,7 @@ class JudgesMixin:
             Prompt: The loaded Prompt object.
 
         Raises:
-            PromptFileNotFoundException: If prompt file cannot be found.
+            PromptFileNotFoundError: If prompt file cannot be found.
         """
         # Resolve prompt file path
         prompt_path = Path(prompt_file)
@@ -264,7 +264,7 @@ class JudgesMixin:
             with open(resolved_prompt_path, "r", encoding="utf-8") as f:
                 prompt_content = f.read().strip()
         except FileNotFoundError:
-            raise PromptFileNotFoundException(str(resolved_prompt_path))
+            raise PromptFileNotFoundError(str(resolved_prompt_path))
 
         # Create prompt with file stem as ID
         prompt_id = resolved_prompt_path.stem
@@ -297,13 +297,12 @@ class JudgesMixin:
             dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
 
         Raises:
-            EvalTaskNotSetException: If eval_task is not set.
-            EvalDataNotSetException: If data is not set.
-            JudgeNotFoundException: If specified judge_ids don't exist.
-            NoJudgesAvailableException: If no judges are available to run.
-            LLMClientNotConfiguredException: If required LLM client is not configured.
-            JudgeExecutionException: If judge execution fails.
-            ResultsSaveException: If saving results fails.
+            EvalTaskNotFoundError: If eval_task is not set.
+            EvalDataNotFoundError: If data is not set.
+            JudgeNotFoundError: If specified judge_ids don't exist or no judges are available to run.
+            LLMClientNotConfiguredError: If required LLM client is not configured.
+            JudgeExecutionError: If judge execution fails.
+            ResultsSaveError: If saving results fails.
 
         Example:
             >>> # Run all judges
@@ -317,10 +316,10 @@ class JudgesMixin:
         """
         # Validate prerequisites
         if self.eval_task is None:
-            raise EvalTaskNotSetException()
+            raise EvalTaskNotFoundError("eval_task must be set before running judges")
 
         if self.data is None:
-            raise EvalDataNotSetException()
+            raise EvalDataNotFoundError("data must be set before running judges")
 
         # Determine which judges to run
         if judge_ids is None:
@@ -338,13 +337,13 @@ class JudgesMixin:
             j_id for j_id in judges_to_run if j_id not in self.judge_registry
         ]
         if missing_judges:
-            raise JudgeNotFoundException(
+            raise JudgeNotFoundError(
                 f"Judge IDs not found in registry: {missing_judges}"
             )
 
         # Check if any judges are available
         if not judges_to_run:
-            raise NoJudgesAvailableException()
+            raise JudgeNotFoundError("No judges available to run")
 
         # Generate run ID if not provided
         if run_id is None:
@@ -368,9 +367,7 @@ class JudgesMixin:
             # Get the appropriate LLM client for this judge
             llm_client = getattr(self, "client_registry", {}).get(judge.llm_client_enum)
             if llm_client is None:
-                raise LLMClientNotConfiguredException(
-                    judge_id, judge.llm_client_enum.value
-                )
+                raise LLMClientNotConfiguredError(judge_id, judge.llm_client_enum.value)
 
             # Run the evaluation
             try:
@@ -385,7 +382,7 @@ class JudgesMixin:
                     f"Judge '{judge_id}' completed: {judge_results.succeeded_count}/{judge_results.total_count} successful evaluations"
                 )
             except Exception as e:
-                raise JudgeExecutionException(judge_id, str(e))
+                raise JudgeExecutionError(judge_id, str(e))
 
             # Save results if requested
             if save_results:
@@ -400,7 +397,7 @@ class JudgesMixin:
                         f"Saved results for judge '{judge_id}' to results directory"
                     )
                 except Exception as e:
-                    raise ResultsSaveException(judge_id, run_id, str(e))
+                    raise ResultsSaveError(judge_id, run_id, str(e))
 
         self.logger.info(
             f"Judge evaluation run '{run_id}' completed successfully with {len(results)} judge(s)"

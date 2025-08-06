@@ -4,6 +4,7 @@ import logging
 from typing import Any, Callable, Literal, Optional
 from pydantic import BaseModel, Field, create_model, model_validator
 from .serialization import EvalTaskState
+from .exceptions import TaskSchemaError
 
 
 class EvalTask(BaseModel):
@@ -37,15 +38,17 @@ class EvalTask(BaseModel):
             EvalTask: The validated instance
 
         Raises:
-            ValueError: If task_schemas is empty or any task has fewer than 2 outcomes
+            TaskSchemaError: If task_schemas is empty or if any task has fewer than 2 outcomes
         """
         if not self.task_schemas:
-            raise ValueError("task_schemas cannot be empty")
+            raise TaskSchemaError(
+                "task_schema is empty. Please define your tasks and their allowed outcome values."
+            )
 
         for task_name, outcomes in self.task_schemas.items():
             if outcomes is not None and len(outcomes) < 2:
-                raise ValueError(
-                    f"Task '{task_name}' must have at least 2 outcomes when using predefined outcomes"
+                raise TaskSchemaError(
+                    f"Please define at least 2 outcomes for task {task_name}."
                 )
 
         return self

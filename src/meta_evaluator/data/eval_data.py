@@ -21,6 +21,7 @@ from .exceptions import (
     NoDataLeftError,
     NullValuesInDataError,
     InvalidNameError,
+    DataFileError,
 )
 from .serialization import DataMetadata
 
@@ -499,7 +500,7 @@ class EvalData(BaseModel):
         # Validate that specified columns exist in the DataFrame
         missing_cols = set(columns) - set(self.data.columns)
         if missing_cols:
-            raise ValueError(
+            raise EmptyColumnListError(
                 f"columns contains non-existent columns: {list(missing_cols)}"
             )
 
@@ -563,7 +564,7 @@ class EvalData(BaseModel):
             data_format: Format to write the data in (json, csv, or parquet).
 
         Raises:
-            ValueError: If data_format is not one of json, csv, or parquet.
+            DataFileError: If data_format is not one of json, csv, or parquet.
         """
         self.logger.info(
             f"Writing data to {filepath} in {data_format} format ({len(self.data)} rows)"
@@ -579,7 +580,7 @@ class EvalData(BaseModel):
                 with open(filepath, "w") as f:
                     json.dump(data_dict, f, indent=2)
             case _:
-                raise ValueError(f"Unsupported data format: {data_format}")
+                raise DataFileError(f"Unsupported data format: {data_format}")
 
     @staticmethod
     def load_data(
@@ -596,7 +597,7 @@ class EvalData(BaseModel):
 
         Raises:
             FileNotFoundError: If the data file doesn't exist.
-            ValueError: If the data format is not supported.
+            DataFileError: If the data format is not supported.
         """
         try:
             match data_format:
@@ -609,7 +610,7 @@ class EvalData(BaseModel):
                         data_dict = json.load(f)
                     return pl.DataFrame(data_dict)
                 case _:
-                    raise ValueError(f"Unsupported data format: {data_format}")
+                    raise DataFileError(f"Unsupported data format: {data_format}")
         except FileNotFoundError:
             raise FileNotFoundError(f"Data file not found: {filepath}")
 
@@ -909,14 +910,11 @@ class SampleEvalData(EvalData):
             SampleEvalData: Reconstructed SampleEvalData instance.
 
         Raises:
-            ValueError: If the metadata type is not "SampleEvalData".
-            ValueError: If the metadata sample_name is None.
+            DataFileError: If the metadata type is not "SampleEvalData".
+            DataFileError: If the metadata sample_name is None.
         """
-        if metadata.type != "SampleEvalData":
-            raise ValueError("Expected type 'SampleEvalData'")
-
         if metadata.sample_name is None:
-            raise ValueError("MetaData missing required fields")
+            raise DataFileError("Reload data. MetaData missing required fields")
 
         return cls(
             data=data,

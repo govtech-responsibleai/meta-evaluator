@@ -7,11 +7,11 @@ from unittest.mock import patch
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.meta_evaluator.base import INVALID_JSON_STRUCTURE_MSG
 from meta_evaluator.meta_evaluator.exceptions import (
-    DataAlreadyExistsException,
-    DataFilenameExtensionMismatchException,
-    EvalTaskAlreadyExistsException,
-    EvalDataNotSetException,
-    EvalTaskNotSetException,
+    DataAlreadyExistsError,
+    DataFilenameExtensionMismatchError,
+    EvalTaskAlreadyExistsError,
+    EvalDataNotFoundError,
+    EvalTaskNotFoundError,
 )
 from meta_evaluator.llm_client.models import LLMClientEnum
 from meta_evaluator.data import EvalData, SampleEvalData
@@ -44,13 +44,13 @@ class TestMetaEvaluatorBase:
     def test_add_data_already_exists_no_overwrite(
         self, meta_evaluator, sample_eval_data, another_eval_data
     ):
-        """Test DataAlreadyExistsException when data exists and overwrite is False (default)."""
+        """Test DataAlreadyExistsError when data exists and overwrite is False (default)."""
         # Add data first time
         meta_evaluator.add_data(sample_eval_data)
         assert meta_evaluator.data == sample_eval_data
 
         # Try to add again without overwrite
-        with pytest.raises(DataAlreadyExistsException, match="Data already exists"):
+        with pytest.raises(DataAlreadyExistsError, match="Data already exists"):
             meta_evaluator.add_data(another_eval_data)
 
         # Verify original data is unchanged
@@ -85,14 +85,14 @@ class TestMetaEvaluatorBase:
     def test_add_eval_task_already_exists_no_overwrite(
         self, meta_evaluator, basic_eval_task, another_basic_eval_task
     ):
-        """Test EvalTaskAlreadyExistsException when task exists and overwrite is False (default)."""
+        """Test EvalTaskAlreadyExistsError when task exists and overwrite is False (default)."""
         # Add task first time
         meta_evaluator.add_eval_task(basic_eval_task)
         assert meta_evaluator.eval_task == basic_eval_task
 
         # Try to add again without overwrite
         with pytest.raises(
-            EvalTaskAlreadyExistsException, match="Evaluation task already exists"
+            EvalTaskAlreadyExistsError, match="Evaluation task already exists"
         ):
             meta_evaluator.add_eval_task(another_basic_eval_task)
 
@@ -341,9 +341,9 @@ class TestMetaEvaluatorBase:
     def test_save_state_data_filename_extension_mismatch(
         self, meta_evaluator, data_format, wrong_filename, expected_extension
     ):
-        """Test DataFilenameExtensionMismatchException for format mismatches."""
+        """Test DataFilenameExtensionMismatchError for format mismatches."""
         with pytest.raises(
-            DataFilenameExtensionMismatchException,
+            DataFilenameExtensionMismatchError,
             match=f"Data filename '{wrong_filename}' must have extension '{expected_extension}' to match data_format '{data_format}'",
         ):
             meta_evaluator.save_state(
@@ -938,14 +938,14 @@ class TestMetaEvaluatorAnnotator:
         """Test that launch_annotator raises ValueError when no data is set."""
         meta_evaluator.add_eval_task(basic_eval_task)
 
-        with pytest.raises(EvalDataNotSetException):
+        with pytest.raises(EvalDataNotFoundError):
             meta_evaluator.launch_annotator()
 
     def test_launch_annotator_no_eval_task(self, meta_evaluator, sample_eval_data):
         """Test that launch_annotator raises ValueError when no eval_task is set."""
         meta_evaluator.add_data(sample_eval_data)
 
-        with pytest.raises(EvalTaskNotSetException):
+        with pytest.raises(EvalTaskNotFoundError):
             meta_evaluator.launch_annotator()
 
     @patch("meta_evaluator.meta_evaluator.base.StreamlitLauncher")

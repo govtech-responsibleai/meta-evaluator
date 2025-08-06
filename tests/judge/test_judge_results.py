@@ -8,6 +8,13 @@ from meta_evaluator.results.judge_results import (
     INVALID_JSON_STRUCTURE_MSG,
     STATE_FILE_NOT_FOUND_MSG,
 )
+from meta_evaluator.results.exceptions import (
+    BuilderInitializationError,
+    IncompleteResultsError,
+    InvalidFileError,
+    MismatchedTasksError,
+    ResultsDataFormatError,
+)
 
 
 class TestJudgeResultsBuilder:
@@ -178,7 +185,8 @@ class TestJudgeResultsBuilder:
         """Test validation errors for row creation."""
         # Missing tasks in success row
         with pytest.raises(
-            ValueError, match="Success row must contain outcomes for ALL tasks"
+            MismatchedTasksError,
+            match="Success row must contain outcomes for ALL tasks",
         ):
             base_builder.create_success_row(
                 sample_example_id="test_1",
@@ -193,7 +201,8 @@ class TestJudgeResultsBuilder:
 
         # Extra tasks in success row
         with pytest.raises(
-            ValueError, match="Success row must contain outcomes for ALL tasks"
+            MismatchedTasksError,
+            match="Success row must contain outcomes for ALL tasks",
         ):
             base_builder.create_success_row(
                 sample_example_id="test_1",
@@ -207,7 +216,10 @@ class TestJudgeResultsBuilder:
             )
 
         # Invalid task names in partial row
-        with pytest.raises(ValueError, match="Invalid task names"):
+        with pytest.raises(
+            MismatchedTasksError,
+            match="Partial row must contain outcomes for ALL tasks",
+        ):
             base_builder.create_partial_row(
                 sample_example_id="test_1",
                 original_id="id1",
@@ -225,7 +237,8 @@ class TestJudgeResultsBuilder:
     def test_validate_and_store_invalid_original_id_error(self, base_builder):
         """Test that creating a row with an original_id not in expected_ids raises an error."""
         with pytest.raises(
-            ValueError, match="Unexpected original_id 'invalid_id' not in expected IDs"
+            BuilderInitializationError,
+            match="Unexpected original_id 'invalid_id' not in expected IDs",
         ):
             base_builder.create_success_row(
                 sample_example_id="test_1",
@@ -252,7 +265,8 @@ class TestJudgeResultsBuilder:
         )
 
         with pytest.raises(
-            ValueError, match="Result for original_id 'id1' already exists"
+            BuilderInitializationError,
+            match="Result for original_id 'id1' already exists",
         ):
             base_builder.create_success_row(
                 sample_example_id="test_2",
@@ -302,7 +316,7 @@ class TestJudgeResultsBuilder:
             llm_call_duration_seconds=1.0,
         )
 
-        with pytest.raises(ValueError, match="Missing results for IDs"):
+        with pytest.raises(IncompleteResultsError, match="Missing results for IDs"):
             base_builder.complete()
 
     def test_complete_status_count_calculation(self, base_builder):
@@ -339,7 +353,9 @@ class TestJudgeResultsBuilder:
 
     def test_builder_empty_expected_ids_error(self):
         """Test that empty expected_ids raises an error."""
-        with pytest.raises(ValueError, match="expected_ids cannot be empty"):
+        with pytest.raises(
+            BuilderInitializationError, match="expected_ids cannot be empty"
+        ):
             JudgeResultsBuilder(
                 run_id="test_run_123",
                 judge_id="test_judge_1",
@@ -552,7 +568,8 @@ class TestJudgeResultsSerialization:
         state_file = tmp_path / "state.json"
 
         with pytest.raises(
-            ValueError, match="data_filename extension.*must match data_format"
+            ResultsDataFormatError,
+            match="Unsupported results data format.*json.*for.*wrong_extension.csv",
         ):
             sample_judge_results.save_state(
                 str(state_file), data_format="json", data_filename="wrong_extension.csv"
@@ -576,13 +593,13 @@ class TestJudgeResultsSerialization:
     def test_load_state_error_handling(self, tmp_path, sample_judge_results):
         """Test load_state error handling for various failure scenarios."""
         # Test missing file
-        with pytest.raises(FileNotFoundError, match=STATE_FILE_NOT_FOUND_MSG):
+        with pytest.raises(InvalidFileError, match=STATE_FILE_NOT_FOUND_MSG):
             JudgeResults.load_state("nonexistent_state.json")
 
         # Test invalid JSON
         state_file = tmp_path / "invalid.json"
         state_file.write_text("{invalid json")
-        with pytest.raises(ValueError, match=INVALID_JSON_STRUCTURE_MSG):
+        with pytest.raises(InvalidFileError, match=INVALID_JSON_STRUCTURE_MSG):
             JudgeResults.load_state(str(state_file))
 
         # Test missing required keys
@@ -590,7 +607,7 @@ class TestJudgeResultsSerialization:
         state_file.write_text(
             '{"metadata": {}}'
         )  # Missing data_format and data_filename
-        with pytest.raises(ValueError, match=INVALID_JSON_STRUCTURE_MSG):
+        with pytest.raises(InvalidFileError, match=INVALID_JSON_STRUCTURE_MSG):
             JudgeResults.load_state(str(state_file))
 
         # Test missing data file

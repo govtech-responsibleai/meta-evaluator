@@ -4,21 +4,24 @@ from abc import ABC, abstractmethod
 from typing import Union
 
 
-class DataException(Exception, ABC):
-    """Base class for data-related exceptions. Do not instantiate directly."""
+class DataError(Exception, ABC):
+    """Base class for data-related errors.
+
+    This class mirrors the behaviour of :class:`MetaEvaluatorError` by storing the
+    human-readable message on ``self.message`` in addition to the standard
+    ``Exception`` machinery.  Keeping the attribute allows future callers to rely
+    on a uniform *attribute contract* across all custom error families.
+    """
 
     @abstractmethod
     def __init__(self, message: str = ""):
-        """Initializes the DataException with an optional message.
-
-        Args:
-            message (str): The exception message. Defaults to an empty string.
-        """
-        super().__init__(message)
+        """Initialise the DataError with an optional message."""
+        self.message = message
+        super().__init__(self.message)
 
 
-class InvalidColumnNameError(DataException):
-    """Exception raised when a column name is invalid."""
+class InvalidColumnNameError(DataError):
+    """Error raised when a column name is invalid."""
 
     def __init__(self, column_name: str, error: str):
         """Initializes the InvalidColumnNameError with the invalid column name.
@@ -31,8 +34,8 @@ class InvalidColumnNameError(DataException):
         super().__init__(message)
 
 
-class EmptyColumnListError(DataException):
-    """Exception raised when the list of columns is empty."""
+class EmptyColumnListError(DataError):
+    """Error raised when the list of columns is empty."""
 
     def __init__(self, column_type_name: str):
         """Initializes the EmptyColumnList exception with the column type name.
@@ -44,8 +47,8 @@ class EmptyColumnListError(DataException):
         super().__init__(message)
 
 
-class IdColumnExistsError(DataException):
-    """Exception raised when the ID column already exists in the dataset."""
+class IdColumnExistsError(DataError):
+    """Error raised when the ID column already exists in the dataset."""
 
     def __init__(self, column_name: str):
         """Initializes the IdColumnExistsError.
@@ -57,8 +60,8 @@ class IdColumnExistsError(DataException):
         super().__init__(message)
 
 
-class ColumnNotFoundError(DataException):
-    """Exception raised when a column is not found in the dataset."""
+class ColumnNotFoundError(DataError):
+    """Error raised when a column is not found in the dataset."""
 
     def __init__(self, column_names: Union[str, list[str]]):
         """Initializes the ColumnNotFoundError.
@@ -72,8 +75,8 @@ class ColumnNotFoundError(DataException):
         super().__init__(message)
 
 
-class InvalidInIDColumnError(DataException):
-    """Exception raised when the ID column contains invalid values."""
+class InvalidInIDColumnError(DataError):
+    """Error raised when the ID column contains invalid values."""
 
     def __init__(self, row_numbers: list[int], id_column_name: str):
         """Initializes the NullExistsException.
@@ -86,8 +89,8 @@ class InvalidInIDColumnError(DataException):
         super().__init__(message)
 
 
-class DuplicateInIDColumnError(DataException):
-    """Exception raised when the ID column contains duplicate values."""
+class DuplicateInIDColumnError(DataError):
+    """Error raised when the ID column contains duplicate values."""
 
     def __init__(self, duplicate_groups: dict[str, list[int]], id_column_name: str):
         """Initializes the DuplicateInIDColumnError.
@@ -108,8 +111,8 @@ class DuplicateInIDColumnError(DataException):
         super().__init__(message)
 
 
-class NullValuesInDataError(DataException):
-    """Exception raised when null values are found in non-ID data columns."""
+class NullValuesInDataError(DataError):
+    """Error raised when null values are found in non-ID data columns."""
 
     def __init__(self, null_issues: list[str]):
         """Initializes the NullValuesInDataError.
@@ -122,8 +125,8 @@ class NullValuesInDataError(DataException):
         super().__init__(message)
 
 
-class EmptyDataFrameError(DataException):
-    """Exception raised when the DataFrame is empty."""
+class EmptyDataFrameError(DataError):
+    """Error raised when the DataFrame is empty."""
 
     def __init__(self):
         """Initializes the EmptyDataFrameError.
@@ -134,8 +137,8 @@ class EmptyDataFrameError(DataException):
         super().__init__(message)
 
 
-class DataFileError(DataException):
-    """Exception raised for file-related errors during data loading."""
+class DataFileError(DataError):
+    """Error raised for file-related errors during data loading."""
 
     def __init__(self, message: str):
         """Initializes the DataFileError with a descriptive message.
@@ -146,8 +149,8 @@ class DataFileError(DataException):
         super().__init__(message)
 
 
-class InvalidNameError(DataException):
-    """Exception raised when the name of the dataset is empty."""
+class InvalidNameError(DataError):
+    """Error raised when the name of the dataset is empty."""
 
     def __init__(self, name: str, message: str):
         """Initializes the InvalidNameError.
@@ -158,8 +161,8 @@ class InvalidNameError(DataException):
         super().__init__(message)
 
 
-class NoDataLeftError(DataException):
-    """Exception raised when an operation results in no remaining data."""
+class NoDataLeftError(DataError):
+    """Error raised when an operation results in no remaining data."""
 
     def __init__(self, operation: str, original_size: int = 0):
         """Initializes the NoDataLeftError.

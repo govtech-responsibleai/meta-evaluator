@@ -16,6 +16,7 @@ from meta_evaluator.llm_client.azureopenai_client import (
     AzureOpenAIClient,
 )
 from meta_evaluator.llm_client.models import Message, RoleEnum, LLMClientEnum, LLMUsage
+from meta_evaluator.llm_client.exceptions import LLMAPIError
 
 
 class TestAzureOpenAIConfig:
@@ -647,7 +648,7 @@ class TestAzureOpenAIClient:
 
         client = AzureOpenAIClient(valid_azure_config)
 
-        with pytest.raises(ValueError, match="Expected non-empty content"):
+        with pytest.raises(LLMAPIError, match="Expected non-empty content"):
             client._prompt("gpt-4", sample_messages, get_logprobs=False)
 
     @patch("meta_evaluator.llm_client.azureopenai_client.instructor.from_openai")
@@ -680,7 +681,7 @@ class TestAzureOpenAIClient:
 
         client = AzureOpenAIClient(valid_azure_config)
 
-        with pytest.raises(ValueError, match="Expected usage data"):
+        with pytest.raises(LLMAPIError, match="Expected usage data"):
             client._prompt("gpt-4", sample_messages, get_logprobs=False)
 
     @patch("meta_evaluator.llm_client.azureopenai_client.instructor.from_openai")

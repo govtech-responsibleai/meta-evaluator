@@ -53,10 +53,10 @@ class StreamlitAnnotator:
         if not os.path.exists(self.annotations_dir):
             try:
                 os.makedirs(self.annotations_dir, exist_ok=True)
-            except Exception as e:
+            except OSError as e:
                 raise SaveError(
                     f"Cannot create annotations directory ({e})", self.annotations_dir
-                )
+                ) from e
 
     def display_top_header(self, current_row_idx: int, total_samples: int) -> None:
         """Display the header section with sample number and progress."""
@@ -250,7 +250,7 @@ class StreamlitAnnotator:
                 raise SaveError(
                     f"Failed to save results ({e})",
                     os.path.join(self.annotations_dir, metadata_filename),
-                )
+                ) from e
 
             # Show success information
             st.success("✅ Export completed successfully!")

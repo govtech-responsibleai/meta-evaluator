@@ -7,7 +7,7 @@ from typing import Optional
 import polars as pl
 
 from .eval_data import EvalData
-from .exceptions import DataFileError, DataException
+from .exceptions import DataFileError, DataError
 
 
 class DataLoader:
@@ -41,7 +41,7 @@ class DataLoader:
         Raises:
             DataFileError: If there are file-related issues (file not found,
                 permissions, or CSV parsing errors).
-            DataException: If there is an error validating the loaded data structure.
+            DataError: If there is an error validating the loaded data structure.
         """
         logger = logging.getLogger(__name__)
         logger.info(f"Loading CSV file: {file_path} as dataset '{name}'")
@@ -76,7 +76,7 @@ class DataLoader:
                 id_column=id_column,
             )
             logger.info(f"Created EvalData '{name}' with {len(output.data)} rows")
-        except DataException:
+        except DataError:
             # Re-raise DataExceptions from EvalData validation unchanged
             raise
 

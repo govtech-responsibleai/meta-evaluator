@@ -58,7 +58,8 @@ class StreamlitLauncher:
                 sock.settimeout(1)
                 result = sock.connect_ex(("localhost", self.port))
                 return result == 0
-        except Exception:
+        except (OSError, socket.error) as e:
+            self.logger.debug(f"Port check failed for {self.port}: {e}")
             return False
 
     def _save_files_for_annotations(self, tmp_dir: str) -> None:

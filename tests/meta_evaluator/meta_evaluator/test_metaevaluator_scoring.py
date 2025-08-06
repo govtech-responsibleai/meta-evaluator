@@ -20,6 +20,12 @@ from meta_evaluator.scores import (
     MetricConfig,
     AccuracyScorer,
 )
+from meta_evaluator.meta_evaluator.exceptions import (
+    ScoringConfigError,
+    IncompatibleTaskError,
+    EvalTaskNotFoundError,
+    InsufficientDataError,
+)
 from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
 
 
@@ -299,7 +305,9 @@ class TestDataProcessing:
         judge_dict = {"run_1": judge_results}
         human_dict = {"run_1": human_results}
 
-        with pytest.raises(ValueError, match="No aligned judge-human data found"):
+        with pytest.raises(
+            InsufficientDataError, match="No aligned judge-human data found"
+        ):
             mock_evaluator._align_results_by_id(judge_dict, human_dict, ["task1"])
 
     def test_empty_dataframes(self, mock_evaluator):
@@ -319,7 +327,7 @@ class TestDataProcessing:
         judge_dict = {"run_1": judge_results}
         human_dict = {"run_1": human_results}
 
-        with pytest.raises(ValueError, match="No aligned judge-human data found"):
+        with pytest.raises(InsufficientDataError, match="No judge outcomes found"):
             mock_evaluator._align_results_by_id(judge_dict, human_dict, ["task1"])
 
     def test_extract_task_schemas(self, mock_evaluator, judge_results_dict):
@@ -348,9 +356,7 @@ class TestDataProcessing:
         scorer = AccuracyScorer()
         task_schemas = {"task1": None}  # Free-form text task
 
-        with pytest.raises(
-            ValueError, match="Scorer accuracy cannot handle task task1"
-        ):
+        with pytest.raises(IncompatibleTaskError, match="Incompatible task"):
             mock_evaluator._validate_scorer_compatibility(scorer, task_schemas)
 
     def test_extract_task_schemas_missing_task(
@@ -360,7 +366,8 @@ class TestDataProcessing:
         task_names = ["task1", "missing_task"]
 
         with pytest.raises(
-            ValueError, match="Task 'missing_task' not found in judge results schemas"
+            EvalTaskNotFoundError,
+            match="Task 'missing_task' not found in judge results schemas",
         ):
             mock_evaluator._extract_task_schemas(judge_results_dict, task_names)
 
@@ -665,7 +672,9 @@ class TestScoring:
         """Test comparison when no metrics are configured."""
         config = MetricsConfig(metrics=[])
 
-        with pytest.raises(ValueError, match="No metrics configured for comparison"):
+        with pytest.raises(
+            ScoringConfigError, match="No metrics configured for comparison"
+        ):
             mock_evaluator.compare(config)
 
     def test_compare_no_task_names_specified(self, mock_evaluator):
@@ -675,7 +684,9 @@ class TestScoring:
             metrics=[MetricConfig(scorer=mock_scorer, task_names=[])]
         )
 
-        with pytest.raises(ValueError, match="No task names specified for metric 0"):
+        with pytest.raises(
+            ScoringConfigError, match="No task names specified for metric 0"
+        ):
             mock_evaluator.compare(config)
 
     def test_compare_success(
@@ -724,7 +735,9 @@ class TestScoring:
             metrics=[MetricConfig(scorer=AccuracyScorer(), task_names=["task1"])]
         )
 
-        with pytest.raises(ValueError, match="No judge results provided or found"):
+        with pytest.raises(
+            InsufficientDataError, match="No judge results provided or found"
+        ):
             mock_evaluator.compare(config)
 
     def test_compare_no_human_results(self, mock_evaluator):
@@ -736,7 +749,9 @@ class TestScoring:
             metrics=[MetricConfig(scorer=AccuracyScorer(), task_names=["task1"])]
         )
 
-        with pytest.raises(ValueError, match="No human results provided or found"):
+        with pytest.raises(
+            InsufficientDataError, match="No human results provided or found"
+        ):
             mock_evaluator.compare(config)
 
     def test_aggregation_with_mixed_scorers(

@@ -14,8 +14,9 @@ class LLMClientError(Exception, ABC):
             message (str): The message to be displayed.
             provider (LLMClientEnum): The provider of the LLM client that raised the error.
         """
-        super().__init__(message)
+        self.message = message
         self.provider = provider
+        super().__init__(self.message)
 
     def __str__(self) -> str:
         """Returns a string representation of the error.

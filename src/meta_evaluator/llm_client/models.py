@@ -175,7 +175,9 @@ class LLMResponse(BaseModel):
     @model_validator(mode="after")
     def _validate_messages_not_empty(self) -> "LLMResponse":
         if not self.messages:
-            raise ValueError("LLMResponse must have at least one message")
+            raise ValueError(
+                "LLMResponse must have at least one message"
+            )  # No custom exceptions from exceptions.py due to circular import
         return self
 
     @property
