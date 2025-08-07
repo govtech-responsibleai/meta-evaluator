@@ -19,8 +19,8 @@ from ..data.serialization import DataMetadata
 from ..eval_task import EvalTask
 from ..eval_task.serialization import EvalTaskState
 from ..llm_client.azureopenai_client import AzureOpenAIClient, AzureOpenAIConfig
+from ..llm_client.client import LLMClient
 from ..llm_client.enums import LLMClientEnum
-from ..llm_client.LLM_client import LLMClient
 from ..llm_client.openai_client import OpenAIClient, OpenAIConfig
 from ..llm_client.serialization import (
     AzureOpenAISerializedState,

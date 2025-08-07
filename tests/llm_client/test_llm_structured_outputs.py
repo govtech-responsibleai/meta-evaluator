@@ -3,14 +3,14 @@
 import pytest
 from pydantic import BaseModel
 
-from meta_evaluator.llm_client.exceptions import (
-    LLMAPIError,
-    LLMValidationError,
-)
-from meta_evaluator.llm_client.LLM_client import (
+from meta_evaluator.llm_client.client import (
     _FAILED_RESPONSE_ERROR_TEMPLATE,
     _LOGPROBS_NOT_SUPPORTED_ERROR_TEMPLATE,
     _NO_MESSAGES_ERROR,
+)
+from meta_evaluator.llm_client.exceptions import (
+    LLMAPIError,
+    LLMValidationError,
 )
 from meta_evaluator.llm_client.models import (
     LLMResponse,

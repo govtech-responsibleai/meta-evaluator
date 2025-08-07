@@ -5,13 +5,13 @@ from typing import TypeVar
 import pytest
 from pydantic import BaseModel
 
+from meta_evaluator.llm_client.client import (
+    _FAILED_EMBEDDING_ERROR_TEMPLATE,
+    _NO_PROMPTS_ERROR,
+)
 from meta_evaluator.llm_client.exceptions import (
     LLMAPIError,
     LLMValidationError,
-)
-from meta_evaluator.llm_client.LLM_client import (
-    _FAILED_EMBEDDING_ERROR_TEMPLATE,
-    _NO_PROMPTS_ERROR,
 )
 
 # Import test classes from conftest for type hints

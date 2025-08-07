@@ -17,8 +17,8 @@ from openai.types.chat.chat_completion_user_message_param import (
 )
 from pydantic import BaseModel
 
+from .client import LLMClient, LLMClientConfig
 from .exceptions import LLMAPIError
-from .LLM_client import LLMClient, LLMClientConfig
 from .models import LLMClientEnum, LLMUsage, Message, RoleEnum
 from .serialization import AzureOpenAISerializedState, LLMClientSerializedState
 

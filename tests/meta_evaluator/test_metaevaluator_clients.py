@@ -617,7 +617,7 @@ class TestMetaEvaluatorClients:
 
     def test_serialize_single_client_delegates_to_config(self, meta_evaluator):
         """Test _serialize_single_client delegates to client config serialize method."""
-        from meta_evaluator.llm_client.LLM_client import LLMClient, LLMClientConfig
+        from meta_evaluator.llm_client.client import LLMClient, LLMClientConfig
         from meta_evaluator.llm_client.serialization import MockLLMClientSerializedState
 
         # Create mock config with serialize method
@@ -724,7 +724,7 @@ class TestMetaEvaluatorClients:
 
     def test_api_key_security_assertion_would_trigger(self, meta_evaluator):
         """Test that the security assertion would catch API key in serialized data."""
-        from meta_evaluator.llm_client.LLM_client import LLMClient, LLMClientConfig
+        from meta_evaluator.llm_client.client import LLMClient, LLMClientConfig
 
         # Create a mock config that returns a state containing "api_key" (which should never happen)
         mock_config = MagicMock(spec=LLMClientConfig)
