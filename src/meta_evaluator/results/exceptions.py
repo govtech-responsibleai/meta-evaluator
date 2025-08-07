@@ -53,18 +53,19 @@ class TaskNotFoundError(ResultsError):
         super().__init__(f"Task '{task_name}' not found in task schema")
 
 
-class ResultsDataFormatError(ResultsError):
+class DataFileError(ResultsError):
     """Error raised when an unsupported results data format is encountered."""
 
-    def __init__(self, format_name: str, data_filename: str):
+    def __init__(self, format_name: str, data_filename: str, message: str):
         """Initialize the exception.
 
         Args:
             format_name: The unsupported format name.
             data_filename: The name of the data file that was attempted to be saved.
+            message: The error message.
         """
         super().__init__(
-            f"Unsupported results data format '{format_name}' for '{data_filename}'"
+            f"Unsupported results data format '{format_name}' for '{data_filename}'. {message}"
         )
 
 

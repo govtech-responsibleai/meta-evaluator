@@ -24,7 +24,7 @@ from meta_evaluator.results.exceptions import (
     IncompleteResultsError,
     InvalidFileError,
     MismatchedTasksError,
-    ResultsDataFormatError,
+    DataFileError,
     TaskNotFoundError,
 )
 
@@ -576,7 +576,7 @@ class TestHumanAnnotationResultsSerialization:
         state_file = tmp_path / "state.json"
 
         with pytest.raises(
-            ResultsDataFormatError,
+            DataFileError,
             match="Unsupported results data format.*json.*for.*wrong_extension.csv",
         ):
             results.save_state(

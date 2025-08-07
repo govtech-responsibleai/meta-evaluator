@@ -597,7 +597,7 @@ class EvalData(BaseModel):
 
         Raises:
             FileNotFoundError: If the data file doesn't exist.
-            DataFileError: If the data format is not supported.
+            DataFileError: If the data format is not supported or if there are parsing errors.
         """
         try:
             match data_format:
@@ -613,6 +613,12 @@ class EvalData(BaseModel):
                     raise DataFileError(f"Unsupported data format: {data_format}")
         except FileNotFoundError:
             raise FileNotFoundError(f"Data file not found: {filepath}")
+        except (
+            pl.exceptions.ComputeError,
+            pl.exceptions.NoDataError,
+            json.JSONDecodeError,
+        ) as e:
+            raise DataFileError(f"Failed to parse {data_format} file: {str(e)}")
 
     def serialize_metadata(
         self,

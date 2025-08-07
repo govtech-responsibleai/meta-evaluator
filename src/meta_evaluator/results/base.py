@@ -17,7 +17,7 @@ from .exceptions import (
     EmptyResultsError,
     ResultsValidationError,
     TaskNotFoundError,
-    ResultsDataFormatError,
+    DataFileError,
     BuilderInitializationError,
 )
 
@@ -439,7 +439,7 @@ class BaseEvaluationResults(BaseModel, ABC):
             data_format: Format to write the data in.
 
         Raises:
-            ResultsDataFormatError: If data_format is not supported.
+            DataFileError: If data_format is not supported.
         """
         match data_format:
             case "parquet":
@@ -449,7 +449,7 @@ class BaseEvaluationResults(BaseModel, ABC):
             case "json":
                 self.results_data.write_json(filepath)
             case _:
-                raise ResultsDataFormatError(data_format, filepath)
+                raise DataFileError(data_format, filepath, "Unsupported data format")
 
     @staticmethod
     def load_data(
@@ -465,17 +465,31 @@ class BaseEvaluationResults(BaseModel, ABC):
             pl.DataFrame: Loaded DataFrame.
 
         Raises:
-            ResultsDataFormatError: If data_format is not supported.
+            FileNotFoundError: If the file doesn't exist.
+            DataFileError: If data_format is not supported or if there are parsing errors.
         """
-        match data_format:
-            case "parquet":
-                return pl.read_parquet(filepath)
-            case "csv":
-                return pl.read_csv(filepath)
-            case "json":
-                return pl.read_json(filepath)
-            case _:
-                raise ResultsDataFormatError(data_format, filepath)
+        try:
+            match data_format:
+                case "parquet":
+                    return pl.read_parquet(filepath)
+                case "csv":
+                    return pl.read_csv(filepath)
+                case "json":
+                    return pl.read_json(filepath)
+                case _:
+                    raise DataFileError(
+                        data_format, filepath, "Unsupported data format"
+                    )
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Data file not found: {filepath}")
+        except (
+            pl.exceptions.ComputeError,
+            pl.exceptions.NoDataError,
+            json.JSONDecodeError,
+        ) as e:
+            raise DataFileError(
+                data_format, filepath, f"Failed to parse file: {str(e)}"
+            )
 
     def save_state(
         self,
@@ -491,7 +505,7 @@ class BaseEvaluationResults(BaseModel, ABC):
             data_filename: The name of the data file to save. If None, auto-generated.
 
         Raises:
-            ResultsDataFormatError: If data_filename extension does not match data_format.
+            DataFileError: If data_filename extension does not match data_format.
         """
         state_path = Path(state_file)
         base_name = state_path.stem
@@ -500,7 +514,7 @@ class BaseEvaluationResults(BaseModel, ABC):
         final_data_filename = data_filename or f"{base_name}_data.{data_format}"
 
         if data_filename and not data_filename.endswith(f".{data_format}"):
-            raise ResultsDataFormatError(data_format, data_filename)
+            raise DataFileError(data_format, data_filename, "Unsupported data format")
 
         directory.mkdir(parents=True, exist_ok=True)
 

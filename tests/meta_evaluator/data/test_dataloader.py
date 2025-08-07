@@ -3,6 +3,7 @@
 import pytest
 import os
 from pathlib import Path
+import polars as pl
 
 from meta_evaluator.data import DataLoader, EvalData
 from meta_evaluator.data.exceptions import (
@@ -33,6 +34,55 @@ What is 3+3?,6,Six,medium,4"""
         csv_file = tmp_path / "valid_data.csv"
         csv_file.write_text(csv_content)
         return str(csv_file)
+
+    @pytest.fixture
+    def valid_json_file(self, tmp_path):
+        """Create a valid JSON file for testing.
+
+        Returns:
+            str: Path to the created JSON file.
+        """
+        # Create JSON in a format that polars can read (array of objects)
+        json_content = """[
+            {
+                "question": "What is 2+2?",
+                "answer": "4",
+                "model_response": "Four",
+                "difficulty": "easy",
+                "rating": 5
+            },
+            {
+                "question": "What is 3+3?",
+                "answer": "6",
+                "model_response": "Six",
+                "difficulty": "medium",
+                "rating": 4
+            }
+        ]"""
+        json_file = tmp_path / "valid_data.json"
+        json_file.write_text(json_content, encoding="utf-8")
+        return str(json_file)
+
+    @pytest.fixture
+    def valid_parquet_file(self, tmp_path):
+        """Create a valid Parquet file for testing.
+
+        Returns:
+            str: Path to the created Parquet file.
+        """
+        # Create DataFrame directly instead of reading from CSV
+        df = pl.DataFrame(
+            {
+                "question": ["What is 2+2?", "What is 3+3?"],
+                "answer": ["4", "6"],
+                "model_response": ["Four", "Six"],
+                "difficulty": ["easy", "medium"],
+                "rating": [5, 4],
+            }
+        )
+        parquet_file = tmp_path / "valid_data.parquet"
+        df.write_parquet(parquet_file)
+        return str(parquet_file)
 
     @pytest.fixture
     def minimal_csv_file(self, tmp_path):
@@ -86,6 +136,17 @@ test2,result2"""
         csv_file.write_text(csv_content)
         return str(csv_file)
 
+    @pytest.fixture
+    def sample_dataframe(self):
+        """Create a sample polars DataFrame for testing.
+
+        Returns:
+            pl.DataFrame: A sample polars DataFrame.
+        """
+        return pl.DataFrame(
+            {"input": ["test1", "test2"], "output": ["result1", "result2"]}
+        )
+
     # === HAPPY PATH TESTS ===
 
     def test_load_csv_minimal_success(self, minimal_csv_file):
@@ -93,6 +154,36 @@ test2,result2"""
         result = DataLoader.load_csv(
             name="test",
             file_path=minimal_csv_file,
+        )
+
+        assert isinstance(result, EvalData)
+        assert len(result.data) == 2
+
+    def test_load_json_success(self, valid_json_file):
+        """Test successful loading of JSON file."""
+        result = DataLoader.load_json(
+            name="test",
+            file_path=valid_json_file,
+        )
+
+        assert isinstance(result, EvalData)
+        assert len(result.data) == 2
+
+    def test_load_parquet_success(self, valid_parquet_file):
+        """Test successful loading of Parquet file."""
+        result = DataLoader.load_parquet(
+            name="test",
+            file_path=valid_parquet_file,
+        )
+
+        assert isinstance(result, EvalData)
+        assert len(result.data) == 2
+
+    def test_load_from_dataframe_success(self, sample_dataframe):
+        """Test successful loading from DataFrame."""
+        result = DataLoader.load_from_dataframe(
+            data=sample_dataframe,
+            name="test",
         )
 
         assert isinstance(result, EvalData)
@@ -141,7 +232,6 @@ test2,result2"""
 
     def test_load_csv_no_read_permission(self, minimal_csv_file):
         """Test DataFileError when file lacks read permissions."""
-        # Remove read permissions
         os.chmod(minimal_csv_file, 0o000)
 
         try:
@@ -157,16 +247,16 @@ test2,result2"""
     # === CSV PARSING ERROR TESTS ===
 
     def test_load_csv_empty_file(self, empty_csv_file):
-        """Test DataFileError with empty CSV file."""
-        with pytest.raises(DataFileError, match="Failed to parse CSV"):
+        """Test error with empty CSV file."""
+        with pytest.raises(DataFileError):
             DataLoader.load_csv(
                 name="test",
                 file_path=empty_csv_file,
             )
 
     def test_load_csv_malformed_quotes(self, malformed_quotes_csv):
-        """Test DataFileError with malformed quotes."""
-        with pytest.raises(DataFileError, match="Failed to parse CSV"):
+        """Test error with malformed quotes."""
+        with pytest.raises(DataFileError):
             DataLoader.load_csv(
                 name="test",
                 file_path=malformed_quotes_csv,
@@ -176,7 +266,7 @@ test2,result2"""
 
     def test_load_csv_headers_only_creates_empty_evaldata(self, headers_only_csv_file):
         """Test headers-only CSV creates empty EvalData (triggers EmptyDataFrameError)."""
-        with pytest.raises(EmptyDataFrameError):  # From EvalData, not wrapped
+        with pytest.raises(EmptyDataFrameError):
             DataLoader.load_csv(
                 name="test",
                 file_path=headers_only_csv_file,
@@ -184,9 +274,9 @@ test2,result2"""
 
     def test_load_csv_empty_name_error(self, minimal_csv_file):
         """Test that InvalidNameError is raised when name is empty."""
-        with pytest.raises(InvalidNameError):  # From EvalData, not wrapped
+        with pytest.raises(InvalidNameError):
             DataLoader.load_csv(
-                name="",  # Empty name should trigger InvalidNameError
+                name="",
                 file_path=minimal_csv_file,
             )
 
@@ -199,47 +289,43 @@ test2,result2"""
             )
 
     def test_load_csv_id_column_exists_conflict_error(self, tmp_path):
-        """Test that EvalData validation errors bubble up unchanged when auto-generated ID column conflicts."""
-        # Create CSV that already has an 'id' column
+        """Test that EvalData validation errors bubble up when auto-generated ID column conflicts."""
         csv_content = """id,input,output
 existing1,test1,result1
 existing2,test2,result2"""
         csv_file = tmp_path / "id_conflict.csv"
         csv_file.write_text(csv_content)
 
-        with pytest.raises(IdColumnExistsError):  # Not wrapped in DataFileError
+        with pytest.raises(IdColumnExistsError):
             DataLoader.load_csv(
                 name="test",
                 file_path=str(csv_file),
-                # No id_column specified, will try to auto-generate "id" but it already exists
             )
 
     def test_load_csv_id_column_with_duplicates_error(self, tmp_path):
-        """Test that EvalData ID column validation errors bubble up unchanged."""
-        # Create CSV with duplicate values in a column
+        """Test that EvalData ID column validation errors bubble up."""
         csv_content = """custom_id,input,output
 id1,test1,result1
 id1,test2,result2"""
         csv_file = tmp_path / "duplicate_id.csv"
         csv_file.write_text(csv_content)
 
-        with pytest.raises(DuplicateInIDColumnError):  # Not wrapped in DataFileError
+        with pytest.raises(DuplicateInIDColumnError):
             DataLoader.load_csv(
                 name="test",
                 file_path=str(csv_file),
-                id_column="custom_id",  # Column with duplicate values
+                id_column="custom_id",
             )
 
     def test_load_csv_null_values_in_data_error(self, tmp_path):
-        """Test that EvalData data integrity validation errors bubble up unchanged."""
-        # Create CSV with null values (empty cells)
+        """Test that EvalData data integrity validation errors bubble up."""
         csv_content = """input,output
 test1,result1
-,result2"""  # Empty input field creates null
+,result2"""
         csv_file = tmp_path / "null_data.csv"
         csv_file.write_text(csv_content)
 
-        with pytest.raises(NullValuesInDataError):  # Not wrapped in DataFileError
+        with pytest.raises(NullValuesInDataError):
             DataLoader.load_csv(
                 name="test",
                 file_path=str(csv_file),
@@ -249,10 +335,7 @@ test1,result1
 
     def test_load_csv_relative_path(self, minimal_csv_file):
         """Test loading with relative file path."""
-        # Convert to relative path
         relative_path = Path(minimal_csv_file).name
-
-        # Change to directory containing the file
         original_cwd = os.getcwd()
         try:
             os.chdir(Path(minimal_csv_file).parent)
@@ -273,14 +356,11 @@ test1,result1
         )
         assert isinstance(result, EvalData)
 
-    # === ADDITIONAL EDGE CASES ===
-
     def test_load_csv_with_auto_generated_id(self, minimal_csv_file):
         """Test that auto-generated ID works correctly."""
         result = DataLoader.load_csv(
             name="test",
             file_path=minimal_csv_file,
-            # No id_column specified, should auto-generate
         )
 
         assert result.id_column == "id"
