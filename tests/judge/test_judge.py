@@ -8,20 +8,16 @@ from meta_evaluator.judge.judge import Judge
 from meta_evaluator.judge.exceptions import IncorrectClientError
 from meta_evaluator.results import JudgeResultsBuilder, JudgeResults
 from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.data import EvalData
 from meta_evaluator.llm_client import LLMClientEnum, LLMClient
 from meta_evaluator.llm_client.models import (
-    Message,
     RoleEnum,
-    LLMResponse,
-    LLMUsage,
     TagConfig,
     ParseResult,
     ParseError,
     ErrorType,
 )
 from meta_evaluator.llm_client.exceptions import LLMAPIError
-from meta_evaluator.common.models import Prompt
-from meta_evaluator.data import EvalData, SampleEvalData
 from pydantic import BaseModel
 import polars as pl
 
@@ -29,175 +25,20 @@ import polars as pl
 class TestJudge:
     """Comprehensive test suite for Judge class achieving 100% path coverage."""
 
-    @pytest.fixture
-    def basic_eval_task(self) -> EvalTask:
-        """Provides a basic evaluation task for testing.
-
-        Returns:
-            EvalTask: A basic evaluation task with sentiment analysis schema.
-        """
-        return EvalTask(
-            task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-            prompt_columns=["text"],
-            response_columns=["response"],
-            answering_method="structured",
-        )
-
-    @pytest.fixture
-    def xml_eval_task(self) -> EvalTask:
-        """Provides an XML-based evaluation task for testing.
-
-        Returns:
-            EvalTask: An XML-based evaluation task with sentiment analysis schema.
-        """
-        return EvalTask(
-            task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-            prompt_columns=["text"],
-            response_columns=["response"],
-            answering_method="xml",
-        )
-
-    @pytest.fixture
-    def multi_task_eval_task(self) -> EvalTask:
-        """Provides a multi-task evaluation task for testing.
-
-        Returns:
-            EvalTask: A multi-task evaluation task with sentiment and category schemas.
-        """
-        return EvalTask(
-            task_schemas={
-                "sentiment": ["positive", "negative", "neutral"],
-                "toxicity": ["toxic", "non_toxic"],
-            },
-            prompt_columns=["text"],
-            response_columns=["response"],
-            answering_method="structured",
-        )
-
-    @pytest.fixture
-    def basic_prompt(self) -> Prompt:
-        """Provides a basic prompt for testing.
-
-        Returns:
-            Prompt: A basic prompt for sentiment evaluation.
-        """
-        return Prompt(
-            id="basic_prompt", prompt="Evaluate the sentiment of the given text."
-        )
-
-    @pytest.fixture
-    def basic_judge(self, basic_eval_task, basic_prompt) -> Judge:
-        """Provides a basic judge configuration for testing.
-
-        Returns:
-            Judge: A basic judge configuration with structured output.
-        """
-        return Judge(
-            id="test_judge_1",
-            eval_task=basic_eval_task,
-            llm_client_enum=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            prompt=basic_prompt,
-        )
-
-    @pytest.fixture
-    def xml_judge(self, xml_eval_task, basic_prompt) -> Judge:
-        """Provides an XML-based judge configuration for testing.
-
-        Returns:
-            Judge: An XML-based judge configuration.
-        """
-        return Judge(
-            id="xml_judge_1",
-            eval_task=xml_eval_task,
-            llm_client_enum=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            prompt=basic_prompt,
-        )
-
-    @pytest.fixture
-    def eval_data(self) -> EvalData:
-        """Provides sample evaluation data for testing.
-
-        Returns:
-            EvalData: Sample evaluation data with text examples.
-        """
-        df = pl.DataFrame(
-            {
-                "id": ["1", "2", "3"],
-                "text": ["Good movie", "Bad movie", "Okay movie"],
-                "response": ["I liked it", "I hated it", "It was fine"],
-            }
-        )
-        return EvalData(
-            name="test_data",
-            data=df,
-            id_column="id",
-        )
-
-    @pytest.fixture
-    def sample_eval_data(self) -> SampleEvalData:
-        """Provides sample evaluation data for testing.
-
-        Returns:
-            SampleEvalData: Sample evaluation data with text and target examples.
-        """
-        df = pl.DataFrame(
-            {
-                "id": ["1", "2"],
-                "text": ["Good movie", "Bad movie"],
-                "response": ["I liked it", "I hated it"],
-            }
-        )
-        return SampleEvalData(
-            name="test_sample",
-            data=df,
-            id_column="id",
-            sample_name="test_sample",
-            stratification_columns=[],
-            sample_percentage=1.0,
-            seed=42,
-        )
-
-    @pytest.fixture
-    def mock_llm_client(self) -> Mock:
-        """Provides a mock LLM client for testing.
-
-        Returns:
-            Mock: A mock LLM client configured for testing.
-        """
-        client = Mock(spec=LLMClient)
-        client.enum_value = LLMClientEnum.OPENAI
-        return client
-
-    @pytest.fixture
-    def mock_llm_response(self) -> LLMResponse:
-        """Provides a mock LLM response for testing.
-
-        Returns:
-            LLMResponse: A mock LLM response with structured output.
-        """
-        return LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
-            usage=LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
-        )
-
     # === Validation Tests ===
 
-    def test_validate_id_valid(self, basic_eval_task, basic_prompt):
+    def test_validate_id_valid(self, basic_eval_task, sample_prompt):
         """Test successful ID validation with valid characters."""
         judge = Judge(
             id="valid_judge_123",
             eval_task=basic_eval_task,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
         assert judge.id == "valid_judge_123"
 
-    def test_validate_id_invalid_characters(self, basic_eval_task, basic_prompt):
+    def test_validate_id_invalid_characters(self, basic_eval_task, sample_prompt):
         """Test ID validation failure with invalid characters."""
         with pytest.raises(
             ValueError,
@@ -208,10 +49,10 @@ class TestJudge:
                 eval_task=basic_eval_task,
                 llm_client_enum=LLMClientEnum.OPENAI,
                 model="gpt-4",
-                prompt=basic_prompt,
+                prompt=sample_prompt,
             )
 
-    def test_validate_id_starts_with_number(self, basic_eval_task, basic_prompt):
+    def test_validate_id_starts_with_number(self, basic_eval_task, sample_prompt):
         """Test ID validation failure when starting with number."""
         with pytest.raises(
             ValueError,
@@ -222,7 +63,7 @@ class TestJudge:
                 eval_task=basic_eval_task,
                 llm_client_enum=LLMClientEnum.OPENAI,
                 model="gpt-4",
-                prompt=basic_prompt,
+                prompt=sample_prompt,
             )
 
     # === Helper Method Tests ===
@@ -236,7 +77,7 @@ class TestJudge:
         assert "positive, negative, neutral" in instructions
 
     def test_get_xml_instructions_multiple_tasks(
-        self, multi_task_eval_task, basic_prompt
+        self, multi_task_eval_task, sample_prompt
     ):
         """Test XML instruction generation for multiple tasks."""
         judge = Judge(
@@ -244,7 +85,7 @@ class TestJudge:
             eval_task=multi_task_eval_task,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
         instructions = judge._get_xml_instructions()
 
@@ -269,7 +110,7 @@ class TestJudge:
         assert "Evaluate the sentiment of the given text." in message.content
         assert "<sentiment>" in message.content
 
-    def test_format_row_data_complete(self, basic_prompt):
+    def test_format_row_data_complete(self, sample_prompt):
         """Test row data formatting with both input and output columns."""
         task = EvalTask(
             task_schemas={"sentiment": ["positive", "negative"]},
@@ -282,7 +123,7 @@ class TestJudge:
             eval_task=task,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         row = {"text": "Good movie", "response": "I liked it"}
@@ -303,7 +144,7 @@ class TestJudge:
         assert "The responses to be evaluated are response" in formatted
         assert "response: I liked it" in formatted
 
-    def test_format_row_data_no_prompt_columns(self, basic_prompt):
+    def test_format_row_data_no_prompt_columns(self, sample_prompt):
         """Test row data formatting when prompt_columns is None."""
         task = EvalTask(
             task_schemas={"sentiment": ["positive", "negative"]},
@@ -316,7 +157,7 @@ class TestJudge:
             eval_task=task,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         row = {"response": "bad movie"}
@@ -329,7 +170,7 @@ class TestJudge:
         assert "The texts to be evaluated are response" in formatted
         assert "response: bad movie" in formatted
 
-    def test_format_row_data_empty_prompt_columns(self, basic_prompt):
+    def test_format_row_data_empty_prompt_columns(self, sample_prompt):
         """Test row data formatting when prompt_columns is empty list."""
         task = EvalTask(
             task_schemas={"sentiment": ["positive", "negative"]},
@@ -342,7 +183,7 @@ class TestJudge:
             eval_task=task,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         row = {"response": "bad movie"}
@@ -354,18 +195,18 @@ class TestJudge:
         assert "The texts to be evaluated are response" in formatted
         assert "response: bad movie" in formatted
 
-    def test_get_dicts_as_generator(self, basic_judge, eval_data):
+    def test_get_dicts_as_generator(self, basic_judge, basic_eval_data):
         """Test generator functionality over eval data."""
-        rows = list(basic_judge._get_dicts_as_generator(eval_data))
+        rows = list(basic_judge._get_dicts_as_generator(basic_eval_data))
 
         assert len(rows) == 3
         assert rows[0]["id"] == "1"
-        assert rows[0]["text"] == "Good movie"
+        assert rows[0]["text"] == "This movie is fantastic!"
 
     # === Structured Evaluation Tests ===
 
     def test_evaluate_row_structured_perfect_success(
-        self, basic_judge, eval_data, mock_llm_client, mock_llm_response
+        self, basic_judge, basic_eval_data, mock_llm_client, mock_llm_response
     ):
         """Test structured evaluation with perfect success."""
 
@@ -386,7 +227,7 @@ class TestJudge:
 
         basic_judge._evaluate_row_structured(
             row=row,
-            eval_data=eval_data,
+            eval_data=basic_eval_data,
             sample_example_id="test_1",
             llm_client=mock_llm_client,
             task_class=MockTaskClass,
@@ -401,8 +242,8 @@ class TestJudge:
     def test_evaluate_row_structured_partial_success(
         self,
         multi_task_eval_task,
-        basic_prompt,
-        eval_data,
+        sample_prompt,
+        basic_eval_data,
         mock_llm_client,
         mock_llm_response,
     ):
@@ -412,7 +253,7 @@ class TestJudge:
             eval_task=multi_task_eval_task,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         # Create a real Pydantic model for testing
@@ -435,7 +276,7 @@ class TestJudge:
 
         judge._evaluate_row_structured(
             row=row,
-            eval_data=eval_data,
+            eval_data=basic_eval_data,
             sample_example_id="test_1",
             llm_client=mock_llm_client,
             task_class=MockTaskClass,
@@ -450,8 +291,8 @@ class TestJudge:
     def test_evaluate_row_structured_complete_failure(
         self,
         multi_task_eval_task,
-        basic_prompt,
-        eval_data,
+        sample_prompt,
+        basic_eval_data,
         mock_llm_client,
         mock_llm_response,
     ):
@@ -461,7 +302,7 @@ class TestJudge:
             eval_task=multi_task_eval_task,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         # Create a real Pydantic model for testing
@@ -485,7 +326,7 @@ class TestJudge:
 
         judge._evaluate_row_structured(
             row=row,
-            eval_data=eval_data,
+            eval_data=basic_eval_data,
             sample_example_id="test_1",
             llm_client=mock_llm_client,
             task_class=MockTaskClass,
@@ -495,7 +336,7 @@ class TestJudge:
         builder.create_parsing_error_row.assert_called_once()
 
     def test_evaluate_row_structured_attribute_error(
-        self, basic_judge, eval_data, mock_llm_client, mock_llm_response
+        self, basic_judge, basic_eval_data, mock_llm_client, mock_llm_response
     ):
         """Test structured evaluation with attribute error during parsing."""
 
@@ -520,7 +361,7 @@ class TestJudge:
 
         basic_judge._evaluate_row_structured(
             row=row,
-            eval_data=eval_data,
+            eval_data=basic_eval_data,
             sample_example_id="test_1",
             llm_client=mock_llm_client,
             task_class=MockTaskClass,
@@ -530,7 +371,7 @@ class TestJudge:
         builder.create_parsing_error_row.assert_called_once()
 
     def test_evaluate_row_structured_llm_api_error(
-        self, basic_judge, eval_data, mock_llm_client
+        self, basic_judge, basic_eval_data, mock_llm_client
     ):
         """Test structured evaluation with LLM API error."""
 
@@ -546,7 +387,7 @@ class TestJudge:
 
         basic_judge._evaluate_row_structured(
             row=row,
-            eval_data=eval_data,
+            eval_data=basic_eval_data,
             sample_example_id="test_1",
             llm_client=mock_llm_client,
             task_class=MockTaskClass,
@@ -556,7 +397,7 @@ class TestJudge:
         builder.create_llm_error_row.assert_called_once()
 
     def test_evaluate_row_structured_unexpected_error(
-        self, basic_judge, eval_data, mock_llm_client
+        self, basic_judge, basic_eval_data, mock_llm_client
     ):
         """Test structured evaluation with unexpected error."""
 
@@ -572,7 +413,7 @@ class TestJudge:
 
         basic_judge._evaluate_row_structured(
             row=row,
-            eval_data=eval_data,
+            eval_data=basic_eval_data,
             sample_example_id="test_1",
             llm_client=mock_llm_client,
             task_class=MockTaskClass,
@@ -584,7 +425,7 @@ class TestJudge:
     # === XML Evaluation Tests ===
 
     def test_evaluate_row_xml_perfect_success(
-        self, xml_judge, eval_data, mock_llm_client, mock_llm_response
+        self, xml_judge, basic_eval_data, mock_llm_client, mock_llm_response
     ):
         """Test XML evaluation with perfect success."""
         parse_result = ParseResult(data={"sentiment": "positive"}, errors=[])
@@ -605,7 +446,7 @@ class TestJudge:
 
         xml_judge._evaluate_row_xml(
             row=row,
-            eval_data=eval_data,
+            eval_data=basic_eval_data,
             sample_example_id="test_1",
             llm_client=mock_llm_client,
             tag_configs=tag_configs,
@@ -617,8 +458,8 @@ class TestJudge:
     def test_evaluate_row_xml_partial_success(
         self,
         multi_task_eval_task,
-        basic_prompt,
-        eval_data,
+        sample_prompt,
+        basic_eval_data,
         mock_llm_client,
         mock_llm_response,
     ):
@@ -638,7 +479,7 @@ class TestJudge:
             eval_task=xml_task,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         parse_result = ParseResult(
@@ -673,7 +514,7 @@ class TestJudge:
 
         judge._evaluate_row_xml(
             row=row,
-            eval_data=eval_data,
+            eval_data=basic_eval_data,
             sample_example_id="test_1",
             llm_client=mock_llm_client,
             tag_configs=tag_configs,
@@ -683,7 +524,7 @@ class TestJudge:
         builder.create_partial_row.assert_called_once()
 
     def test_evaluate_row_xml_complete_failure(
-        self, xml_judge, eval_data, mock_llm_client, mock_llm_response
+        self, xml_judge, basic_eval_data, mock_llm_client, mock_llm_response
     ):
         """Test XML evaluation with complete failure."""
         parse_result = ParseResult(
@@ -713,7 +554,7 @@ class TestJudge:
 
         xml_judge._evaluate_row_xml(
             row=row,
-            eval_data=eval_data,
+            eval_data=basic_eval_data,
             sample_example_id="test_1",
             llm_client=mock_llm_client,
             tag_configs=tag_configs,
@@ -723,7 +564,7 @@ class TestJudge:
         builder.create_parsing_error_row.assert_called_once()
 
     def test_evaluate_row_xml_llm_api_error(
-        self, xml_judge, eval_data, mock_llm_client
+        self, xml_judge, basic_eval_data, mock_llm_client
     ):
         """Test XML evaluation with LLM API error."""
         mock_llm_client.prompt_with_xml_tags.side_effect = LLMAPIError(
@@ -742,7 +583,7 @@ class TestJudge:
 
         xml_judge._evaluate_row_xml(
             row=row,
-            eval_data=eval_data,
+            eval_data=basic_eval_data,
             sample_example_id="test_1",
             llm_client=mock_llm_client,
             tag_configs=tag_configs,
@@ -752,7 +593,7 @@ class TestJudge:
         builder.create_llm_error_row.assert_called_once()
 
     def test_evaluate_row_xml_unexpected_error(
-        self, xml_judge, eval_data, mock_llm_client
+        self, xml_judge, basic_eval_data, mock_llm_client
     ):
         """Test XML evaluation with unexpected error."""
         mock_llm_client.prompt_with_xml_tags.side_effect = RuntimeError(
@@ -771,7 +612,7 @@ class TestJudge:
 
         xml_judge._evaluate_row_xml(
             row=row,
-            eval_data=eval_data,
+            eval_data=basic_eval_data,
             sample_example_id="test_1",
             llm_client=mock_llm_client,
             tag_configs=tag_configs,
@@ -782,7 +623,7 @@ class TestJudge:
 
     # === Main Evaluation Tests ===
 
-    def test_evaluate_eval_data_client_mismatch(self, basic_judge, eval_data):
+    def test_evaluate_eval_data_client_mismatch(self, basic_judge, basic_eval_data):
         """Test evaluation with wrong LLM client type."""
         wrong_client = Mock(spec=LLMClient)
         wrong_client.enum_value = (
@@ -790,10 +631,10 @@ class TestJudge:
         )  # Different from judge's OPENAI
 
         with pytest.raises(IncorrectClientError):
-            basic_judge.evaluate_eval_data(eval_data, wrong_client, "test_run")
+            basic_judge.evaluate_eval_data(basic_eval_data, wrong_client, "test_run")
 
     def test_evaluate_eval_data_structured_method(
-        self, basic_judge, eval_data, mock_llm_client, mock_llm_response
+        self, basic_judge, basic_eval_data, mock_llm_client, mock_llm_response
     ):
         """Test full evaluation run with structured method."""
 
@@ -816,7 +657,7 @@ class TestJudge:
             mock_builder_class.return_value = mock_builder
 
             result = basic_judge.evaluate_eval_data(
-                eval_data, mock_llm_client, "test_run"
+                basic_eval_data, mock_llm_client, "test_run"
             )
 
             # Verify builder was created and used
@@ -828,7 +669,7 @@ class TestJudge:
             assert result == mock_results
 
     def test_evaluate_eval_data_xml_method(
-        self, xml_judge, eval_data, mock_llm_client, mock_llm_response
+        self, xml_judge, basic_eval_data, mock_llm_client, mock_llm_response
     ):
         """Test full evaluation run with XML method."""
         parse_result = ParseResult(data={"sentiment": "positive"}, errors=[])
@@ -846,7 +687,7 @@ class TestJudge:
             mock_builder_class.return_value = mock_builder
 
             result = xml_judge.evaluate_eval_data(
-                eval_data, mock_llm_client, "test_run"
+                basic_eval_data, mock_llm_client, "test_run"
             )
 
             # Verify builder was created and used
@@ -858,7 +699,7 @@ class TestJudge:
             assert result == mock_results
 
     def test_evaluate_eval_data_with_skip_function_skip(
-        self, basic_eval_task, basic_prompt, eval_data, mock_llm_client
+        self, basic_eval_task, sample_prompt, basic_eval_data, mock_llm_client
     ):
         """Test evaluation with skip function that triggers."""
         # Create task with skip function that skips all rows
@@ -874,7 +715,7 @@ class TestJudge:
             eval_task=task_with_skip,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         with patch(
@@ -885,7 +726,9 @@ class TestJudge:
             mock_builder.complete.return_value = mock_results
             mock_builder_class.return_value = mock_builder
 
-            result = judge.evaluate_eval_data(eval_data, mock_llm_client, "test_run")
+            result = judge.evaluate_eval_data(
+                basic_eval_data, mock_llm_client, "test_run"
+            )
 
             # All rows should be skipped
             assert mock_builder.create_skipped_row.call_count == 3
@@ -895,8 +738,8 @@ class TestJudge:
     def test_evaluate_eval_data_with_skip_function_no_skip(
         self,
         basic_eval_task,
-        basic_prompt,
-        eval_data,
+        sample_prompt,
+        basic_eval_data,
         mock_llm_client,
         mock_llm_response,
     ):
@@ -914,7 +757,7 @@ class TestJudge:
             eval_task=task_with_skip,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         class MockTaskClass(BaseModel):
@@ -935,7 +778,9 @@ class TestJudge:
             mock_builder.complete.return_value = mock_results
             mock_builder_class.return_value = mock_builder
 
-            result = judge.evaluate_eval_data(eval_data, mock_llm_client, "test_run")
+            result = judge.evaluate_eval_data(
+                basic_eval_data, mock_llm_client, "test_run"
+            )
 
             # No rows should be skipped
             assert mock_builder.create_skipped_row.call_count == 0
@@ -943,7 +788,7 @@ class TestJudge:
             assert result == mock_results
 
     def test_evaluate_eval_data_no_skip_function(
-        self, basic_judge, eval_data, mock_llm_client, mock_llm_response
+        self, basic_judge, basic_eval_data, mock_llm_client, mock_llm_response
     ):
         """Test evaluation with no skip function defined."""
 
@@ -966,7 +811,7 @@ class TestJudge:
             mock_builder_class.return_value = mock_builder
 
             result = basic_judge.evaluate_eval_data(
-                eval_data, mock_llm_client, "test_run"
+                basic_eval_data, mock_llm_client, "test_run"
             )
 
             # No skip function, so no skips
@@ -975,7 +820,7 @@ class TestJudge:
             assert result == mock_results
 
     def test_evaluate_eval_data_outer_exception(
-        self, basic_eval_task, basic_prompt, eval_data, mock_llm_client
+        self, basic_eval_task, sample_prompt, basic_eval_data, mock_llm_client
     ):
         """Test evaluation with error in row processing loop."""
 
@@ -995,7 +840,7 @@ class TestJudge:
             eval_task=task_with_error,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         with patch(
@@ -1006,7 +851,9 @@ class TestJudge:
             mock_builder.complete.return_value = mock_results
             mock_builder_class.return_value = mock_builder
 
-            result = judge.evaluate_eval_data(eval_data, mock_llm_client, "test_run")
+            result = judge.evaluate_eval_data(
+                basic_eval_data, mock_llm_client, "test_run"
+            )
 
             # All rows should result in other errors
             assert mock_builder.create_other_error_row.call_count == 3
@@ -1045,7 +892,7 @@ class TestJudge:
             assert result == mock_results
 
     def test_evaluate_eval_data_no_prompt_columns(
-        self, basic_prompt, eval_data, mock_llm_client, mock_llm_response
+        self, sample_prompt, basic_eval_data, mock_llm_client, mock_llm_response
     ):
         """Test full evaluation run with no prompt columns."""
         # Create task with no prompt columns
@@ -1060,7 +907,7 @@ class TestJudge:
             eval_task=task_no_prompt,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         class MockTaskClass(BaseModel):
@@ -1081,7 +928,9 @@ class TestJudge:
             mock_builder.complete.return_value = mock_results
             mock_builder_class.return_value = mock_builder
 
-            result = judge.evaluate_eval_data(eval_data, mock_llm_client, "test_run")
+            result = judge.evaluate_eval_data(
+                basic_eval_data, mock_llm_client, "test_run"
+            )
 
             # Verify builder was created and used
             mock_builder_class.assert_called_once()
@@ -1093,7 +942,7 @@ class TestJudge:
 
     # === Edge Cases ===
 
-    def test_evaluate_eval_data_empty_dataset(self, mock_llm_client, basic_prompt):
+    def test_evaluate_eval_data_empty_dataset(self, mock_llm_client, sample_prompt):
         """Test evaluation with empty dataset."""
         # Test the empty dataset scenario by creating a Judge with a task
         # that skips all rows, effectively simulating an empty dataset
@@ -1111,14 +960,14 @@ class TestJudge:
             eval_task=task_with_skip,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         # Create minimal eval data (since empty DataFrames aren't allowed)
         df = pl.DataFrame(
             {"id": ["1"], "text": ["Test"], "response": ["Test response"]}
         )
-        eval_data = EvalData(
+        local_eval_data = EvalData(
             name="test",
             data=df,
             id_column="id",
@@ -1133,7 +982,7 @@ class TestJudge:
             mock_builder_class.return_value = mock_builder
 
             result = skip_judge.evaluate_eval_data(
-                eval_data, mock_llm_client, "test_run"
+                local_eval_data, mock_llm_client, "test_run"
             )
 
             # All rows should be skipped (simulating empty dataset behavior)
@@ -1142,7 +991,7 @@ class TestJudge:
             mock_builder.complete.assert_called_once()
             assert result == mock_results
 
-    def test_eval_task_free_form_outputs(self, basic_prompt):
+    def test_eval_task_free_form_outputs(self, sample_prompt):
         """Test EvalTask with free form outputs."""
         # Test mixed task schemas with both predefined and free form
         task = EvalTask(
@@ -1161,7 +1010,7 @@ class TestJudge:
             eval_task=task,
             llm_client_enum=LLMClientEnum.OPENAI,
             model="gpt-4",
-            prompt=basic_prompt,
+            prompt=sample_prompt,
         )
 
         # Test task class creation

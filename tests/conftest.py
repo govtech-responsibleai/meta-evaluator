@@ -78,11 +78,11 @@ def xml_eval_task() -> EvalTask:
     """Provides an XML-based evaluation task for testing.
 
     Returns:
-        EvalTask: An XML-based evaluation task.
+        EvalTask: An XML-based evaluation task with sentiment analysis schema.
     """
     return EvalTask(
-        task_schemas={"quality": ["high", "medium", "low"]},
-        prompt_columns=["prompt"],
+        task_schemas={"sentiment": ["positive", "negative", "neutral"]},
+        prompt_columns=["text"],
         response_columns=["response"],
         answering_method="xml",
     )
