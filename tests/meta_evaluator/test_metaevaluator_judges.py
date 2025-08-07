@@ -15,7 +15,6 @@ from meta_evaluator.meta_evaluator.exceptions import (
     ResultsSaveError,
 )
 import polars as pl
-from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.llm_client.models import LLMClientEnum
 from meta_evaluator.common.models import Prompt
 from meta_evaluator.results import JudgeResults
@@ -76,69 +75,6 @@ class TestMetaEvaluatorJudges:
             prompt=sample_prompt,
         )
         return meta_evaluator.judge_registry[judge_id]
-
-    # === Judge-specific Fixtures ===
-
-    @pytest.fixture
-    def meta_evaluator_with_task(self, meta_evaluator, basic_eval_task):
-        """Provides a MetaEvaluator with eval_task set.
-
-        Args:
-            meta_evaluator: The MetaEvaluator instance to modify.
-            basic_eval_task: The basic evaluation task to add.
-
-        Returns:
-            MetaEvaluator: The modified MetaEvaluator instance.
-        """
-        meta_evaluator.add_eval_task(basic_eval_task)
-        return meta_evaluator
-
-    @pytest.fixture
-    def meta_evaluator_with_judges_and_data(
-        self, meta_evaluator, sample_prompt, sample_eval_data, mock_openai_client
-    ):
-        """Provides a MetaEvaluator with mock judges and data configured.
-
-        Returns:
-            MetaEvaluator instance with mock judges and data.
-        """  # Create a custom eval_task that matches the sample_eval_data columns
-        eval_task = EvalTask(
-            task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-            prompt_columns=["question"],  # matches sample_eval_data
-            response_columns=["answer"],  # matches sample_eval_data
-            answering_method="structured",
-        )
-
-        meta_evaluator.add_eval_task(eval_task)
-        meta_evaluator.add_data(sample_eval_data)
-
-        # Configure LLM client registry in fixture to avoid repetition
-        meta_evaluator.client_registry = {LLMClientEnum.OPENAI: mock_openai_client}
-
-        # Create mock judges instead of real ones
-        mock_judge1 = Mock()
-        mock_judge1.llm_client_enum = LLMClientEnum.OPENAI
-        mock_results1 = Mock(spec=JudgeResults)
-        mock_results1.save_state = Mock()
-        mock_results1.succeeded_count = 2
-        mock_results1.total_count = 3
-        mock_judge1.evaluate_eval_data.return_value = mock_results1
-
-        mock_judge2 = Mock()
-        mock_judge2.llm_client_enum = LLMClientEnum.OPENAI
-        mock_results2 = Mock(spec=JudgeResults)
-        mock_results2.save_state = Mock()
-        mock_results2.succeeded_count = 2
-        mock_results2.total_count = 2
-        mock_judge2.evaluate_eval_data.return_value = mock_results2
-
-        # Add mock judges to registry
-        meta_evaluator.judge_registry = {
-            "judge1": mock_judge1,
-            "judge2": mock_judge2,
-        }
-
-        return meta_evaluator
 
     # === Judge Management Tests ===
 

@@ -56,6 +56,51 @@ def basic_eval_task() -> EvalTask:
 
 
 @pytest.fixture
+def another_basic_eval_task() -> EvalTask:
+    """Provides a different basic evaluation task for testing overwrite scenarios.
+
+    Returns:
+        EvalTask: A different evaluation task with quality assessment schema.
+    """
+    return EvalTask(
+        task_schemas={"quality": ["high", "medium", "low"]},
+        prompt_columns=["text"],
+        response_columns=["response"],
+        answering_method="structured",
+    )
+
+
+@pytest.fixture
+def basic_eval_task_no_prompt() -> EvalTask:
+    """Provides an evaluation task with no prompt columns for testing.
+
+    Returns:
+        EvalTask: An evaluation task with None prompt_columns.
+    """
+    return EvalTask(
+        task_schemas={"sentiment": ["positive", "negative", "neutral"]},
+        prompt_columns=None,
+        response_columns=["response"],
+        answering_method="structured",
+    )
+
+
+@pytest.fixture
+def basic_eval_task_empty_prompt() -> EvalTask:
+    """Provides an evaluation task with empty prompt columns for testing.
+
+    Returns:
+        EvalTask: An evaluation task with empty prompt_columns list.
+    """
+    return EvalTask(
+        task_schemas={"sentiment": ["positive", "negative", "neutral"]},
+        prompt_columns=[],
+        response_columns=["response"],
+        answering_method="structured",
+    )
+
+
+@pytest.fixture
 def multi_task_eval_task() -> EvalTask:
     """Provides a multi-task evaluation task for testing.
 
@@ -176,6 +221,37 @@ def sample_eval_data():
         sample_percentage=0.5,
         seed=42,
         sampling_method="stratified_by_columns",
+    )
+
+
+@pytest.fixture
+def another_eval_data():
+    """Provides a different EvalData instance for testing overwrite scenarios.
+
+    Returns:
+        EvalData: A different EvalData instance for testing data replacement.
+    """
+    test_df = pl.DataFrame(
+        {
+            "id": ["A", "B", "C"],
+            "text": [
+                "Another example text",
+                "Different sample data",
+                "Alternative test input",
+            ],
+            "response": [
+                "Another response here",
+                "Different output",
+                "Alternative result",
+            ],
+            "type": ["test", "validation", "example"],
+        }
+    )
+
+    return EvalData(
+        name="another_test_data",
+        data=test_df,
+        id_column="id",
     )
 
 

@@ -18,54 +18,8 @@ from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
 class TestMetaEvaluatorClients:
     """Test suite for MetaEvaluator client management functionality."""
 
-    # === Client-specific Fixtures ===
-
-    @pytest.fixture
-    def clean_environment(self, monkeypatch):
-        """Provides a clean environment without OpenAI-related environment variables.
-
-        Args:
-            monkeypatch: pytest fixture for environment variable manipulation.
-        """
-        # Remove all OpenAI and Azure OpenAI related environment variables
-        env_vars_to_remove = [
-            "OPENAI_API_KEY",
-            "OPENAI_DEFAULT_MODEL",
-            "OPENAI_DEFAULT_EMBEDDING_MODEL",
-            "AZURE_OPENAI_API_KEY",
-            "AZURE_OPENAI_ENDPOINT",
-            "AZURE_OPENAI_API_VERSION",
-            "AZURE_OPENAI_DEFAULT_MODEL",
-            "AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL",
-        ]
-        for var in env_vars_to_remove:
-            monkeypatch.delenv(var, raising=False)
-
-    @pytest.fixture
-    def openai_environment(self, monkeypatch):
-        """Provides environment with all OpenAI variables set.
-
-        Args:
-            monkeypatch: pytest fixture for environment variable manipulation.
-        """
-        monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
-        monkeypatch.setenv("OPENAI_DEFAULT_MODEL", "gpt-4")
-        monkeypatch.setenv("OPENAI_DEFAULT_EMBEDDING_MODEL", "text-embedding-3-large")
-
-    @pytest.fixture
-    def azure_openai_environment(self, monkeypatch):
-        """Provides environment with all Azure OpenAI variables set.
-
-        Args:
-            monkeypatch: pytest fixture for environment variable manipulation.
-        """
-        monkeypatch.setenv("AZURE_OPENAI_API_KEY", "test-azure-key")
-        monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://test.openai.azure.com")
-        monkeypatch.setenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-        monkeypatch.setenv("AZURE_OPENAI_DEFAULT_MODEL", "gpt-4")
-        monkeypatch.setenv(
-            "AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL", "text-embedding-ada-002"
-        )
+    # === Helper Methods ===
+    # Note: Client environment fixtures are now available from conftest.py
 
     # === Helper Methods ===
 
@@ -405,7 +359,7 @@ class TestMetaEvaluatorClients:
 
     # === load_state() Method Tests ===
 
-    def test_load_state_with_openai_client(self, tmp_path):
+    def test_load_state_with_openai_client(self, tmp_path, openai_environment):
         """Test loading MetaEvaluator with OpenAI client from JSON."""
         # First save a state with OpenAI client
         with patch(
@@ -454,7 +408,9 @@ class TestMetaEvaluatorClients:
             assert LLMClientEnum.OPENAI in loaded_evaluator.client_registry
             assert loaded_evaluator.data is None
 
-    def test_load_state_with_azure_openai_client(self, tmp_path):
+    def test_load_state_with_azure_openai_client(
+        self, tmp_path, azure_openai_environment
+    ):
         """Test loading MetaEvaluator with Azure OpenAI client from JSON."""
         with patch(
             "meta_evaluator.meta_evaluator.clients.AzureOpenAIClient"
@@ -601,13 +557,13 @@ class TestMetaEvaluatorClients:
         assert isinstance(serialized, dict)
 
     def test_serialize_client_registry_with_openai_client(
-        self, meta_evaluator, create_mock_openai_client
+        self, meta_evaluator, mock_openai_client
     ):
         """Test _serialize_client_registry with OpenAI client present."""
         with patch(
             "meta_evaluator.meta_evaluator.clients.OpenAIClient"
         ) as mock_client_class:
-            mock_client = create_mock_openai_client()
+            mock_client = mock_openai_client
             mock_client_class.return_value = mock_client
 
             meta_evaluator.add_openai(
@@ -623,7 +579,7 @@ class TestMetaEvaluatorClients:
             assert "api_key" not in str(serialized)
 
     def test_serialize_client_registry_with_both_clients(
-        self, meta_evaluator, create_mock_openai_client, create_mock_azure_openai_client
+        self, meta_evaluator, mock_openai_client, mock_azure_openai_client
     ):
         """Test _serialize_client_registry with both OpenAI and Azure clients."""
         with (
@@ -634,11 +590,8 @@ class TestMetaEvaluatorClients:
                 "meta_evaluator.meta_evaluator.clients.AzureOpenAIClient"
             ) as mock_azure_class,
         ):
-            mock_openai_client = create_mock_openai_client()
             mock_openai_class.return_value = mock_openai_client
-
-            mock_azure_client = create_mock_azure_openai_client()
-            mock_azure_class.return_value = mock_azure_client
+            mock_azure_class.return_value = mock_azure_openai_client
 
             meta_evaluator.add_openai(
                 api_key="test-key",
@@ -694,9 +647,9 @@ class TestMetaEvaluatorClients:
     def test_save_with_multiple_clients_and_sample_data(
         self,
         meta_evaluator,
-        mock_sample_eval_data,
-        create_mock_openai_client,
-        create_mock_azure_openai_client,
+        sample_eval_data,
+        mock_openai_client,
+        mock_azure_openai_client,
     ):
         """Test saving state with multiple clients and SampleEvalData together."""
         with (
@@ -708,14 +661,10 @@ class TestMetaEvaluatorClients:
             ) as mock_azure_class,
         ):
             # Set up OpenAI client
-            mock_openai_client = create_mock_openai_client(supports_logprobs=False)
             mock_openai_class.return_value = mock_openai_client
 
             # Set up Azure client
-            mock_azure_client = create_mock_azure_openai_client(
-                supports_structured_output=False
-            )
-            mock_azure_class.return_value = mock_azure_client
+            mock_azure_class.return_value = mock_azure_openai_client
 
             # Add both clients and sample data
             meta_evaluator.add_openai(
@@ -730,7 +679,7 @@ class TestMetaEvaluatorClients:
                 default_model="gpt-4",
                 default_embedding_model="text-embedding-ada-002",
             )
-            meta_evaluator.add_data(mock_sample_eval_data)
+            meta_evaluator.add_data(sample_eval_data)
 
             # Save state
             meta_evaluator.save_state(
@@ -763,8 +712,8 @@ class TestMetaEvaluatorClients:
             data_config = state_data["data"]
             assert data_config["type"] == "SampleEvalData"
             assert data_config["sample_name"] == "Test Sample"
-            assert data_config["stratification_columns"] == ["topic", "difficulty"]
-            assert data_config["sample_percentage"] == 0.3
+            assert data_config["stratification_columns"] == ["category"]
+            assert data_config["sample_percentage"] == 0.5
             assert data_config["seed"] == 42
             assert data_config["sampling_method"] == "stratified_by_columns"
             assert data_config["data_format"] == "csv"
@@ -883,6 +832,7 @@ class TestMetaEvaluatorClients:
         meta_evaluator,
         sample_eval_data,
         basic_eval_task,
+        openai_environment,
     ):
         """Test adding OpenAI client, data, and evaluation task together, verify all exist independently."""
         with patch(
@@ -1006,7 +956,9 @@ class TestMetaEvaluatorClients:
 
     # === Client Registry Integrity Tests ===
 
-    def test_add_data_preserves_client_registry(self, meta_evaluator, sample_eval_data):
+    def test_add_data_preserves_client_registry(
+        self, meta_evaluator, sample_eval_data, openai_environment
+    ):
         """Test that adding data doesn't affect client registry."""
         with patch(
             "meta_evaluator.meta_evaluator.clients.OpenAIClient"
@@ -1030,7 +982,7 @@ class TestMetaEvaluatorClients:
             assert meta_evaluator.data == sample_eval_data
 
     def test_add_eval_task_preserves_client_registry(
-        self, meta_evaluator, basic_eval_task
+        self, meta_evaluator, basic_eval_task, openai_environment
     ):
         """Test that adding evaluation task doesn't affect client registry."""
         with patch(
