@@ -4,20 +4,20 @@ This conftest provides judge-specific fixtures used across judge test modules.
 Common fixtures are inherited from the main conftest.py.
 """
 
-import pytest
 from unittest.mock import Mock
 
+import pytest
+
+from meta_evaluator.common.models import Prompt
 from meta_evaluator.judge.judge import Judge
-from meta_evaluator.results import JudgeResultsBuilder, JudgeResults
-from meta_evaluator.llm_client import LLMClientEnum, LLMClient
+from meta_evaluator.llm_client import LLMClient, LLMClientEnum
 from meta_evaluator.llm_client.models import (
-    Message,
-    RoleEnum,
     LLMResponse,
     LLMUsage,
+    Message,
+    RoleEnum,
 )
-from meta_evaluator.common.models import Prompt
-
+from meta_evaluator.results import JudgeResults, JudgeResultsBuilder
 
 # ==== JUDGE FIXTURES ====
 

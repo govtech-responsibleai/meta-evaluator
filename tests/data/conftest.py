@@ -5,12 +5,13 @@ and file-related testing functionality.
 """
 
 import json
-import pytest
 from unittest.mock import MagicMock
+
 import polars as pl
+import pytest
+
 from meta_evaluator.data import EvalData, SampleEvalData
 from meta_evaluator.data.serialization import DataMetadata
-
 
 # ==== DATAFRAME FIXTURES ====
 

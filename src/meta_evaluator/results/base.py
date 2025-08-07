@@ -10,16 +10,16 @@ from typing import Dict, List, Literal, Optional, TypeVar
 import polars as pl
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .serialization import BaseResultsSerializedState
-from .models import BaseResultRow
 from .enums import BaseEvaluationStatusEnum
 from .exceptions import (
+    BuilderInitializationError,
+    DataFileError,
     EmptyResultsError,
     ResultsValidationError,
     TaskNotFoundError,
-    DataFileError,
-    BuilderInitializationError,
 )
+from .models import BaseResultRow
+from .serialization import BaseResultsSerializedState
 
 logger = logging.getLogger(__name__)
 

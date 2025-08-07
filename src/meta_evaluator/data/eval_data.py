@@ -7,21 +7,23 @@ column names and ensuring immutability after initialization.
 """
 
 import json
-from typing import Any, Optional, Literal, cast
-import polars as pl
-from pydantic import BaseModel, PrivateAttr, model_validator, Field
 import logging
+from typing import Any, Literal, Optional, cast
+
+import polars as pl
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
+
 from .exceptions import (
-    EmptyDataFrameError,
-    InvalidColumnNameError,
-    EmptyColumnListError,
-    IdColumnExistsError,
+    DataFileError,
     DuplicateInIDColumnError,
+    EmptyColumnListError,
+    EmptyDataFrameError,
+    IdColumnExistsError,
+    InvalidColumnNameError,
     InvalidInIDColumnError,
+    InvalidNameError,
     NoDataLeftError,
     NullValuesInDataError,
-    InvalidNameError,
-    DataFileError,
 )
 from .serialization import DataMetadata
 

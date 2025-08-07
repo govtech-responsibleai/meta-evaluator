@@ -1,25 +1,26 @@
 """Test suite for Judge class with comprehensive path coverage."""
 
-import pytest
-from unittest.mock import Mock, patch, create_autospec
 from typing import cast
+from unittest.mock import Mock, create_autospec, patch
 
-from meta_evaluator.judge.judge import Judge
-from meta_evaluator.judge.exceptions import IncorrectClientError
-from meta_evaluator.results import JudgeResultsBuilder, JudgeResults
-from meta_evaluator.eval_task import EvalTask
+import polars as pl
+import pytest
+from pydantic import BaseModel
+
 from meta_evaluator.data import EvalData
-from meta_evaluator.llm_client import LLMClientEnum, LLMClient
+from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.judge.exceptions import IncorrectClientError
+from meta_evaluator.judge.judge import Judge
+from meta_evaluator.llm_client import LLMClient, LLMClientEnum
+from meta_evaluator.llm_client.exceptions import LLMAPIError
 from meta_evaluator.llm_client.models import (
+    ErrorType,
+    ParseError,
+    ParseResult,
     RoleEnum,
     TagConfig,
-    ParseResult,
-    ParseError,
-    ErrorType,
 )
-from meta_evaluator.llm_client.exceptions import LLMAPIError
-from pydantic import BaseModel
-import polars as pl
+from meta_evaluator.results import JudgeResults, JudgeResultsBuilder
 
 
 class TestJudge:

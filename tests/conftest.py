@@ -5,13 +5,15 @@ Module-specific fixtures are defined in their respective conftest files.
 """
 
 import logging
-import pytest
 from unittest.mock import MagicMock
+
 import polars as pl
-from meta_evaluator.meta_evaluator import MetaEvaluator
+import pytest
+
+from meta_evaluator.common.models import Prompt
 from meta_evaluator.data import EvalData, SampleEvalData
 from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.common.models import Prompt
+from meta_evaluator.meta_evaluator import MetaEvaluator
 
 
 @pytest.fixture

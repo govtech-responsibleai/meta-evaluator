@@ -1,8 +1,9 @@
 """Test suite for DataLoader class with file validation and error handling."""
 
-import pytest
 import os
 from pathlib import Path
+
+import pytest
 
 from meta_evaluator.data import DataLoader, EvalData
 from meta_evaluator.data.exceptions import (

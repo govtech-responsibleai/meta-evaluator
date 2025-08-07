@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+
 from meta_evaluator.annotator.interface import StreamlitAnnotator
 from meta_evaluator.annotator.launcher import StreamlitLauncher
 

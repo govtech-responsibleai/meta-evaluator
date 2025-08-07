@@ -6,17 +6,17 @@ Covers:
 - Script entry (argument parsing, error handling, integration)
 """
 
-import pytest
-
 import os
-import sys
 import socket
 import subprocess
-from unittest.mock import patch, MagicMock
+import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from meta_evaluator.annotator.launcher import StreamlitLauncher
+import pytest
+
 from meta_evaluator.annotator.exceptions import PortOccupiedError
+from meta_evaluator.annotator.launcher import StreamlitLauncher
 
 # -------------------------
 # Fixtures for Real Objects

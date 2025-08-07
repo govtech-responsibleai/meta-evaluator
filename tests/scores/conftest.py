@@ -4,16 +4,16 @@ This conftest provides scorer instances, sample data, and results for testing
 different scoring scenarios across all scorer types.
 """
 
-import pytest
 import polars as pl
+import pytest
+
 from meta_evaluator.scores import (
     AccuracyScorer,
-    TextSimilarityScorer,
     CohensKappaScorer,
+    TextSimilarityScorer,
 )
-from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
 from meta_evaluator.scores.base_scoring_result import BaseScoringResult
-
+from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
 
 # ==== SCORER INSTANCE FIXTURES ====
 

@@ -12,22 +12,22 @@ Test Coverage:
 - Utility functions (generate_run_id, generate_annotator_id)
 """
 
-import pytest
 import re
 from datetime import datetime
 from unittest.mock import Mock, patch
 
+import pytest
+
+from meta_evaluator.annotator.exceptions import AnnotatorInitializationError
 from meta_evaluator.annotator.interface.streamlit_session_manager import (
     StreamlitSessionManager,
-    generate_run_id,
     generate_annotator_id,
+    generate_run_id,
 )
 from meta_evaluator.results import (
-    HumanAnnotationResultsBuilder,
     HumanAnnotationResults,
+    HumanAnnotationResultsBuilder,
 )
-from meta_evaluator.annotator.exceptions import AnnotatorInitializationError
-
 
 # -------------------------
 # Fixtures and Test Helpers

@@ -1,19 +1,19 @@
 """Launcher for the Streamlit annotation interface."""
 
-import os
 import logging
-from pathlib import Path
+import os
 import socket
 import subprocess
 import tempfile
 import time
-from typing import Optional, List
+from pathlib import Path
+from typing import List, Optional
 
+from meta_evaluator.annotator.exceptions import PortOccupiedError
 from meta_evaluator.data import EvalData
 from meta_evaluator.data.serialization import DataMetadata
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.eval_task.serialization import EvalTaskState
-from meta_evaluator.annotator.exceptions import PortOccupiedError
 
 
 class StreamlitLauncher:

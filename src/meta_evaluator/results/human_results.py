@@ -8,27 +8,26 @@ from typing import Dict, List, Literal, Optional, cast
 import polars as pl
 from pydantic import Field, ValidationError
 
+from ..common.error_constants import (
+    INVALID_JSON_MSG,
+    INVALID_JSON_STRUCTURE_MSG,
+    STATE_FILE_NOT_FOUND_MSG,
+)
 from .base import (
     BaseEvaluationResults,
     BaseEvaluationResultsBuilder,
 )
-from .models import HumanAnnotationResultRow, BaseResultRow
 from .enums import HumanAnnotationStatusEnum
+from .exceptions import (
+    IncompleteResultsError,
+    InvalidFileError,
+    MismatchedTasksError,
+)
+from .models import BaseResultRow, HumanAnnotationResultRow
 from .serialization import (
     BaseResultsSerializedState,
     HumanAnnotationResultsSerializedState,
 )
-from .exceptions import (
-    InvalidFileError,
-    MismatchedTasksError,
-    IncompleteResultsError,
-)
-from ..common.error_constants import (
-    STATE_FILE_NOT_FOUND_MSG,
-    INVALID_JSON_STRUCTURE_MSG,
-    INVALID_JSON_MSG,
-)
-
 
 logger = logging.getLogger(__name__)
 

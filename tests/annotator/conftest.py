@@ -4,18 +4,18 @@ This conftest provides annotator-specific fixtures used across annotator test mo
 Common fixtures are inherited from the main conftest.py.
 """
 
-import pytest
 import socket
-import polars as pl
 from unittest.mock import Mock, patch
 
-from meta_evaluator.data import EvalData
-from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.results import HumanAnnotationResultsBuilder
+import polars as pl
+import pytest
+
 from meta_evaluator.annotator.interface.streamlit_session_manager import (
     StreamlitSessionManager,
 )
-
+from meta_evaluator.data import EvalData
+from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.results import HumanAnnotationResultsBuilder
 
 # ==== BASIC FIXTURES ====
 

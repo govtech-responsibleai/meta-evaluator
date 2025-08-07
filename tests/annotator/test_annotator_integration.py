@@ -23,17 +23,17 @@ browser automation dependencies, making them suitable for CI/CD environments
 while still testing the core integration functionality.
 """
 
-import pytest
-import time
 import socket
 import subprocess
 import threading
-import requests
+import time
 from datetime import datetime
+
+import pytest
+import requests
 
 from meta_evaluator.annotator.launcher import StreamlitLauncher
 from meta_evaluator.results import HumanAnnotationResults
-
 
 # -------------------------
 # Test Setup and Fixtures

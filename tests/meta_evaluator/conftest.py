@@ -7,24 +7,24 @@ Specialized fixtures for data, judges, scorers, etc. are available from their re
 """
 
 import logging
-import pytest
-from unittest.mock import MagicMock, Mock
 from datetime import datetime
+from unittest.mock import MagicMock, Mock
 
-from meta_evaluator.meta_evaluator.scoring import ScoringMixin
-from meta_evaluator.llm_client import LLMClientEnum
-from meta_evaluator.llm_client.openai_client import OpenAIClient
-from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
-from meta_evaluator.llm_client.serialization import (
-    OpenAISerializedState,
-    AzureOpenAISerializedState,
-)
-from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.results import JudgeResults, HumanAnnotationResults
-from meta_evaluator.judge.judge import Judge
-from meta_evaluator.data import SampleEvalData
 import polars as pl
+import pytest
 
+from meta_evaluator.data import SampleEvalData
+from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.judge.judge import Judge
+from meta_evaluator.llm_client import LLMClientEnum
+from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
+from meta_evaluator.llm_client.openai_client import OpenAIClient
+from meta_evaluator.llm_client.serialization import (
+    AzureOpenAISerializedState,
+    OpenAISerializedState,
+)
+from meta_evaluator.meta_evaluator.scoring import ScoringMixin
+from meta_evaluator.results import HumanAnnotationResults, JudgeResults
 
 # ==== ENVIRONMENT FIXTURES ====
 
@@ -432,8 +432,8 @@ def completed_judge_results():
     Returns:
         JudgeResults: A completed JudgeResults instance for testing.
     """
-    from meta_evaluator.results import JudgeResultsBuilder
     from meta_evaluator.llm_client import LLMClientEnum
+    from meta_evaluator.results import JudgeResultsBuilder
 
     builder = JudgeResultsBuilder(
         run_id="test_run",

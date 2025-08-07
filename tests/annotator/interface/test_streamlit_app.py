@@ -18,18 +18,18 @@ ensure consistent, reliable testing without external dependencies.
 """
 
 import os
-import pytest
-from unittest.mock import Mock, patch
 from datetime import datetime
+from unittest.mock import Mock, patch
+
+import pytest
 from streamlit.testing.v1 import AppTest
 
-from meta_evaluator.annotator.interface import StreamlitAnnotator
 from meta_evaluator.annotator.exceptions import (
     AnnotationValidationError,
     NameValidationError,
     SaveError,
 )
-
+from meta_evaluator.annotator.interface import StreamlitAnnotator
 
 # -------------------------
 # Fixtures for Real Objects
@@ -55,8 +55,10 @@ def create_test_app():
     """
 
     def app():
-        import polars as pl
         from unittest.mock import Mock, patch
+
+        import polars as pl
+
         from meta_evaluator.annotator.interface import StreamlitAnnotator
         from meta_evaluator.data import EvalData
         from meta_evaluator.eval_task import EvalTask
@@ -143,8 +145,10 @@ def create_complete_test_app():
     """
 
     def app():
-        import polars as pl
         from unittest.mock import Mock, patch
+
+        import polars as pl
+
         from meta_evaluator.annotator.interface import StreamlitAnnotator
         from meta_evaluator.data import EvalData
         from meta_evaluator.eval_task import EvalTask
@@ -400,9 +404,11 @@ class TestStreamlitAppUI:
         """Test navigation buttons functionality."""
 
         def test_app():
+            from unittest.mock import Mock, patch
+
             import polars as pl
             import streamlit as st
-            from unittest.mock import Mock, patch
+
             from meta_evaluator.annotator.interface import StreamlitAnnotator
             from meta_evaluator.data import EvalData
             from meta_evaluator.eval_task import EvalTask
@@ -573,8 +579,10 @@ class TestStreamlitAppUI:
 
         # Create app that will raise exception
         def failing_app():
-            import polars as pl
             from unittest.mock import Mock, patch
+
+            import polars as pl
+
             from meta_evaluator.annotator.interface import StreamlitAnnotator
             from meta_evaluator.data import EvalData
             from meta_evaluator.eval_task import EvalTask

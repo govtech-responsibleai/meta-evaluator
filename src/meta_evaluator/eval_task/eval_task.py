@@ -2,9 +2,11 @@
 
 import logging
 from typing import Any, Callable, Literal, Optional
+
 from pydantic import BaseModel, Field, create_model, model_validator
-from .serialization import EvalTaskState
+
 from .exceptions import TaskSchemaError
+from .serialization import EvalTaskState
 
 
 class EvalTask(BaseModel):

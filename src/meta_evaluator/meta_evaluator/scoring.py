@@ -1,21 +1,21 @@
 """Mixin for scoring and comparison functionality including results loading."""
 
 import logging
-from typing import Dict, List, Optional, Union, Mapping, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Mapping, Optional, Union
 
 if TYPE_CHECKING:
     from .base import Paths
 
 import polars as pl
 
-from ..eval_task import EvalTask
 from ..data import EvalData
-from ..results import JudgeResults, HumanAnnotationResults
-from ..scores import MetricsConfig, BaseScoringResult
+from ..eval_task import EvalTask
+from ..results import HumanAnnotationResults, JudgeResults
+from ..scores import BaseScoringResult, MetricsConfig
 from .exceptions import (
-    InsufficientDataError,
     EvalTaskNotFoundError,
     IncompatibleTaskError,
+    InsufficientDataError,
     ScoringConfigError,
 )
 

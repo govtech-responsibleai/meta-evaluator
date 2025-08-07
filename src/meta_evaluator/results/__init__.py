@@ -4,24 +4,24 @@ from .base import (
     BaseEvaluationResults,
     BaseEvaluationResultsBuilder,
 )
-from .models import (
-    BaseResultRow,
-    FieldTags,
-    JudgeResultRow,
-    HumanAnnotationResultRow,
-)
 from .enums import (
     BaseEvaluationStatusEnum,
     EvaluationStatusEnum,
     HumanAnnotationStatusEnum,
 )
+from .human_results import (
+    HumanAnnotationResults,
+    HumanAnnotationResultsBuilder,
+)
 from .judge_results import (
     JudgeResults,
     JudgeResultsBuilder,
 )
-from .human_results import (
-    HumanAnnotationResults,
-    HumanAnnotationResultsBuilder,
+from .models import (
+    BaseResultRow,
+    FieldTags,
+    HumanAnnotationResultRow,
+    JudgeResultRow,
 )
 
 __all__ = [

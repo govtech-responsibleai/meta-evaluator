@@ -5,11 +5,11 @@ Code adapted from: https://github.com/nitaytech/AltTest/
 """
 
 import os
-from typing import List, Optional, Dict, Any, Callable, Union, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-import polars as pl
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import polars as pl
 from scipy.stats import ttest_1samp
 from sklearn.metrics import jaccard_score
 

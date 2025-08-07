@@ -1,7 +1,7 @@
 """Cohen's kappa scorer for inter-annotator agreement."""
 
-from typing import List, Optional
 import os
+from typing import List, Optional
 
 import numpy as np
 import polars as pl

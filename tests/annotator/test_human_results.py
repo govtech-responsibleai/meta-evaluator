@@ -7,24 +7,25 @@ Covers:
 - Builder logic (row creation, error handling, completion, duplicate prevention)
 """
 
-import pytest
 from datetime import datetime
 
-from meta_evaluator.results import (
-    HumanAnnotationResults,
-    HumanAnnotationResultsBuilder,
-    HumanAnnotationResultRow,
-)
+import pytest
+
 from meta_evaluator.common.error_constants import (
     INVALID_JSON_STRUCTURE_MSG,
     STATE_FILE_NOT_FOUND_MSG,
 )
+from meta_evaluator.results import (
+    HumanAnnotationResultRow,
+    HumanAnnotationResults,
+    HumanAnnotationResultsBuilder,
+)
 from meta_evaluator.results.exceptions import (
     BuilderInitializationError,
+    DataFileError,
     IncompleteResultsError,
     InvalidFileError,
     MismatchedTasksError,
-    DataFileError,
     TaskNotFoundError,
 )
 

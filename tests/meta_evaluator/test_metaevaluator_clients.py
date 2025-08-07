@@ -1,17 +1,19 @@
 """Test suite for the MetaEvaluator client management."""
 
 import json
-import pytest
 from unittest.mock import MagicMock, patch
-from meta_evaluator.meta_evaluator import MetaEvaluator
-from meta_evaluator.meta_evaluator.exceptions import (
-    MissingConfigurationError,
-    ClientAlreadyExistsError,
-    ClientNotFoundError,
-)
+
+import pytest
+
+from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
 from meta_evaluator.llm_client.enums import LLMClientEnum
 from meta_evaluator.llm_client.openai_client import OpenAIClient
-from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
+from meta_evaluator.meta_evaluator import MetaEvaluator
+from meta_evaluator.meta_evaluator.exceptions import (
+    ClientAlreadyExistsError,
+    ClientNotFoundError,
+    MissingConfigurationError,
+)
 
 
 @pytest.mark.integration

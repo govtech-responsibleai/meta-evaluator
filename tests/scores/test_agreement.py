@@ -1,10 +1,10 @@
 """Tests for agreement metrics."""
 
-import pytest
 import numpy as np
 import polars as pl
-from meta_evaluator.scores.exceptions import AltTestInsufficientAnnotationsError
+import pytest
 
+from meta_evaluator.scores.exceptions import AltTestInsufficientAnnotationsError
 
 # Basic fixtures are now provided by conftest.py
 

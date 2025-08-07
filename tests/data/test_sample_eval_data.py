@@ -1,8 +1,10 @@
 """Test suite for the sampling functionality with comprehensive path coverage."""
 
 import json
-import pytest
+
 import polars as pl
+import pytest
+
 from meta_evaluator.data import EvalData, SampleEvalData
 from meta_evaluator.data.exceptions import (
     DataFileError,

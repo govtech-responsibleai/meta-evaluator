@@ -4,42 +4,42 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional, Literal, cast
+from typing import Literal, Optional, cast
+
 from pydantic import ValidationError
 
+from ..annotator.launcher import StreamlitLauncher
+from ..common.error_constants import (
+    INVALID_JSON_MSG,
+    INVALID_JSON_STRUCTURE_MSG,
+    STATE_FILE_NOT_FOUND_MSG,
+)
 from ..data import EvalData, SampleEvalData
 from ..data.serialization import DataMetadata
 from ..eval_task import EvalTask
 from ..eval_task.serialization import EvalTaskState
+from ..llm_client.azureopenai_client import AzureOpenAIClient, AzureOpenAIConfig
 from ..llm_client.enums import LLMClientEnum
 from ..llm_client.LLM_client import LLMClient
 from ..llm_client.openai_client import OpenAIClient, OpenAIConfig
-from ..llm_client.azureopenai_client import AzureOpenAIClient, AzureOpenAIConfig
 from ..llm_client.serialization import (
-    OpenAISerializedState,
     AzureOpenAISerializedState,
+    OpenAISerializedState,
 )
-from ..annotator.launcher import StreamlitLauncher
+from .clients import ClientsMixin
 from .exceptions import (
+    ClientNotFoundError,
     DataAlreadyExistsError,
+    DataFormatError,
     EvalDataNotFoundError,
     EvalTaskAlreadyExistsError,
     EvalTaskNotFoundError,
-    DataFormatError,
-    MissingConfigurationError,
     InvalidFileError,
-    ClientNotFoundError,
+    MissingConfigurationError,
 )
-from .clients import ClientsMixin
 from .judge import JudgesMixin
 from .scoring import ScoringMixin
 from .serialization import MetaEvaluatorState
-from ..common.error_constants import (
-    STATE_FILE_NOT_FOUND_MSG,
-    INVALID_JSON_STRUCTURE_MSG,
-    INVALID_JSON_MSG,
-)
-
 
 _OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY"
 _AZURE_OPENAI_API_KEY_ENV_VAR = "AZURE_OPENAI_API_KEY"

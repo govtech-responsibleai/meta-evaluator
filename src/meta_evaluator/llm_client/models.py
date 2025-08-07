@@ -11,11 +11,12 @@ The models are used to provide a unified interface for interacting with LLM clie
 """
 
 import time
-from typing import Any, Literal, Optional, Union
 import uuid
+from typing import Any, Literal, Optional, Union
+
 from pydantic import BaseModel, model_validator
 
-from .enums import RoleEnum, LLMClientEnum, ErrorType
+from .enums import ErrorType, LLMClientEnum, RoleEnum
 
 _RESPONSE_ID_UUID_LENGTH = 12
 

@@ -8,16 +8,17 @@ All tests use mocked responses to avoid external API dependencies.
 
 from typing import Any
 from unittest.mock import Mock, patch
+
 import pytest
 from pydantic import ValidationError
 
-from meta_evaluator.llm_client.openai_client import (
-    OpenAIConfig,
-    OpenAIClient,
-)
-from meta_evaluator.llm_client.models import Message
-from meta_evaluator.llm_client.enums import RoleEnum, LLMClientEnum
+from meta_evaluator.llm_client.enums import LLMClientEnum, RoleEnum
 from meta_evaluator.llm_client.exceptions import LLMAPIError
+from meta_evaluator.llm_client.models import Message
+from meta_evaluator.llm_client.openai_client import (
+    OpenAIClient,
+    OpenAIConfig,
+)
 
 
 class TestOpenAIConfig:

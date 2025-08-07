@@ -1,19 +1,20 @@
 """Main class of judge module."""
 
-from typing import Any, Optional, cast
-from ..eval_task import EvalTask
-from ..llm_client import LLMClient
-from ..llm_client.enums import LLMClientEnum
-from ..llm_client.models import Message, TagConfig
-from ..llm_client.enums import RoleEnum
-from ..llm_client.exceptions import LLMAPIError
-from collections.abc import Generator
-from ..common.models import Prompt
-from pydantic import BaseModel, ConfigDict, model_validator
 import re
 import time
-from ..results import JudgeResults, JudgeResultsBuilder
+from collections.abc import Generator
+from typing import Any, Optional, cast
+
+from pydantic import BaseModel, ConfigDict, model_validator
+
+from ..common.models import Prompt
 from ..data import EvalData, SampleEvalData
+from ..eval_task import EvalTask
+from ..llm_client import LLMClient
+from ..llm_client.enums import LLMClientEnum, RoleEnum
+from ..llm_client.exceptions import LLMAPIError
+from ..llm_client.models import Message, TagConfig
+from ..results import JudgeResults, JudgeResultsBuilder
 from .exceptions import IncorrectClientError
 
 

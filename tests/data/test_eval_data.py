@@ -1,18 +1,20 @@
 """Test suite for the EvalData class with comprehensive path coverage."""
 
 import json
-import pytest
-import polars as pl
 import logging
+
+import polars as pl
+import pytest
+
 from meta_evaluator.data import EvalData
 from meta_evaluator.data.exceptions import (
-    EmptyDataFrameError,
-    InvalidColumnNameError,
-    IdColumnExistsError,
     DuplicateInIDColumnError,
+    EmptyDataFrameError,
+    IdColumnExistsError,
+    InvalidColumnNameError,
     InvalidInIDColumnError,
-    NullValuesInDataError,
     InvalidNameError,
+    NullValuesInDataError,
 )
 
 

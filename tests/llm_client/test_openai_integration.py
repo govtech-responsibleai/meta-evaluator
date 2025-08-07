@@ -8,12 +8,13 @@ Tests will be skipped if this environment variable is not set.
 """
 
 import os
+
 import pytest
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-from meta_evaluator.llm_client.openai_client import OpenAIClient
 from meta_evaluator.llm_client.models import Message, RoleEnum
+from meta_evaluator.llm_client.openai_client import OpenAIClient
 
 DEFAULT_OPENAI_MODEL = "gpt-4.1-2025-04-14"
 

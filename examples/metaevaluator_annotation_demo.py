@@ -17,12 +17,13 @@ This will:
 Try annotating a few samples and see the results saved to the project's annotations directory.
 """
 
-import polars as pl
 from pathlib import Path
 
-from meta_evaluator.meta_evaluator import MetaEvaluator
-from meta_evaluator.eval_task import EvalTask
+import polars as pl
+
 from meta_evaluator.data import EvalData
+from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.meta_evaluator import MetaEvaluator
 
 
 def create_sample_data():

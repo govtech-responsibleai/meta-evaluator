@@ -1,22 +1,24 @@
 """Test suite for the MetaEvaluator judge management."""
 
-import pytest
 from datetime import datetime
 from unittest.mock import Mock, patch
+
+import polars as pl
+import pytest
+
+from meta_evaluator.common.models import Prompt
+from meta_evaluator.llm_client.enums import LLMClientEnum
 from meta_evaluator.meta_evaluator.exceptions import (
-    JudgeAlreadyExistsError,
-    JudgeNotFoundError,
-    InvalidYAMLStructureError,
-    PromptFileNotFoundError,
-    EvalTaskNotFoundError,
     EvalDataNotFoundError,
+    EvalTaskNotFoundError,
+    InvalidYAMLStructureError,
+    JudgeAlreadyExistsError,
     JudgeExecutionError,
+    JudgeNotFoundError,
     LLMClientNotConfiguredError,
+    PromptFileNotFoundError,
     ResultsSaveError,
 )
-import polars as pl
-from meta_evaluator.llm_client.enums import LLMClientEnum
-from meta_evaluator.common.models import Prompt
 from meta_evaluator.results import JudgeResults
 
 

@@ -1,11 +1,11 @@
 """Text similarity scorer for free-form text tasks."""
 
-from typing import List, Optional
 import os
+from difflib import SequenceMatcher
+from typing import List, Optional
 
 import numpy as np
 import polars as pl
-from difflib import SequenceMatcher
 
 from meta_evaluator.scores.base_scorer import BaseScorer
 from meta_evaluator.scores.base_scoring_result import BaseScoringResult

@@ -1,7 +1,8 @@
 """Pydantic models for Judge and Human Results serialization."""
 
 from datetime import datetime
-from typing import Dict, List, Optional, Literal
+from typing import Dict, List, Literal, Optional
+
 from pydantic import BaseModel
 
 from ..llm_client.enums import LLMClientEnum

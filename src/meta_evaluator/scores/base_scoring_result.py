@@ -1,16 +1,17 @@
 """Data models for scoring functionality."""
 
 import json
-from typing import Any, Dict
 from datetime import datetime
+from typing import Any, Dict
 
 from pydantic import BaseModel, Field, ValidationError
-from ..results.exceptions import InvalidFileError
+
 from ..common.error_constants import (
-    STATE_FILE_NOT_FOUND_MSG,
-    INVALID_JSON_STRUCTURE_MSG,
     INVALID_JSON_MSG,
+    INVALID_JSON_STRUCTURE_MSG,
+    STATE_FILE_NOT_FOUND_MSG,
 )
+from ..results.exceptions import InvalidFileError
 
 
 class BaseScoringResult(BaseModel):

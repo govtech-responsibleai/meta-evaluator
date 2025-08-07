@@ -15,17 +15,17 @@ import pytest
 
 from meta_evaluator.data import EvalData, SampleEvalData
 from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.meta_evaluator import MetaEvaluator
-from meta_evaluator.llm_client.openai_client import OpenAIClient, OpenAIConfig
 from meta_evaluator.llm_client.azureopenai_client import (
     AzureOpenAIClient,
     AzureOpenAIConfig,
 )
-from meta_evaluator.llm_client.serialization import (
-    OpenAISerializedState,
-    AzureOpenAISerializedState,
-)
 from meta_evaluator.llm_client.enums import LLMClientEnum
+from meta_evaluator.llm_client.openai_client import OpenAIClient, OpenAIConfig
+from meta_evaluator.llm_client.serialization import (
+    AzureOpenAISerializedState,
+    OpenAISerializedState,
+)
+from meta_evaluator.meta_evaluator import MetaEvaluator
 
 
 class TestMetaEvaluatorIntegration:

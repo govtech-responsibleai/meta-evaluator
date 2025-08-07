@@ -1,17 +1,18 @@
 """Comprehensive tests for embeddings functionality in LLMClient."""
 
-import pytest
 from typing import TypeVar
 
-from meta_evaluator.llm_client.LLM_client import (
-    _FAILED_EMBEDDING_ERROR_TEMPLATE,
-    _NO_PROMPTS_ERROR,
-)
+import pytest
+from pydantic import BaseModel
+
 from meta_evaluator.llm_client.exceptions import (
     LLMAPIError,
     LLMValidationError,
 )
-from pydantic import BaseModel
+from meta_evaluator.llm_client.LLM_client import (
+    _FAILED_EMBEDDING_ERROR_TEMPLATE,
+    _NO_PROMPTS_ERROR,
+)
 
 # Import test classes from conftest for type hints
 from .conftest import ConcreteTestLLMClient
