@@ -12,7 +12,6 @@ from meta_evaluator.meta_evaluator.exceptions import (
 from meta_evaluator.llm_client.models import LLMClientEnum
 from meta_evaluator.llm_client.openai_client import OpenAIClient
 from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
-from tests.conftest import create_mock_openai_client, create_mock_azure_openai_client
 
 
 @pytest.mark.integration
@@ -601,7 +600,9 @@ class TestMetaEvaluatorClients:
         assert serialized == {}
         assert isinstance(serialized, dict)
 
-    def test_serialize_client_registry_with_openai_client(self, meta_evaluator):
+    def test_serialize_client_registry_with_openai_client(
+        self, meta_evaluator, create_mock_openai_client
+    ):
         """Test _serialize_client_registry with OpenAI client present."""
         with patch(
             "meta_evaluator.meta_evaluator.clients.OpenAIClient"
@@ -621,7 +622,9 @@ class TestMetaEvaluatorClients:
             assert serialized["openai"]["default_model"] == "gpt-4"
             assert "api_key" not in str(serialized)
 
-    def test_serialize_client_registry_with_both_clients(self, meta_evaluator):
+    def test_serialize_client_registry_with_both_clients(
+        self, meta_evaluator, create_mock_openai_client, create_mock_azure_openai_client
+    ):
         """Test _serialize_client_registry with both OpenAI and Azure clients."""
         with (
             patch(
@@ -692,6 +695,8 @@ class TestMetaEvaluatorClients:
         self,
         meta_evaluator,
         mock_sample_eval_data,
+        create_mock_openai_client,
+        create_mock_azure_openai_client,
     ):
         """Test saving state with multiple clients and SampleEvalData together."""
         with (

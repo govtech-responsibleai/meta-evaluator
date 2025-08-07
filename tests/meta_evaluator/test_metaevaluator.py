@@ -15,7 +15,6 @@ from meta_evaluator.meta_evaluator.exceptions import (
 )
 from meta_evaluator.llm_client.models import LLMClientEnum
 from meta_evaluator.data import EvalData, SampleEvalData
-from tests.conftest import create_mock_openai_client
 
 
 @pytest.mark.integration
@@ -153,7 +152,9 @@ class TestMetaEvaluatorBase:
         ):
             meta_evaluator.save_state("test.json", include_data=True, data_format=None)
 
-    def test_save_state_include_data_false(self, meta_evaluator):
+    def test_save_state_include_data_false(
+        self, meta_evaluator, create_mock_openai_client
+    ):
         """Test saving state without data serialization."""
         # Add a client to have something to serialize
         with patch(
@@ -242,7 +243,9 @@ class TestMetaEvaluatorBase:
 
         assert state_data["data"] is None
 
-    def test_save_state_include_task_false(self, meta_evaluator):
+    def test_save_state_include_task_false(
+        self, meta_evaluator, create_mock_openai_client
+    ):
         """Test saving state without evaluation task serialization."""
         # Add a client to have something to serialize
         with patch(
@@ -541,6 +544,7 @@ class TestMetaEvaluatorBase:
         meta_evaluator,
         mock_eval_data_with_dataframe,
         basic_eval_task,
+        create_mock_openai_client,
     ):
         """Test complete save operation and verify actual file contents match expected structure."""
         # Set up complete MetaEvaluator state
@@ -629,7 +633,7 @@ class TestMetaEvaluatorBase:
     # === load_state() Method Tests ===
 
     def test_load_state_with_eval_data_json_format(
-        self, tmp_path, sample_eval_data, basic_eval_task
+        self, tmp_path, sample_eval_data, basic_eval_task, create_mock_openai_client
     ):
         """Test loading MetaEvaluator with EvalData in JSON format."""
         with patch(
@@ -664,7 +668,11 @@ class TestMetaEvaluatorBase:
             assert isinstance(loaded_evaluator.data, EvalData)
 
     def test_load_state_with_sample_eval_data_csv_format(
-        self, tmp_path, mock_sample_eval_data, basic_eval_task
+        self,
+        tmp_path,
+        mock_sample_eval_data,
+        basic_eval_task,
+        create_mock_openai_client,
     ):
         """Test loading MetaEvaluator with SampleEvalData in CSV format."""
         with patch(
@@ -717,7 +725,7 @@ class TestMetaEvaluatorBase:
             )
 
     def test_load_state_with_eval_task(
-        self, tmp_path, sample_eval_data, basic_eval_task
+        self, tmp_path, sample_eval_data, basic_eval_task, create_mock_openai_client
     ):
         """Test loading MetaEvaluator with evaluation task from JSON."""
         with patch(
@@ -764,7 +772,7 @@ class TestMetaEvaluatorBase:
             )
 
     def test_load_state_skip_data_and_eval_task_loading(
-        self, tmp_path, sample_eval_data, basic_eval_task
+        self, tmp_path, sample_eval_data, basic_eval_task, create_mock_openai_client
     ):
         """Test loading MetaEvaluator while skipping data loading."""
         with patch(
@@ -834,7 +842,9 @@ class TestMetaEvaluatorBase:
         ):
             MetaEvaluator.load_state(str(tmp_path), "incomplete.json")
 
-    def test_load_state_nonexistent_data_file(self, tmp_path):
+    def test_load_state_nonexistent_data_file(
+        self, tmp_path, create_mock_openai_client
+    ):
         """Test FileNotFoundError when referenced data file doesn't exist."""
         # Create state file that references nonexistent data file
         state_data = {
@@ -876,7 +886,9 @@ class TestMetaEvaluatorBase:
                     openai_api_key="test-api-key",
                 )
 
-    def test_load_state_unsupported_data_format(self, tmp_path):
+    def test_load_state_unsupported_data_format(
+        self, tmp_path, create_mock_openai_client
+    ):
         """Test ValueError when data format is unsupported."""
         # Create state file with unsupported data format
         state_data = {

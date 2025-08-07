@@ -1,19 +1,17 @@
-"""Shared fixtures for MetaEvaluator tests."""
+"""Common fixtures for MetaEvaluator tests.
 
-import json
+This conftest provides high-level fixtures used across multiple test modules.
+Module-specific fixtures are defined in their respective conftest files.
+"""
+
+import logging
 import pytest
 from unittest.mock import MagicMock
+import polars as pl
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.data import EvalData, SampleEvalData
-from meta_evaluator.data.serialization import DataMetadata
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.common.models import Prompt
-from meta_evaluator.llm_client.openai_client import OpenAIClient
-from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
-from meta_evaluator.llm_client.serialization import (
-    OpenAISerializedState,
-    AzureOpenAISerializedState,
-)
 
 
 @pytest.fixture
@@ -30,247 +28,21 @@ def meta_evaluator(tmp_path) -> MetaEvaluator:
 
 
 @pytest.fixture
-def sample_eval_data():
-    """Provides a sample EvalData object for testing.
+def logger():
+    """Provides a mock logger for testing.
 
     Returns:
-        EvalData: A mocked EvalData instance for testing purposes.
+        MagicMock: A mock logger instance.
     """
-    import polars as pl
-
-    mock_eval_data = MagicMock(spec=EvalData)
-    mock_eval_data.name = "test_dataset"
-    mock_eval_data.id_column = "id"
-
-    # Create a mock DataFrame with sample data
-    mock_dataframe = pl.DataFrame(
-        {
-            "id": [1, 2, 3],
-            "question": [
-                "What is 2+2?",
-                "What is the capital of France?",
-                "Who wrote Hamlet?",
-            ],
-            "answer": ["4", "Paris", "Shakespeare"],
-        }
-    )
-    mock_eval_data.data = mock_dataframe
-
-    # Mock the serialise function
-    def mock_serialize(data_format, data_filename):
-        return DataMetadata(
-            name="test_dataset",
-            id_column="id",
-            data_file=data_filename or f"test_data.{data_format}",
-            data_format=data_format,
-            type="EvalData",
-        )
-
-    mock_eval_data.serialize_metadata.side_effect = mock_serialize
-
-    # Mock the write_data function
-    mock_dataframe.write_parquet = MagicMock()
-    mock_dataframe.write_csv = MagicMock()
-    mock_dataframe.to_dict = MagicMock(return_value={"id": [1, 2], "text": ["a", "b"]})
-
-    def mock_write_data(filepath, data_format):
-        match data_format:
-            case "parquet":
-                mock_dataframe.write_parquet(filepath)
-            case "csv":
-                mock_dataframe.write_csv(filepath)
-            case "json":
-                data_dict = mock_dataframe.to_dict(as_series=False)
-                with open(filepath, "w") as f:
-                    json.dump(data_dict, f, indent=2)
-            case _:
-                raise ValueError(f"Unsupported data format: {data_format}")
-
-    mock_eval_data.write_data.side_effect = mock_write_data
-
-    return mock_eval_data
+    return MagicMock(spec=logging.Logger)
 
 
-@pytest.fixture
-def another_eval_data():
-    """Provides another sample EvalData object for testing.
-
-    Returns:
-        EvalData: A different mocked EvalData instance for testing purposes.
-    """
-    import polars as pl
-
-    mock_eval_data = MagicMock(spec=EvalData)
-    mock_eval_data.name = "another_dataset"
-    mock_eval_data.id_column = "id"
-
-    # Create a mock DataFrame with different sample data
-    mock_dataframe = pl.DataFrame(
-        {
-            "id": [4, 5, 6],
-            "prompt": ["How are you?", "What's the weather?", "Tell me a joke"],
-            "response": [
-                "I'm fine",
-                "It's sunny",
-                "Why did the chicken cross the road?",
-            ],
-        }
-    )
-    mock_eval_data.data = mock_dataframe
-
-    # Mock the serialise function
-    def mock_serialize(data_format, data_filename):
-        return DataMetadata(
-            name="another_dataset",
-            id_column="id",
-            data_file=data_filename or f"test_data.{data_format}",
-            data_format=data_format,
-            type="EvalData",
-        )
-
-    mock_eval_data.serialize_metadata.side_effect = mock_serialize
-
-    # Mock the write_data function
-    mock_dataframe.write_parquet = MagicMock()
-    mock_dataframe.write_csv = MagicMock()
-    mock_dataframe.to_dict = MagicMock(return_value={"id": [1, 2], "text": ["a", "b"]})
-
-    def mock_write_data(filepath, data_format):
-        match data_format:
-            case "parquet":
-                mock_dataframe.write_parquet(filepath)
-            case "csv":
-                mock_dataframe.write_csv(filepath)
-            case "json":
-                data_dict = mock_dataframe.to_dict(as_series=False)
-                with open(filepath, "w") as f:
-                    json.dump(data_dict, f, indent=2)
-            case _:
-                raise ValueError(f"Unsupported data format: {data_format}")
-
-    mock_eval_data.write_data.side_effect = mock_write_data
-
-    return mock_eval_data
-
-
-@pytest.fixture
-def mock_eval_data_with_dataframe():
-    """Provides mock EvalData with mocked Polars DataFrame for serialization testing.
-
-    Returns:
-        EvalData: Mocked EvalData instance with mocked DataFrame methods.
-    """
-    mock_eval_data = MagicMock(spec=EvalData)
-    mock_eval_data.name = "test_dataset"
-    mock_eval_data.id_column = "id"
-
-    # Mock the data (polars DataFrame)
-    mock_dataframe = MagicMock()
-    mock_eval_data.data = mock_dataframe
-
-    # Mock the serialise function
-    def mock_serialize(data_format, data_filename):
-        return DataMetadata(
-            name="test_dataset",
-            id_column="id",
-            data_file=data_filename or f"test_data.{data_format}",
-            data_format=data_format,
-            type="EvalData",
-        )
-
-    mock_eval_data.serialize_metadata.side_effect = mock_serialize
-
-    # Mock the write_data function
-    mock_dataframe.write_parquet = MagicMock()
-    mock_dataframe.write_csv = MagicMock()
-    mock_dataframe.to_dict = MagicMock(return_value={"id": [1, 2], "text": ["a", "b"]})
-
-    def mock_write_data(filepath, data_format):
-        match data_format:
-            case "parquet":
-                mock_dataframe.write_parquet(filepath)
-            case "csv":
-                mock_dataframe.write_csv(filepath)
-            case "json":
-                data_dict = mock_dataframe.to_dict(as_series=False)
-                with open(filepath, "w") as f:
-                    json.dump(data_dict, f, indent=2)
-            case _:
-                raise ValueError(f"Unsupported data format: {data_format}")
-
-    mock_eval_data.write_data.side_effect = mock_write_data
-
-    return mock_eval_data
-
-
-@pytest.fixture
-def mock_sample_eval_data():
-    """Provides mock SampleEvalData with all sampling metadata for testing.
-
-    Returns:
-        SampleEvalData: Mocked SampleEvalData instance with complete sampling metadata.
-    """
-    mock_sample_data = MagicMock(spec=SampleEvalData)
-    mock_sample_data.name = "sample_dataset"
-    mock_sample_data.id_column = "sample_id"
-    mock_sample_data.sample_name = "Test Sample"
-    mock_sample_data.stratification_columns = ["topic", "difficulty"]
-    mock_sample_data.sample_percentage = 0.3
-    mock_sample_data.seed = 42
-    mock_sample_data.sampling_method = "stratified_by_columns"
-
-    # Mock the data (polars DataFrame)
-    import polars as pl
-
-    # Create an actual DataFrame instead of mocking it for write operations
-    actual_dataframe = pl.DataFrame(
-        {
-            "sample_id": [1, 2],
-            "topic": ["math", "science"],
-            "difficulty": ["easy", "medium"],
-        }
-    )
-    mock_sample_data.data = actual_dataframe
-
-    # Mock the serialise function
-    def mock_serialize(data_format, data_filename):
-        return DataMetadata(
-            name="sample_dataset",
-            id_column="sample_id",
-            data_file=data_filename,
-            data_format=data_format,
-            type="SampleEvalData",
-            sample_name="Test Sample",
-            stratification_columns=["topic", "difficulty"],
-            sample_percentage=0.3,
-            seed=42,
-            sampling_method="stratified_by_columns",
-        )
-
-    mock_sample_data.serialize_metadata.side_effect = mock_serialize
-
-    # Mock the write_data function
-    def mock_write_data(filepath, data_format):
-        match data_format:
-            case "parquet":
-                actual_dataframe.write_parquet(filepath)
-            case "csv":
-                actual_dataframe.write_csv(filepath)
-            case "json":
-                data_dict = actual_dataframe.to_dict(as_series=False)
-                with open(filepath, "w") as f:
-                    json.dump(data_dict, f, indent=2)
-            case _:
-                raise ValueError(f"Unsupported data format: {data_format}")
-
-    mock_sample_data.write_data.side_effect = mock_write_data
-
-    return mock_sample_data
+# ==== EVAL TASK FIXTURES ====
 
 
 @pytest.fixture
 def basic_eval_task() -> EvalTask:
-    """Provides a basic evaluation task for testing.
+    """Provides a basic evaluation task for common testing scenarios.
 
     Returns:
         EvalTask: A basic evaluation task with sentiment analysis schema.
@@ -284,48 +56,39 @@ def basic_eval_task() -> EvalTask:
 
 
 @pytest.fixture
-def another_basic_eval_task() -> EvalTask:
-    """Provides a basic evaluation task for testing.
+def multi_task_eval_task() -> EvalTask:
+    """Provides a multi-task evaluation task for testing.
 
     Returns:
-        EvalTask: A basic evaluation task with sentiment analysis schema.
+        EvalTask: A multi-task evaluation task.
     """
     return EvalTask(
-        task_schemas={"rejection": ["rejected", "accepted"]},
+        task_schemas={
+            "sentiment": ["positive", "negative", "neutral"],
+            "toxicity": ["toxic", "non_toxic"],
+        },
+        prompt_columns=["text"],
+        response_columns=["response"],
+        answering_method="structured",
+    )
+
+
+@pytest.fixture
+def xml_eval_task() -> EvalTask:
+    """Provides an XML-based evaluation task for testing.
+
+    Returns:
+        EvalTask: An XML-based evaluation task.
+    """
+    return EvalTask(
+        task_schemas={"quality": ["high", "medium", "low"]},
         prompt_columns=["prompt"],
         response_columns=["response"],
-        answering_method="structured",
+        answering_method="xml",
     )
 
 
-@pytest.fixture
-def basic_eval_task_no_prompt() -> EvalTask:
-    """Provides a basic evaluation task for testing.
-
-    Returns:
-        EvalTask: A basic evaluation task with sentiment analysis schema.
-    """
-    return EvalTask(
-        task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-        prompt_columns=None,
-        response_columns=["response"],
-        answering_method="structured",
-    )
-
-
-@pytest.fixture
-def basic_eval_task_empty_prompt() -> EvalTask:
-    """Provides a basic evaluation task for testing.
-
-    Returns:
-        EvalTask: A basic evaluation task with sentiment analysis schema.
-    """
-    return EvalTask(
-        task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-        prompt_columns=[],
-        response_columns=["response"],
-        answering_method="structured",
-    )
+# ==== PROMPT FIXTURES ====
 
 
 @pytest.fixture
@@ -336,140 +99,107 @@ def sample_prompt():
         Prompt: A sample prompt for testing.
     """
     return Prompt(
-        id="test_prompt",
+        id="basic_prompt",
         prompt="You are a helpful evaluator. Rate the response on accuracy.",
     )
 
 
 @pytest.fixture
-def mock_openai_client():
-    """Create a properly mocked OpenAI client for testing.
+def sentiment_prompt() -> Prompt:
+    """Provides a sentiment analysis prompt for testing.
 
     Returns:
-        MagicMock: A mock OpenAI client with configured attributes.
+        Prompt: A sentiment analysis prompt.
     """
-    mock_client = MagicMock(spec=OpenAIClient)
-    mock_config = MagicMock()
-    mock_config.default_model = "gpt-4"
-    mock_config.default_embedding_model = "text-embedding-3-large"
-    mock_config.supports_structured_output = True
-    mock_config.supports_logprobs = True
-
-    # Mock the serialize method to return a proper OpenAISerializedState
-    serialized_state = OpenAISerializedState(
-        default_model=mock_config.default_model,
-        default_embedding_model=mock_config.default_embedding_model,
-        supports_structured_output=mock_config.supports_structured_output,
-        supports_logprobs=mock_config.supports_logprobs,
-        supports_instructor=True,
+    return Prompt(
+        id="sentiment_prompt",
+        prompt="Analyze the sentiment of the following text. Classify it as positive, negative, or neutral.",
     )
-    mock_config.serialize.return_value = serialized_state
 
-    mock_client.config = mock_config
-    return mock_client
+
+# ==== EVAL DATA FIXTURES ====
 
 
 @pytest.fixture
-def mock_azure_openai_client():
-    """Create a properly mocked Azure OpenAI client for testing.
+def basic_eval_data():
+    """Provides a basic EvalData for testing.
 
     Returns:
-        MagicMock: A mock Azure OpenAI client with configured attributes.
+        EvalData: A basic EvalData instance with sample data.
     """
-    mock_client = MagicMock(spec=AzureOpenAIClient)
-    mock_config = MagicMock()
-    mock_config.endpoint = "https://test.openai.azure.com"
-    mock_config.api_version = "2024-02-15-preview"
-    mock_config.default_model = "gpt-4"
-    mock_config.default_embedding_model = "text-embedding-ada-002"
-    mock_config.supports_structured_output = True
-    mock_config.supports_logprobs = True
-
-    # Mock the serialize method to return a proper AzureOpenAISerializedState
-    serialized_state = AzureOpenAISerializedState(
-        endpoint=mock_config.endpoint,
-        api_version=mock_config.api_version,
-        default_model=mock_config.default_model,
-        default_embedding_model=mock_config.default_embedding_model,
-        supports_structured_output=mock_config.supports_structured_output,
-        supports_logprobs=mock_config.supports_logprobs,
-        supports_instructor=True,
+    test_df = pl.DataFrame(
+        {
+            "id": ["1", "2", "3"],
+            "text": [
+                "This movie is fantastic!",
+                "The service was terrible.",
+                "The weather is okay today.",
+            ],
+            "response": [
+                "I really enjoyed watching this film.",
+                "The staff was unhelpful and rude.",
+                "It's neither good nor bad weather.",
+            ],
+            "context": ["movie review", "service review", "weather comment"],
+        }
     )
-    mock_config.serialize.return_value = serialized_state
 
-    mock_client.config = mock_config
-    return mock_client
+    return EvalData(
+        name="basic_test_data",
+        data=test_df,
+        id_column="id",
+    )
 
 
-def create_mock_openai_client(**config_overrides):
-    """Helper function to create a customized mock OpenAI client.
-
-    Args:
-        **config_overrides: Override default configuration values.
+@pytest.fixture
+def sample_eval_data():
+    """Provides sample evaluation data for testing sampling scenarios.
 
     Returns:
-        MagicMock: A mock OpenAI client with custom configuration.
+        SampleEvalData: Sample evaluation data for testing sampling scenarios.
     """
-    mock_client = MagicMock(spec=OpenAIClient)
-    mock_config = MagicMock()
-    mock_config.default_model = config_overrides.get("default_model", "gpt-4")
-    mock_config.default_embedding_model = config_overrides.get(
-        "default_embedding_model", "text-embedding-3-large"
+    test_df = pl.DataFrame(
+        {
+            "sample_id": ["1", "2"],
+            "text": ["Great product!", "Poor quality item."],
+            "response": ["Highly recommend this.", "Would not buy again."],
+            "category": ["electronics", "clothing"],
+        }
     )
-    mock_config.supports_structured_output = config_overrides.get(
-        "supports_structured_output", True
+
+    return SampleEvalData(
+        name="sample_test_data",
+        data=test_df,
+        id_column="sample_id",
+        sample_name="Test Sample",
+        stratification_columns=["category"],
+        sample_percentage=0.5,
+        seed=42,
+        sampling_method="stratified_by_columns",
     )
-    mock_config.supports_logprobs = config_overrides.get("supports_logprobs", True)
-
-    # Mock the serialize method to return a proper OpenAISerializedState
-    serialized_state = OpenAISerializedState(
-        default_model=mock_config.default_model,
-        default_embedding_model=mock_config.default_embedding_model,
-        supports_structured_output=mock_config.supports_structured_output,
-        supports_logprobs=mock_config.supports_logprobs,
-        supports_instructor=True,
-    )
-    mock_config.serialize.return_value = serialized_state
-
-    mock_client.config = mock_config
-    return mock_client
 
 
-def create_mock_azure_openai_client(**config_overrides):
-    """Helper function to create a customized mock Azure OpenAI client.
+# ==== TASK SCHEMAS FIXTURES ====
 
-    Args:
-        **config_overrides: Override default configuration values.
+
+@pytest.fixture
+def basic_task_schemas():
+    """Provides basic task schemas for testing.
 
     Returns:
-        MagicMock: A mock Azure OpenAI client with custom configuration.
+        dict: Task schemas for testing.
     """
-    mock_client = MagicMock(spec=AzureOpenAIClient)
-    mock_config = MagicMock()
-    mock_config.endpoint = config_overrides.get(
-        "endpoint", "https://test.openai.azure.com"
-    )
-    mock_config.api_version = config_overrides.get("api_version", "2024-02-15-preview")
-    mock_config.default_model = config_overrides.get("default_model", "gpt-4")
-    mock_config.default_embedding_model = config_overrides.get(
-        "default_embedding_model", "text-embedding-ada-002"
-    )
-    mock_config.supports_structured_output = config_overrides.get(
-        "supports_structured_output", True
-    )
-    mock_config.supports_logprobs = config_overrides.get("supports_logprobs", True)
+    return {
+        "sentiment": ["positive", "negative", "neutral"],
+        "quality": ["high", "medium", "low"],
+    }
 
-    # Mock the serialize method to return a proper AzureOpenAISerializedState
-    serialized_state = AzureOpenAISerializedState(
-        endpoint=mock_config.endpoint,
-        api_version=mock_config.api_version,
-        default_model=mock_config.default_model,
-        default_embedding_model=mock_config.default_embedding_model,
-        supports_structured_output=mock_config.supports_structured_output,
-        supports_logprobs=mock_config.supports_logprobs,
-        supports_instructor=True,
-    )
-    mock_config.serialize.return_value = serialized_state
 
-    mock_client.config = mock_config
-    return mock_client
+@pytest.fixture
+def single_task_schemas():
+    """Provides single task schemas for testing.
+
+    Returns:
+        dict: Single task schema for basic testing.
+    """
+    return {"sentiment": ["positive", "negative", "neutral"]}

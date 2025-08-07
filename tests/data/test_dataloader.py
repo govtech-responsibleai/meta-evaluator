@@ -3,7 +3,6 @@
 import pytest
 import os
 from pathlib import Path
-import polars as pl
 
 from meta_evaluator.data import DataLoader, EvalData
 from meta_evaluator.data.exceptions import (
@@ -19,133 +18,7 @@ from meta_evaluator.data.exceptions import (
 class TestDataLoader:
     """Comprehensive test suite for DataLoader class."""
 
-    # === FIXTURES ===
-
-    @pytest.fixture
-    def valid_csv_file(self, tmp_path):
-        """Create a valid CSV file for testing.
-
-        Returns:
-            str: Path to the created CSV file.
-        """
-        csv_content = """question,answer,model_response,difficulty,rating
-What is 2+2?,4,Four,easy,5
-What is 3+3?,6,Six,medium,4"""
-        csv_file = tmp_path / "valid_data.csv"
-        csv_file.write_text(csv_content)
-        return str(csv_file)
-
-    @pytest.fixture
-    def valid_json_file(self, tmp_path):
-        """Create a valid JSON file for testing.
-
-        Returns:
-            str: Path to the created JSON file.
-        """
-        # Create JSON in a format that polars can read (array of objects)
-        json_content = """[
-            {
-                "question": "What is 2+2?",
-                "answer": "4",
-                "model_response": "Four",
-                "difficulty": "easy",
-                "rating": 5
-            },
-            {
-                "question": "What is 3+3?",
-                "answer": "6",
-                "model_response": "Six",
-                "difficulty": "medium",
-                "rating": 4
-            }
-        ]"""
-        json_file = tmp_path / "valid_data.json"
-        json_file.write_text(json_content, encoding="utf-8")
-        return str(json_file)
-
-    @pytest.fixture
-    def valid_parquet_file(self, tmp_path):
-        """Create a valid Parquet file for testing.
-
-        Returns:
-            str: Path to the created Parquet file.
-        """
-        # Create DataFrame directly instead of reading from CSV
-        df = pl.DataFrame(
-            {
-                "question": ["What is 2+2?", "What is 3+3?"],
-                "answer": ["4", "6"],
-                "model_response": ["Four", "Six"],
-                "difficulty": ["easy", "medium"],
-                "rating": [5, 4],
-            }
-        )
-        parquet_file = tmp_path / "valid_data.parquet"
-        df.write_parquet(parquet_file)
-        return str(parquet_file)
-
-    @pytest.fixture
-    def minimal_csv_file(self, tmp_path):
-        """Create minimal CSV with only input/output columns.
-
-        Returns:
-            str: Path to the created CSV file.
-        """
-        csv_content = """input,output
-test1,result1
-test2,result2"""
-        csv_file = tmp_path / "minimal.csv"
-        csv_file.write_text(csv_content)
-        return str(csv_file)
-
-    @pytest.fixture
-    def empty_csv_file(self, tmp_path):
-        """Create empty CSV file.
-
-        Returns:
-            str: Path to the created empty CSV file.
-        """
-        csv_file = tmp_path / "empty.csv"
-        csv_file.write_text("")
-        return str(csv_file)
-
-    @pytest.fixture
-    def headers_only_csv_file(self, tmp_path):
-        """Create CSV with headers but no data.
-
-        Returns:
-            str: Path to the created CSV file with headers only.
-        """
-        csv_content = "input,output\n"
-        csv_file = tmp_path / "headers_only.csv"
-        csv_file.write_text(csv_content)
-        return str(csv_file)
-
-    @pytest.fixture
-    def malformed_quotes_csv(self, tmp_path):
-        """Create CSV with malformed quotes that cause parsing errors.
-
-        Returns:
-            str: Path to the created CSV file.
-        """
-        # Improperly escaped quotes cause ComputeError
-        csv_content = """input,output
-"test test" test,result1
-test2,result2"""
-        csv_file = tmp_path / "malformed_quotes.csv"
-        csv_file.write_text(csv_content)
-        return str(csv_file)
-
-    @pytest.fixture
-    def sample_dataframe(self):
-        """Create a sample polars DataFrame for testing.
-
-        Returns:
-            pl.DataFrame: A sample polars DataFrame.
-        """
-        return pl.DataFrame(
-            {"input": ["test1", "test2"], "output": ["result1", "result2"]}
-        )
+    # === All fixtures are now consolidated in tests/data/conftest.py ===
 
     # === HAPPY PATH TESTS ===
 
