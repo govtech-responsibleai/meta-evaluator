@@ -129,55 +129,8 @@ def mock_streamlit_session_state():
         yield
 
 
-@pytest.fixture
-def session_manager():
-    """Create a StreamlitSessionManager instance for testing.
-
-    Returns:
-        StreamlitSessionManager: A fresh session manager instance that will
-                               use the mocked session state from other fixtures
-    """
-    return StreamlitSessionManager()
-
-
-@pytest.fixture
-def sample_task_schemas():
-    """Sample task schemas for testing annotation workflows.
-
-    Returns:
-        dict: A dictionary mapping task names to their allowed outcomes.
-              Contains both structured tasks (with predefined options)
-              for testing radio button interactions.
-    """
-    return {
-        "task1": ["yes", "no", "maybe"],
-        "task2": ["good", "bad", "neutral"],
-    }
-
-
-@pytest.fixture
-def sample_expected_ids():
-    """Sample expected IDs for testing annotation workflows.
-
-    Returns:
-        list: A list of sample IDs that represent the expected data
-              samples to be annotated in the test scenarios.
-    """
-    return ["id1", "id2", "id3"]
-
-
-@pytest.fixture
-def mock_results_builder():
-    """Mock HumanAnnotationResultsBuilder for testing.
-
-    Returns:
-        Mock: A mock results builder with basic attributes set up
-              for testing annotation storage and completion workflows.
-    """
-    mock_builder = Mock(spec=HumanAnnotationResultsBuilder)
-    mock_builder.completed_count = 0
-    mock_builder._results = {}
-    return mock_builder
+# Note: session_manager, sample_task_schemas, sample_expected_ids, and
+# mock_results_builder fixtures are provided by the shared conftest.py
 
 
 # -------------------------

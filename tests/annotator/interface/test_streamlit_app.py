@@ -19,13 +19,10 @@ ensure consistent, reliable testing without external dependencies.
 
 import os
 import pytest
-import polars as pl
 from unittest.mock import Mock, patch
 from datetime import datetime
 from streamlit.testing.v1 import AppTest
 
-from meta_evaluator.data import EvalData
-from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.annotator.interface import StreamlitAnnotator
 from meta_evaluator.annotator.exceptions import (
     AnnotationValidationError,
@@ -37,89 +34,6 @@ from meta_evaluator.annotator.exceptions import (
 # -------------------------
 # Fixtures for Real Objects
 # -------------------------
-
-
-@pytest.fixture
-def sample_dataframe():
-    """Create a sample Polars DataFrame for testing annotation workflows.
-
-    Returns:
-        pl.DataFrame: A DataFrame with sample question-answer pairs containing:
-            - id: Unique identifiers (1, 2, 3)
-            - question: Sample questions for annotation
-            - answer: Corresponding answers to the questions
-    """
-    mock_dataframe = pl.DataFrame(
-        {
-            "id": [1, 2, 3],
-            "question": [
-                "What is 2+2?",
-                "What is the capital of France?",
-                "Who wrote Hamlet?",
-            ],
-            "answer": ["4", "Paris", "Shakespeare"],
-        }
-    )
-    return mock_dataframe
-
-
-@pytest.fixture
-def mock_eval_data(sample_dataframe):
-    """Create a mock EvalData object for testing.
-
-    Args:
-        sample_dataframe: Fixture providing sample DataFrame data
-
-    Returns:
-        Mock: A mock EvalData object with:
-            - id_column: Set to "id" for data identification
-            - data: The sample DataFrame for annotation
-    """
-    mock_data = Mock(spec=EvalData)
-    mock_data.id_column = "id"
-    mock_data.data = sample_dataframe
-    return mock_data
-
-
-@pytest.fixture
-def mock_eval_task():
-    """Create a mock EvalTask object for testing annotation workflows.
-
-    Returns:
-        Mock: A mock EvalTask object configured with:
-            - task_schemas: Mixed task types (structured and free-form)
-                * sentiment: Radio button task with predefined options
-                * quality: Radio button task with quality levels
-                * comments: Free-form text task (None schema)
-            - prompt_columns: ["question"] - columns to display as prompts
-            - response_columns: ["answer"] - columns to display as responses
-            - answering_method: "structured" - annotation method type
-            - annotation_prompt: Default prompt text for annotations
-    """
-    mock_task = Mock(spec=EvalTask)
-    mock_task.task_schemas = {
-        "sentiment": ["positive", "negative", "neutral"],
-        "quality": ["high", "medium", "low"],
-        "comments": None,  # Free form text
-    }
-    mock_task.prompt_columns = ["question"]
-    mock_task.response_columns = ["answer"]
-    mock_task.answering_method = "structured"
-    mock_task.annotation_prompt = "Please evaluate the following response:"
-    return mock_task
-
-
-@pytest.fixture
-def temp_annotations_dir(tmp_path):
-    """Create a temporary directory for storing annotation results.
-
-    Args:
-        tmp_path: pytest's temporary path fixture
-
-    Returns:
-        str: Path to a temporary annotations directory for test isolation
-    """
-    return str(tmp_path / "annotations")
 
 
 def create_test_app():
