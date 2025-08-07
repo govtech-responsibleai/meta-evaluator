@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .base import Paths
 
 from ..eval_task import EvalTask
-from ..llm_client.models import LLMClientEnum
+from ..llm_client.enums import LLMClientEnum
 from ..judge import Judge
 from ..common.models import Prompt
 from ..data import EvalData

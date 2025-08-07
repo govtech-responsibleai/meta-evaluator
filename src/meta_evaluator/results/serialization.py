@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Literal
 from pydantic import BaseModel
 
-from ..llm_client import LLMClientEnum
+from ..llm_client.enums import LLMClientEnum
 
 
 class BaseResultsSerializedState(BaseModel):

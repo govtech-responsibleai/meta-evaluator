@@ -3,18 +3,17 @@
 import json
 import logging
 from datetime import datetime
-from enum import Enum
-from typing import Annotated, Dict, List, Literal, Optional, cast
+from typing import Dict, List, Literal, Optional, cast
 
 import polars as pl
-from pydantic import ConfigDict, Field, ValidationError
+from pydantic import Field, ValidationError
 
 from .base import (
     BaseEvaluationResults,
     BaseEvaluationResultsBuilder,
-    BaseResultRow,
-    FieldTags,
 )
+from .models import HumanAnnotationResultRow, BaseResultRow
+from .enums import HumanAnnotationStatusEnum
 from .serialization import (
     BaseResultsSerializedState,
     HumanAnnotationResultsSerializedState,
@@ -32,40 +31,6 @@ from ..common.error_constants import (
 
 
 logger = logging.getLogger(__name__)
-
-
-class HumanAnnotationStatusEnum(str, Enum):
-    """Enumeration of possible human annotation outcomes for a single example."""
-
-    SUCCESS = "success"
-    ERROR = "error"
-
-
-class HumanAnnotationResultRow(BaseResultRow):
-    """Result row for human annotation with annotation-specific fields."""
-
-    annotator_id: Annotated[
-        str,
-        Field(description="ID of the human annotator"),
-        FieldTags(tags=["metadata"]),
-    ]
-
-    annotation_timestamp: Annotated[
-        Optional[datetime],
-        Field(default=None, description="Timestamp when annotation was completed"),
-        FieldTags(tags=["annotation_diagnostic"]),
-    ]
-
-    model_config = ConfigDict(extra="allow", frozen=False)
-
-    @classmethod
-    def get_annotation_diagnostic_fields(cls) -> list[str]:
-        """Get all annotation diagnostic field names.
-
-        Returns:
-            list[str]: List of annotation diagnostic field names.
-        """
-        return cls.get_fields_by_tag("annotation_diagnostic")
 
 
 class HumanAnnotationResults(BaseEvaluationResults):

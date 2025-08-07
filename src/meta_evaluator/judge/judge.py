@@ -2,8 +2,10 @@
 
 from typing import Any, Optional, cast
 from ..eval_task import EvalTask
-from ..llm_client import LLMClientEnum, LLMClient
-from ..llm_client.models import Message, RoleEnum, TagConfig
+from ..llm_client import LLMClient
+from ..llm_client.enums import LLMClientEnum
+from ..llm_client.models import Message, TagConfig
+from ..llm_client.enums import RoleEnum
 from ..llm_client.exceptions import LLMAPIError
 from collections.abc import Generator
 from ..common.models import Prompt

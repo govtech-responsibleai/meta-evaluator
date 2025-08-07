@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import Mock
 import polars as pl
 
-from meta_evaluator.llm_client.models import LLMClientEnum
+from meta_evaluator.llm_client.enums import LLMClientEnum
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.results import (
     JudgeResults,

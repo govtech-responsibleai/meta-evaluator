@@ -15,7 +15,8 @@ from meta_evaluator.llm_client.azureopenai_client import (
     AzureOpenAIConfig,
     AzureOpenAIClient,
 )
-from meta_evaluator.llm_client.models import Message, RoleEnum, LLMClientEnum, LLMUsage
+from meta_evaluator.llm_client.models import Message, LLMUsage
+from meta_evaluator.llm_client.enums import RoleEnum, LLMClientEnum
 from meta_evaluator.llm_client.exceptions import LLMAPIError
 
 

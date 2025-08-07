@@ -14,7 +14,7 @@ from meta_evaluator.meta_evaluator.exceptions import (
     EvalTaskNotFoundError,
     InvalidFileError,
 )
-from meta_evaluator.llm_client.models import LLMClientEnum
+from meta_evaluator.llm_client.enums import LLMClientEnum
 from meta_evaluator.data import EvalData, SampleEvalData
 
 

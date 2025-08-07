@@ -15,7 +15,7 @@ from meta_evaluator.meta_evaluator.exceptions import (
     ResultsSaveError,
 )
 import polars as pl
-from meta_evaluator.llm_client.models import LLMClientEnum
+from meta_evaluator.llm_client.enums import LLMClientEnum
 from meta_evaluator.common.models import Prompt
 from meta_evaluator.results import JudgeResults
 

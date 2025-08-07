@@ -9,7 +9,7 @@ from meta_evaluator.meta_evaluator.exceptions import (
     ClientAlreadyExistsError,
     ClientNotFoundError,
 )
-from meta_evaluator.llm_client.models import LLMClientEnum
+from meta_evaluator.llm_client.enums import LLMClientEnum
 from meta_evaluator.llm_client.openai_client import OpenAIClient
 from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
 

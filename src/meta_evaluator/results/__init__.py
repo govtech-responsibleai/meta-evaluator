@@ -3,21 +3,25 @@
 from .base import (
     BaseEvaluationResults,
     BaseEvaluationResultsBuilder,
+)
+from .models import (
     BaseResultRow,
-    BaseEvaluationStatusEnum,
     FieldTags,
+    JudgeResultRow,
+    HumanAnnotationResultRow,
+)
+from .enums import (
+    BaseEvaluationStatusEnum,
+    EvaluationStatusEnum,
+    HumanAnnotationStatusEnum,
 )
 from .judge_results import (
     JudgeResults,
     JudgeResultsBuilder,
-    JudgeResultRow,
-    EvaluationStatusEnum,
 )
 from .human_results import (
     HumanAnnotationResults,
     HumanAnnotationResultsBuilder,
-    HumanAnnotationResultRow,
-    HumanAnnotationStatusEnum,
 )
 
 __all__ = [

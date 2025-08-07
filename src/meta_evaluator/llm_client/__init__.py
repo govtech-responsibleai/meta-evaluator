@@ -6,7 +6,8 @@ and return values are validated at runtime.
 
 from .LLM_client import LLMClient, LLMClientConfig
 from .exceptions import LLMAPIError, LLMValidationError, LLMClientError
-from .models import LLMClientEnum, LLMUsage, Message, LLMResponse, RoleEnum
+from .models import LLMUsage, Message, LLMResponse
+from .enums import LLMClientEnum, RoleEnum
 
 __all__ = [
     "LLMClientEnum",

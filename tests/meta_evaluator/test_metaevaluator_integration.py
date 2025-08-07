@@ -25,7 +25,7 @@ from meta_evaluator.llm_client.serialization import (
     OpenAISerializedState,
     AzureOpenAISerializedState,
 )
-from meta_evaluator.llm_client.models import LLMClientEnum
+from meta_evaluator.llm_client.enums import LLMClientEnum
 
 
 class TestMetaEvaluatorIntegration:

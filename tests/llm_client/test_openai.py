@@ -15,7 +15,8 @@ from meta_evaluator.llm_client.openai_client import (
     OpenAIConfig,
     OpenAIClient,
 )
-from meta_evaluator.llm_client.models import Message, RoleEnum, LLMClientEnum
+from meta_evaluator.llm_client.models import Message
+from meta_evaluator.llm_client.enums import RoleEnum, LLMClientEnum
 from meta_evaluator.llm_client.exceptions import LLMAPIError
 
 

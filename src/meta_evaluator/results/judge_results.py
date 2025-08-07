@@ -3,19 +3,18 @@
 import json
 import logging
 from datetime import datetime
-from enum import Enum
-from typing import Annotated, Dict, List, Literal, Optional, cast
+from typing import Dict, List, Literal, cast
 
 import polars as pl
-from pydantic import ConfigDict, Field, ValidationError
+from pydantic import Field, ValidationError
 
 from .base import (
     BaseEvaluationResults,
     BaseEvaluationResultsBuilder,
-    BaseResultRow,
-    FieldTags,
 )
-from ..llm_client import LLMClientEnum
+from .models import JudgeResultRow, BaseResultRow
+from .enums import EvaluationStatusEnum
+from ..llm_client.enums import LLMClientEnum
 from .serialization import BaseResultsSerializedState, JudgeResultsSerializedState
 from .exceptions import (
     ResultsValidationError,
@@ -31,68 +30,6 @@ from ..common.error_constants import (
 
 
 logger = logging.getLogger(__name__)
-
-
-class EvaluationStatusEnum(str, Enum):
-    """Enumeration of possible evaluation outcomes for a single example."""
-
-    SUCCESS = "success"
-    PARTIAL = "partial"
-    SKIPPED = "skipped"
-    LLM_ERROR = "llm_error"
-    PARSING_ERROR = "parsing_error"
-    OTHER_ERROR = "other_error"
-
-
-class JudgeResultRow(BaseResultRow):
-    """Result row for Judge evaluation with LLM-specific fields."""
-
-    judge_id: Annotated[
-        str,
-        Field(description="ID of the judge configuration used"),
-        FieldTags(tags=["metadata"]),
-    ]
-
-    llm_raw_response_content: Annotated[
-        Optional[str],
-        Field(default=None, description="Raw response content from LLM"),
-        FieldTags(tags=["llm_diagnostic"]),
-    ]
-
-    llm_prompt_tokens: Annotated[
-        Optional[int],
-        Field(default=None, description="Number of tokens used in the prompt"),
-        FieldTags(tags=["llm_diagnostic"]),
-    ]
-
-    llm_completion_tokens: Annotated[
-        Optional[int],
-        Field(default=None, description="Number of tokens used in the completion"),
-        FieldTags(tags=["llm_diagnostic"]),
-    ]
-
-    llm_total_tokens: Annotated[
-        Optional[int],
-        Field(default=None, description="Total number of tokens used"),
-        FieldTags(tags=["llm_diagnostic"]),
-    ]
-
-    llm_call_duration_seconds: Annotated[
-        Optional[float],
-        Field(default=None, description="Duration of the LLM call in seconds"),
-        FieldTags(tags=["llm_diagnostic"]),
-    ]
-
-    model_config = ConfigDict(extra="allow", frozen=False)
-
-    @classmethod
-    def get_llm_diagnostic_fields(cls) -> list[str]:
-        """Get all LLM diagnostic field names.
-
-        Returns:
-            list[str]: List of LLM diagnostic field names.
-        """
-        return cls.get_fields_by_tag("llm_diagnostic")
 
 
 class JudgeResults(BaseEvaluationResults):
