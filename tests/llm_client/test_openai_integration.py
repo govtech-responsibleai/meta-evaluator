@@ -8,15 +8,11 @@ Tests will be skipped if this environment variable is not set.
 """
 
 import os
-import warnings
 import pytest
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-from meta_evaluator.llm_client.openai_client import (
-    OpenAIConfig,
-    OpenAIClient,
-)
+from meta_evaluator.llm_client.openai_client import OpenAIClient
 from meta_evaluator.llm_client.models import Message, RoleEnum
 
 DEFAULT_OPENAI_MODEL = "gpt-4.1-2025-04-14"
@@ -45,43 +41,11 @@ class TestOpenAIClientIntegration:
     All tests require a valid OpenAI API key in environment variable.
     """
 
-    @pytest.fixture
-    def openai_config(self) -> OpenAIConfig:
-        """Provide a valid OpenAIConfig instance from environment variables.
+    # Note: openai_config_integration and openai_client_integration fixtures are provided by conftest.py
 
-        Warns and skips if OpenAI credentials are not available.
-
-        Returns:
-            OpenAIConfig: A valid configuration instance for creating test clients.
-        """
-        if not OPENAI_CREDENTIALS_AVAILABLE:
-            warnings.warn(
-                "OpenAI API key not available in environment variables. "
-                "Integration tests will be skipped.",
-                UserWarning,
-                stacklevel=2,
-            )
-            pytest.skip("OpenAI API key not available in environment variables")
-        assert OPENAI_API_KEY is not None
-        return OpenAIConfig(
-            api_key=OPENAI_API_KEY,
-            default_model=DEFAULT_OPENAI_MODEL,
-            default_embedding_model="text-embedding-3-large",
-        )
-
-    @pytest.fixture
-    def openai_client(self, openai_config: OpenAIConfig) -> OpenAIClient:
-        """Provide a valid OpenAIClient instance for integration testing.
-
-        Args:
-            openai_config: A valid configuration instance.
-
-        Returns:
-            OpenAIClient: A valid client instance for integration testing.
-        """
-        return OpenAIClient(openai_config)
-
-    def test_chat_completion_integration(self, openai_client: OpenAIClient) -> None:
+    def test_chat_completion_integration(
+        self, openai_client_integration: OpenAIClient
+    ) -> None:
         """Test actual chat completion with OpenAI API.
 
         Verifies that the client can successfully make a real API call
@@ -91,7 +55,7 @@ class TestOpenAIClientIntegration:
             Message(role=RoleEnum.USER, content="Say hello in exactly one word.")
         ]
 
-        content, usage = openai_client._prompt(
+        content, usage = openai_client_integration._prompt(
             model=DEFAULT_OPENAI_MODEL, messages=messages, get_logprobs=False
         )
 
@@ -112,7 +76,9 @@ class TestOpenAIClientIntegration:
         assert usage.total_tokens > 0
         assert usage.total_tokens == usage.prompt_tokens + usage.completion_tokens
 
-    def test_structured_output_integration(self, openai_client: OpenAIClient) -> None:
+    def test_structured_output_integration(
+        self, openai_client_integration: OpenAIClient
+    ) -> None:
         """Test structured output with OpenAI API using instructor.
 
         Verifies that the client can successfully extract structured data
@@ -125,8 +91,10 @@ class TestOpenAIClientIntegration:
             )
         ]
 
-        structured_response, usage = openai_client._prompt_with_structured_response(
-            messages=messages, response_model=PersonInfo, model=DEFAULT_OPENAI_MODEL
+        structured_response, usage = (
+            openai_client_integration._prompt_with_structured_response(
+                messages=messages, response_model=PersonInfo, model=DEFAULT_OPENAI_MODEL
+            )
         )
 
         # Log usage and response information
@@ -157,7 +125,9 @@ class TestOpenAIClientIntegration:
         assert usage.total_tokens > 0
         assert usage.total_tokens == usage.prompt_tokens + usage.completion_tokens
 
-    def test_high_level_prompt_integration(self, openai_client: OpenAIClient) -> None:
+    def test_high_level_prompt_integration(
+        self, openai_client_integration: OpenAIClient
+    ) -> None:
         """Test the high-level prompt method that returns LLMResponse.
 
         Verifies that the public prompt method works correctly and returns
@@ -167,7 +137,9 @@ class TestOpenAIClientIntegration:
             Message(role=RoleEnum.USER, content="Write a haiku about programming.")
         ]
 
-        response = openai_client.prompt(messages, model=DEFAULT_OPENAI_MODEL)
+        response = openai_client_integration.prompt(
+            messages, model=DEFAULT_OPENAI_MODEL
+        )
 
         # Log usage and response information
         print("\n=== High-Level Prompt Test ===")
@@ -197,7 +169,7 @@ class TestOpenAIClientIntegration:
         )
 
     def test_high_level_structured_output_integration(
-        self, openai_client: OpenAIClient
+        self, openai_client_integration: OpenAIClient
     ) -> None:
         """Test the high-level structured output method.
 
@@ -212,7 +184,7 @@ class TestOpenAIClientIntegration:
         ]
 
         structured_response, llm_response = (
-            openai_client.prompt_with_structured_response(
+            openai_client_integration.prompt_with_structured_response(
                 messages=messages, response_model=PersonInfo, model=DEFAULT_OPENAI_MODEL
             )
         )
@@ -241,7 +213,9 @@ class TestOpenAIClientIntegration:
         assert len(llm_response.messages) == 2
         assert llm_response.usage.total_tokens > 0
 
-    def test_embedding_integration(self, openai_client: OpenAIClient) -> None:
+    def test_embedding_integration(
+        self, openai_client_integration: OpenAIClient
+    ) -> None:
         """Test actual embedding generation with OpenAI API.
 
         Verifies that the client can successfully generate embeddings
@@ -249,7 +223,7 @@ class TestOpenAIClientIntegration:
         """
         texts = ["Hello world", "This is a test"]
 
-        embeddings = openai_client._get_embedding(
+        embeddings = openai_client_integration._get_embedding(
             text_list=texts, model="text-embedding-3-large"
         )
 
@@ -275,7 +249,7 @@ class TestOpenAIClientIntegration:
         assert embeddings[0] != embeddings[1]
 
     def test_high_level_embedding_integration(
-        self, openai_client: OpenAIClient
+        self, openai_client_integration: OpenAIClient
     ) -> None:
         """Test the high-level embedding method.
 
@@ -286,7 +260,9 @@ class TestOpenAIClientIntegration:
             "Python is a great programming language",
         ]
 
-        embeddings = openai_client.get_embedding(texts, model="text-embedding-3-large")
+        embeddings = openai_client_integration.get_embedding(
+            texts, model="text-embedding-3-large"
+        )
 
         # Log embedding information
         print("\n=== High-Level Embedding Test ===")

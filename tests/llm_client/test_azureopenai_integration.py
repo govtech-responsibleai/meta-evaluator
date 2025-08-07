@@ -9,32 +9,16 @@ These tests require valid Azure OpenAI credentials in environment variables:
 Tests will be skipped if these environment variables are not set.
 """
 
-import os
-import warnings
 import pytest
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
 from meta_evaluator.llm_client.azureopenai_client import (
-    AzureOpenAIConfig,
     AzureOpenAIClient,
 )
 from meta_evaluator.llm_client.models import Message, RoleEnum
 
 load_dotenv()
-
-# Check if required environment variables are set
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_VERSION = os.getenv("AZURE_OPENAI_VERSION")
-
-AZURE_CREDENTIALS_AVAILABLE = all(
-    [
-        AZURE_OPENAI_ENDPOINT,
-        AZURE_OPENAI_API_KEY,
-        AZURE_OPENAI_VERSION,
-    ]
-)
 
 
 class PersonInfo(BaseModel):
@@ -53,49 +37,11 @@ class TestAzureOpenAIClientIntegration:
     All tests require valid Azure OpenAI credentials in environment variables.
     """
 
-    @pytest.fixture
-    def azure_config(self) -> AzureOpenAIConfig:
-        """Provide a valid AzureOpenAIConfig instance from environment variables.
+    # Note: azure_config_integration and azure_client_integration fixtures are provided by conftest.py
 
-        Warns and skips if Azure OpenAI credentials are not available.
-
-        Returns:
-            AzureOpenAIConfig: A valid configuration instance for creating test clients.
-        """
-        if not AZURE_CREDENTIALS_AVAILABLE:
-            warnings.warn(
-                "Azure OpenAI credentials not available in environment variables. "
-                "Integration tests will be skipped.",
-                UserWarning,
-                stacklevel=2,
-            )
-            pytest.skip(
-                "Azure OpenAI credentials not available in environment variables"
-            )
-        assert AZURE_OPENAI_API_KEY is not None
-        assert AZURE_OPENAI_ENDPOINT is not None
-        assert AZURE_OPENAI_VERSION is not None
-        return AzureOpenAIConfig(
-            api_key=AZURE_OPENAI_API_KEY,
-            endpoint=AZURE_OPENAI_ENDPOINT,
-            api_version=AZURE_OPENAI_VERSION,
-            default_model="gpt-4o-2024-11-20",
-            default_embedding_model="text-embedding-3-large",
-        )
-
-    @pytest.fixture
-    def azure_client(self, azure_config: AzureOpenAIConfig) -> AzureOpenAIClient:
-        """Provide a valid AzureOpenAIClient instance for integration testing.
-
-        Args:
-            azure_config: A valid configuration instance.
-
-        Returns:
-            AzureOpenAIClient: A valid client instance for integration testing.
-        """
-        return AzureOpenAIClient(azure_config)
-
-    def test_chat_completion_integration(self, azure_client: AzureOpenAIClient) -> None:
+    def test_chat_completion_integration(
+        self, azure_client_integration: AzureOpenAIClient
+    ) -> None:
         """Test actual chat completion with Azure OpenAI API.
 
         Verifies that the client can successfully make a real API call
@@ -105,7 +51,7 @@ class TestAzureOpenAIClientIntegration:
             Message(role=RoleEnum.USER, content="Say hello in exactly one word.")
         ]
 
-        content, usage = azure_client._prompt(
+        content, usage = azure_client_integration._prompt(
             model="gpt-4o-2024-11-20", messages=messages, get_logprobs=False
         )
 
@@ -127,7 +73,7 @@ class TestAzureOpenAIClientIntegration:
         assert usage.total_tokens == usage.prompt_tokens + usage.completion_tokens
 
     def test_structured_output_integration(
-        self, azure_client: AzureOpenAIClient
+        self, azure_client_integration: AzureOpenAIClient
     ) -> None:
         """Test structured output with Azure OpenAI API using instructor.
 
@@ -141,8 +87,10 @@ class TestAzureOpenAIClientIntegration:
             )
         ]
 
-        structured_response, usage = azure_client._prompt_with_structured_response(
-            messages=messages, response_model=PersonInfo, model="gpt-4o-2024-11-20"
+        structured_response, usage = (
+            azure_client_integration._prompt_with_structured_response(
+                messages=messages, response_model=PersonInfo, model="gpt-4o-2024-11-20"
+            )
         )
 
         # Log usage and response information
@@ -174,7 +122,7 @@ class TestAzureOpenAIClientIntegration:
         assert usage.total_tokens == usage.prompt_tokens + usage.completion_tokens
 
     def test_high_level_prompt_integration(
-        self, azure_client: AzureOpenAIClient
+        self, azure_client_integration: AzureOpenAIClient
     ) -> None:
         """Test the high-level prompt method that returns LLMResponse.
 
@@ -185,7 +133,7 @@ class TestAzureOpenAIClientIntegration:
             Message(role=RoleEnum.USER, content="Write a haiku about programming.")
         ]
 
-        response = azure_client.prompt(messages, model="gpt-4o-2024-11-20")
+        response = azure_client_integration.prompt(messages, model="gpt-4o-2024-11-20")
 
         # Log usage and response information
         print("\n=== High-Level Prompt Test ===")
@@ -215,7 +163,7 @@ class TestAzureOpenAIClientIntegration:
         )
 
     def test_high_level_structured_output_integration(
-        self, azure_client: AzureOpenAIClient
+        self, azure_client_integration: AzureOpenAIClient
     ) -> None:
         """Test the high-level structured output method.
 
@@ -230,7 +178,7 @@ class TestAzureOpenAIClientIntegration:
         ]
 
         structured_response, llm_response = (
-            azure_client.prompt_with_structured_response(
+            azure_client_integration.prompt_with_structured_response(
                 messages=messages, response_model=PersonInfo, model="gpt-4o-2024-11-20"
             )
         )
@@ -259,7 +207,9 @@ class TestAzureOpenAIClientIntegration:
         assert len(llm_response.messages) == 2
         assert llm_response.usage.total_tokens > 0
 
-    def test_embedding_integration(self, azure_client: AzureOpenAIClient) -> None:
+    def test_embedding_integration(
+        self, azure_client_integration: AzureOpenAIClient
+    ) -> None:
         """Test actual embedding generation with Azure OpenAI API.
 
         Verifies that the client can successfully generate embeddings
@@ -267,7 +217,7 @@ class TestAzureOpenAIClientIntegration:
         """
         texts = ["Hello world", "This is a test"]
 
-        embeddings = azure_client._get_embedding(
+        embeddings = azure_client_integration._get_embedding(
             text_list=texts, model="text-embedding-3-large"
         )
 
@@ -293,7 +243,7 @@ class TestAzureOpenAIClientIntegration:
         assert embeddings[0] != embeddings[1]
 
     def test_high_level_embedding_integration(
-        self, azure_client: AzureOpenAIClient
+        self, azure_client_integration: AzureOpenAIClient
     ) -> None:
         """Test the high-level embedding method.
 
@@ -304,7 +254,9 @@ class TestAzureOpenAIClientIntegration:
             "Python is a great programming language",
         ]
 
-        embeddings = azure_client.get_embedding(texts, model="text-embedding-3-large")
+        embeddings = azure_client_integration.get_embedding(
+            texts, model="text-embedding-3-large"
+        )
 
         # Log embedding information
         print("\n=== High-Level Embedding Test ===")
