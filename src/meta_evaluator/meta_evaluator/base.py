@@ -34,11 +34,12 @@ from .clients import ClientsMixin
 from .judge import JudgesMixin
 from .scoring import ScoringMixin
 from .serialization import MetaEvaluatorState
+from ..common.error_constants import (
+    STATE_FILE_NOT_FOUND_MSG,
+    INVALID_JSON_STRUCTURE_MSG,
+    INVALID_JSON_MSG,
+)
 
-# Error message constants
-STATE_FILE_NOT_FOUND_MSG = "State file not found"
-INVALID_JSON_STRUCTURE_MSG = "Invalid JSON structure in state file"
-INVALID_JSON_MSG = "Invalid JSON in state file"
 
 _OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY"
 _AZURE_OPENAI_API_KEY_ENV_VAR = "AZURE_OPENAI_API_KEY"

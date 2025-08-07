@@ -15,7 +15,7 @@ from meta_evaluator.results import (
     HumanAnnotationResultsBuilder,
     HumanAnnotationResultRow,
 )
-from meta_evaluator.results.human_results import (
+from meta_evaluator.common.error_constants import (
     INVALID_JSON_STRUCTURE_MSG,
     STATE_FILE_NOT_FOUND_MSG,
 )

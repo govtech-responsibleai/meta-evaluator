@@ -4,7 +4,7 @@ import pytest
 
 from meta_evaluator.results import JudgeResults, JudgeResultsBuilder
 from meta_evaluator.llm_client import LLMClientEnum
-from meta_evaluator.results.judge_results import (
+from meta_evaluator.common.error_constants import (
     INVALID_JSON_STRUCTURE_MSG,
     STATE_FILE_NOT_FOUND_MSG,
 )

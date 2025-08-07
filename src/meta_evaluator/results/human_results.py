@@ -24,14 +24,14 @@ from .exceptions import (
     MismatchedTasksError,
     IncompleteResultsError,
 )
+from ..common.error_constants import (
+    STATE_FILE_NOT_FOUND_MSG,
+    INVALID_JSON_STRUCTURE_MSG,
+    INVALID_JSON_MSG,
+)
 
 
 logger = logging.getLogger(__name__)
-
-# Error message constants
-STATE_FILE_NOT_FOUND_MSG = "State file not found"
-INVALID_JSON_STRUCTURE_MSG = "Invalid JSON structure in state file"
-INVALID_JSON_MSG = "Invalid JSON in state file"
 
 
 class HumanAnnotationStatusEnum(str, Enum):

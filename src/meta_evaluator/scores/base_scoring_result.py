@@ -6,12 +6,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, ValidationError
 from ..results.exceptions import InvalidFileError
-
-
-# Error message constants
-STATE_FILE_NOT_FOUND_MSG = "State file not found"
-INVALID_JSON_STRUCTURE_MSG = "Invalid JSON structure in state file"
-INVALID_JSON_MSG = "Invalid JSON in state file"
+from ..common.error_constants import (
+    STATE_FILE_NOT_FOUND_MSG,
+    INVALID_JSON_STRUCTURE_MSG,
+    INVALID_JSON_MSG,
+)
 
 
 class BaseScoringResult(BaseModel):

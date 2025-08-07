@@ -5,7 +5,7 @@ import re
 import pytest
 from unittest.mock import patch
 from meta_evaluator.meta_evaluator import MetaEvaluator
-from meta_evaluator.meta_evaluator.base import INVALID_JSON_STRUCTURE_MSG
+from meta_evaluator.common.error_constants import INVALID_JSON_STRUCTURE_MSG
 from meta_evaluator.meta_evaluator.exceptions import (
     DataAlreadyExistsError,
     DataFormatError,
