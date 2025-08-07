@@ -27,7 +27,39 @@ _AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR = "AZURE_OPENAI_DEFAULT_EMBEDDING_
 
 
 class ClientsMixin:
-    """Mixin class for MetaEvaluator client management functionality."""
+    """Mixin providing LLM client handling functionality for MetaEvaluator.
+
+    This mixin class handles registration, configuration, and retrieval of various
+    LLM clients (OpenAI, Azure OpenAI, etc.). It maintains a client registry that
+    maps client types to configured client instances, enabling the MetaEvaluator
+    to work with multiple LLM providers seamlessly.
+
+    The mixin automatically handles environment variable fallbacks for API keys
+    and configuration parameters, making it easy to configure clients without
+    hardcoding sensitive information in code.
+
+    Supported Clients:
+        - OpenAI: Standard OpenAI API clients
+        - Azure OpenAI: Microsoft Azure-hosted OpenAI models
+
+    Environment Variables:
+        OpenAI: OPENAI_API_KEY, OPENAI_DEFAULT_MODEL, OPENAI_DEFAULT_EMBEDDING_MODEL
+        Azure: AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_VERSION,
+               AZURE_OPENAI_DEFAULT_MODEL, AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL
+
+    Attributes:
+        client_registry (dict): Maps LLMClientEnum values to configured LLMClient instances.
+        logger (logging.Logger): Inherited from MetaEvaluator for consistent logging.
+
+    Examples:
+        >>> evaluator = MetaEvaluator()
+        >>> # Add OpenAI client with explicit API key
+        >>> evaluator.add_openai(api_key="sk-...", default_model="gpt-4")
+        >>> # Add Azure client using environment variables
+        >>> evaluator.add_azure_openai()  # Uses env vars automatically
+        >>> # Retrieve client for judge evaluation
+        >>> client = evaluator.get_client(LLMClientEnum.OPENAI)
+    """
 
     # Type hint for logger attribute provided by MetaEvaluator
     logger: logging.Logger

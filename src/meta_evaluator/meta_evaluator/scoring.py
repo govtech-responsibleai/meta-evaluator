@@ -21,7 +21,47 @@ from .exceptions import (
 
 
 class ScoringMixin:
-    """Mixin providing methods for loading results and performing scoring comparisons."""
+    """Mixin providing orchestration of scorers for human vs judge alignment evaluation.
+
+    This mixin class orchestrates the comparison between judge evaluations and human
+    annotations using various scoring metrics. It handles loading both judge results
+    and human annotation results, then computes alignment scores using different
+    scoring implementations (accuracy, Cohen's kappa, text similarity, etc.).
+
+    The mixin manages the complete scoring workflow:
+    - Loading judge results from evaluation runs
+    - Loading human annotation results from annotation sessions
+    - Validating task compatibility between results and scorers
+    - Computing alignment scores between judge and human evaluations
+    - Aggregating and saving scoring results
+
+    Scoring Process:
+        1. Load judge and human results with task schema validation
+        2. Configure scoring metrics based on task types
+        3. Compute alignment scores for each judge-human pairing
+        4. Generate aggregate visualizations and reports
+        5. Save individual and aggregate scoring results
+
+    Attributes:
+        eval_task (Optional[EvalTask]): Inherited evaluation task configuration.
+        data (Optional[EvalData]): Inherited evaluation dataset.
+        paths (Paths): Inherited project directory structure.
+        logger (logging.Logger): Inherited logger instance.
+
+    Examples:
+        >>> evaluator = MetaEvaluator()
+        >>> evaluator.add_evaluation_task(task_schemas={"toxicity": ["toxic", "non_toxic"]})
+        >>>
+        >>> # Load results from evaluation runs
+        >>> judge_results = evaluator.load_all_judge_results()
+        >>> human_results = evaluator.load_all_human_results()
+        >>>
+        >>> # Configure and run scoring
+        >>> evaluator.configure_scoring_metrics([
+        ...     MetricConfig(metric_type="accuracy", task_names=["toxicity"])
+        ... ])
+        >>> evaluator.compute_scores(save_results=True)
+    """
 
     # Type hints for attributes that will be provided by MetaEvaluator
     eval_task: Optional[EvalTask]

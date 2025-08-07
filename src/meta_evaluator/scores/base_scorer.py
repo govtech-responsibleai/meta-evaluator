@@ -11,7 +11,37 @@ from .base_scoring_result import BaseScoringResult
 
 
 class BaseScorer(ABC):
-    """Base class for all scorers."""
+    """Abstract base class defining the settings and interface for all scoring implementations.
+
+    This class establishes the framework for computing alignment scores between judge
+    evaluations and human annotations. Scorers implement different metrics (accuracy,
+    Cohen's kappa, etc.) and must implement methods to:
+    1. Determine compatibility with task schemas via `can_score_task()`
+    2. Compute alignment scores between judge and human results via `compute_score()`
+    3. Optionally override post-processing methods for visualization and aggregation
+
+    Attributes:
+        scorer_name (str): Name identifier for this scorer instance.
+        logger (logging.Logger): Logger instance for this scorer.
+
+    Methods:
+        can_score_task: Determine if scorer is compatible with given task schema.
+        compute_score: Compute alignment scores for judge vs human evaluations.
+        aggregate_results: Post-processing method to generate aggregate plots and
+            visualizations from multiple scoring results. Default implementation
+            does nothing - override to provide custom visualization.
+
+    Examples:
+        >>> class AccuracyScorer(BaseScorer):
+        ...     def can_score_task(self, task_schema):
+        ...         return task_schema is not None  # Only classification tasks
+        ...     def compute_score(self, judge_id, judge_df, human_df, task_names, task_schemas):
+        ...         # Core scoring logic
+        ...         return AccuracyScoringResult(...)
+        ...     def aggregate_results(self, results, scores_dir):
+        ...         # Optional: generate accuracy plots
+        ...         self._create_accuracy_plots(results, scores_dir)
+    """
 
     def __init__(self, scorer_name: str):
         """Initialize the scorer.

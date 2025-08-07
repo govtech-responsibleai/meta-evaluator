@@ -76,10 +76,11 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
     """Main class for managing evaluation workflows with LLM clients, data, and evaluation tasks.
 
     The MetaEvaluator provides a unified interface for:
+    - Managing the evaluation dataset
+    - Managing the evaluation task
     - Managing multiple LLM client configurations (OpenAI, Azure OpenAI)
-    - Loading and managing evaluation datasets
-    - Configuring evaluation tasks with support for both predefined outcomes and free form text outputs
     - Managing judges for evaluation
+    - Initialising the annotator interface
     - Loading judge and human annotation results
     - Comparing judge and human results using various scoring metrics
     - Serializing and deserializing complete evaluation states

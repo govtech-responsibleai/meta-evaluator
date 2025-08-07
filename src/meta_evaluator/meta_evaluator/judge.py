@@ -47,7 +47,47 @@ class JudgeConfigList(BaseModel):
 
 
 class JudgesMixin:
-    """Mixin class for MetaEvaluator judge management functionality."""
+    """Mixin providing judge handling functionality for MetaEvaluator.
+
+    This mixin class manages the creation, configuration, and execution of judge
+    evaluations. It handles loading judge configurations from YAML files, executing
+    judge evaluations against evaluation data, and saving the results. Judges are
+    LLM-based evaluators that assess text content or LLM outputs according to
+    specified evaluation tasks.
+
+    The mixin supports:
+    - Loading judge configurations from YAML files with validation
+    - Creating Judge instances with prompts and LLM clients
+    - Executing evaluations against datasets (full or sampled)
+    - Saving judge results with proper metadata and state tracking
+
+    Judge Configuration Requirements:
+        - id: Unique identifier for the judge
+        - llm_client: LLM client type (openai, azure_openai, etc.)
+        - model: Model name to use
+        - prompt_file: Path to system prompt file
+
+    Attributes:
+        eval_task (Optional[EvalTask]): Inherited evaluation task configuration.
+        data (Optional[EvalData]): Inherited evaluation dataset.
+        judge_registry (dict): Inherited judge registry.
+        paths (Paths): Inherited project directory structure.
+        logger (logging.Logger): Inherited logger instance.
+
+    Examples:
+        >>> evaluator = MetaEvaluator()
+        >>> evaluator.add_evaluation_data("data.csv", name="test_data")
+        >>> evaluator.add_evaluation_task(task_schemas={"toxicity": ["toxic", "non_toxic"]})
+        >>>
+        >>> # Load judges from YAML configuration
+        >>> evaluator.load_judges_from_yaml("judges_config.yaml")
+        >>>
+        >>> # Execute specific judge
+        >>> results = evaluator.run_judge("judge_1", run_on_sample=True)
+        >>>
+        >>> # Execute all configured judges
+        >>> evaluator.run_all_judges()
+    """
 
     # Type hints for attributes that will be provided by MetaEvaluator
     eval_task: Optional[EvalTask]
