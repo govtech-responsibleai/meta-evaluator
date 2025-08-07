@@ -82,7 +82,6 @@ class ScoringMixin:
         Returns:
             Dict[str, HumanAnnotationResults]: Dictionary mapping run_ids to their loaded HumanAnnotationResults objects.
         """
-        self.logger = logging.getLogger(__name__)
         results = {}
 
         # Find all metadata files in annotations directory

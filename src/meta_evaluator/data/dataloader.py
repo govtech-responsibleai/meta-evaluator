@@ -9,6 +9,8 @@ import polars as pl
 from .eval_data import EvalData
 from .exceptions import DataFileError
 
+logger = logging.getLogger(__name__)
+
 
 class DataLoader:
     """Universal data ingestion from multiple sources, returns structured EvalData.
@@ -93,7 +95,6 @@ class DataLoader:
         Returns:
             EvalData: An immutable container with strict validation.
         """
-        logger = logging.getLogger(__name__)
         logger.info(f"Loading CSV file: {file_path} as dataset '{name}'")
 
         # Validate file
@@ -130,7 +131,6 @@ class DataLoader:
         Returns:
             EvalData: An immutable container with strict validation.
         """
-        logger = logging.getLogger(__name__)
         logger.info(f"Loading JSON file: {file_path} as dataset '{name}'")
 
         # Validate file
@@ -167,7 +167,6 @@ class DataLoader:
         Returns:
             EvalData: An immutable container with strict validation.
         """
-        logger = logging.getLogger(__name__)
         logger.info(f"Loading Parquet file: {file_path} as dataset '{name}'")
 
         # Validate file
@@ -207,7 +206,6 @@ class DataLoader:
         Returns:
             EvalData: An immutable container with strict validation.
         """
-        logger = logging.getLogger(__name__)
         logger.info(
             f"Creating EvalData '{name}' from DataFrame with {data.height} rows and {data.width} columns"
         )

@@ -218,8 +218,7 @@ class StreamlitLauncher:
                 "Traffic policy file provided but ngrok is not being used."
             )
 
-        logger = logging.getLogger(__name__)
-        logger.info("Launching Streamlit annotation interface...")
+        self.logger.info("Launching Streamlit annotation interface...")
         # Create temporary folder to store files needed for the annotation interface
         with tempfile.TemporaryDirectory(
             dir=self.annotations_dir, prefix="tmp_"

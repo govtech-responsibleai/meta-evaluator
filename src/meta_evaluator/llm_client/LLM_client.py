@@ -133,7 +133,7 @@ class LLMClient(ABC):
 
         """
         self.config = config
-        self.logger = logging.getLogger(self.__class__.__module__)
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     @abstractmethod
     def _prompt(
