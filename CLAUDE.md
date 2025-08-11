@@ -1,5 +1,21 @@
 # Claude Development Notes
 
+
+## App Development Guide
+
+This is a Python application to develop a MetaEvaluator. 
+Given an evaluation task and dataset, the MetaEvaluator gathers results from LLM Judges and Human annotators, and calculates alignment metrics to measure the performance of different LLM-as-a-Judge.
+
+
+## Logging 
+For each main class, initialise a logger object with the main class name, and utilise the same logger through the class methods. 
+
+
+## Error Handling 
+Always use custom exceptions. Define an exceptions file in each main functionality group, and define all custom exceptions within the file. 
+Before implementing specific error messaging within each exception class, refer to the common utility (meta_evaluator.common.error_constants.py) and utilise existing error messages where applicable.
+
+
 ## Linting and Code Quality
 
 After every task, you must run both:
@@ -11,6 +27,9 @@ uv tool run ruff format .
 Always fix all errors from the ruff check
 
 ## Testing
+
+Always look for existing pytest fixtures in the corresponding conftest.py files before implementing new fixtures. 
+All pytest fixtures should be defined in the corresponding conftest.py files with clear documentation. 
 
 To run tests, always use:
 ```bash
@@ -25,6 +44,11 @@ uv run pytest -k "test_name"
 ```
 
 Note: After every task, run tests with skip integration:
+```bash
+uv run pytest -m "not integration"
+```
+or
+
 ```bash
 uv run pytest --skip-integration
 ```
