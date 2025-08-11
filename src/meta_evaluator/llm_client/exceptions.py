@@ -2,7 +2,7 @@
 
 from abc import ABC
 
-from .models import LLMClientEnum
+from .enums import LLMClientEnum
 
 
 class LLMClientError(Exception, ABC):

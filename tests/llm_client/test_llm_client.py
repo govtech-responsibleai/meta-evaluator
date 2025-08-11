@@ -7,7 +7,7 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from meta_evaluator.llm_client import LLMClientConfig
-from meta_evaluator.llm_client.client import (
+from meta_evaluator.llm_client.base_client import (
     _FAILED_RESPONSE_ERROR_TEMPLATE,
     _NO_MESSAGES_ERROR,
 )

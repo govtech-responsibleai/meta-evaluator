@@ -11,6 +11,7 @@ import pytest
 from meta_evaluator.common.models import Prompt
 from meta_evaluator.judge.judge import Judge
 from meta_evaluator.llm_client import LLMClient, LLMClientEnum
+from meta_evaluator.llm_client.async_client import AsyncLLMClient
 from meta_evaluator.llm_client.models import (
     LLMResponse,
     LLMUsage,
@@ -330,3 +331,18 @@ def mock_llm_response() -> LLMResponse:
         messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
         usage=LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
+
+
+# ==== ASYNC MOCK FIXTURES ====
+
+
+@pytest.fixture
+def mock_async_llm_client() -> Mock:
+    """Provides a mock async LLM client for testing.
+
+    Returns:
+        Mock: A mock async LLM client configured for testing.
+    """
+    client = Mock(spec=AsyncLLMClient)
+    client.enum_value = LLMClientEnum.OPENAI
+    return client

@@ -10,8 +10,9 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
+from meta_evaluator.llm_client import LLMClientConfig
 from meta_evaluator.llm_client.azureopenai_client import (
     AzureOpenAIClient,
     AzureOpenAIConfig,
@@ -19,6 +20,12 @@ from meta_evaluator.llm_client.azureopenai_client import (
 from meta_evaluator.llm_client.enums import LLMClientEnum, RoleEnum
 from meta_evaluator.llm_client.exceptions import LLMAPIError
 from meta_evaluator.llm_client.models import LLMUsage, Message
+
+
+class TestModel(BaseModel):
+    """Test model for structured response validation."""
+
+    test_field: str
 
 
 class TestAzureOpenAIConfig:
@@ -272,8 +279,6 @@ class TestAzureOpenAIConfig:
             azure_config: A valid AzureOpenAIConfig instance.
 
         """
-        from meta_evaluator.llm_client import LLMClientConfig
-
         assert isinstance(azure_config, LLMClientConfig)
 
         # Test that base class fields are accessible
@@ -309,47 +314,6 @@ class TestAzureOpenAIClient:
             default_model="gpt-4",
             default_embedding_model="text-embedding-ada-002",
         )
-
-    @pytest.fixture
-    def sample_messages(self) -> list[Message]:
-        """Provide sample messages for testing conversation flows.
-
-        Returns:
-            list[Message]: A list of sample messages representing a conversation.
-        """
-        return [
-            Message(role=RoleEnum.SYSTEM, content="You are a helpful assistant."),
-            Message(role=RoleEnum.USER, content="Hello, how are you?"),
-            Message(role=RoleEnum.ASSISTANT, content="I'm doing well, thank you!"),
-        ]
-
-    @pytest.fixture
-    def mock_azure_response(self) -> Mock:
-        """Provide a mock Azure OpenAI API response for testing.
-
-        Returns:
-            Mock: A mock response object with typical Azure OpenAI structure.
-        """
-        mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = "Hello! I'm an AI assistant."
-        mock_response.usage.prompt_tokens = 10
-        mock_response.usage.completion_tokens = 8
-        mock_response.usage.total_tokens = 18
-        return mock_response
-
-    @pytest.fixture
-    def mock_embedding_response(self) -> Mock:
-        """Provide a mock Azure OpenAI embedding response for testing.
-
-        Returns:
-            Mock: A mock embedding response with typical structure.
-        """
-        mock_response = Mock()
-        mock_embedding = Mock()
-        mock_embedding.embedding = [0.1, 0.2, 0.3, 0.4, 0.5]
-        mock_response.data = [mock_embedding]
-        return mock_response
 
     @patch("meta_evaluator.llm_client.azureopenai_client.instructor.from_openai")
     @patch("meta_evaluator.llm_client.azureopenai_client.AzureOpenAI")
@@ -654,11 +618,6 @@ class TestAzureOpenAIClient:
         sample_messages: list[Message],
     ) -> None:
         """Test _prompt_with_structured_response with successful API calls."""
-        from pydantic import BaseModel
-
-        class TestModel(BaseModel):
-            test_field: str
-
         # Mock instructor response - now returns tuple (response, completion)
         mock_instructor_client = mock_instructor.return_value
         test_response = TestModel(test_field="test_value")
@@ -696,7 +655,6 @@ class TestAzureOpenAIClient:
     def test_get_embedding_success(
         self,
         mock_azure_openai: Mock,
-        mock_instructor: Mock,
         azure_config: AzureOpenAIConfig,
         mock_embedding_response: Mock,
     ) -> None:

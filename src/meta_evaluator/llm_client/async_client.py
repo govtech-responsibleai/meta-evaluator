@@ -1,9 +1,9 @@
-"""Unified interface for Large Language Model (LLM) providers with comprehensive logging.
+"""Async unified interface for Large Language Model (LLM) providers with comprehensive logging.
 
-This package provides a standardized abstraction layer for interacting with multiple
+This package provides a standardized async abstraction layer for interacting with multiple
 LLM providers including OpenAI, Anthropic, Gemini, and Azure OpenAI. It normalizes
 API differences, provides consistent logging and usage tracking, and enables easy
-switching between providers.
+switching between providers with full async support.
 
 Key Features:
 - Provider-agnostic interface with consistent Message/Response models
@@ -11,6 +11,7 @@ Key Features:
 - Automatic model fallback and configuration management
 - Type-safe enums and Pydantic validation
 - Extensible design for adding new LLM providers
+- Full async/await support for concurrent operations
 
 Supported Providers:
 - OpenAI
@@ -20,13 +21,14 @@ Supported Providers:
 
 Usage:
     >>> config = SomeProviderConfig(api_key="...", default_model="gpt-4")
-    >>> client = SomeProviderClient(config)
+    >>> client = SomeProviderAsyncClient(config)
     >>> messages = [Message(role=RoleEnum.USER, content="Hello")]
-    >>> response = client.prompt(messages)
+    >>> response = await client.prompt(messages)
     >>> print(response.content)
 
 """
 
+import asyncio
 from abc import abstractmethod
 from typing import Optional, TypeVar
 
@@ -39,6 +41,7 @@ from .base_client import (
     BaseLLMClient,
     BaseLLMClientConfig,
 )
+from .enums import LLMClientEnum
 from .exceptions import LLMAPIError, LLMValidationError
 from .models import (
     LLMResponse,
@@ -51,11 +54,11 @@ from .serialization import LLMClientSerializedState
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound="LLMClientSerializedState")
-ConfigT = TypeVar("ConfigT", bound="LLMClientConfig")
+ConfigT = TypeVar("ConfigT", bound="AsyncLLMClientConfig")
 
 
-class LLMClientConfig(BaseLLMClientConfig):
-    """Configuration settings for a synchronous LLM client.
+class AsyncLLMClientConfig(BaseLLMClientConfig):
+    """Configuration settings for an asynchronous LLM client.
 
     Inherits all configuration from BaseLLMClientConfig including API key,
     model settings, and capability flags.
@@ -65,7 +68,7 @@ class LLMClientConfig(BaseLLMClientConfig):
     @abstractmethod
     def deserialize(
         cls, state: LLMClientSerializedState, api_key: str, **kwargs
-    ) -> "LLMClientConfig":
+    ) -> "AsyncLLMClientConfig":
         """Deserialize config from typed state object and API key.
 
         Args:
@@ -74,36 +77,36 @@ class LLMClientConfig(BaseLLMClientConfig):
             **kwargs: Additional configuration parameters that may be needed.
 
         Returns:
-            LLMClientConfig: Reconstructed configuration instance.
+            AsyncLLMClientConfig: Reconstructed configuration instance.
         """
         pass
 
 
-class LLMClient(BaseLLMClient):
-    """Abstract base class for all synchronous LLM clients.
+class AsyncLLMClient(BaseLLMClient):
+    """Abstract base class for all asynchronous LLM clients.
 
-    This class inherits from BaseLLMClient and provides synchronous implementations
-    of the prompt and embedding methods. It serves as the base for all synchronous
-    LLM client implementations.
+    This class inherits from BaseLLMClient and provides asynchronous implementations
+    of the prompt and embedding methods. It serves as the base for all asynchronous
+    LLM client implementations and includes batch processing capabilities.
 
     Attributes:
-        config (LLMClientConfig): The configuration settings for the LLM client.
+        config (AsyncLLMClientConfig): The configuration settings for the LLM client.
         logger (logging.Logger): Logger instance for logging messages and errors.
     """
 
-    def __init__(self, config: LLMClientConfig):
-        """Initialize the synchronous LLM client.
+    def __init__(self, config: AsyncLLMClientConfig):
+        """Initialize the asynchronous LLM client.
 
         Args:
-            config (LLMClientConfig): The configuration settings for the LLM client.
+            config (AsyncLLMClientConfig): The configuration settings for the LLM client.
         """
         super().__init__(config)
 
     @abstractmethod
-    def _prompt(
+    async def _prompt(
         self, model: str, messages: list[Message], get_logprobs: bool
     ) -> tuple[str, LLMUsage]:
-        """Send messages to the LLM and return response content and usage.
+        """Send messages to the LLM and return response content and usage (async).
 
         Args:
             model: The model name to use for this request.
@@ -116,8 +119,10 @@ class LLMClient(BaseLLMClient):
         raise NotImplementedError("Subclasses must implement this method")
 
     @abstractmethod
-    def _get_embedding(self, text_list: list[str], model: str) -> list[list[float]]:
-        """Get embeddings for a list of prompts using the underlying LLM client.
+    async def _get_embedding(
+        self, text_list: list[str], model: str
+    ) -> list[list[float]]:
+        """Get embeddings for a list of prompts using the underlying LLM client (async).
 
         Args:
             text_list: List of text prompts to generate embeddings for.
@@ -128,7 +133,21 @@ class LLMClient(BaseLLMClient):
         """
         raise NotImplementedError("Subclasses must implement this method")
 
-    def prompt(
+    @property
+    @abstractmethod
+    def enum_value(self) -> LLMClientEnum:
+        """Return the unique LLMClientEnum value associated with this client.
+
+        This method returns the unique enumeration value associated with this LLM
+        client. The enumeration value is used to identify the client in logging and
+        other contexts.
+
+        Returns:
+            LLMClientEnum: The unique enumeration value associated with this client.
+        """
+        raise NotImplementedError("Subclasses must implement this method")
+
+    async def prompt(
         self,
         messages: list[Message],
         model: Optional[str] = None,
@@ -167,7 +186,7 @@ class LLMClient(BaseLLMClient):
 
         Example:
             >>> messages = [Message(role=RoleEnum.USER, content="Hello")]
-            >>> response = client.prompt(messages, model="gpt-4")
+            >>> response = await client.prompt(messages, model="gpt-4")
             >>> print(response.content)  # Assistant's response
             >>> print(len(response.messages))  # Original + assistant response
         """
@@ -188,7 +207,7 @@ class LLMClient(BaseLLMClient):
                 self.enum_value,
             )
         try:
-            raw_text, usage = self._prompt(
+            raw_text, usage = await self._prompt(
                 model=model_used, messages=messages, get_logprobs=get_logprobs
             )
             output = self._construct_llm_response(raw_text, usage, messages, model_used)
@@ -203,7 +222,7 @@ class LLMClient(BaseLLMClient):
 
         return output
 
-    def get_embedding(
+    async def get_embedding(
         self, text_list: list[str], model: Optional[str] = None
     ) -> list[list[float]]:
         """Get embeddings for a list of prompts with comprehensive logging.
@@ -234,7 +253,7 @@ class LLMClient(BaseLLMClient):
 
         Example:
             >>> prompts = ["Hello world", "How are you?"]
-            >>> embeddings = client.get_embedding(prompts, model="text-embedding-3-large")
+            >>> embeddings = await client.get_embedding(prompts, model="text-embedding-3-large")
             >>> print(len(embeddings))  # 2
             >>> print(len(embeddings[0]))  # Embedding dimension (e.g., 1536)
         """
@@ -252,7 +271,9 @@ class LLMClient(BaseLLMClient):
         self.logger.info(f"Processing {len(text_list)} prompts for embeddings")
 
         try:
-            embeddings = self._get_embedding(text_list=text_list, model=model_used)
+            embeddings = await self._get_embedding(
+                text_list=text_list, model=model_used
+            )
         except Exception as e:
             raise LLMAPIError(
                 _FAILED_EMBEDDING_ERROR_TEMPLATE.format(self.enum_value),
@@ -264,12 +285,12 @@ class LLMClient(BaseLLMClient):
         return embeddings
 
     @abstractmethod
-    def _prompt_with_structured_response(
+    async def _prompt_with_structured_response(
         self, messages: list[Message], response_model: type[T], model: str
     ) -> tuple[T, LLMUsage]:
         raise NotImplementedError("Subclasses must implement this method")
 
-    def prompt_with_structured_response(
+    async def prompt_with_structured_response(
         self,
         messages: list[Message],
         response_model: type[T],
@@ -315,7 +336,7 @@ class LLMClient(BaseLLMClient):
         self.logger.info(f"Using model: {model_used}")
         self.logger.info(f"Input Payload: {messages}")
         try:
-            structured_response, usage = self._prompt_with_structured_response(
+            structured_response, usage = await self._prompt_with_structured_response(
                 messages=messages, response_model=response_model, model=model_used
             )
 
@@ -333,7 +354,11 @@ class LLMClient(BaseLLMClient):
 
         return structured_response, output
 
-    def prompt_with_xml_tags(
+    # ================================
+    # XML Tag Parsing Methods (inherited from BaseLLMClient)
+    # ================================
+
+    async def prompt_with_xml_tags(
         self,
         messages: list[Message],
         tag_configs: list[TagConfig],
@@ -405,7 +430,7 @@ class LLMClient(BaseLLMClient):
                 ...     cardinality="one"
                 ... )
                 >>> messages = [Message(role=RoleEnum.USER, content="Analyze: Great product!")]
-                >>> result, response = client.prompt_with_xml_tags(messages, [tag_config])
+                >>> result, response = await client.prompt_with_xml_tags(messages, [tag_config])
                 >>> if result.success:
                 ...     print(f"Sentiment: {result.data['sentiment']}")
                 >>> else:
@@ -416,7 +441,7 @@ class LLMClient(BaseLLMClient):
                 ...     TagConfig(name="category", allowed_values=["tech", "sports"], cardinality="one"),
                 ...     TagConfig(name="keywords", cardinality="many")  # No validation, multiple allowed
                 ... ]
-                >>> result, response = client.prompt_with_xml_tags(messages, configs, model="gpt-4")
+                >>> result, response = await client.prompt_with_xml_tags(messages, configs, model="gpt-4")
                 >>> print(f"Parsed {len(result.data)} tags with {len(result.errors)} errors")
                 >>> if result.partial_success:
                 ...     # Handle successful data even if some tags failed
@@ -425,7 +450,7 @@ class LLMClient(BaseLLMClient):
                 ...             print(f"{tag_name}: {value}")
 
             Accessing raw response alongside parsed data:
-                >>> result, response = client.prompt_with_xml_tags(messages, configs)
+                >>> result, response = await client.prompt_with_xml_tags(messages, configs)
                 >>> print(f"Raw LLM response: {response.content}")
                 >>> print(f"Token usage: {response.usage.total_tokens}")
                 >>> print(f"Successfully parsed: {result.data}")
@@ -453,7 +478,7 @@ class LLMClient(BaseLLMClient):
         )
 
         try:
-            raw_text, usage = self._prompt(
+            raw_text, usage = await self._prompt(
                 model=model_used, messages=messages, get_logprobs=get_logprobs
             )
             llm_response = self._construct_llm_response(
@@ -489,3 +514,185 @@ class LLMClient(BaseLLMClient):
             self.logger.warning("XML parsing failed for all configured tags")
 
         return parse_result, llm_response
+
+    # ================================
+    # Batch Processing Methods
+    # ================================
+
+    async def _batch_process(
+        self,
+        items: list,
+        async_method,  # Remove type hint to avoid beartype issues
+        batch_size: int = 10,
+        max_concurrency: int = 5,
+    ) -> list:
+        """Generic batch processing helper for any async method.
+
+        Args:
+            items: List of items to process (each item will be unpacked as args to async_method)
+            async_method: The async method to call for each item
+            batch_size: Number of items to process in each batch
+            max_concurrency: Maximum number of concurrent operations
+
+        Returns:
+            List of results from async_method calls
+        """
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def single_item(item):
+            async with semaphore:
+                # If item is a tuple, unpack it as arguments
+                if isinstance(item, tuple):
+                    return await async_method(*item)
+                else:
+                    return await async_method(item)
+
+        # Process in batches to manage memory
+        results = []
+        for i in range(0, len(items), batch_size):
+            batch = items[i : i + batch_size]
+            tasks = [single_item(item) for item in batch]
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            results.extend(batch_results)
+
+        return results
+
+    async def prompt_batch(
+        self,
+        message_list: list[list[Message]],
+        model: Optional[str] = None,
+        get_logprobs: bool = False,
+        batch_size: int = 10,
+        max_concurrency: int = 5,
+    ) -> list[LLMResponse]:
+        """Batch process multiple prompts with concurrency control.
+
+        Args:
+            message_list (list[list[Message]]): List of message conversations to process
+            model (Optional[str], optional): Model to use for all requests. Defaults to None.
+            get_logprobs (bool, optional): Whether to get logprobs for all requests. Defaults to False.
+            batch_size (int, optional): Number of requests to process in each batch. Defaults to 10.
+            max_concurrency (int, optional): Maximum concurrent requests. Defaults to 5.
+
+        Returns:
+            list[LLMResponse]: List of responses in the same order as input
+
+        Example:
+            >>> conversations = [
+            ...     [Message(role=RoleEnum.USER, content="Hello")],
+            ...     [Message(role=RoleEnum.USER, content="Goodbye")]
+            ... ]
+            >>> responses = await client.prompt_batch(conversations)
+        """
+        # Create tuples of (messages, model, get_logprobs) for each request
+        items = [(messages, model, get_logprobs) for messages in message_list]
+        return await self._batch_process(
+            items, self.prompt, batch_size, max_concurrency
+        )
+
+    async def prompt_with_structured_response_batch(
+        self,
+        items: list[tuple[list[Message], type[T]]],
+        model: Optional[str] = None,
+        batch_size: int = 10,
+        max_concurrency: int = 5,
+    ) -> list[tuple[T, LLMResponse]]:
+        """Batch process structured response requests.
+
+        Args:
+            items (list[tuple[list[Message], type[T]]]): List of (messages, response_model) tuples
+            model (Optional[str], optional): Model to use for all requests. Defaults to None.
+            batch_size (int, optional): Number of requests to process in each batch. Defaults to 10.
+            max_concurrency (int, optional): Maximum concurrent requests. Defaults to 5.
+
+        Returns:
+            list[tuple[T, LLMResponse]]: List of (structured_response, llm_response) tuples
+
+        Example:
+            >>> from pydantic import BaseModel
+            >>> class Response(BaseModel):
+            ...     sentiment: str
+            >>> items = [
+            ...     ([Message(role=RoleEnum.USER, content="Great!")], Response),
+            ...     ([Message(role=RoleEnum.USER, content="Terrible!")], Response),
+            ... ]
+            >>> results = await client.prompt_with_structured_response_batch(items)
+        """
+        # Create tuples of (messages, response_model, model) for each request
+        structured_items = [
+            (messages, response_model, model) for messages, response_model in items
+        ]
+        return await self._batch_process(
+            structured_items,
+            self.prompt_with_structured_response,
+            batch_size,
+            max_concurrency,
+        )
+
+    async def prompt_with_xml_tags_batch(
+        self,
+        items: list[tuple[list[Message], list[TagConfig]]],
+        model: Optional[str] = None,
+        get_logprobs: bool = False,
+        batch_size: int = 10,
+        max_concurrency: int = 5,
+    ) -> list[tuple[ParseResult, LLMResponse]]:
+        """Batch process XML tag parsing requests.
+
+        Args:
+            items (list[tuple[list[Message], list[TagConfig]]]): List of (messages, tag_configs) tuples
+            model (Optional[str], optional): Model to use for all requests. Defaults to None.
+            get_logprobs (bool, optional): Whether to get logprobs for all requests. Defaults to False.
+            batch_size (int, optional): Number of requests to process in each batch. Defaults to 10.
+            max_concurrency (int, optional): Maximum concurrent requests. Defaults to 5.
+
+        Returns:
+            list[tuple[ParseResult, LLMResponse]]: List of (parse_result, llm_response) tuples
+
+        Example:
+            >>> tag_configs = [TagConfig(name="sentiment", allowed_values=["positive", "negative"])]
+            >>> items = [
+            ...     ([Message(role=RoleEnum.USER, content="Great product!")], tag_configs),
+            ...     ([Message(role=RoleEnum.USER, content="Poor quality!")], tag_configs),
+            ... ]
+            >>> results = await client.prompt_with_xml_tags_batch(items)
+        """
+        # Create tuples of (messages, tag_configs, model, get_logprobs) for each request
+        xml_items = [
+            (messages, tag_configs, model, get_logprobs)
+            for messages, tag_configs in items
+        ]
+        return await self._batch_process(
+            xml_items, self.prompt_with_xml_tags, batch_size, max_concurrency
+        )
+
+    async def get_embedding_batch(
+        self,
+        text_lists: list[list[str]],
+        model: Optional[str] = None,
+        batch_size: int = 20,
+        max_concurrency: int = 10,
+    ) -> list[list[list[float]]]:
+        """Batch process multiple embedding requests.
+
+        Args:
+            text_lists (list[list[str]]): List of text lists to generate embeddings for
+            model (Optional[str], optional): Embedding model to use. Defaults to None.
+            batch_size (int, optional): Number of requests to process in each batch. Defaults to 20.
+            max_concurrency (int, optional): Maximum concurrent requests. Defaults to 10.
+
+        Returns:
+            list[list[list[float]]]: List of embedding results, each containing embeddings for the input texts
+
+        Example:
+            >>> text_batches = [
+            ...     ["Hello world", "Goodbye world"],
+            ...     ["Good morning", "Good night"]
+            ... ]
+            >>> embeddings = await client.get_embedding_batch(text_batches)
+        """
+        # Create tuples of (text_list, model) for each request
+        items = [(text_list, model) for text_list in text_lists]
+        return await self._batch_process(
+            items, self.get_embedding, batch_size, max_concurrency
+        )
