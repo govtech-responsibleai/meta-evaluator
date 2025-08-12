@@ -10,9 +10,8 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from ..common.models import Prompt
 from ..data import EvalData, SampleEvalData
 from ..eval_task import EvalTask
-from ..llm_client import LLMClient
-from ..llm_client.async_client import AsyncLLMClient
-from ..llm_client.enums import LLMClientEnum, RoleEnum
+from ..llm_client import AsyncLLMClient, LLMClient
+from ..llm_client.enums import AsyncLLMClientEnum, LLMClientEnum, RoleEnum
 from ..llm_client.exceptions import LLMAPIError
 from ..llm_client.models import Message, TagConfig
 from ..results import JudgeResults, JudgeResultsBuilder
@@ -65,7 +64,7 @@ class Judge(BaseModel):
     id: str
     model_config = ConfigDict(frozen=True)
     eval_task: EvalTask
-    llm_client_enum: LLMClientEnum
+    llm_client_enum: LLMClientEnum | AsyncLLMClientEnum
     model: str
     prompt: Prompt
 

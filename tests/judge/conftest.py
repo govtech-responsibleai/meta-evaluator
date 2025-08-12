@@ -12,6 +12,7 @@ from meta_evaluator.common.models import Prompt
 from meta_evaluator.judge.judge import Judge
 from meta_evaluator.llm_client import LLMClient, LLMClientEnum
 from meta_evaluator.llm_client.async_client import AsyncLLMClient
+from meta_evaluator.llm_client.enums import AsyncLLMClientEnum
 from meta_evaluator.llm_client.models import (
     LLMResponse,
     LLMUsage,
@@ -344,5 +345,20 @@ def mock_async_llm_client() -> Mock:
         Mock: A mock async LLM client configured for testing.
     """
     client = Mock(spec=AsyncLLMClient)
-    client.enum_value = LLMClientEnum.OPENAI
+    client.enum_value = AsyncLLMClientEnum.OPENAI
     return client
+
+
+@pytest.fixture
+def mock_async_llm_response() -> LLMResponse:
+    """Provides a mock LLM response for testing.
+
+    Returns:
+        LLMResponse: A mock LLM response with structured output.
+    """
+    return LLMResponse(
+        provider=AsyncLLMClientEnum.OPENAI,
+        model="gpt-4",
+        messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
+        usage=LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+    )

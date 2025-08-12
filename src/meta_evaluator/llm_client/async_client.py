@@ -41,7 +41,7 @@ from .base_client import (
     BaseLLMClient,
     BaseLLMClientConfig,
 )
-from .enums import LLMClientEnum
+from .enums import AsyncLLMClientEnum
 from .exceptions import LLMAPIError, LLMValidationError
 from .models import (
     LLMResponse,
@@ -135,15 +135,15 @@ class AsyncLLMClient(BaseLLMClient):
 
     @property
     @abstractmethod
-    def enum_value(self) -> LLMClientEnum:
-        """Return the unique LLMClientEnum value associated with this client.
+    def enum_value(self) -> AsyncLLMClientEnum:
+        """Return the unique AsyncLLMClientEnum value associated with this client.
 
-        This method returns the unique enumeration value associated with this LLM
+        This method returns the unique enumeration value associated with this async LLM
         client. The enumeration value is used to identify the client in logging and
         other contexts.
 
         Returns:
-            LLMClientEnum: The unique enumeration value associated with this client.
+            AsyncLLMClientEnum: The unique enumeration value associated with this client.
         """
         raise NotImplementedError("Subclasses must implement this method")
 

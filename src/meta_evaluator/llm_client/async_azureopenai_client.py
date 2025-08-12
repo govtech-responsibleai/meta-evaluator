@@ -12,7 +12,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 
 from .async_client import AsyncLLMClient, AsyncLLMClientConfig
-from .enums import LLMClientEnum, RoleEnum
+from .enums import AsyncLLMClientEnum, RoleEnum
 from .exceptions import LLMAPIError
 from .models import LLMUsage, Message
 from .serialization import AzureOpenAISerializedState, LLMClientSerializedState
@@ -101,9 +101,9 @@ class AsyncAzureOpenAIClient(AsyncLLMClient):
         self.instructor_client = instructor.from_openai(self.client)
 
     @property
-    def enum_value(self) -> LLMClientEnum:
+    def enum_value(self) -> AsyncLLMClientEnum:
         """Return Azure OpenAI client enum."""
-        return LLMClientEnum.AZURE_OPENAI
+        return AsyncLLMClientEnum.AZURE_OPENAI
 
     # ================================
     # Helper Methods
@@ -163,7 +163,7 @@ class AsyncAzureOpenAIClient(AsyncLLMClient):
         if not usage_data:
             raise LLMAPIError(
                 "Expected usage data from Azure OpenAI response but got None",
-                provider=LLMClientEnum.AZURE_OPENAI,
+                provider=AsyncLLMClientEnum.AZURE_OPENAI,
                 original_error=ValueError("Missing usage data in response"),
             )
 
@@ -210,7 +210,7 @@ class AsyncAzureOpenAIClient(AsyncLLMClient):
         if not content:
             raise LLMAPIError(
                 f"Expected non-empty content from Azure OpenAI response but got: {content}",
-                provider=LLMClientEnum.AZURE_OPENAI,
+                provider=AsyncLLMClientEnum.AZURE_OPENAI,
                 original_error=ValueError("Empty content in response"),
             )
 

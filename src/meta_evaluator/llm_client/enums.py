@@ -52,13 +52,13 @@ class AsyncLLMClientEnum(Enum):
     """Enum class representing the supported asynchronous LLM clients.
 
     This enum class is used to identify the provider-specific async LLM client that is
-    used to interact with the LLM service asynchronously. Currently only OpenAI and Azure OpenAI
-    support async operations.
+    used to interact with the LLM service asynchronously.
 
     The enum values are:
 
     - OPENAI: Async OpenAI LLM client
     - AZURE_OPENAI: Async Azure OpenAI LLM client
+    - ANTHROPIC: Async Anthropic LLM client
 
     The values are used in the AsyncLLMClient implementations to identify the client
     that is used to interact with the LLM service.
@@ -68,6 +68,8 @@ class AsyncLLMClientEnum(Enum):
 
     OPENAI = "openai"
     AZURE_OPENAI = "azure_openai"
+    GEMINI = "gemini"
+    ANTHROPIC = "anthropic"
 
 
 class ErrorType(str, Enum):

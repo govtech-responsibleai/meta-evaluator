@@ -9,7 +9,8 @@ from meta_evaluator.llm_client.async_openai_client import (
     AsyncOpenAIClient,
     AsyncOpenAIConfig,
 )
-from meta_evaluator.llm_client.models import LLMClientEnum, Message, RoleEnum, TagConfig
+from meta_evaluator.llm_client.enums import AsyncLLMClientEnum
+from meta_evaluator.llm_client.models import Message, RoleEnum, TagConfig
 from meta_evaluator.llm_client.serialization import OpenAISerializedState
 
 
@@ -87,7 +88,7 @@ class TestAsyncOpenAIClient:
     def test_client_initialization(self, async_openai_client):
         """Test that AsyncOpenAIClient initializes correctly."""
         assert isinstance(async_openai_client, AsyncOpenAIClient)
-        assert async_openai_client.enum_value == LLMClientEnum.OPENAI
+        assert async_openai_client.enum_value == AsyncLLMClientEnum.OPENAI
         assert isinstance(async_openai_client.config, AsyncOpenAIConfig)
 
     @patch("meta_evaluator.llm_client.async_openai_client.instructor.from_openai")

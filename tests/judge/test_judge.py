@@ -11,13 +11,15 @@ from meta_evaluator.data import EvalData
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.judge.exceptions import IncorrectClientError
 from meta_evaluator.judge.judge import Judge
-from meta_evaluator.llm_client import LLMClient, LLMClientEnum
+from meta_evaluator.llm_client import (
+    AsyncLLMClient,
+    AsyncLLMClientEnum,
+    LLMClient,
+    LLMClientEnum,
+)
 from meta_evaluator.llm_client.exceptions import LLMAPIError
 from meta_evaluator.llm_client.models import (
     ErrorType,
-    LLMResponse,
-    LLMUsage,
-    Message,
     ParseError,
     ParseResult,
     RoleEnum,
@@ -1050,26 +1052,29 @@ class TestJudgeAsync:
 
     @pytest.mark.asyncio
     async def test_evaluate_eval_data_async_structured_method(
-        self, basic_judge, sample_eval_data, mock_async_llm_client, mocker
+        self,
+        basic_judge,
+        sample_eval_data,
+        mock_async_llm_client,
+        mock_async_llm_response,
+        mocker,
     ):
         """Test async evaluation with structured method and successful outcomes."""
-        # Mock the async structured response method
-        mock_response_data = type("TestResponse", (), {"sentiment": "positive"})()
-        mock_usage = LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-        mock_llm_response = LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
-            usage=mock_usage,
+        # Change to async client
+        basic_judge = basic_judge.model_copy(
+            update={"llm_client_enum": AsyncLLMClientEnum.OPENAI}
         )
 
+        # Mock the async structured response method
+        mock_response_data = type("TestResponse", (), {"sentiment": "positive"})()
+
         mock_async_llm_client.prompt_with_structured_response = mocker.AsyncMock(
-            return_value=(mock_response_data, mock_llm_response)
+            return_value=(mock_response_data, mock_async_llm_response)
         )
 
         # Mock batch processing
         mock_async_llm_client.prompt_with_structured_response_batch = mocker.AsyncMock(
-            return_value=[(mock_response_data, mock_llm_response)]
+            return_value=[(mock_response_data, mock_async_llm_response)]
             * len(sample_eval_data.data)
         )
 
@@ -1088,33 +1093,32 @@ class TestJudgeAsync:
 
     @pytest.mark.asyncio
     async def test_evaluate_eval_data_async_xml_method(
-        self, xml_judge, sample_eval_data, mock_async_llm_client, mocker
+        self,
+        xml_judge,
+        sample_eval_data,
+        mock_async_llm_client,
+        mock_async_llm_response,
+        mocker,
     ):
         """Test async evaluation with XML method and successful parsing."""
+        # Change to async client
+        xml_judge = xml_judge.model_copy(
+            update={"llm_client_enum": AsyncLLMClientEnum.OPENAI}
+        )
+
         # Mock the async XML tags method
         mock_parse_result = ParseResult(
             data={"sentiment": "positive"},
             errors=[],
         )
-        mock_usage = LLMUsage(prompt_tokens=15, completion_tokens=8, total_tokens=23)
-        mock_llm_response = LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[
-                Message(
-                    role=RoleEnum.ASSISTANT, content="<sentiment>positive</sentiment>"
-                )
-            ],
-            usage=mock_usage,
-        )
 
         mock_async_llm_client.prompt_with_xml_tags = mocker.AsyncMock(
-            return_value=(mock_parse_result, mock_llm_response)
+            return_value=(mock_parse_result, mock_async_llm_response)
         )
 
         # Mock batch processing
         mock_async_llm_client.prompt_with_xml_tags_batch = mocker.AsyncMock(
-            return_value=[(mock_parse_result, mock_llm_response)]
+            return_value=[(mock_parse_result, mock_async_llm_response)]
             * len(sample_eval_data.data)
         )
 
@@ -1133,18 +1137,21 @@ class TestJudgeAsync:
 
     @pytest.mark.asyncio
     async def test_evaluate_eval_data_async_with_skip_function(
-        self, basic_judge, sample_eval_data, mock_async_llm_client, mocker
+        self,
+        basic_judge,
+        sample_eval_data,
+        mock_async_llm_client,
+        mock_async_llm_response,
+        mocker,
     ):
         """Test async evaluation with skip function filtering some examples."""
+        # Change to async client
+        basic_judge = basic_judge.model_copy(
+            update={"llm_client_enum": AsyncLLMClientEnum.OPENAI}
+        )
+
         # Mock successful response
         mock_response_data = type("TestResponse", (), {"sentiment": "positive"})()
-        mock_usage = LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-        mock_llm_response = LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
-            usage=mock_usage,
-        )
 
         # Skip first example only
         def skip_first_example(row_dict):
@@ -1156,7 +1163,8 @@ class TestJudgeAsync:
         # Mock batch processing - should only get called for non-skipped items
         expected_batch_size = len(sample_eval_data.data) - 1  # One item skipped
         mock_async_llm_client.prompt_with_structured_response_batch = mocker.AsyncMock(
-            return_value=[(mock_response_data, mock_llm_response)] * expected_batch_size
+            return_value=[(mock_response_data, mock_async_llm_response)]
+            * expected_batch_size
         )
 
         result = await basic_judge.evaluate_eval_data_async(
@@ -1174,7 +1182,12 @@ class TestJudgeAsync:
 
     @pytest.mark.asyncio
     async def test_evaluate_rows_batch_structured_perfect_success(
-        self, basic_judge, basic_eval_data, mock_async_llm_client, mocker
+        self,
+        basic_judge,
+        basic_eval_data,
+        mock_async_llm_client,
+        mock_async_llm_response,
+        mocker,
     ):
         """Test batch structured evaluation with perfect success."""
 
@@ -1184,17 +1197,10 @@ class TestJudgeAsync:
 
         # Mock structured response
         structured_response = MockTaskClass(sentiment="positive")
-        mock_usage = LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-        mock_llm_response = LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
-            usage=mock_usage,
-        )
 
         # Mock batch method to return successful results
         mock_async_llm_client.prompt_with_structured_response_batch = mocker.AsyncMock(
-            return_value=[(structured_response, mock_llm_response)]
+            return_value=[(structured_response, mock_async_llm_response)]
         )
 
         # Create mock builder
@@ -1223,6 +1229,7 @@ class TestJudgeAsync:
         sample_prompt,
         basic_eval_data,
         mock_async_llm_client,
+        mock_async_llm_response,
         mocker,
     ):
         """Test batch structured evaluation with partial success."""
@@ -1244,17 +1251,9 @@ class TestJudgeAsync:
         # Remove the toxicity attribute to simulate it being missing
         delattr(structured_response, "toxicity")
 
-        mock_usage = LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-        mock_llm_response = LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
-            usage=mock_usage,
-        )
-
         # Mock batch method
         mock_async_llm_client.prompt_with_structured_response_batch = mocker.AsyncMock(
-            return_value=[(structured_response, mock_llm_response)]
+            return_value=[(structured_response, mock_async_llm_response)]
         )
 
         builder = create_autospec(JudgeResultsBuilder, instance=True)
@@ -1280,6 +1279,7 @@ class TestJudgeAsync:
         sample_prompt,
         basic_eval_data,
         mock_async_llm_client,
+        mock_async_llm_response,
         mocker,
     ):
         """Test batch structured evaluation with complete failure."""
@@ -1302,17 +1302,9 @@ class TestJudgeAsync:
         delattr(structured_response, "sentiment")
         delattr(structured_response, "toxicity")
 
-        mock_usage = LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-        mock_llm_response = LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
-            usage=mock_usage,
-        )
-
         # Mock batch method
         mock_async_llm_client.prompt_with_structured_response_batch = mocker.AsyncMock(
-            return_value=[(structured_response, mock_llm_response)]
+            return_value=[(structured_response, mock_async_llm_response)]
         )
 
         builder = create_autospec(JudgeResultsBuilder, instance=True)
@@ -1389,25 +1381,19 @@ class TestJudgeAsync:
 
     @pytest.mark.asyncio
     async def test_evaluate_rows_batch_xml_perfect_success(
-        self, xml_judge, basic_eval_data, mock_async_llm_client, mocker
+        self,
+        xml_judge,
+        basic_eval_data,
+        mock_async_llm_client,
+        mock_async_llm_response,
+        mocker,
     ):
         """Test batch XML evaluation with perfect success."""
         parse_result = ParseResult(data={"sentiment": "positive"}, errors=[])
-        mock_usage = LLMUsage(prompt_tokens=15, completion_tokens=8, total_tokens=23)
-        mock_llm_response = LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[
-                Message(
-                    role=RoleEnum.ASSISTANT, content="<sentiment>positive</sentiment>"
-                )
-            ],
-            usage=mock_usage,
-        )
 
         # Mock batch method
         mock_async_llm_client.prompt_with_xml_tags_batch = mocker.AsyncMock(
-            return_value=[(parse_result, mock_llm_response)]
+            return_value=[(parse_result, mock_async_llm_response)]
         )
 
         builder = create_autospec(JudgeResultsBuilder, instance=True)
@@ -1435,6 +1421,7 @@ class TestJudgeAsync:
         sample_prompt,
         basic_eval_data,
         mock_async_llm_client,
+        mock_async_llm_response,
         mocker,
     ):
         """Test batch XML evaluation with partial success."""
@@ -1466,21 +1453,10 @@ class TestJudgeAsync:
                 )
             ],
         )
-        mock_usage = LLMUsage(prompt_tokens=15, completion_tokens=8, total_tokens=23)
-        mock_llm_response = LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[
-                Message(
-                    role=RoleEnum.ASSISTANT, content="<sentiment>positive</sentiment>"
-                )
-            ],
-            usage=mock_usage,
-        )
 
         # Mock batch method
         mock_async_llm_client.prompt_with_xml_tags_batch = mocker.AsyncMock(
-            return_value=[(parse_result, mock_llm_response)]
+            return_value=[(parse_result, mock_async_llm_response)]
         )
 
         builder = create_autospec(JudgeResultsBuilder, instance=True)
@@ -1501,7 +1477,12 @@ class TestJudgeAsync:
 
     @pytest.mark.asyncio
     async def test_evaluate_rows_batch_xml_complete_failure(
-        self, xml_judge, basic_eval_data, mock_async_llm_client, mocker
+        self,
+        xml_judge,
+        basic_eval_data,
+        mock_async_llm_client,
+        mock_async_llm_response,
+        mocker,
     ):
         """Test batch XML evaluation with complete failure."""
         parse_result = ParseResult(
@@ -1514,21 +1495,9 @@ class TestJudgeAsync:
                 )
             ],
         )
-        mock_usage = LLMUsage(prompt_tokens=15, completion_tokens=8, total_tokens=23)
-        mock_llm_response = LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[
-                Message(
-                    role=RoleEnum.ASSISTANT, content="<sentiment>positive</sentiment>"
-                )
-            ],
-            usage=mock_usage,
-        )
-
         # Mock batch method
         mock_async_llm_client.prompt_with_xml_tags_batch = mocker.AsyncMock(
-            return_value=[(parse_result, mock_llm_response)]
+            return_value=[(parse_result, mock_async_llm_response)]
         )
 
         builder = create_autospec(JudgeResultsBuilder, instance=True)
@@ -1608,6 +1577,10 @@ class TestJudgeAsync:
         self, basic_judge, sample_eval_data, mock_async_llm_client, mocker
     ):
         """Test async evaluation when skip function skips all examples."""
+        # Change to async client
+        basic_judge = basic_judge.model_copy(
+            update={"llm_client_enum": AsyncLLMClientEnum.OPENAI}
+        )
 
         # Skip all examples
         def skip_all_examples(row_dict):
@@ -1637,18 +1610,21 @@ class TestJudgeAsync:
 
     @pytest.mark.asyncio
     async def test_evaluate_eval_data_async_skip_function_partial_skip(
-        self, basic_judge, sample_eval_data, mock_async_llm_client, mocker
+        self,
+        basic_judge,
+        sample_eval_data,
+        mock_async_llm_client,
+        mock_async_llm_response,
+        mocker,
     ):
         """Test async evaluation with skip function that skips some examples."""
+        # Change to async client
+        basic_judge = basic_judge.model_copy(
+            update={"llm_client_enum": AsyncLLMClientEnum.OPENAI}
+        )
+
         # Mock successful response
         mock_response_data = type("TestResponse", (), {"sentiment": "positive"})()
-        mock_usage = LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-        mock_llm_response = LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
-            usage=mock_usage,
-        )
 
         # Skip examples with even-numbered IDs
         def skip_even_ids(row_dict):
@@ -1664,7 +1640,8 @@ class TestJudgeAsync:
 
         # Mock batch processing
         mock_async_llm_client.prompt_with_structured_response_batch = mocker.AsyncMock(
-            return_value=[(mock_response_data, mock_llm_response)] * expected_processed
+            return_value=[(mock_response_data, mock_async_llm_response)]
+            * expected_processed
         )
 
         result = await basic_judge.evaluate_eval_data_async(
@@ -1689,13 +1666,10 @@ class TestJudgeAsync:
         self, basic_judge, sample_eval_data, mocker
     ):
         """Test async evaluation raises error with incorrect LLM client enum."""
-        from meta_evaluator.llm_client.async_client import AsyncLLMClient
-        from meta_evaluator.llm_client.enums import LLMClientEnum
-
         # Create mock async client with different enum
         wrong_client = Mock(spec=AsyncLLMClient)
         wrong_client.enum_value = (
-            LLMClientEnum.ANTHROPIC
+            AsyncLLMClientEnum.ANTHROPIC
         )  # Different from judge's OPENAI
 
         with pytest.raises(IncorrectClientError):
@@ -1712,13 +1686,14 @@ class TestJudgeAsync:
         sample_prompt,
         sample_eval_data,
         mock_async_llm_client,
+        mock_async_llm_response,
         mocker,
     ):
         """Test async evaluation with mixed success/failure results in batch."""
         judge = Judge(
             id="mixed_judge",
             eval_task=multi_task_eval_task,
-            llm_client_enum=LLMClientEnum.OPENAI,
+            llm_client_enum=AsyncLLMClientEnum.OPENAI,
             model="gpt-4",
             prompt=sample_prompt,
         )
@@ -1726,18 +1701,11 @@ class TestJudgeAsync:
         # Create mixed results: some successful, some failed
         mock_success_data = type(
             "TestResponse", (), {"sentiment": "positive", "toxicity": "non_toxic"}
-        )()
-        mock_usage = LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-        mock_success_response = LLMResponse(
-            provider=LLMClientEnum.OPENAI,
-            model="gpt-4",
-            messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
-            usage=mock_usage,
         )
 
         # Mixed batch results: success, error (matching sample_eval_data which has 2 rows)
         mixed_results = [
-            (mock_success_data, mock_success_response),
+            (mock_success_data, mock_async_llm_response),
             LLMAPIError("API Error", LLMClientEnum.OPENAI, Exception("timeout")),
         ]
 

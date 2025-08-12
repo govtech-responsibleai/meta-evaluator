@@ -21,7 +21,7 @@ from openai.types.chat.chat_completion_user_message_param import (
 from pydantic import BaseModel
 
 from .async_client import AsyncLLMClient, AsyncLLMClientConfig
-from .enums import LLMClientEnum, RoleEnum
+from .enums import AsyncLLMClientEnum, RoleEnum
 from .exceptions import LLMAPIError
 from .models import LLMUsage, Message
 from .serialization import LLMClientSerializedState, OpenAISerializedState
@@ -166,7 +166,7 @@ class AsyncOpenAIClient(AsyncLLMClient):
         if not content:
             raise LLMAPIError(
                 f"Expected non-empty content from OpenAI response but got: {content}",
-                provider=LLMClientEnum.OPENAI,
+                provider=AsyncLLMClientEnum.OPENAI,
                 original_error=ValueError("Empty content in response"),
             )
 
@@ -175,7 +175,7 @@ class AsyncOpenAIClient(AsyncLLMClient):
         if not usage_data:
             raise LLMAPIError(
                 "Expected usage data from OpenAI response but got None",
-                provider=LLMClientEnum.OPENAI,
+                provider=AsyncLLMClientEnum.OPENAI,
                 original_error=ValueError("Missing usage data in response"),
             )
 
@@ -221,13 +221,13 @@ class AsyncOpenAIClient(AsyncLLMClient):
         return response, usage
 
     @property
-    def enum_value(self) -> LLMClientEnum:
-        """Return the unique LLMClientEnum value associated with this client.
+    def enum_value(self) -> AsyncLLMClientEnum:
+        """Return the unique AsyncLLMClientEnum value associated with this client.
 
         Returns:
-            LLMClientEnum: The OpenAI enum value.
+            AsyncLLMClientEnum: The OpenAI enum value.
         """
-        return LLMClientEnum.OPENAI
+        return AsyncLLMClientEnum.OPENAI
 
     async def _get_embedding(
         self, text_list: list[str], model: str

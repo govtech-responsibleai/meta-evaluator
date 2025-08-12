@@ -26,12 +26,8 @@ from meta_evaluator.llm_client.azureopenai_client import (
     AzureOpenAIClient,
     AzureOpenAIConfig,
 )
-from meta_evaluator.llm_client.models import (
-    LLMClientEnum,
-    LLMUsage,
-    Message,
-    RoleEnum,
-)
+from meta_evaluator.llm_client.enums import AsyncLLMClientEnum, LLMClientEnum
+from meta_evaluator.llm_client.models import LLMUsage, Message, RoleEnum
 from meta_evaluator.llm_client.openai_client import (
     OpenAIClient,
     OpenAIConfig,
@@ -219,9 +215,9 @@ class ConcreteTestAsyncLLMClient(AsyncLLMClient):
     """A concrete AsyncLLMClient subclass for testing."""
 
     @property
-    def enum_value(self) -> LLMClientEnum:
-        """Return the unique LLMClientEnum value for the test client."""
-        return LLMClientEnum.OPENAI
+    def enum_value(self) -> AsyncLLMClientEnum:
+        """Return the unique AsyncLLMClientEnum value for the test client."""
+        return AsyncLLMClientEnum.OPENAI
 
     async def _prompt(
         self, model: str, messages: list[Message], get_logprobs: bool

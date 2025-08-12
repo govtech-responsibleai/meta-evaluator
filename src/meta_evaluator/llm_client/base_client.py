@@ -12,7 +12,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel, StrictBool
 
-from .enums import ErrorType, LLMClientEnum, RoleEnum
+from .enums import AsyncLLMClientEnum, ErrorType, LLMClientEnum, RoleEnum
 from .exceptions import LLMValidationError
 from .models import (
     LLMResponse,
@@ -112,11 +112,11 @@ class BaseLLMClient(ABC):
 
     @property
     @abstractmethod
-    def enum_value(self) -> LLMClientEnum:
+    def enum_value(self) -> LLMClientEnum | AsyncLLMClientEnum:
         """Return the unique LLMClientEnum value associated with this client.
 
         Returns:
-            LLMClientEnum: The unique enumeration value associated with this client.
+            LLMClientEnum | AsyncLLMClientEnum: The unique enumeration value associated with this client.
         """
         raise NotImplementedError("Subclasses must implement this method")
 
