@@ -28,25 +28,25 @@ Usage:
 """
 
 import logging
+import re
 from abc import ABC, abstractmethod
 from typing import Optional, TypeVar
 
 from pydantic import BaseModel, StrictBool
+
+from .exceptions import LLMAPIError, LLMValidationError
 from .models import (
     ErrorType,
-    Message,
     LLMClientEnum,
     LLMResponse,
     LLMUsage,
+    Message,
     ParseError,
     ParseResult,
     RoleEnum,
     TagConfig,
 )
-from .exceptions import LLMAPIError, LLMValidationError
 from .serialization import LLMClientSerializedState
-import re
-
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound="LLMClientSerializedState")
@@ -133,7 +133,7 @@ class LLMClient(ABC):
 
         """
         self.config = config
-        self.logger = logging.getLogger(self.__class__.__module__)
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     @abstractmethod
     def _prompt(

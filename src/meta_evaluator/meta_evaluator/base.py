@@ -4,40 +4,42 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional, Literal, cast
+from typing import Literal, Optional, cast
+
 from pydantic import ValidationError
 
+from ..annotator.launcher import StreamlitLauncher
+from ..common.error_constants import (
+    INVALID_JSON_MSG,
+    INVALID_JSON_STRUCTURE_MSG,
+    STATE_FILE_NOT_FOUND_MSG,
+)
 from ..data import EvalData, SampleEvalData
 from ..data.serialization import DataMetadata
 from ..eval_task import EvalTask
 from ..eval_task.serialization import EvalTaskState
-from ..llm_client.models import LLMClientEnum
-from ..llm_client.LLM_client import LLMClient
-from ..llm_client.openai_client import OpenAIClient, OpenAIConfig
 from ..llm_client.azureopenai_client import AzureOpenAIClient, AzureOpenAIConfig
+from ..llm_client.client import LLMClient
+from ..llm_client.enums import LLMClientEnum
+from ..llm_client.openai_client import OpenAIClient, OpenAIConfig
 from ..llm_client.serialization import (
-    OpenAISerializedState,
     AzureOpenAISerializedState,
-)
-from ..annotator.launcher import StreamlitLauncher
-from .exceptions import (
-    DataAlreadyExistsException,
-    EvalTaskAlreadyExistsException,
-    DataFilenameExtensionMismatchException,
-    MissingConfigurationException,
-    EvalTaskNotSetException,
-    EvalDataNotSetException,
+    OpenAISerializedState,
 )
 from .clients import ClientsMixin
+from .exceptions import (
+    ClientNotFoundError,
+    DataAlreadyExistsError,
+    DataFormatError,
+    EvalDataNotFoundError,
+    EvalTaskAlreadyExistsError,
+    EvalTaskNotFoundError,
+    InvalidFileError,
+    MissingConfigurationError,
+)
 from .judge import JudgesMixin
 from .scoring import ScoringMixin
 from .serialization import MetaEvaluatorState
-
-
-# Error message constants
-INVALID_JSON_STRUCTURE_MSG = "Invalid JSON structure in state file"
-INVALID_JSON_MSG = "Invalid JSON in state file"
-STATE_FILE_NOT_FOUND_MSG = "State file not found"
 
 _OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY"
 _AZURE_OPENAI_API_KEY_ENV_VAR = "AZURE_OPENAI_API_KEY"
@@ -74,10 +76,11 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
     """Main class for managing evaluation workflows with LLM clients, data, and evaluation tasks.
 
     The MetaEvaluator provides a unified interface for:
+    - Managing the evaluation dataset
+    - Managing the evaluation task
     - Managing multiple LLM client configurations (OpenAI, Azure OpenAI)
-    - Loading and managing evaluation datasets
-    - Configuring evaluation tasks with support for both predefined outcomes and free form text outputs
     - Managing judges for evaluation
+    - Initialising the annotator interface
     - Loading judge and human annotation results
     - Comparing judge and human results using various scoring metrics
     - Serializing and deserializing complete evaluation states
@@ -125,15 +128,13 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
             overwrite: Whether to overwrite existing data. Defaults to False.
 
         Raises:
-            DataAlreadyExistsException: If data already exists and overwrite is False.
+            DataAlreadyExistsError: If data already exists and overwrite is False.
         """
-        logger = logging.getLogger(__name__)
-
         if self.data is not None and not overwrite:
-            raise DataAlreadyExistsException()
+            raise DataAlreadyExistsError()
 
         self.data = eval_data
-        logger.info(
+        self.logger.info(
             f"Added evaluation data '{eval_data.name}' with {len(eval_data.data)} rows"
         )
 
@@ -145,16 +146,14 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
             overwrite: Whether to overwrite existing evaluation task. Defaults to False.
 
         Raises:
-            EvalTaskAlreadyExistsException: If evaluation task already exists and overwrite is False.
+            EvalTaskAlreadyExistsError: If evaluation task already exists and overwrite is False.
         """
-        logger = logging.getLogger(__name__)
-
         if self.eval_task is not None and not overwrite:
-            raise EvalTaskAlreadyExistsException()
+            raise EvalTaskAlreadyExistsError()
 
         self.eval_task = eval_task
         task_names = list(eval_task.task_schemas.keys())
-        logger.info(
+        self.logger.info(
             f"Added evaluation task with {len(task_names)} task(s): {', '.join(task_names)}"
         )
 
@@ -190,25 +189,27 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
                 Must have extension matching data_format.
 
         Raises:
-            ValueError: If state_filename doesn't end with .json or if include_data=True
-                but data_format is None.
-            DataFilenameExtensionMismatchException: If data_filename extension
-                doesn't match data_format.
+            InvalidFileError: If state_filename doesn't end with .json
+            DataFormatError: If include_data=True but data_format is None, or
+                if data_filename extension doesn't match data_format.
         """
         # Validate state_filename ends with .json
         if not state_filename.endswith(".json"):
-            raise ValueError("state_filename must end with .json")
+            raise InvalidFileError("state_filename must end with .json")
 
         # Validate data_format when include_data is True
         if include_data and data_format is None:
-            raise ValueError("data_format must be specified when include_data=True")
+            raise DataFormatError(
+                "data_format must be specified when include_data=True"
+            )
 
         # Validate data_filename extension matches data_format
         if data_filename is not None and include_data and data_format is not None:
             expected_extension = data_format
             if not data_filename.endswith(f".{expected_extension}"):
-                raise DataFilenameExtensionMismatchException(
-                    data_filename, expected_extension, data_format
+                raise DataFormatError(
+                    f"Data filename '{data_filename}' must have extension '.{expected_extension}' "
+                    f"when data_format is '{data_format}'"
                 )
 
         # Extract base_name from state_filename
@@ -389,11 +390,11 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
             MetaEvaluator: A new MetaEvaluator instance loaded from the JSON state.
 
         Raises:
-            ValueError: If state_file doesn't end with .json or if the JSON structure is invalid.
+            InvalidFileError: If state_file doesn't end with .json or if the JSON structure is invalid.
         """
         # Validate state_filename ends with .json
         if not state_filename.endswith(".json"):
-            raise ValueError("state_filename must end with .json")
+            raise InvalidFileError("state_filename must end with .json")
 
         # Resolve state file path
         state_file_path = Path(project_dir) / state_filename
@@ -422,18 +423,17 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
             MetaEvaluatorState: The loaded and validated state object.
 
         Raises:
-            FileNotFoundError: If the state file doesn't exist.
-            ValueError: If the JSON structure is invalid.
+            InvalidFileError: If the state file doesn't exist or the JSON structure is invalid.
         """
         try:
             with open(state_file, "r") as f:
                 return MetaEvaluatorState.model_validate_json(f.read())
-        except FileNotFoundError:
-            raise FileNotFoundError(f"{STATE_FILE_NOT_FOUND_MSG}: {state_file}")
+        except FileNotFoundError as e:
+            raise InvalidFileError(f"{STATE_FILE_NOT_FOUND_MSG}: {state_file}", str(e))
         except ValidationError as e:
-            raise ValueError(f"{INVALID_JSON_STRUCTURE_MSG}: {e}")
+            raise InvalidFileError(INVALID_JSON_STRUCTURE_MSG, str(e))
         except json.JSONDecodeError as e:
-            raise ValueError(f"{INVALID_JSON_MSG}: {e}")
+            raise InvalidFileError(INVALID_JSON_MSG, str(e))
 
     @classmethod
     def _deserialize(
@@ -517,13 +517,13 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
             azure_openai_api_key: API key for Azure OpenAI clients.
 
         Raises:
-            ValueError: If client type is not supported.
-            MissingConfigurationException: If required API keys are missing.
+            ClientNotFoundError: If client type is not supported.
+            MissingConfigurationError: If required API keys are missing.
         """
         match client_enum:
             case LLMClientEnum.OPENAI:
                 if not openai_api_key:
-                    raise MissingConfigurationException(
+                    raise MissingConfigurationError(
                         "api_key (or OPENAI_API_KEY environment variable)"
                     )
                 state = OpenAISerializedState.model_validate(client_data)
@@ -532,7 +532,7 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
                 self.client_registry[client_enum] = client
             case LLMClientEnum.AZURE_OPENAI:
                 if not azure_openai_api_key:
-                    raise MissingConfigurationException(
+                    raise MissingConfigurationError(
                         "api_key (or AZURE_OPENAI_API_KEY environment variable)"
                     )
                 state = AzureOpenAISerializedState.model_validate(client_data)
@@ -540,7 +540,7 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
                 client = AzureOpenAIClient(config)
                 self.client_registry[client_enum] = client
             case _:
-                raise ValueError(f"Unsupported client type: {client_enum}")
+                raise ClientNotFoundError(client_enum.value)
 
     def _reconstruct_task(self, state: EvalTaskState) -> None:
         """Reconstruct the evaluation task from serialized data.
@@ -593,15 +593,17 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
                 Only used when use_ngrok=True.
 
         Raises:
-            EvalTaskNotSetException: If the evaluation task is not set.
-            EvalDataNotSetException: If the evaluation data is not set.
+            EvalTaskNotFoundError: If the evaluation task is not set.
+            EvalDataNotFoundError: If the evaluation data is not set.
         """
         # Validate prerequisites
         if self.eval_task is None:
-            raise EvalTaskNotSetException()
+            raise EvalTaskNotFoundError(
+                "eval_task must be set before launching annotator"
+            )
 
         if self.data is None:
-            raise EvalDataNotSetException()
+            raise EvalDataNotFoundError("data must be set before launching annotator")
 
         # Create launcher with data and task from MetaEvaluator
         launcher = StreamlitLauncher(

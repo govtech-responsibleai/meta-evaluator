@@ -1,9 +1,10 @@
-"""Custom exceptions for MetaEvaluator."""
+"""Custom exceptions for MetaEvaluator organized by category."""
 
 from abc import ABC
 
 
-class MetaEvaluatorException(Exception, ABC):
+# Base exception class
+class MetaEvaluatorError(Exception, ABC):
     """Base exception class for MetaEvaluator errors."""
 
     def __init__(self, message: str):
@@ -16,8 +17,15 @@ class MetaEvaluatorException(Exception, ABC):
         super().__init__(self.message)
 
 
-class MissingConfigurationException(MetaEvaluatorException):
-    """Exception raised when required configuration is missing."""
+# Configuration-related errors
+class MetaEvaluatorConfigurationError(MetaEvaluatorError):
+    """Base class for configuration-related errors."""
+
+    pass
+
+
+class MissingConfigurationError(MetaEvaluatorConfigurationError):
+    """Error raised when required configuration is missing."""
 
     def __init__(self, parameter_name: str):
         """Initialize with missing parameter name.
@@ -28,52 +36,8 @@ class MissingConfigurationException(MetaEvaluatorException):
         super().__init__(f"Missing required configuration: {parameter_name}")
 
 
-class ClientAlreadyExistsException(MetaEvaluatorException):
-    """Exception raised when trying to add a client that already exists."""
-
-    def __init__(self, client_type: str):
-        """Initialize with client type.
-
-        Args:
-            client_type: The type of client that already exists.
-        """
-        super().__init__(
-            f"Client of type {client_type} already exists. Use override_existing=True to replace it."
-        )
-
-
-class ClientNotFoundException(MetaEvaluatorException):
-    """Exception raised when trying to get a client that doesn't exist."""
-
-    def __init__(self, client_type: str):
-        """Initialize with client type.
-
-        Args:
-            client_type: The type of client that was not found.
-        """
-        super().__init__(f"Client of type {client_type} not found in registry.")
-
-
-class DataAlreadyExistsException(MetaEvaluatorException):
-    """Exception raised when trying to add data that already exists."""
-
-    def __init__(self):
-        """Initialize the exception."""
-        super().__init__("Data already exists. Use overwrite=True to replace it.")
-
-
-class EvalTaskAlreadyExistsException(MetaEvaluatorException):
-    """Exception raised when trying to add evaluation task that already exists."""
-
-    def __init__(self):
-        """Initialize the exception."""
-        super().__init__(
-            "Evaluation task already exists. Use overwrite=True to replace it."
-        )
-
-
-class DataFilenameExtensionMismatchException(MetaEvaluatorException):
-    """Exception raised when data filename extension doesn't match data format."""
+class DataFilenameExtensionMismatchError(MetaEvaluatorConfigurationError):
+    """Error raised when data filename extension doesn't match data format."""
 
     def __init__(self, filename: str, expected_extension: str, data_format: str):
         """Initialize with filename and expected extension.
@@ -89,34 +53,8 @@ class DataFilenameExtensionMismatchException(MetaEvaluatorException):
         )
 
 
-class JudgeAlreadyExistsException(MetaEvaluatorException):
-    """Exception raised when trying to add a judge that already exists."""
-
-    def __init__(self, judge_id: str):
-        """Initialize with judge ID.
-
-        Args:
-            judge_id: The ID of the judge that already exists.
-        """
-        super().__init__(
-            f"Judge with ID '{judge_id}' already exists. Use override_existing=True to replace it."
-        )
-
-
-class JudgeNotFoundException(MetaEvaluatorException):
-    """Exception raised when trying to get a judge that doesn't exist."""
-
-    def __init__(self, judge_id: str):
-        """Initialize with judge ID.
-
-        Args:
-            judge_id: The ID of the judge that was not found.
-        """
-        super().__init__(f"Judge with ID '{judge_id}' not found in registry.")
-
-
-class InvalidYAMLStructureException(MetaEvaluatorException):
-    """Exception raised when YAML structure is invalid."""
+class InvalidYAMLStructureError(MetaEvaluatorConfigurationError):
+    """Error raised when YAML structure is invalid."""
 
     def __init__(self, details: str):
         """Initialize with validation details.
@@ -127,8 +65,8 @@ class InvalidYAMLStructureException(MetaEvaluatorException):
         super().__init__(f"Invalid YAML structure: {details}")
 
 
-class PromptFileNotFoundException(MetaEvaluatorException):
-    """Exception raised when a prompt file referenced in YAML cannot be found."""
+class PromptFileNotFoundError(MetaEvaluatorConfigurationError):
+    """Error raised when a prompt file referenced in YAML cannot be found."""
 
     def __init__(self, file_path: str):
         """Initialize with file path.
@@ -139,32 +77,135 @@ class PromptFileNotFoundException(MetaEvaluatorException):
         super().__init__(f"Prompt file not found: {file_path}")
 
 
-class EvalTaskNotSetException(MetaEvaluatorException):
-    """Exception raised when trying to run judges without an evaluation task."""
+class DataAlreadyExistsError(MetaEvaluatorConfigurationError):
+    """Error raised when trying to add data that already exists."""
 
     def __init__(self):
         """Initialize the exception."""
-        super().__init__("eval_task must be set before running judges")
+        super().__init__("Data already exists. Use overwrite=True to replace it.")
 
 
-class EvalDataNotSetException(MetaEvaluatorException):
-    """Exception raised when trying to run judges without evaluation data."""
-
-    def __init__(self):
-        """Initialize the exception."""
-        super().__init__("data must be set before running judges")
-
-
-class NoJudgesAvailableException(MetaEvaluatorException):
-    """Exception raised when no judges are available to run."""
+class EvalTaskAlreadyExistsError(MetaEvaluatorConfigurationError):
+    """Error raised when trying to add evaluation task that already exists."""
 
     def __init__(self):
         """Initialize the exception."""
-        super().__init__("No judges available to run")
+        super().__init__(
+            "Evaluation task already exists. Use overwrite=True to replace it."
+        )
 
 
-class LLMClientNotConfiguredException(MetaEvaluatorException):
-    """Exception raised when required LLM client is not configured."""
+class EvalDataNotFoundError(MetaEvaluatorConfigurationError):
+    """Error raised when evaluation data is not found."""
+
+    def __init__(self, message: str):
+        """Initialize with message.
+
+        Args:
+            message: The error message.
+        """
+        super().__init__(f"Evaluation data not found. {message}")
+
+
+class EvalTaskNotFoundError(MetaEvaluatorConfigurationError):
+    """Error raised when evaluation task is not found."""
+
+    def __init__(self, message: str):
+        """Initialize with message.
+
+        Args:
+            message: The error message.
+        """
+        super().__init__(f"Evaluation task not found. {message}")
+
+
+class DataFormatError(MetaEvaluatorConfigurationError):
+    """Error raised when data format is invalid or incompatible."""
+
+    def __init__(self, message: str):
+        """Initialize with error message.
+
+        Args:
+            message: The error message describing the data format issue.
+        """
+        super().__init__(f"Data format error: {message}")
+
+
+class InvalidFileError(MetaEvaluatorConfigurationError):
+    """Error raised when a file is invalid or corrupted."""
+
+    def __init__(self, file_path: str, reason: str = ""):
+        """Initialize with file path and optional reason.
+
+        Args:
+            file_path: The path to the invalid file.
+            reason: Optional reason why the file is invalid.
+        """
+        message = f"Invalid file: {file_path}"
+        if reason:
+            message += f" - {reason}"
+        super().__init__(message)
+
+
+class InsufficientDataError(MetaEvaluatorConfigurationError):
+    """Error raised when there is insufficient data for an operation."""
+
+    def __init__(self, message: str):
+        """Initialize with error message.
+
+        Args:
+            message: The error message describing the insufficient data issue.
+        """
+        super().__init__(f"Insufficient data: {message}")
+
+
+class IncompatibleTaskError(MetaEvaluatorConfigurationError):
+    """Error raised when a task is incompatible with the current configuration."""
+
+    def __init__(self, message: str):
+        """Initialize with error message.
+
+        Args:
+            message: The error message describing the incompatibility.
+        """
+        super().__init__(f"Incompatible task: {message}")
+
+
+# Client-related errors
+class MetaEvaluatorClientError(MetaEvaluatorError):
+    """Base class for client-related errors."""
+
+    pass
+
+
+class ClientAlreadyExistsError(MetaEvaluatorClientError):
+    """Error raised when trying to add a client that already exists."""
+
+    def __init__(self, client_type: str):
+        """Initialize with client type.
+
+        Args:
+            client_type: The type of client that already exists.
+        """
+        super().__init__(
+            f"Client of type {client_type} already exists. Use override_existing=True to replace it."
+        )
+
+
+class ClientNotFoundError(MetaEvaluatorClientError):
+    """Error raised when trying to get a client that doesn't exist."""
+
+    def __init__(self, client_type: str):
+        """Initialize with client type.
+
+        Args:
+            client_type: The type of client that was not found.
+        """
+        super().__init__(f"Client of type {client_type} not found in registry.")
+
+
+class LLMClientNotConfiguredError(MetaEvaluatorClientError):
+    """Error raised when required LLM client is not configured."""
 
     def __init__(self, judge_id: str, required_client: str):
         """Initialize with judge ID and required client type.
@@ -179,8 +220,41 @@ class LLMClientNotConfiguredException(MetaEvaluatorException):
         )
 
 
-class JudgeExecutionException(MetaEvaluatorException):
-    """Exception raised when judge execution fails."""
+# Judge-related errors
+class MetaEvaluatorJudgeError(MetaEvaluatorError):
+    """Base class for judge-related errors."""
+
+    pass
+
+
+class JudgeAlreadyExistsError(MetaEvaluatorJudgeError):
+    """Error raised when trying to add a judge that already exists."""
+
+    def __init__(self, judge_id: str):
+        """Initialize with judge ID.
+
+        Args:
+            judge_id: The ID of the judge that already exists.
+        """
+        super().__init__(
+            f"Judge with ID '{judge_id}' already exists. Use override_existing=True to replace it."
+        )
+
+
+class JudgeNotFoundError(MetaEvaluatorJudgeError):
+    """Error raised when trying to get a judge that doesn't exist."""
+
+    def __init__(self, judge_id: str):
+        """Initialize with judge ID.
+
+        Args:
+            judge_id: The ID of the judge that was not found.
+        """
+        super().__init__(f"Judge with ID '{judge_id}' not found in registry.")
+
+
+class JudgeExecutionError(MetaEvaluatorJudgeError):
+    """Error raised when judge execution fails."""
 
     def __init__(self, judge_id: str, error: str):
         """Initialize with judge ID and error details.
@@ -192,8 +266,8 @@ class JudgeExecutionException(MetaEvaluatorException):
         super().__init__(f"Judge '{judge_id}' execution failed: {error}")
 
 
-class ResultsSaveException(MetaEvaluatorException):
-    """Exception raised when saving judge results fails."""
+class ResultsSaveError(MetaEvaluatorJudgeError):
+    """Error raised when saving judge results fails."""
 
     def __init__(self, judge_id: str, run_id: str, error: str):
         """Initialize with judge ID, run ID, and error details.
@@ -206,3 +280,22 @@ class ResultsSaveException(MetaEvaluatorException):
         super().__init__(
             f"Failed to save results for judge '{judge_id}' in run '{run_id}': {error}"
         )
+
+
+# Scoring-related errors
+class MetaEvaluatorScoringError(MetaEvaluatorError):
+    """Base class for scoring-related errors."""
+
+    pass
+
+
+class ScoringConfigError(MetaEvaluatorScoringError):
+    """Error raised when scoring configuration is invalid."""
+
+    def __init__(self, message: str):
+        """Initialize with error message.
+
+        Args:
+            message: The error message describing the configuration issue.
+        """
+        super().__init__(f"Scoring configuration error: {message}")

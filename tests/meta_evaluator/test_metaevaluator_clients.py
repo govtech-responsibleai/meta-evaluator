@@ -1,72 +1,27 @@
 """Test suite for the MetaEvaluator client management."""
 
 import json
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
+from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
+from meta_evaluator.llm_client.enums import LLMClientEnum
+from meta_evaluator.llm_client.openai_client import OpenAIClient
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.meta_evaluator.exceptions import (
-    MissingConfigurationException,
-    ClientAlreadyExistsException,
-    ClientNotFoundException,
+    ClientAlreadyExistsError,
+    ClientNotFoundError,
+    MissingConfigurationError,
 )
-from meta_evaluator.llm_client.models import LLMClientEnum
-from meta_evaluator.llm_client.openai_client import OpenAIClient
-from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
-from tests.conftest import create_mock_openai_client, create_mock_azure_openai_client
 
 
 @pytest.mark.integration
 class TestMetaEvaluatorClients:
     """Test suite for MetaEvaluator client management functionality."""
 
-    # === Client-specific Fixtures ===
-
-    @pytest.fixture
-    def clean_environment(self, monkeypatch):
-        """Provides a clean environment without OpenAI-related environment variables.
-
-        Args:
-            monkeypatch: pytest fixture for environment variable manipulation.
-        """
-        # Remove all OpenAI and Azure OpenAI related environment variables
-        env_vars_to_remove = [
-            "OPENAI_API_KEY",
-            "OPENAI_DEFAULT_MODEL",
-            "OPENAI_DEFAULT_EMBEDDING_MODEL",
-            "AZURE_OPENAI_API_KEY",
-            "AZURE_OPENAI_ENDPOINT",
-            "AZURE_OPENAI_API_VERSION",
-            "AZURE_OPENAI_DEFAULT_MODEL",
-            "AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL",
-        ]
-        for var in env_vars_to_remove:
-            monkeypatch.delenv(var, raising=False)
-
-    @pytest.fixture
-    def openai_environment(self, monkeypatch):
-        """Provides environment with all OpenAI variables set.
-
-        Args:
-            monkeypatch: pytest fixture for environment variable manipulation.
-        """
-        monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
-        monkeypatch.setenv("OPENAI_DEFAULT_MODEL", "gpt-4")
-        monkeypatch.setenv("OPENAI_DEFAULT_EMBEDDING_MODEL", "text-embedding-3-large")
-
-    @pytest.fixture
-    def azure_openai_environment(self, monkeypatch):
-        """Provides environment with all Azure OpenAI variables set.
-
-        Args:
-            monkeypatch: pytest fixture for environment variable manipulation.
-        """
-        monkeypatch.setenv("AZURE_OPENAI_API_KEY", "test-azure-key")
-        monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://test.openai.azure.com")
-        monkeypatch.setenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-        monkeypatch.setenv("AZURE_OPENAI_DEFAULT_MODEL", "gpt-4")
-        monkeypatch.setenv(
-            "AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL", "text-embedding-ada-002"
-        )
+    # === Helper Methods ===
+    # Note: Client environment fixtures are now available from conftest.py
 
     # === Helper Methods ===
 
@@ -149,15 +104,15 @@ class TestMetaEvaluatorClients:
             assert call_args.default_embedding_model == "param-embedding"
 
     def test_add_openai_missing_api_key(self, meta_evaluator, clean_environment):
-        """Test MissingConfigurationException when api_key is missing."""
-        with pytest.raises(MissingConfigurationException, match="api_key"):
+        """Test MissingConfigurationError when api_key is missing."""
+        with pytest.raises(MissingConfigurationError, match="api_key"):
             meta_evaluator.add_openai(
                 default_model="gpt-4", default_embedding_model="text-embedding-3-large"
             )
 
     def test_add_openai_missing_default_model(self, meta_evaluator, clean_environment):
-        """Test MissingConfigurationException when default_model is missing."""
-        with pytest.raises(MissingConfigurationException, match="default_model"):
+        """Test MissingConfigurationError when default_model is missing."""
+        with pytest.raises(MissingConfigurationError, match="default_model"):
             meta_evaluator.add_openai(
                 api_key="test-key", default_embedding_model="text-embedding-3-large"
             )
@@ -165,23 +120,21 @@ class TestMetaEvaluatorClients:
     def test_add_openai_missing_default_embedding_model(
         self, meta_evaluator, clean_environment
     ):
-        """Test MissingConfigurationException when default_embedding_model is missing."""
-        with pytest.raises(
-            MissingConfigurationException, match="default_embedding_model"
-        ):
+        """Test MissingConfigurationError when default_embedding_model is missing."""
+        with pytest.raises(MissingConfigurationError, match="default_embedding_model"):
             meta_evaluator.add_openai(api_key="test-key", default_model="gpt-4")
 
     def test_add_openai_client_already_exists_no_override(
         self, meta_evaluator, openai_environment
     ):
-        """Test ClientAlreadyExistsException when client exists and override_existing is False."""
+        """Test ClientAlreadyExistsError when client exists and override_existing is False."""
         with patch("meta_evaluator.meta_evaluator.clients.OpenAIClient"):
             # Add client first time
             meta_evaluator.add_openai()
 
             # Try to add again without override
             with pytest.raises(
-                ClientAlreadyExistsException, match="OPENAI.*already exists"
+                ClientAlreadyExistsError, match="OPENAI.*already exists"
             ):
                 meta_evaluator.add_openai()
 
@@ -211,7 +164,7 @@ class TestMetaEvaluatorClients:
         self, meta_evaluator, clean_environment
     ):
         """Test that empty string parameters are treated as missing."""
-        with pytest.raises(MissingConfigurationException, match="api_key"):
+        with pytest.raises(MissingConfigurationError, match="api_key"):
             meta_evaluator.add_openai(
                 api_key="",  # Empty string should be treated as missing
                 default_model="gpt-4",
@@ -259,8 +212,8 @@ class TestMetaEvaluatorClients:
             assert LLMClientEnum.AZURE_OPENAI in meta_evaluator.client_registry
 
     def test_add_azure_openai_missing_api_key(self, meta_evaluator, clean_environment):
-        """Test MissingConfigurationException when api_key is missing."""
-        with pytest.raises(MissingConfigurationException, match="api_key"):
+        """Test MissingConfigurationError when api_key is missing."""
+        with pytest.raises(MissingConfigurationError, match="api_key"):
             meta_evaluator.add_azure_openai(
                 endpoint="https://test.openai.azure.com",
                 api_version="2024-02-15-preview",
@@ -269,8 +222,8 @@ class TestMetaEvaluatorClients:
             )
 
     def test_add_azure_openai_missing_endpoint(self, meta_evaluator, clean_environment):
-        """Test MissingConfigurationException when endpoint is missing."""
-        with pytest.raises(MissingConfigurationException, match="endpoint"):
+        """Test MissingConfigurationError when endpoint is missing."""
+        with pytest.raises(MissingConfigurationError, match="endpoint"):
             meta_evaluator.add_azure_openai(
                 api_key="test-key",
                 api_version="2024-02-15-preview",
@@ -281,8 +234,8 @@ class TestMetaEvaluatorClients:
     def test_add_azure_openai_missing_api_version(
         self, meta_evaluator, clean_environment
     ):
-        """Test MissingConfigurationException when api_version is missing."""
-        with pytest.raises(MissingConfigurationException, match="api_version"):
+        """Test MissingConfigurationError when api_version is missing."""
+        with pytest.raises(MissingConfigurationError, match="api_version"):
             meta_evaluator.add_azure_openai(
                 api_key="test-key",
                 endpoint="https://test.openai.azure.com",
@@ -293,8 +246,8 @@ class TestMetaEvaluatorClients:
     def test_add_azure_openai_missing_default_model(
         self, meta_evaluator, clean_environment
     ):
-        """Test MissingConfigurationException when default_model is missing."""
-        with pytest.raises(MissingConfigurationException, match="default_model"):
+        """Test MissingConfigurationError when default_model is missing."""
+        with pytest.raises(MissingConfigurationError, match="default_model"):
             meta_evaluator.add_azure_openai(
                 api_key="test-key",
                 endpoint="https://test.openai.azure.com",
@@ -305,10 +258,8 @@ class TestMetaEvaluatorClients:
     def test_add_azure_openai_missing_default_embedding_model(
         self, meta_evaluator, clean_environment
     ):
-        """Test MissingConfigurationException when default_embedding_model is missing."""
-        with pytest.raises(
-            MissingConfigurationException, match="default_embedding_model"
-        ):
+        """Test MissingConfigurationError when default_embedding_model is missing."""
+        with pytest.raises(MissingConfigurationError, match="default_embedding_model"):
             meta_evaluator.add_azure_openai(
                 api_key="test-key",
                 endpoint="https://test.openai.azure.com",
@@ -319,14 +270,14 @@ class TestMetaEvaluatorClients:
     def test_add_azure_openai_client_already_exists_no_override(
         self, meta_evaluator, azure_openai_environment
     ):
-        """Test ClientAlreadyExistsException when Azure client exists and override_existing is False."""
+        """Test ClientAlreadyExistsError when Azure client exists and override_existing is False."""
         with patch("meta_evaluator.meta_evaluator.clients.AzureOpenAIClient"):
             # Add client first time
             meta_evaluator.add_azure_openai()
 
             # Try to add again without override
             with pytest.raises(
-                ClientAlreadyExistsException, match="AZURE_OPENAI.*already exists"
+                ClientAlreadyExistsError, match="AZURE_OPENAI.*already exists"
             ):
                 meta_evaluator.add_azure_openai()
 
@@ -386,31 +337,31 @@ class TestMetaEvaluatorClients:
             assert retrieved_client == mock_client
 
     def test_get_client_nonexistent_client(self, meta_evaluator):
-        """Test ClientNotFoundException when requesting non-existent client."""
+        """Test ClientNotFoundError when requesting non-existent client."""
         # (?i) makes the regex case-insensitive to match both "OPENAI" and "openai"
-        with pytest.raises(ClientNotFoundException, match="(?i)OPENAI.*not found"):
+        with pytest.raises(ClientNotFoundError, match="(?i)OPENAI.*not found"):
             meta_evaluator.get_client(LLMClientEnum.OPENAI)
 
     def test_get_client_from_empty_registry(self, meta_evaluator):
-        """Test ClientNotFoundException when registry is empty."""
+        """Test ClientNotFoundError when registry is empty."""
         assert meta_evaluator.client_registry == {}
 
         # (?i) makes the regex case-insensitive to match both "GEMINI" and "gemini"
-        with pytest.raises(ClientNotFoundException, match="(?i)GEMINI.*not found"):
+        with pytest.raises(ClientNotFoundError, match="(?i)GEMINI.*not found"):
             meta_evaluator.get_client(LLMClientEnum.GEMINI)
 
     def test_get_client_different_enum_values(self, meta_evaluator):
-        """Test ClientNotFoundException for different enum values."""
+        """Test ClientNotFoundError for different enum values."""
         # Test all enum values that don't exist
         for client_enum in [LLMClientEnum.GEMINI, LLMClientEnum.ANTHROPIC]:
             with pytest.raises(
-                ClientNotFoundException, match=f"{client_enum.value}.*not found"
+                ClientNotFoundError, match=f"{client_enum.value}.*not found"
             ):
                 meta_evaluator.get_client(client_enum)
 
     # === load_state() Method Tests ===
 
-    def test_load_state_with_openai_client(self, tmp_path):
+    def test_load_state_with_openai_client(self, tmp_path, openai_environment):
         """Test loading MetaEvaluator with OpenAI client from JSON."""
         # First save a state with OpenAI client
         with patch(
@@ -459,7 +410,9 @@ class TestMetaEvaluatorClients:
             assert LLMClientEnum.OPENAI in loaded_evaluator.client_registry
             assert loaded_evaluator.data is None
 
-    def test_load_state_with_azure_openai_client(self, tmp_path):
+    def test_load_state_with_azure_openai_client(
+        self, tmp_path, azure_openai_environment
+    ):
         """Test loading MetaEvaluator with Azure OpenAI client from JSON."""
         with patch(
             "meta_evaluator.meta_evaluator.clients.AzureOpenAIClient"
@@ -514,7 +467,7 @@ class TestMetaEvaluatorClients:
             assert loaded_evaluator.data is None
 
     def test_load_state_missing_api_keys(self, tmp_path, clean_environment):
-        """Test MissingConfigurationException when API keys are missing."""
+        """Test MissingConfigurationError when API keys are missing."""
         # Create valid state file with OpenAI client
         state_data = {
             "version": "1.0",
@@ -535,7 +488,7 @@ class TestMetaEvaluatorClients:
         with open(state_file, "w") as f:
             json.dump(state_data, f)
 
-        with pytest.raises(MissingConfigurationException, match="api_key"):
+        with pytest.raises(MissingConfigurationError, match="api_key"):
             MetaEvaluator.load_state(str(tmp_path), "test.json")
 
     def test_load_state_with_custom_api_keys(self, tmp_path):
@@ -605,12 +558,14 @@ class TestMetaEvaluatorClients:
         assert serialized == {}
         assert isinstance(serialized, dict)
 
-    def test_serialize_client_registry_with_openai_client(self, meta_evaluator):
+    def test_serialize_client_registry_with_openai_client(
+        self, meta_evaluator, mock_openai_client
+    ):
         """Test _serialize_client_registry with OpenAI client present."""
         with patch(
             "meta_evaluator.meta_evaluator.clients.OpenAIClient"
         ) as mock_client_class:
-            mock_client = create_mock_openai_client()
+            mock_client = mock_openai_client
             mock_client_class.return_value = mock_client
 
             meta_evaluator.add_openai(
@@ -625,7 +580,9 @@ class TestMetaEvaluatorClients:
             assert serialized["openai"]["default_model"] == "gpt-4"
             assert "api_key" not in str(serialized)
 
-    def test_serialize_client_registry_with_both_clients(self, meta_evaluator):
+    def test_serialize_client_registry_with_both_clients(
+        self, meta_evaluator, mock_openai_client, mock_azure_openai_client
+    ):
         """Test _serialize_client_registry with both OpenAI and Azure clients."""
         with (
             patch(
@@ -635,11 +592,8 @@ class TestMetaEvaluatorClients:
                 "meta_evaluator.meta_evaluator.clients.AzureOpenAIClient"
             ) as mock_azure_class,
         ):
-            mock_openai_client = create_mock_openai_client()
             mock_openai_class.return_value = mock_openai_client
-
-            mock_azure_client = create_mock_azure_openai_client()
-            mock_azure_class.return_value = mock_azure_client
+            mock_azure_class.return_value = mock_azure_openai_client
 
             meta_evaluator.add_openai(
                 api_key="test-key",
@@ -663,7 +617,7 @@ class TestMetaEvaluatorClients:
 
     def test_serialize_single_client_delegates_to_config(self, meta_evaluator):
         """Test _serialize_single_client delegates to client config serialize method."""
-        from meta_evaluator.llm_client.LLM_client import LLMClient, LLMClientConfig
+        from meta_evaluator.llm_client.client import LLMClient, LLMClientConfig
         from meta_evaluator.llm_client.serialization import MockLLMClientSerializedState
 
         # Create mock config with serialize method
@@ -695,7 +649,9 @@ class TestMetaEvaluatorClients:
     def test_save_with_multiple_clients_and_sample_data(
         self,
         meta_evaluator,
-        mock_sample_eval_data,
+        sample_eval_data,
+        mock_openai_client,
+        mock_azure_openai_client,
     ):
         """Test saving state with multiple clients and SampleEvalData together."""
         with (
@@ -707,14 +663,10 @@ class TestMetaEvaluatorClients:
             ) as mock_azure_class,
         ):
             # Set up OpenAI client
-            mock_openai_client = create_mock_openai_client(supports_logprobs=False)
             mock_openai_class.return_value = mock_openai_client
 
             # Set up Azure client
-            mock_azure_client = create_mock_azure_openai_client(
-                supports_structured_output=False
-            )
-            mock_azure_class.return_value = mock_azure_client
+            mock_azure_class.return_value = mock_azure_openai_client
 
             # Add both clients and sample data
             meta_evaluator.add_openai(
@@ -729,7 +681,7 @@ class TestMetaEvaluatorClients:
                 default_model="gpt-4",
                 default_embedding_model="text-embedding-ada-002",
             )
-            meta_evaluator.add_data(mock_sample_eval_data)
+            meta_evaluator.add_data(sample_eval_data)
 
             # Save state
             meta_evaluator.save_state(
@@ -762,8 +714,8 @@ class TestMetaEvaluatorClients:
             data_config = state_data["data"]
             assert data_config["type"] == "SampleEvalData"
             assert data_config["sample_name"] == "Test Sample"
-            assert data_config["stratification_columns"] == ["topic", "difficulty"]
-            assert data_config["sample_percentage"] == 0.3
+            assert data_config["stratification_columns"] == ["category"]
+            assert data_config["sample_percentage"] == 0.5
             assert data_config["seed"] == 42
             assert data_config["sampling_method"] == "stratified_by_columns"
             assert data_config["data_format"] == "csv"
@@ -772,7 +724,7 @@ class TestMetaEvaluatorClients:
 
     def test_api_key_security_assertion_would_trigger(self, meta_evaluator):
         """Test that the security assertion would catch API key in serialized data."""
-        from meta_evaluator.llm_client.LLM_client import LLMClient, LLMClientConfig
+        from meta_evaluator.llm_client.client import LLMClient, LLMClientConfig
 
         # Create a mock config that returns a state containing "api_key" (which should never happen)
         mock_config = MagicMock(spec=LLMClientConfig)
@@ -882,6 +834,7 @@ class TestMetaEvaluatorClients:
         meta_evaluator,
         sample_eval_data,
         basic_eval_task,
+        openai_environment,
     ):
         """Test adding OpenAI client, data, and evaluation task together, verify all exist independently."""
         with patch(
@@ -1005,7 +958,9 @@ class TestMetaEvaluatorClients:
 
     # === Client Registry Integrity Tests ===
 
-    def test_add_data_preserves_client_registry(self, meta_evaluator, sample_eval_data):
+    def test_add_data_preserves_client_registry(
+        self, meta_evaluator, sample_eval_data, openai_environment
+    ):
         """Test that adding data doesn't affect client registry."""
         with patch(
             "meta_evaluator.meta_evaluator.clients.OpenAIClient"
@@ -1029,7 +984,7 @@ class TestMetaEvaluatorClients:
             assert meta_evaluator.data == sample_eval_data
 
     def test_add_eval_task_preserves_client_registry(
-        self, meta_evaluator, basic_eval_task
+        self, meta_evaluator, basic_eval_task, openai_environment
     ):
         """Test that adding evaluation task doesn't affect client registry."""
         with patch(
@@ -1064,8 +1019,8 @@ class TestMetaEvaluatorClients:
         monkeypatch.setenv("OPENAI_DEFAULT_MODEL", "")
         monkeypatch.setenv("OPENAI_DEFAULT_EMBEDDING_MODEL", "")
 
-        # Should still raise MissingConfigurationException for api_key
-        with pytest.raises(MissingConfigurationException, match="api_key"):
+        # Should still raise MissingConfigurationError for api_key
+        with pytest.raises(MissingConfigurationError, match="api_key"):
             meta_evaluator.add_openai()
 
     def test_partial_environment_variables(
@@ -1077,9 +1032,7 @@ class TestMetaEvaluatorClients:
         monkeypatch.setenv("OPENAI_DEFAULT_MODEL", "gpt-4")
         # Missing OPENAI_DEFAULT_EMBEDDING_MODEL
 
-        with pytest.raises(
-            MissingConfigurationException, match="default_embedding_model"
-        ):
+        with pytest.raises(MissingConfigurationError, match="default_embedding_model"):
             meta_evaluator.add_openai()
 
     def test_type_annotations_and_return_types(

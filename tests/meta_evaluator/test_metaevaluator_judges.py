@@ -1,24 +1,24 @@
 """Test suite for the MetaEvaluator judge management."""
 
-import pytest
 from datetime import datetime
 from unittest.mock import Mock, patch
-from meta_evaluator.meta_evaluator.exceptions import (
-    JudgeAlreadyExistsException,
-    JudgeNotFoundException,
-    InvalidYAMLStructureException,
-    PromptFileNotFoundException,
-    EvalTaskNotSetException,
-    EvalDataNotSetException,
-    NoJudgesAvailableException,
-    LLMClientNotConfiguredException,
-    JudgeExecutionException,
-    ResultsSaveException,
-)
+
 import polars as pl
-from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.llm_client.models import LLMClientEnum
+import pytest
+
 from meta_evaluator.common.models import Prompt
+from meta_evaluator.llm_client.enums import LLMClientEnum
+from meta_evaluator.meta_evaluator.exceptions import (
+    EvalDataNotFoundError,
+    EvalTaskNotFoundError,
+    InvalidYAMLStructureError,
+    JudgeAlreadyExistsError,
+    JudgeExecutionError,
+    JudgeNotFoundError,
+    LLMClientNotConfiguredError,
+    PromptFileNotFoundError,
+    ResultsSaveError,
+)
 from meta_evaluator.results import JudgeResults
 
 
@@ -78,69 +78,6 @@ class TestMetaEvaluatorJudges:
         )
         return meta_evaluator.judge_registry[judge_id]
 
-    # === Judge-specific Fixtures ===
-
-    @pytest.fixture
-    def meta_evaluator_with_task(self, meta_evaluator, basic_eval_task):
-        """Provides a MetaEvaluator with eval_task set.
-
-        Args:
-            meta_evaluator: The MetaEvaluator instance to modify.
-            basic_eval_task: The basic evaluation task to add.
-
-        Returns:
-            MetaEvaluator: The modified MetaEvaluator instance.
-        """
-        meta_evaluator.add_eval_task(basic_eval_task)
-        return meta_evaluator
-
-    @pytest.fixture
-    def meta_evaluator_with_judges_and_data(
-        self, meta_evaluator, sample_prompt, sample_eval_data, mock_openai_client
-    ):
-        """Provides a MetaEvaluator with mock judges and data configured.
-
-        Returns:
-            MetaEvaluator instance with mock judges and data.
-        """  # Create a custom eval_task that matches the sample_eval_data columns
-        eval_task = EvalTask(
-            task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-            prompt_columns=["question"],  # matches sample_eval_data
-            response_columns=["answer"],  # matches sample_eval_data
-            answering_method="structured",
-        )
-
-        meta_evaluator.add_eval_task(eval_task)
-        meta_evaluator.add_data(sample_eval_data)
-
-        # Configure LLM client registry in fixture to avoid repetition
-        meta_evaluator.client_registry = {LLMClientEnum.OPENAI: mock_openai_client}
-
-        # Create mock judges instead of real ones
-        mock_judge1 = Mock()
-        mock_judge1.llm_client_enum = LLMClientEnum.OPENAI
-        mock_results1 = Mock(spec=JudgeResults)
-        mock_results1.save_state = Mock()
-        mock_results1.succeeded_count = 2
-        mock_results1.total_count = 3
-        mock_judge1.evaluate_eval_data.return_value = mock_results1
-
-        mock_judge2 = Mock()
-        mock_judge2.llm_client_enum = LLMClientEnum.OPENAI
-        mock_results2 = Mock(spec=JudgeResults)
-        mock_results2.save_state = Mock()
-        mock_results2.succeeded_count = 2
-        mock_results2.total_count = 2
-        mock_judge2.evaluate_eval_data.return_value = mock_results2
-
-        # Add mock judges to registry
-        meta_evaluator.judge_registry = {
-            "judge1": mock_judge1,
-            "judge2": mock_judge2,
-        }
-
-        return meta_evaluator
-
     # === Judge Management Tests ===
 
     def test_add_judge_success(self, meta_evaluator_with_task, sample_prompt):
@@ -159,7 +96,7 @@ class TestMetaEvaluatorJudges:
     def test_add_judge_without_eval_task(self, meta_evaluator, sample_prompt):
         """Test adding judge fails when no eval_task is set."""
         with pytest.raises(
-            ValueError, match="eval_task must be set before adding judges"
+            EvalTaskNotFoundError, match="eval_task must be set before adding judges"
         ):
             meta_evaluator.add_judge(
                 judge_id="test_judge",
@@ -176,7 +113,7 @@ class TestMetaEvaluatorJudges:
         self.add_test_judge(meta_evaluator_with_task, sample_prompt, judge_id)
 
         # Try to add again without override
-        with pytest.raises(JudgeAlreadyExistsException):
+        with pytest.raises(JudgeAlreadyExistsError):
             self.add_test_judge(meta_evaluator_with_task, sample_prompt, judge_id)
 
     def test_add_judge_override_existing(self, meta_evaluator_with_task, sample_prompt):
@@ -213,7 +150,7 @@ class TestMetaEvaluatorJudges:
 
     def test_get_judge_not_found(self, meta_evaluator_with_task):
         """Test retrieving non-existent judge raises exception."""
-        with pytest.raises(JudgeNotFoundException):
+        with pytest.raises(JudgeNotFoundError):
             meta_evaluator_with_task.get_judge("non_existent_judge")
 
     def test_get_judge_list_empty(self, meta_evaluator_with_task):
@@ -300,7 +237,8 @@ class TestMetaEvaluatorJudges:
         yaml_file.write_text("judges: []")
 
         with pytest.raises(
-            ValueError, match="eval_task must be set before loading judges from YAML"
+            EvalTaskNotFoundError,
+            match="eval_task must be set before loading judges from YAML",
         ):
             meta_evaluator.load_judges_from_yaml(str(yaml_file))
 
@@ -316,7 +254,7 @@ class TestMetaEvaluatorJudges:
         yaml_file = tmp_path / "invalid.yaml"
         yaml_file.write_text("invalid: yaml: content: [")
 
-        with pytest.raises(InvalidYAMLStructureException):
+        with pytest.raises(InvalidYAMLStructureError):
             meta_evaluator_with_task.load_judges_from_yaml(str(yaml_file))
 
     def test_load_judges_from_yaml_invalid_structure(
@@ -330,7 +268,7 @@ class TestMetaEvaluatorJudges:
         yaml_file = tmp_path / "judges.yaml"
         yaml_file.write_text(yaml_content)
 
-        with pytest.raises(InvalidYAMLStructureException):
+        with pytest.raises(InvalidYAMLStructureError):
             meta_evaluator_with_task.load_judges_from_yaml(str(yaml_file))
 
     def test_load_judges_from_yaml_invalid_llm_client(
@@ -372,7 +310,7 @@ class TestMetaEvaluatorJudges:
             ],
         )
 
-        with pytest.raises(PromptFileNotFoundException):
+        with pytest.raises(PromptFileNotFoundError):
             meta_evaluator_with_task.load_judges_from_yaml(str(yaml_file))
 
     def test_load_judges_from_yaml_multiple_judges(
@@ -453,12 +391,12 @@ class TestMetaEvaluatorJudges:
 
     def test_run_judges_no_eval_task(self, meta_evaluator):
         """Test run_judges raises exception when eval_task is not set."""
-        with pytest.raises(EvalTaskNotSetException):
+        with pytest.raises(EvalTaskNotFoundError):
             meta_evaluator.run_judges()
 
     def test_run_judges_no_eval_data(self, meta_evaluator_with_task):
         """Test run_judges raises exception when eval_data is not set."""
-        with pytest.raises(EvalDataNotSetException):
+        with pytest.raises(EvalDataNotFoundError):
             meta_evaluator_with_task.run_judges()
 
     def test_run_judges_no_judges_available(
@@ -467,12 +405,12 @@ class TestMetaEvaluatorJudges:
         """Test run_judges raises exception when no judges are available."""
         meta_evaluator_with_task.add_data(sample_eval_data)
 
-        with pytest.raises(NoJudgesAvailableException):
+        with pytest.raises(JudgeNotFoundError):
             meta_evaluator_with_task.run_judges()
 
     def test_run_judges_judge_not_found(self, meta_evaluator_with_judges_and_data):
         """Test run_judges raises exception when specified judge doesn't exist."""
-        with pytest.raises(JudgeNotFoundException):
+        with pytest.raises(JudgeNotFoundError):
             meta_evaluator_with_judges_and_data.run_judges(
                 judge_ids="non_existent_judge"
             )
@@ -481,7 +419,7 @@ class TestMetaEvaluatorJudges:
         self, meta_evaluator_with_judges_and_data
     ):
         """Test run_judges raises exception when some specified judges don't exist."""
-        with pytest.raises(JudgeNotFoundException):
+        with pytest.raises(JudgeNotFoundError):
             meta_evaluator_with_judges_and_data.run_judges(
                 judge_ids=["judge1", "non_existent_judge", "another_missing"]
             )
@@ -493,7 +431,7 @@ class TestMetaEvaluatorJudges:
         # Clear the client registry to simulate unconfigured client
         meta_evaluator_with_judges_and_data.client_registry = {}
 
-        with pytest.raises(LLMClientNotConfiguredException):
+        with pytest.raises(LLMClientNotConfiguredError):
             meta_evaluator_with_judges_and_data.run_judges()
 
     def test_run_judges_single_judge(self, meta_evaluator_with_judges_and_data):
@@ -570,8 +508,8 @@ class TestMetaEvaluatorJudges:
         judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
         judge1.evaluate_eval_data.side_effect = Exception("Judge execution failed")
 
-        # Run judge and expect JudgeExecutionException
-        with pytest.raises(JudgeExecutionException):
+        # Run judge and expect JudgeExecutionError
+        with pytest.raises(JudgeExecutionError):
             meta_evaluator_with_judges_and_data.run_judges(
                 judge_ids="judge1", save_results=False
             )
@@ -759,8 +697,8 @@ class TestMetaEvaluatorJudges:
         mock_results.total_count = 2
         judge.evaluate_eval_data = Mock(return_value=mock_results)
 
-        # Run judge and expect ResultsSaveException
-        with pytest.raises(ResultsSaveException):
+        # Run judge and expect ResultsSaveError
+        with pytest.raises(ResultsSaveError):
             meta_evaluator_with_judges_and_data.run_judges(
                 judge_ids="judge1", save_results=True
             )

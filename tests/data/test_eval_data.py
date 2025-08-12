@@ -1,65 +1,27 @@
 """Test suite for the EvalData class with comprehensive path coverage."""
 
 import json
-import pytest
-from unittest.mock import MagicMock
-import polars as pl
 import logging
+
+import polars as pl
+import pytest
+
 from meta_evaluator.data import EvalData
 from meta_evaluator.data.exceptions import (
-    EmptyDataFrameError,
-    InvalidColumnNameError,
-    IdColumnExistsError,
     DuplicateInIDColumnError,
+    EmptyDataFrameError,
+    IdColumnExistsError,
+    InvalidColumnNameError,
     InvalidInIDColumnError,
-    NullValuesInDataError,
     InvalidNameError,
+    NullValuesInDataError,
 )
 
 
 class TestEvalData:
     """Comprehensive test suite for EvalData class achieving 100% path coverage."""
 
-    @pytest.fixture
-    def valid_dataframe(self) -> pl.DataFrame:
-        """Provides a valid DataFrame for testing.
-
-        Returns:
-            pl.DataFrame: A DataFrame with sample evaluation data.
-        """
-        return pl.DataFrame(
-            {
-                "question": ["What is 2+2?", "What is 3+3?"],
-                "answer": ["4", "6"],
-                "model_response": ["Four", "Six"],
-                "difficulty": ["easy", "easy"],
-                "human_rating": [5, 4],
-                "extra_col": ["a", "b"],
-            }
-        )
-
-    @pytest.fixture
-    def minimal_dataframe(self) -> pl.DataFrame:
-        """Provides a minimal valid DataFrame.
-
-        Returns:
-            pl.DataFrame: A DataFrame with minimal test data columns.
-        """
-        return pl.DataFrame(
-            {
-                "input": ["test1", "test2"],
-                "output": ["result1", "result2"],
-            }
-        )
-
-    @pytest.fixture
-    def mock_logger(self, mocker) -> MagicMock:
-        """Mocks the logger for testing logging behavior.
-
-        Returns:
-            MagicMock: A mock logger instance.
-        """
-        return mocker.patch("logging.getLogger").return_value
+    # === All fixtures are now consolidated in tests/conftest.py and tests/data/conftest.py ===
 
     # === Column Name Validation Tests ===
 

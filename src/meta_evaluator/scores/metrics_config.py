@@ -1,6 +1,7 @@
 """Configuration models for comparison metrics."""
 
 from typing import List
+
 from pydantic import BaseModel
 
 from .base_scorer import BaseScorer

@@ -3,15 +3,22 @@
 import json
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
-from typing import Annotated, Dict, List, Literal, Optional, TypeVar
+from typing import Dict, List, Literal, Optional, TypeVar
 
 import polars as pl
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from .enums import BaseEvaluationStatusEnum
+from .exceptions import (
+    BuilderInitializationError,
+    DataFileError,
+    EmptyResultsError,
+    ResultsValidationError,
+    TaskNotFoundError,
+)
+from .models import BaseResultRow
 from .serialization import BaseResultsSerializedState
 
 logger = logging.getLogger(__name__)
@@ -20,118 +27,8 @@ logger = logging.getLogger(__name__)
 EvaluationResultsType = TypeVar("EvaluationResultsType", bound="BaseEvaluationResults")
 
 
-class BaseEvaluationStatusEnum(str, Enum):
-    """Base enumeration for evaluation status types."""
-
-    SUCCESS = "success"
-    ERROR = "error"
-
-
-@dataclass
-class FieldTags:
-    """Metadata for field tags."""
-
-    tags: list[str]
-
-
-class BaseResultRow(BaseModel):
-    """Base class for result row structures."""
-
-    sample_example_id: Annotated[
-        str,
-        Field(..., description="Unique identifier for the example within this run"),
-        FieldTags(tags=["metadata"]),
-    ]
-    original_id: Annotated[
-        str | int,
-        Field(..., description="Original identifier from the source data"),
-        FieldTags(tags=["metadata"]),
-    ]
-    run_id: Annotated[
-        str,
-        Field(..., description="Unique identifier for this evaluation run"),
-        FieldTags(tags=["metadata"]),
-    ]
-    status: Annotated[
-        str,
-        Field(..., description="Status of the evaluation for this example"),
-        FieldTags(tags=["metadata"]),
-    ]
-    error_message: Annotated[
-        Optional[str],
-        Field(None, description="Error message if evaluation failed"),
-        FieldTags(tags=["error"]),
-    ]
-    error_details_json: Annotated[
-        Optional[str],
-        Field(None, description="JSON string with error details"),
-        FieldTags(tags=["error"]),
-    ]
-
-    model_config = ConfigDict(extra="allow")
-
-    @classmethod
-    def get_fields_by_tag(cls, tag: str) -> list[str]:
-        """Get field names that have a specific tag.
-
-        Args:
-            tag: The tag to filter by
-
-        Returns:
-            list[str]: List of field names with the specified tag
-        """
-        field_names = []
-        for field_name, field_info in cls.model_fields.items():
-            # Look for FieldTags in the metadata
-            for metadata in field_info.metadata:
-                if isinstance(metadata, FieldTags) and tag in metadata.tags:
-                    field_names.append(field_name)
-                    break
-        return field_names
-
-    @classmethod
-    def get_metadata_fields(cls) -> list[str]:
-        """Get all metadata field names.
-
-        Returns:
-            list[str]: List of field names tagged as metadata
-        """
-        return cls.get_fields_by_tag("metadata")
-
-    @classmethod
-    def get_error_fields(cls) -> list[str]:
-        """Get all error field names.
-
-        Returns:
-            list[str]: List of field names tagged as error
-        """
-        return cls.get_fields_by_tag("error")
-
-    @classmethod
-    def get_all_base_fields(cls) -> list[str]:
-        """Get all base field names.
-
-        Returns:
-            list[str]: List of all base field names
-        """
-        return list(cls.model_fields.keys())
-
-    @classmethod
-    def get_required_columns_with_tasks(cls, task_names: List[str]) -> List[str]:
-        """Get all required columns including task columns.
-
-        Args:
-            task_names: List of task names to include as columns.
-
-        Returns:
-            List[str]: Combined list of base columns and task columns.
-        """
-        base_columns = list(cls.model_fields.keys())
-        return base_columns + task_names
-
-
 class BaseEvaluationResults(BaseModel, ABC):
-    """Base class for evaluation results with common functionality."""
+    """Base class for final, completed evaluation results of an evaluation run."""
 
     run_id: str = Field(..., description="Unique identifier for this evaluation run")
     task_schemas: Dict[str, List[str] | None] = Field(
@@ -170,15 +67,38 @@ class BaseEvaluationResults(BaseModel, ABC):
 
         Returns:
             BaseEvaluationResults: The validated instance.
+        """
+        # Run all validation methods in dependency order
+        self._validate_data_not_empty()
+        self._validate_required_columns()
+        self._validate_sample_id_uniqueness()
+        self._validate_count_consistency()
+        self._validate_status_values()
+        self._validate_status_task_consistency()
+
+        return self
+
+    def _validate_data_not_empty(self) -> None:
+        """Validate that results_data is not empty.
+
+        Results data is required to be non-empty for subsequent scoring.
 
         Raises:
-            ValueError: If validation fails.
+            EmptyResultsError: If results_data DataFrame is empty.
         """
-        # Validate results_data is not empty
         if self.results_data.is_empty():
-            raise ValueError("results_data DataFrame cannot be empty.")
+            raise EmptyResultsError(
+                "Evaluation results require at least one row. Ensure your evaluation run completed successfully and generated results."
+            )
 
-        # Validate presence of required DataFrame columns
+    def _validate_required_columns(self) -> None:
+        """Validate that all required columns are present in results_data.
+
+        All required columns are required for scoring.
+
+        Raises:
+            ResultsValidationError: If required columns are missing.
+        """
         task_names = list(self.task_schemas.keys())
         required_columns = (
             self.get_base_result_row_class().get_required_columns_with_tasks(task_names)
@@ -188,11 +108,17 @@ class BaseEvaluationResults(BaseModel, ABC):
             col for col in required_columns if col not in self.results_data.columns
         ]
         if missing_cols:
-            raise ValueError(
-                f"results_data DataFrame missing required columns: {missing_cols}"
+            raise ResultsValidationError(
+                f"DataFrame missing required columns: {missing_cols}. Ensure your evaluation run includes all required columns."
             )
 
-        # Validate 'sample_example_id' uniqueness
+    def _validate_sample_id_uniqueness(self) -> None:
+        """Validate that sample_example_id values are unique.
+
+        Duplicate IDs might cause issues in downstream analysis, but scoring can still work on available data.
+        Log a warning instead of an exception to preserve evaluation results.
+        TODO: handle this in the scoring process, or filter out rows with duplicate sample_example_ids.
+        """
         if self.results_data["sample_example_id"].n_unique() != len(self.results_data):
             duplicate_ids = (
                 self.results_data.group_by("sample_example_id")
@@ -202,37 +128,34 @@ class BaseEvaluationResults(BaseModel, ABC):
                 .to_series()
                 .to_list()
             )
-            raise ValueError(
-                f"Duplicate sample_example_id values found: {duplicate_ids}"
+            logger.warning(
+                f"Duplicate sample_example_id values found: {duplicate_ids}. "
+                "This may cause issues in downstream analysis but scoring can still work."
             )
-
-        # Consolidated validation methods
-        self._validate_count_consistency()
-        self._validate_status_values()
-        self._validate_status_constraints()
-
-        return self
 
     def _validate_count_consistency(self) -> None:
         """Validate that total_count equals sum of all status counts.
 
-        Raises:
-            ValueError: If count consistency validation fails.
+        Count mismatch indicates a bug in the evaluation run, but scoring can still work on available data.
+        Log a warning instead of raising an exception to preserve evaluation results.
+        TODO: handle this in the scoring process, or filter out rows with invalid counts.
         """
         # Get all status counts from the subclass
         status_counts = self._get_status_counts()
         expected_total = sum(status_counts.values())
 
         if self.total_count != expected_total:
-            raise ValueError(
-                "Count mismatch: total_count does not equal the sum of all status counts."
+            logger.warning(
+                f"Count mismatch detected: total_count={self.total_count} vs actual_count={expected_total}. Status breakdown: {status_counts}. "
+                "Results data is preserved but counts are incorrect! Please check your evaluation run."
             )
 
     def _validate_status_values(self) -> None:
         """Validate that status column contains only valid enum values.
 
-        Raises:
-            ValueError: If invalid status values are found.
+        Invalid status values indicate a bug in the evaluation run, but scoring can still work on data with valid status values.
+        Log a warning instead of raising an exception to preserve evaluation results.
+        TODO: handle this in the scoring process, or filter out rows with invalid status values.
         """
         valid_statuses = self._get_valid_status_values()
         actual_statuses = self.results_data["status"].unique().to_list()
@@ -240,69 +163,41 @@ class BaseEvaluationResults(BaseModel, ABC):
             status for status in actual_statuses if status not in valid_statuses
         ]
         if invalid_statuses:
-            raise ValueError(f"Invalid status values found: {invalid_statuses}")
+            logger.warning(
+                f"Invalid status values found: {invalid_statuses}. "
+                "This may indicate a bug in the evaluation run but scoring can still work on data with valid status values."
+            )
 
-    def _validate_status_constraints(self) -> None:
-        """Validate constraints for each status type."""
+    def _validate_status_task_consistency(self) -> None:
+        """Validate constraints for each status type.
+
+        Invalid status values indicate a bug in the evaluation run, but scoring can still work on data with valid status values.
+        Log a warning instead of raising an exception to preserve evaluation results.
+        TODO: handle this in the scoring process, or filter out rows with invalid status constraints.
+        """
         task_names = list(self.task_schemas.keys())
         success_status = BaseEvaluationStatusEnum.SUCCESS.value
         error_status = BaseEvaluationStatusEnum.ERROR.value
 
-        # Validate success status constraints
+        # Validate success status constraints: should have task outcome results
         success_df = self.results_data.filter(pl.col("status") == success_status)
         if not success_df.is_empty():
-            self._validate_success_constraints(success_df, task_names)
+            for task_name in task_names:
+                if success_df[task_name].is_null().any():
+                    logger.warning(
+                        f"Task outcome column '{task_name}' for SUCCESS status contains null values. "
+                        "This may indicate incomplete evaluation results."
+                    )
 
-        # Validate error status constraints
+        # Validate error status constraints: should NOT have task outcome results
         error_df = self.results_data.filter(pl.col("status") == error_status)
         if not error_df.is_empty():
-            self._validate_error_constraints(error_df, task_names)
-
-    def _validate_success_constraints(
-        self, success_df: pl.DataFrame, task_names: List[str]
-    ) -> None:
-        """Validate constraints for success status rows.
-
-        Args:
-            success_df: DataFrame containing only success status rows
-            task_names: List of task names
-
-        Raises:
-            ValueError: If success constraint validation fails.
-        """
-        # Check that ALL task outcome columns are non-null
-        for task_name in task_names:
-            if success_df[task_name].is_null().any():
-                raise ValueError(
-                    f"Task outcome column '{task_name}' for SUCCESS status contains null values."
-                )
-
-        # Error columns MUST be null
-        error_fields = self.get_base_result_row_class().get_error_fields()
-        for error_field in error_fields:
-            if success_df[error_field].is_not_null().any():
-                raise ValueError(
-                    f"Error field '{error_field}' for SUCCESS status contains non-null values."
-                )
-
-    def _validate_error_constraints(
-        self, error_df: pl.DataFrame, task_names: List[str]
-    ) -> None:
-        """Validate constraints for error status rows.
-
-        Args:
-            error_df: DataFrame containing only error status rows
-            task_names: List of task names
-
-        Raises:
-            ValueError: If error constraint validation fails.
-        """
-        # Check that ALL task outcome columns are null
-        for task_name in task_names:
-            if error_df[task_name].is_not_null().any():
-                raise ValueError(
-                    f"Task outcome column '{task_name}' for ERROR status contains non-null values."
-                )
+            for task_name in task_names:
+                if error_df[task_name].is_not_null().any():
+                    logger.warning(
+                        f"Task outcome column '{task_name}' for ERROR status contains non-null values. "
+                        "This may indicate partial results before the error occurred."
+                    )
 
     @abstractmethod
     def _get_status_counts(self) -> Dict[str, int]:
@@ -409,10 +304,10 @@ class BaseEvaluationResults(BaseModel, ABC):
             float: Success rate as a value between 0.0 and 1.0.
 
         Raises:
-            ValueError: If task_name is not found in task schema.
+            TaskNotFoundError: If task_name is not found in task schema.
         """
         if task_name not in self.task_schemas:
-            raise ValueError(f"Task '{task_name}' not found in task schema")
+            raise TaskNotFoundError(task_name)
 
         if self.total_count == 0:
             return 0.0
@@ -434,7 +329,7 @@ class BaseEvaluationResults(BaseModel, ABC):
             data_format: Format to write the data in.
 
         Raises:
-            ValueError: If data_format is not supported.
+            DataFileError: If data_format is not supported.
         """
         match data_format:
             case "parquet":
@@ -444,7 +339,7 @@ class BaseEvaluationResults(BaseModel, ABC):
             case "json":
                 self.results_data.write_json(filepath)
             case _:
-                raise ValueError(f"Unsupported data format: {data_format}")
+                raise DataFileError(data_format, filepath, "Unsupported data format")
 
     @staticmethod
     def load_data(
@@ -460,17 +355,31 @@ class BaseEvaluationResults(BaseModel, ABC):
             pl.DataFrame: Loaded DataFrame.
 
         Raises:
-            ValueError: If data_format is not supported.
+            FileNotFoundError: If the file doesn't exist.
+            DataFileError: If data_format is not supported or if there are parsing errors.
         """
-        match data_format:
-            case "parquet":
-                return pl.read_parquet(filepath)
-            case "csv":
-                return pl.read_csv(filepath)
-            case "json":
-                return pl.read_json(filepath)
-            case _:
-                raise ValueError(f"Unsupported data format: {data_format}")
+        try:
+            match data_format:
+                case "parquet":
+                    return pl.read_parquet(filepath)
+                case "csv":
+                    return pl.read_csv(filepath)
+                case "json":
+                    return pl.read_json(filepath)
+                case _:
+                    raise DataFileError(
+                        data_format, filepath, "Unsupported data format"
+                    )
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Data file not found: {filepath}")
+        except (
+            pl.exceptions.ComputeError,
+            pl.exceptions.NoDataError,
+            json.JSONDecodeError,
+        ) as e:
+            raise DataFileError(
+                data_format, filepath, f"Failed to parse file: {str(e)}"
+            )
 
     def save_state(
         self,
@@ -486,7 +395,7 @@ class BaseEvaluationResults(BaseModel, ABC):
             data_filename: The name of the data file to save. If None, auto-generated.
 
         Raises:
-            ValueError: If data_filename extension does not match data_format.
+            DataFileError: If data_filename extension does not match data_format.
         """
         state_path = Path(state_file)
         base_name = state_path.stem
@@ -495,9 +404,7 @@ class BaseEvaluationResults(BaseModel, ABC):
         final_data_filename = data_filename or f"{base_name}_data.{data_format}"
 
         if data_filename and not data_filename.endswith(f".{data_format}"):
-            raise ValueError(
-                f"data_filename extension for '{data_filename}' must match data_format '{data_format}'"
-            )
+            raise DataFileError(data_format, data_filename, "Unsupported data format")
 
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -564,7 +471,7 @@ class BaseEvaluationResultsBuilder(ABC):
             is_sampled_run: True if input was sampled data.
 
         Raises:
-            ValueError: If expected_ids is empty.
+            BuilderInitializationError: If expected_ids is empty.
         """
         self.run_id = run_id
         self.evaluator_id = evaluator_id
@@ -574,7 +481,9 @@ class BaseEvaluationResultsBuilder(ABC):
 
         # Validate and convert expected_ids to set for O(1) lookup
         if len(expected_ids) == 0:
-            raise ValueError("expected_ids cannot be empty.")
+            raise BuilderInitializationError(
+                "expected_ids cannot be empty. Input a list of expected IDs for your evaluation run."
+            )
         self._expected_ids = set(expected_ids)
 
     def _validate_and_store(self, result_row: BaseResultRow) -> None:
@@ -584,17 +493,17 @@ class BaseEvaluationResultsBuilder(ABC):
             result_row: The result row to validate and store
 
         Raises:
-            ValueError: If validation fails
+            BuilderInitializationError: If the result row id is not in expected_ids or if it was already added.
         """
         # Validate original_id is in expected_ids
         if result_row.original_id not in self._expected_ids:
-            raise ValueError(
+            raise BuilderInitializationError(
                 f"Unexpected original_id '{result_row.original_id}' not in expected IDs"
             )
 
         # Validate no duplicate original_id
         if result_row.original_id in self._results:
-            raise ValueError(
+            raise BuilderInitializationError(
                 f"Result for original_id '{result_row.original_id}' already exists"
             )
 
@@ -658,10 +567,10 @@ class BaseEvaluationResultsBuilder(ABC):
             pl.DataFrame: DataFrame created from collected rows.
 
         Raises:
-            ValueError: If no rows are available to create DataFrame.
+            EmptyResultsError: If no rows are available to create DataFrame.
         """
         if not self._results:
-            raise ValueError("No rows to create DataFrame from")
+            raise EmptyResultsError("rows to create DataFrame from")
 
         # Convert rows to dictionaries
         row_dicts = [row.model_dump() for row in self._results.values()]

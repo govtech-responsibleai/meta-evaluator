@@ -4,14 +4,14 @@ import logging
 import os
 from typing import Optional
 
-from ..llm_client.models import LLMClientEnum
-from ..llm_client.LLM_client import LLMClient
-from ..llm_client.openai_client import OpenAIClient, OpenAIConfig
 from ..llm_client.azureopenai_client import AzureOpenAIClient, AzureOpenAIConfig
+from ..llm_client.client import LLMClient
+from ..llm_client.enums import LLMClientEnum
+from ..llm_client.openai_client import OpenAIClient, OpenAIConfig
 from .exceptions import (
-    MissingConfigurationException,
-    ClientAlreadyExistsException,
-    ClientNotFoundException,
+    ClientAlreadyExistsError,
+    ClientNotFoundError,
+    MissingConfigurationError,
 )
 
 # Environment variable constants
@@ -27,7 +27,42 @@ _AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR = "AZURE_OPENAI_DEFAULT_EMBEDDING_
 
 
 class ClientsMixin:
-    """Mixin class for MetaEvaluator client management functionality."""
+    """Mixin providing LLM client handling functionality for MetaEvaluator.
+
+    This mixin class handles registration, configuration, and retrieval of various
+    LLM clients (OpenAI, Azure OpenAI, etc.). It maintains a client registry that
+    maps client types to configured client instances, enabling the MetaEvaluator
+    to work with multiple LLM providers seamlessly.
+
+    The mixin automatically handles environment variable fallbacks for API keys
+    and configuration parameters, making it easy to configure clients without
+    hardcoding sensitive information in code.
+
+    Supported Clients:
+        - OpenAI: Standard OpenAI API clients
+        - Azure OpenAI: Microsoft Azure-hosted OpenAI models
+
+    Environment Variables:
+        OpenAI: OPENAI_API_KEY, OPENAI_DEFAULT_MODEL, OPENAI_DEFAULT_EMBEDDING_MODEL
+        Azure: AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_VERSION,
+               AZURE_OPENAI_DEFAULT_MODEL, AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL
+
+    Attributes:
+        client_registry (dict): Maps LLMClientEnum values to configured LLMClient instances.
+        logger (logging.Logger): Inherited from MetaEvaluator for consistent logging.
+
+    Examples:
+        >>> evaluator = MetaEvaluator()
+        >>> # Add OpenAI client with explicit API key
+        >>> evaluator.add_openai(api_key="sk-...", default_model="gpt-4")
+        >>> # Add Azure client using environment variables
+        >>> evaluator.add_azure_openai()  # Uses env vars automatically
+        >>> # Retrieve client for judge evaluation
+        >>> client = evaluator.get_client(LLMClientEnum.OPENAI)
+    """
+
+    # Type hint for logger attribute provided by MetaEvaluator
+    logger: logging.Logger
 
     def __init__(self, *args, **kwargs):
         """Initialize client registry."""
@@ -50,12 +85,14 @@ class ClientsMixin:
             override_existing: Whether to override existing client. Defaults to False.
 
         Raises:
-            MissingConfigurationException: If required parameters are missing from both arguments and environment.
-            ClientAlreadyExistsException: If client already exists and override_existing is False.
+            MissingConfigurationError: If required parameters are missing from both arguments and environment.
+            ClientAlreadyExistsError: If client already exists and override_existing is False.
         """
+        self.logger.info("Adding OpenAI client to registry...")
+
         # Check if client already exists
         if LLMClientEnum.OPENAI in self.client_registry and not override_existing:
-            raise ClientAlreadyExistsException("OPENAI")
+            raise ClientAlreadyExistsError("OPENAI")
 
         # Get configuration values, fallback to environment variables
         final_api_key = api_key or os.getenv(_OPENAI_API_KEY_ENV_VAR)
@@ -66,15 +103,15 @@ class ClientsMixin:
 
         # Validate required parameters
         if not final_api_key:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"api_key (or {_OPENAI_API_KEY_ENV_VAR} environment variable)"
             )
         if not final_default_model:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"default_model (or {_OPENAI_DEFAULT_MODEL_ENV_VAR} environment variable)"
             )
         if not final_default_embedding_model:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"default_embedding_model (or {_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR} environment variable)"
             )
 
@@ -88,9 +125,9 @@ class ClientsMixin:
 
         # Add to registry
         self.client_registry[LLMClientEnum.OPENAI] = client
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"Added OpenAI client with model '{final_default_model}'")
+        self.logger.info(
+            f"...Successfully added OpenAI client with default model: {final_default_model}"
+        )
 
     def add_azure_openai(
         self,
@@ -112,12 +149,14 @@ class ClientsMixin:
             override_existing: Whether to override existing client. Defaults to False.
 
         Raises:
-            MissingConfigurationException: If required parameters are missing from both arguments and environment.
-            ClientAlreadyExistsException: If client already exists and override_existing is False.
+            MissingConfigurationError: If required parameters are missing from both arguments and environment.
+            ClientAlreadyExistsError: If client already exists and override_existing is False.
         """
+        self.logger.info("Adding Azure OpenAI client to registry...")
+
         # Check if client already exists
         if LLMClientEnum.AZURE_OPENAI in self.client_registry and not override_existing:
-            raise ClientAlreadyExistsException("AZURE_OPENAI")
+            raise ClientAlreadyExistsError("AZURE_OPENAI")
 
         # Get configuration values, fallback to environment variables
         final_api_key = api_key or os.getenv(_AZURE_OPENAI_API_KEY_ENV_VAR)
@@ -132,23 +171,23 @@ class ClientsMixin:
 
         # Validate required parameters
         if not final_api_key:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"api_key (or {_AZURE_OPENAI_API_KEY_ENV_VAR} environment variable)"
             )
         if not final_endpoint:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"endpoint (or {_AZURE_OPENAI_ENDPOINT_ENV_VAR} environment variable)"
             )
         if not final_api_version:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"api_version (or {_AZURE_OPENAI_API_VERSION_ENV_VAR} environment variable)"
             )
         if not final_default_model:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"default_model (or {_AZURE_OPENAI_DEFAULT_MODEL_ENV_VAR} environment variable)"
             )
         if not final_default_embedding_model:
-            raise MissingConfigurationException(
+            raise MissingConfigurationError(
                 f"default_embedding_model (or {_AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR} environment variable)"
             )
 
@@ -164,9 +203,9 @@ class ClientsMixin:
 
         # Add to registry
         self.client_registry[LLMClientEnum.AZURE_OPENAI] = client
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"Added Azure OpenAI client with model '{final_default_model}'")
+        self.logger.info(
+            f"...Successfully added Azure OpenAI client with default model: {final_default_model}"
+        )
 
     def get_client(self, client_type: LLMClientEnum) -> LLMClient:
         """Get a client from the registry by type.
@@ -178,10 +217,10 @@ class ClientsMixin:
             LLMClient: The requested LLM client instance.
 
         Raises:
-            ClientNotFoundException: If the client type is not found in the registry.
+            ClientNotFoundError: If the client type is not found in the registry.
         """
         if client_type not in self.client_registry:
-            raise ClientNotFoundException(client_type.value)
+            raise ClientNotFoundError(client_type.value)
 
         return self.client_registry[client_type]
 

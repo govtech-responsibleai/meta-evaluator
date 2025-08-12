@@ -1,9 +1,17 @@
 """Data models for scoring functionality."""
 
-from typing import Any, Dict
+import json
 from datetime import datetime
+from typing import Any, Dict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+
+from ..common.error_constants import (
+    INVALID_JSON_MSG,
+    INVALID_JSON_STRUCTURE_MSG,
+    STATE_FILE_NOT_FOUND_MSG,
+)
+from ..results.exceptions import InvalidFileError
 
 
 class BaseScoringResult(BaseModel):
@@ -33,6 +41,16 @@ class BaseScoringResult(BaseModel):
 
         Returns:
             BaseScoringResult: A BaseScoringResult instance.
+
+        Raises:
+            InvalidFileError: If the file doesn't exist or the JSON structure is invalid.
         """
-        with open(file_path, "r") as f:
-            return cls.model_validate_json(f.read())
+        try:
+            with open(file_path, "r") as f:
+                return cls.model_validate_json(f.read())
+        except FileNotFoundError as e:
+            raise InvalidFileError(f"{STATE_FILE_NOT_FOUND_MSG}: {file_path}", e)
+        except ValidationError as e:
+            raise InvalidFileError(INVALID_JSON_STRUCTURE_MSG, e)
+        except json.JSONDecodeError as e:
+            raise InvalidFileError(INVALID_JSON_MSG, e)

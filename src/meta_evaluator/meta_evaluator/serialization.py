@@ -1,7 +1,9 @@
 """Pydantic models for MetaEvaluator serialization."""
 
 from typing import Any, Dict, Optional
+
 from pydantic import BaseModel
+
 from ..data.serialization import DataMetadata
 from ..eval_task.serialization import EvalTaskState
 

@@ -1,134 +1,16 @@
 """Tests for agreement metrics."""
 
-import pytest
 import numpy as np
 import polars as pl
-from meta_evaluator.scores import CohensKappaScorer
-from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
+import pytest
 
+from meta_evaluator.scores.exceptions import AltTestInsufficientAnnotationsError
 
-# Shared fixtures that can be used across test classes
-@pytest.fixture
-def basic_judge_df():
-    """Basic judge DataFrame for testing.
-
-    Returns:
-        pl.DataFrame: A basic judge DataFrame.
-    """
-    return pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3"],
-            "judge_id": ["judge_1", "judge_1", "judge_1"],
-            "task_name": ["task1", "task1", "task1"],
-            "task_value": ["A", "B", "C"],
-        }
-    )
-
-
-@pytest.fixture
-def basic_human_df():
-    """Basic human DataFrame for testing.
-
-    Returns:
-        pl.DataFrame: A basic human DataFrame.
-    """
-    return pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3"],
-            "annotator_id": ["human_1", "human_1", "human_1"],
-            "task_name": ["task1", "task1", "task1"],
-            "task_value": ["A", "B", "C"],
-        }
-    )
-
-
-@pytest.fixture
-def multi_human_df():
-    """Human DataFrame with multiple annotators for testing.
-
-    Returns:
-        pl.DataFrame: A human DataFrame with multiple annotators.
-    """
-    return pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3", "1", "2", "3"],
-            "annotator_id": [
-                "human_1",
-                "human_1",
-                "human_1",
-                "human_2",
-                "human_2",
-                "human_2",
-            ],
-            "task_name": ["task1", "task1", "task1", "task1", "task1", "task1"],
-            "task_value": ["A", "B", "C", "A", "A", "B"],  # human_2 disagrees on some
-        }
-    )
-
-
-@pytest.fixture
-def null_values_judge_df():
-    """Judge DataFrame with null values for testing.
-
-    Returns:
-        pl.DataFrame: A judge DataFrame with null values.
-    """
-    return pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3"],
-            "judge_id": ["judge_1", "judge_1", "judge_1"],
-            "task_name": ["task1", "task1", "task1"],
-            "task_value": [None, None, None],
-        }
-    )
-
-
-@pytest.fixture
-def null_values_human_df():
-    """Human DataFrame with null values for testing.
-
-    Returns:
-        pl.DataFrame: A human DataFrame with null values.
-    """
-    return pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3"],
-            "annotator_id": ["human_1", "human_1", "human_1"],
-            "task_name": ["task1", "task1", "task1"],
-            "task_value": [None, None, None],
-        }
-    )
+# Basic fixtures are now provided by conftest.py
 
 
 class TestCohensKappaScorer:
     """Test CohensKappaScorer functionality."""
-
-    @pytest.fixture
-    def cohens_kappa_scorer(self):
-        """Create a CohensKappaScorer instance.
-
-        Returns:
-            CohensKappaScorer: A CohensKappaScorer instance.
-        """
-        return CohensKappaScorer()
-
-    @pytest.fixture
-    def sample_judge_df(self, basic_judge_df):
-        """Reusable sample judge DataFrame for testing.
-
-        Returns:
-            pl.DataFrame: A reusable sample judge DataFrame.
-        """
-        return basic_judge_df
-
-    @pytest.fixture
-    def sample_human_df(self, basic_human_df):
-        """Reusable sample human DataFrame for testing.
-
-        Returns:
-            pl.DataFrame: A reusable sample human DataFrame.
-        """
-        return basic_human_df
 
     def test_can_score_classification(self, cohens_kappa_scorer):
         """Test that CohensKappaScorer can handle classification tasks."""
@@ -143,11 +25,11 @@ class TestCohensKappaScorer:
         assert cohens_kappa_scorer.can_score_task(None) is False
 
     def test_compute_classification_kappa_perfect_agreement(
-        self, cohens_kappa_scorer, sample_judge_df, sample_human_df
+        self, cohens_kappa_scorer, basic_judge_df, basic_human_df
     ):
         """Test Cohen's kappa with perfect agreement on classification task."""
         kappa = cohens_kappa_scorer._compute_classification_kappa(
-            sample_judge_df, sample_human_df, "task1"
+            basic_judge_df, basic_human_df, "task1"
         )
         assert kappa == 1.0
 
@@ -398,190 +280,11 @@ class TestCohensKappaScorer:
 class TestAltTestScorer:
     """Test AltTestScorer functionality."""
 
-    @pytest.fixture
-    def alt_test_scorer(self):
-        """Create an AltTestScorer instance.
+    # Single task fixtures are now provided by conftest.py
 
-        Returns:
-            AltTestScorer: An AltTestScorer instance.
-        """
-        scorer = AltTestScorer()
-        scorer.min_instances_per_human = 2
-        return scorer
+    # Multi-task fixtures are now provided by conftest.py
 
-    @pytest.fixture
-    def single_task_judge_df(self):
-        """Single classification task, single judge DataFrame.
-
-        Returns:
-            pl.DataFrame: A single classification task judge DataFrame.
-        """
-        return pl.DataFrame(
-            {
-                "original_id": ["1", "2", "3", "4"],
-                "judge_id": ["judge_1", "judge_1", "judge_1", "judge_1"],
-                "task_name": ["safety", "safety", "safety", "safety"],
-                "task_value": ["SAFE", "UNSAFE", "SAFE", "UNSAFE"],
-            }
-        )
-
-    @pytest.fixture
-    def single_task_human_df(self):
-        """Single classification task, multiple human annotators DataFrame.
-
-        Returns:
-            pl.DataFrame: A single classification task human DataFrame.
-        """
-        return pl.DataFrame(
-            {
-                "original_id": ["1", "2", "3", "4", "1", "2", "3", "4"],
-                "annotator_id": [
-                    "human_1",
-                    "human_1",
-                    "human_1",
-                    "human_1",
-                    "human_2",
-                    "human_2",
-                    "human_2",
-                    "human_2",
-                ],
-                "task_name": ["safety", "safety", "safety", "safety"] * 2,
-                "task_value": [
-                    "SAFE",
-                    "UNSAFE",
-                    "SAFE",
-                    "SAFE",  # human1
-                    "SAFE",
-                    "SAFE",
-                    "UNSAFE",
-                    "UNSAFE",  # human2
-                ],
-            }
-        )
-
-    @pytest.fixture
-    def multi_task_judge_df(self):
-        """Multi-label classification task, single judge DataFrame.
-
-        Returns:
-            pl.DataFrame: A multi-label classification task judge DataFrame.
-        """
-        return pl.DataFrame(
-            {
-                "original_id": ["1", "2", "3", "4", "5", "6"] * 2,
-                "judge_id": ["judge_1"] * 12,
-                "task_name": ["safety"] * 6 + ["toxicity"] * 6,
-                "task_value": [
-                    "SAFE",
-                    "UNSAFE",
-                    "UNSAFE",
-                    "SAFE",
-                    "SAFE",
-                    "UNSAFE",  # safety task values
-                    "NON_TOXIC",
-                    "TOXIC",
-                    "TOXIC",
-                    "NON_TOXIC",
-                    "NON_TOXIC",
-                    "TOXIC",  # toxicity task values
-                ],
-            }
-        )
-
-    @pytest.fixture
-    def multi_task_human_df(self):
-        """Multi-label classification task, multiple human annotators DataFrame.
-
-        Returns:
-            pl.DataFrame: A multi-label classification task human DataFrame.
-        """
-        return pl.DataFrame(
-            {
-                "original_id": ["1", "2", "3", "4", "5", "6"] * 4,
-                "annotator_id": ["human_1"] * 12 + ["human_2"] * 12,
-                "task_name": ["safety"] * 6
-                + ["toxicity"] * 6
-                + ["safety"] * 6
-                + ["toxicity"] * 6,
-                "task_value": [
-                    # human_1 safety
-                    "SAFE",
-                    "SAFE",
-                    "UNSAFE",
-                    "UNSAFE",
-                    "SAFE",
-                    "SAFE",
-                    # human_1 toxicity
-                    "NON_TOXIC",
-                    "NON_TOXIC",
-                    "TOXIC",
-                    "TOXIC",
-                    "NON_TOXIC",
-                    "NON_TOXIC",
-                    # human_2 safety
-                    "SAFE",
-                    "UNSAFE",
-                    "UNSAFE",
-                    "SAFE",
-                    "SAFE",
-                    "UNSAFE",
-                    # human_2 toxicity
-                    "NON_TOXIC",
-                    "TOXIC",
-                    "TOXIC",
-                    "NON_TOXIC",
-                    "NON_TOXIC",
-                    "TOXIC",
-                ],
-            }
-        )
-
-    @pytest.fixture
-    def text_task_judge_df(self):
-        """Text task, single judge DataFrame.
-
-        Returns:
-            pl.DataFrame: A text task judge DataFrame.
-        """
-        return pl.DataFrame(
-            {
-                "original_id": ["1", "2", "3"],
-                "judge_id": ["judge_1", "judge_1", "judge_1"],
-                "task_name": ["summary", "summary", "summary"],
-                "task_value": ["Good", "Bad", "OK"],
-            }
-        )
-
-    @pytest.fixture
-    def text_task_human_df(self):
-        """Text task, multiple human annotators DataFrame.
-
-        Returns:
-            pl.DataFrame: A text task human DataFrame.
-        """
-        return pl.DataFrame(
-            {
-                "original_id": ["1", "2", "3", "4", "5", "6"] * 2,  # 2 annotators
-                "annotator_id": ["human_1"] * 6 + ["human_2"] * 6,
-                "task_name": ["summary"] * 12,
-                "task_value": [
-                    # human_1
-                    "Good",
-                    "Bad",
-                    "OK",
-                    "Great",
-                    "Poor",
-                    "OK",
-                    # human_2
-                    "Good",
-                    "Bad",
-                    "OK",
-                    "Great",
-                    "Poor",
-                    "OK",
-                ],
-            }
-        )
+    # Text task fixtures are now provided by conftest.py
 
     def test_can_score_any_task(self, alt_test_scorer):
         """Test that AltTestScorer can handle any task type."""
@@ -858,7 +561,8 @@ class TestAltTestScorer:
 
         # With only 3 instances and min_instances_per_human = 10, should raise error
         with pytest.raises(
-            ValueError, match="No annotators meet the minimum threshold"
+            AltTestInsufficientAnnotationsError,
+            match="No annotators meet the minimum threshold",
         ):
             alt_test_scorer._alt_test(judge_annotations, human_annotations, "accuracy")
 

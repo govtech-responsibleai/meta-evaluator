@@ -1,26 +1,73 @@
 """Mixin for scoring and comparison functionality including results loading."""
 
 import logging
-from typing import Dict, List, Optional, Union, Mapping, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Mapping, Optional, Union
 
 if TYPE_CHECKING:
     from .base import Paths
 
 import polars as pl
 
-from ..eval_task import EvalTask
 from ..data import EvalData
-from ..results import JudgeResults, HumanAnnotationResults
-from ..scores import MetricsConfig, BaseScoringResult
+from ..eval_task import EvalTask
+from ..results import HumanAnnotationResults, JudgeResults
+from ..scores import BaseScoringResult, MetricsConfig
+from .exceptions import (
+    EvalTaskNotFoundError,
+    IncompatibleTaskError,
+    InsufficientDataError,
+    ScoringConfigError,
+)
 
 
 class ScoringMixin:
-    """Mixin providing methods for loading results and performing scoring comparisons."""
+    """Mixin providing orchestration of scorers for human vs judge alignment evaluation.
+
+    This mixin class orchestrates the comparison between judge evaluations and human
+    annotations using various scoring metrics. It handles loading both judge results
+    and human annotation results, then computes alignment scores using different
+    scoring implementations (accuracy, Cohen's kappa, text similarity, etc.).
+
+    The mixin manages the complete scoring workflow:
+    - Loading judge results from evaluation runs
+    - Loading human annotation results from annotation sessions
+    - Validating task compatibility between results and scorers
+    - Computing alignment scores between judge and human evaluations
+    - Aggregating and saving scoring results
+
+    Scoring Process:
+        1. Load judge and human results with task schema validation
+        2. Configure scoring metrics based on task types
+        3. Compute alignment scores for each judge-human pairing
+        4. Generate aggregate visualizations and reports
+        5. Save individual and aggregate scoring results
+
+    Attributes:
+        eval_task (Optional[EvalTask]): Inherited evaluation task configuration.
+        data (Optional[EvalData]): Inherited evaluation dataset.
+        paths (Paths): Inherited project directory structure.
+        logger (logging.Logger): Inherited logger instance.
+
+    Examples:
+        >>> evaluator = MetaEvaluator()
+        >>> evaluator.add_evaluation_task(task_schemas={"toxicity": ["toxic", "non_toxic"]})
+        >>>
+        >>> # Load results from evaluation runs
+        >>> judge_results = evaluator.load_all_judge_results()
+        >>> human_results = evaluator.load_all_human_results()
+        >>>
+        >>> # Configure and run scoring
+        >>> evaluator.configure_scoring_metrics([
+        ...     MetricConfig(metric_type="accuracy", task_names=["toxicity"])
+        ... ])
+        >>> evaluator.compute_scores(save_results=True)
+    """
 
     # Type hints for attributes that will be provided by MetaEvaluator
     eval_task: Optional[EvalTask]
     data: Optional[EvalData]
     paths: "Paths"
+    logger: logging.Logger
 
     def __init__(self, *args, **kwargs):
         """Initialize scoring mixin."""
@@ -75,7 +122,6 @@ class ScoringMixin:
         Returns:
             Dict[str, HumanAnnotationResults]: Dictionary mapping run_ids to their loaded HumanAnnotationResults objects.
         """
-        self.logger = logging.getLogger(__name__)
         results = {}
 
         # Find all metadata files in annotations directory
@@ -197,7 +243,7 @@ class ScoringMixin:
             tuple: Tuple containing consolidated judge and human DataFrames
 
         Raises:
-            ValueError: If no aligned judge-human data is found.
+            InsufficientDataError: If no aligned judge-human data is found.
         """
         # Collect all outcomes from judge and human results
         judge_outcomes = self._collect_all_outcomes(
@@ -207,8 +253,11 @@ class ScoringMixin:
             human_results, task_names, "annotator_id"
         )
 
-        if not judge_outcomes or not human_outcomes:
-            raise ValueError("No aligned judge-human data found")
+        if not judge_outcomes:
+            raise InsufficientDataError("No judge outcomes found")
+
+        if not human_outcomes:
+            raise InsufficientDataError("No human outcomes found")
 
         # Combine all outcomes into single DataFrames
         consolidated_judge_df = pl.concat(judge_outcomes)
@@ -226,7 +275,7 @@ class ScoringMixin:
         self.logger.info(f"Common IDs for alignment: {len(common_ids)}")
 
         if not common_ids:
-            raise ValueError("No aligned judge-human data found")
+            raise InsufficientDataError("No aligned judge-human data found")
 
         consolidated_judge_df = consolidated_judge_df.filter(
             pl.col("original_id").is_in(list(common_ids))
@@ -246,13 +295,13 @@ class ScoringMixin:
             dict: A dictionary mapping task names to their schemas.
 
         Raises:
-            ValueError: If a task is not found in the judge results schemas.
+            EvalTaskNotFoundError: If a task is not found in the judge results schemas.
         """
         first_judge_result = next(iter(judge_results.values()))
         task_schemas = {}
         for task_name in task_names:
             if task_name not in first_judge_result.task_schemas:
-                raise ValueError(
+                raise EvalTaskNotFoundError(
                     f"Task '{task_name}' not found in judge results schemas"
                 )
             task_schemas[task_name] = first_judge_result.task_schemas.get(task_name)
@@ -262,12 +311,12 @@ class ScoringMixin:
         """Validate that a scorer can handle all tasks.
 
         Raises:
-            ValueError: If a scorer cannot handle a task.
+            IncompatibleTaskError: If a scorer cannot handle a task.
         """
         for task_name, task_schema in task_schemas.items():
             if not scorer.can_score_task(task_schema):
-                raise ValueError(
-                    f"Scorer {scorer.scorer_name} cannot handle task {task_name}"
+                raise IncompatibleTaskError(
+                    f"Scorer '{scorer.scorer_name}' cannot score task '{task_name}'"
                 )
 
     # ===== SCORING AND COMPARISON METHODS =====
@@ -304,11 +353,13 @@ class ScoringMixin:
                 try:
                     scorer.aggregate_results(scorer_results, scores_dir)
                 except Exception as e:
-                    self.logger.info(
+                    self.logger.warning(
                         f"Warning: Failed to run aggregation for {scorer_name}: {e}"
                     )
             else:
-                self.logger.info(f"Scorer {scorer_name} does not support aggregation")
+                self.logger.warning(
+                    f"Scorer {scorer_name} does not support aggregation"
+                )
 
             processed_scorers.add(scorer_name)
 
@@ -331,32 +382,46 @@ class ScoringMixin:
             Dict[str, List[BaseScoringResult]]: Dictionary mapping scorer names to lists of results
 
         Raises:
-            ValueError: If no metrics configured, no results found, or scoring fails
+            ScoringConfigError: If no metrics configured, no results found, or scoring fails
+            InsufficientDataError: If insufficient data is available for scoring
         """
+        self.logger.info(
+            f"Starting comparison with {len(comparison_config.metrics)} metrics"
+        )
+
         # Validate comparison configuration
         if not comparison_config.metrics:
-            raise ValueError("No metrics configured for comparison")
+            raise ScoringConfigError("No metrics configured for comparison")
 
         for i, metric_config in enumerate(comparison_config.metrics):
             if not metric_config.task_names:
-                raise ValueError(f"No task names specified for metric {i}")
+                raise ScoringConfigError(f"No task names specified for metric {i}")
 
         # Load results if not provided
         if judge_results is None:
+            self.logger.info("Loading all judge results from results directory")
             judge_results = self.load_all_judge_results()
         if human_results is None:
+            self.logger.info("Loading all human results from annotations directory")
             human_results = self.load_all_human_results()
 
         # Validate we have results
         if not judge_results:
-            raise ValueError("No judge results provided or found")
+            raise InsufficientDataError("No judge results provided or found")
         if not human_results:
-            raise ValueError("No human results provided or found")
+            raise InsufficientDataError("No human results provided or found")
+
+        self.logger.info(
+            f"Comparing {len(judge_results)} judge result sets with {len(human_results)} human result sets"
+        )
 
         results = {}  # Dict[str, List[BaseScoringResult]]
 
         # Process each metric configuration
-        for metric_config in comparison_config.metrics:
+        for i, metric_config in enumerate(comparison_config.metrics, 1):
+            self.logger.info(
+                f"Processing metric {i}/{len(comparison_config.metrics)}: {metric_config.scorer.scorer_name} on tasks {metric_config.task_names}"
+            )
             # Extract task schemas for this metric
             task_schemas = self._extract_task_schemas(
                 judge_results, metric_config.task_names
@@ -372,7 +437,14 @@ class ScoringMixin:
 
             # Compute score for each judge
             all_judges = consolidated_judge_df["judge_id"].unique().to_list()
-            for judge_id in all_judges:
+            self.logger.info(
+                f"Computing scores for {len(all_judges)} judges: {all_judges}"
+            )
+
+            for j, judge_id in enumerate(all_judges, 1):
+                self.logger.info(
+                    f"  Computing score for judge {j}/{len(all_judges)}: {judge_id}"
+                )
                 # Filter judge data for this specific judge
                 consolidated_judge_subset = consolidated_judge_df.filter(
                     pl.col("judge_id") == judge_id
@@ -394,6 +466,12 @@ class ScoringMixin:
                 results[scorer_name].append(score_result)
 
         # Run scorer aggregations after all individual scoring is complete
+        self.logger.info("Running scorer aggregations for comparison results")
         self._run_scorer_aggregations(results, comparison_config)
+
+        total_results = sum(len(scorer_results) for scorer_results in results.values())
+        self.logger.info(
+            f"Comparison completed successfully. Generated {total_results} total scoring results across {len(results)} scorer types"
+        )
 
         return results

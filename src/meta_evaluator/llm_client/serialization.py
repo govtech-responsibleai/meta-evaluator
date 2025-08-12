@@ -1,8 +1,10 @@
 """Pydantic models for LLM client serialization."""
 
 from abc import ABC
+
 from pydantic import BaseModel
-from .models import LLMClientEnum
+
+from .enums import LLMClientEnum
 
 
 class LLMClientSerializedState(BaseModel, ABC):

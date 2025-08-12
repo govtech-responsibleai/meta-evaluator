@@ -1,56 +1,11 @@
 """Tests for text similarity metrics."""
 
-import pytest
 import numpy as np
 import polars as pl
-from meta_evaluator.scores import TextSimilarityScorer
-
-
-@pytest.fixture
-def sample_judge_df():
-    """Reusable sample judge DataFrame for text testing.
-
-    Returns:
-        pl.DataFrame: A sample judge DataFrame.
-    """
-    return pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3"],
-            "judge_id": ["judge_1", "judge_1", "judge_1"],
-            "task_name": ["task1", "task1", "task1"],
-            "task_value": ["hello world", "test case", "example text"],
-        }
-    )
-
-
-@pytest.fixture
-def sample_human_df():
-    """Reusable sample human DataFrame for text testing.
-
-    Returns:
-        pl.DataFrame: A sample human DataFrame.
-    """
-    return pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3"],
-            "annotator_id": ["human_1", "human_1", "human_1"],
-            "task_name": ["task1", "task1", "task1"],
-            "task_value": ["hello world", "test case", "example text"],
-        }
-    )
 
 
 class TestTextSimilarityScorer:
     """Test TextSimilarityScorer functionality."""
-
-    @pytest.fixture
-    def text_similarity_scorer(self):
-        """Create a TextSimilarityScorer instance.
-
-        Returns:
-            TextSimilarityScorer: A TextSimilarityScorer instance.
-        """
-        return TextSimilarityScorer()
 
     def test_can_score_task_free_form(self, text_similarity_scorer):
         """Test that TextSimilarityScorer can handle free-form text tasks and rejects classification tasks."""

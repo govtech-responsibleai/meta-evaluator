@@ -1,13 +1,14 @@
 """Session manager for Streamlit annotation interface."""
 
 import re
+import uuid
 from datetime import datetime
 from typing import Optional
-import uuid
+
 import streamlit as st
 
-from meta_evaluator.results import HumanAnnotationResultsBuilder
 from meta_evaluator.annotator.exceptions import AnnotatorInitializationError
+from meta_evaluator.results import HumanAnnotationResultsBuilder
 
 
 def generate_run_id() -> str:

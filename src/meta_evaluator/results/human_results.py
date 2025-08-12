@@ -3,64 +3,33 @@
 import json
 import logging
 from datetime import datetime
-from enum import Enum
-from typing import Annotated, Dict, List, Literal, Optional, cast
+from typing import Dict, List, Literal, Optional, cast
 
 import polars as pl
-from pydantic import ConfigDict, Field, ValidationError
+from pydantic import Field, ValidationError
 
+from ..common.error_constants import (
+    INVALID_JSON_MSG,
+    INVALID_JSON_STRUCTURE_MSG,
+    STATE_FILE_NOT_FOUND_MSG,
+)
 from .base import (
     BaseEvaluationResults,
     BaseEvaluationResultsBuilder,
-    BaseResultRow,
-    FieldTags,
 )
+from .enums import HumanAnnotationStatusEnum
+from .exceptions import (
+    IncompleteResultsError,
+    InvalidFileError,
+    MismatchedTasksError,
+)
+from .models import BaseResultRow, HumanAnnotationResultRow
 from .serialization import (
     BaseResultsSerializedState,
     HumanAnnotationResultsSerializedState,
 )
 
-
 logger = logging.getLogger(__name__)
-
-# Error message constants
-INVALID_JSON_STRUCTURE_MSG = "Invalid JSON structure in state file"
-INVALID_JSON_MSG = "Invalid JSON in state file"
-STATE_FILE_NOT_FOUND_MSG = "State file not found"
-
-
-class HumanAnnotationStatusEnum(str, Enum):
-    """Enumeration of possible human annotation outcomes for a single example."""
-
-    SUCCESS = "success"
-    ERROR = "error"
-
-
-class HumanAnnotationResultRow(BaseResultRow):
-    """Result row for human annotation with annotation-specific fields."""
-
-    annotator_id: Annotated[
-        str,
-        Field(description="ID of the human annotator"),
-        FieldTags(tags=["metadata"]),
-    ]
-
-    annotation_timestamp: Annotated[
-        Optional[datetime],
-        Field(default=None, description="Timestamp when annotation was completed"),
-        FieldTags(tags=["annotation_diagnostic"]),
-    ]
-
-    model_config = ConfigDict(extra="allow", frozen=False)
-
-    @classmethod
-    def get_annotation_diagnostic_fields(cls) -> list[str]:
-        """Get all annotation diagnostic field names.
-
-        Returns:
-            list[str]: List of annotation diagnostic field names.
-        """
-        return cls.get_fields_by_tag("annotation_diagnostic")
 
 
 class HumanAnnotationResults(BaseEvaluationResults):
@@ -173,20 +142,19 @@ class HumanAnnotationResults(BaseEvaluationResults):
             HumanAnnotationResultsSerializedState: The loaded and validated state object.
 
         Raises:
-            FileNotFoundError: If the state file doesn't exist.
-            ValueError: If the JSON structure is invalid.
+            InvalidFileError: If the state file doesn't exist or the JSON structure is invalid.
         """
         try:
             with open(state_file, "r") as f:
                 return HumanAnnotationResultsSerializedState.model_validate_json(
                     f.read()
                 )
-        except FileNotFoundError:
-            raise FileNotFoundError(f"{STATE_FILE_NOT_FOUND_MSG}: {state_file}")
+        except FileNotFoundError as e:
+            raise InvalidFileError(f"{STATE_FILE_NOT_FOUND_MSG}: {state_file}", e)
         except ValidationError as e:
-            raise ValueError(f"{INVALID_JSON_STRUCTURE_MSG}: {e}")
+            raise InvalidFileError(INVALID_JSON_STRUCTURE_MSG, e)
         except json.JSONDecodeError as e:
-            raise ValueError(f"{INVALID_JSON_MSG}: {e}")
+            raise InvalidFileError(INVALID_JSON_MSG, e)
 
     def get_successful_results(self) -> pl.DataFrame:
         """Get all successful annotation results.
@@ -263,14 +231,17 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
             HumanAnnotationResultRow: The created success row.
 
         Raises:
-            ValueError: If outcomes do not contain all tasks.
+            MismatchedTasksError: If outcomes do not contain all tasks.
         """
         # Validate that outcomes contain exactly all tasks
         expected_tasks = set(self.task_schemas.keys())
         outcome_tasks = set(outcomes.keys())
 
         if expected_tasks != outcome_tasks:
-            raise ValueError("Success row must contain outcomes for ALL tasks")
+            raise MismatchedTasksError(
+                list(expected_tasks - outcome_tasks),
+                "Success row must contain outcomes for ALL tasks",
+            )
 
         row = HumanAnnotationResultRow(
             sample_example_id=sample_example_id,
@@ -330,17 +301,19 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
             HumanAnnotationResults: The completed annotation results.
 
         Raises:
-            ValueError: If no rows were added to the builder or missing expected results.
+            IncompleteResultsError: If no rows were added to the builder or missing expected results.
         """
         if not self._results:
-            raise ValueError("No rows added to builder")
+            raise IncompleteResultsError("No rows added to builder")
 
         # Check for missing results
         if not self.is_complete:
             received_ids = set(self._results.keys())
             expected_ids = self._expected_ids
             missing_ids = expected_ids - received_ids
-            raise ValueError(f"Missing results for IDs: {sorted(missing_ids)}")
+            raise IncompleteResultsError(
+                f"Missing results for IDs: {sorted(missing_ids)}"
+            )
 
         # Create DataFrame
         results_data = self._create_dataframe()

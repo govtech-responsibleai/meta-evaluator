@@ -15,17 +15,17 @@ import pytest
 
 from meta_evaluator.data import EvalData, SampleEvalData
 from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.meta_evaluator import MetaEvaluator
-from meta_evaluator.llm_client.openai_client import OpenAIClient, OpenAIConfig
 from meta_evaluator.llm_client.azureopenai_client import (
     AzureOpenAIClient,
     AzureOpenAIConfig,
 )
+from meta_evaluator.llm_client.enums import LLMClientEnum
+from meta_evaluator.llm_client.openai_client import OpenAIClient, OpenAIConfig
 from meta_evaluator.llm_client.serialization import (
-    OpenAISerializedState,
     AzureOpenAISerializedState,
+    OpenAISerializedState,
 )
-from meta_evaluator.llm_client.models import LLMClientEnum
+from meta_evaluator.meta_evaluator import MetaEvaluator
 
 
 class TestMetaEvaluatorIntegration:
@@ -186,18 +186,18 @@ class TestMetaEvaluatorIntegration:
             )
 
     @pytest.mark.integration
-    def test_full_roundtrip_with_real_evaldata_json(self):
+    def test_full_roundtrip_with_real_evaldata_json(self, tmp_path):
         """Test complete save/load cycle with real EvalData in JSON format."""
         eval_data = self.create_real_eval_data()
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
 
             # Create MetaEvaluator with real data
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_data(eval_data)
             evaluator.add_eval_task(eval_task)
@@ -217,17 +217,17 @@ class TestMetaEvaluatorIntegration:
             assert not isinstance(loaded.data, SampleEvalData)
 
     @pytest.mark.integration
-    def test_full_roundtrip_with_real_evaldata_csv(self):
+    def test_full_roundtrip_with_real_evaldata_csv(self, tmp_path):
         """Test complete save/load cycle with real EvalData in CSV format."""
         eval_data = self.create_real_eval_data()
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
 
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_data(eval_data)
             evaluator.add_eval_task(eval_task)
@@ -244,17 +244,17 @@ class TestMetaEvaluatorIntegration:
             assert LLMClientEnum.OPENAI in loaded.client_registry
 
     @pytest.mark.integration
-    def test_full_roundtrip_with_real_evaldata_parquet(self):
+    def test_full_roundtrip_with_real_evaldata_parquet(self, tmp_path):
         """Test complete save/load cycle with real EvalData in Parquet format."""
         eval_data = self.create_real_eval_data()
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
 
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_data(eval_data)
             evaluator.add_eval_task(eval_task)
@@ -271,23 +271,23 @@ class TestMetaEvaluatorIntegration:
             assert LLMClientEnum.OPENAI in loaded.client_registry
 
     @pytest.mark.integration
-    def test_multi_client_serialization(self):
+    def test_multi_client_serialization(self, tmp_path):
         """Test serialization with multiple real LLM clients."""
         eval_data = self.create_real_eval_data()
         eval_task = self.create_real_eval_task()
 
         with (
             patch(
-                "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+                "meta_evaluator.llm_client.openai_client.OpenAIClient"
             ) as mock_openai_class,
             patch(
-                "meta_evaluator.meta_evaluator.metaevaluator.AzureOpenAIClient"
+                "meta_evaluator.llm_client.azureopenai_client.AzureOpenAIClient"
             ) as mock_azure_class,
         ):
             mock_openai_class.return_value = self.create_mock_openai_client()
             mock_azure_class.return_value = self.create_mock_azure_openai_client()
 
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_azure_openai()
             evaluator.add_data(eval_data)
@@ -308,17 +308,17 @@ class TestMetaEvaluatorIntegration:
             assert loaded.data.data.equals(eval_data.data)
 
     @pytest.mark.integration
-    def test_sample_eval_data_roundtrip(self):
+    def test_sample_eval_data_roundtrip(self, tmp_path):
         """Test complete workflow with real SampleEvalData."""
         sample_data = self.create_real_sample_eval_data()
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
 
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_data(sample_data)
             evaluator.add_eval_task(eval_task)
@@ -339,18 +339,18 @@ class TestMetaEvaluatorIntegration:
             assert loaded.data.data.equals(sample_data.data)
 
     @pytest.mark.integration
-    def test_full_roundtrip_with_eval_task(self):
+    def test_full_roundtrip_with_eval_task(self, tmp_path):
         """Test complete save/load cycle with real EvalTask."""
         eval_data = self.create_real_eval_data()
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
 
             # Create MetaEvaluator with real data and evaluation task
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_data(eval_data)
             evaluator.add_eval_task(eval_task)
@@ -368,16 +368,16 @@ class TestMetaEvaluatorIntegration:
             assert LLMClientEnum.OPENAI in loaded.client_registry
 
     @pytest.mark.integration
-    def test_file_system_integration(self):
+    def test_file_system_integration(self, tmp_path):
         """Test that data files are actually created and readable."""
         eval_data = self.create_real_eval_data("file_test")
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_data(eval_data)
             evaluator.add_eval_task(eval_task)
@@ -415,16 +415,16 @@ class TestMetaEvaluatorIntegration:
                 assert loaded.data.data.equals(eval_data.data)
 
     @pytest.mark.integration
-    def test_cross_format_data_consistency(self):
+    def test_cross_format_data_consistency(self, tmp_path):
         """Test that the same data produces equivalent results across formats."""
         eval_data = self.create_real_eval_data("consistency_test")
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_data(eval_data)
             evaluator.add_eval_task(eval_task)
@@ -454,16 +454,16 @@ class TestMetaEvaluatorIntegration:
                 assert json_meta.id_column == fmt_meta.id_column
 
     @pytest.mark.integration
-    def test_missing_data_file_integration(self):
+    def test_missing_data_file_integration(self, tmp_path):
         """Test behavior when data file is deleted after saving."""
         eval_data = self.create_real_eval_data()
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_data(eval_data)
             evaluator.add_eval_task(eval_task)
@@ -513,16 +513,16 @@ class TestMetaEvaluatorIntegration:
             assert "Invalid JSON structure" in str(exc.value)
 
     @pytest.mark.integration
-    def test_skip_data_loading_integration(self):
+    def test_skip_data_loading_integration(self, tmp_path):
         """Test loading state without data (load_data=False)."""
         eval_data = self.create_real_eval_data()
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_data(eval_data)
             evaluator.add_eval_task(eval_task)
@@ -544,17 +544,17 @@ class TestMetaEvaluatorIntegration:
             assert loaded_without_data.data is None
 
     @pytest.mark.integration
-    def test_skip_eval_task_loading(self):
+    def test_skip_eval_task_loading(self, tmp_path):
         """Test loading state without evaluation task (load_task=False)."""
         eval_data = self.create_real_eval_data()
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
 
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_data(eval_data)
             evaluator.add_eval_task(eval_task)
@@ -571,7 +571,7 @@ class TestMetaEvaluatorIntegration:
             assert loaded_without_task.eval_task is None
 
     @pytest.mark.integration
-    def test_large_dataset_performance(self):
+    def test_large_dataset_performance(self, tmp_path):
         """Test serialization with larger datasets to catch performance issues."""
         # Create larger dataset (1000 rows)
         df = pl.DataFrame(
@@ -590,10 +590,10 @@ class TestMetaEvaluatorIntegration:
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
-            evaluator = MetaEvaluator()
+            evaluator = MetaEvaluator(str(tmp_path / "test_project"))
             evaluator.add_openai()
             evaluator.add_data(eval_data)
             evaluator.add_eval_task(eval_task)
@@ -620,7 +620,7 @@ class TestMetaEvaluatorIntegration:
         eval_task = self.create_real_eval_task()
 
         with patch(
-            "meta_evaluator.meta_evaluator.metaevaluator.OpenAIClient"
+            "meta_evaluator.llm_client.openai_client.OpenAIClient"
         ) as mock_client_class:
             mock_client_class.return_value = self.create_mock_openai_client()
             evaluator = MetaEvaluator()

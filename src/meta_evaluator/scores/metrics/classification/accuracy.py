@@ -1,7 +1,7 @@
 """Accuracy scorer for classification tasks."""
 
-from typing import List, Optional
 import os
+from typing import List, Optional
 
 import numpy as np
 import polars as pl
@@ -161,7 +161,7 @@ class AccuracyScorer(BaseScorer):
             scores_dir: Directory to save results and plots
         """
         if not results:
-            print("No accuracy results to aggregate")
+            self.logger.info("No accuracy results to aggregate")
             return
 
         # Create accuracy directory for results and plots
@@ -171,6 +171,6 @@ class AccuracyScorer(BaseScorer):
         # Save individual results
         self.save_results(results, accuracy_dir)
 
-        print(
+        self.logger.info(
             f"Generated accuracy results for {len(results)} judge(s) in {accuracy_dir}"
         )

@@ -1,179 +1,34 @@
 """Tests for ScoringMixin data processing functionality."""
 
 from datetime import datetime
-import logging
-import pytest
+from pathlib import Path
 from unittest.mock import Mock
-import polars as pl
 
-from meta_evaluator.llm_client.models import LLMClientEnum
+import polars as pl
+import pytest
+
+from meta_evaluator.llm_client.enums import LLMClientEnum
 from meta_evaluator.meta_evaluator import MetaEvaluator
-from meta_evaluator.meta_evaluator.scoring import ScoringMixin
+from meta_evaluator.meta_evaluator.exceptions import (
+    EvalTaskNotFoundError,
+    IncompatibleTaskError,
+    InsufficientDataError,
+    ScoringConfigError,
+)
 from meta_evaluator.results import (
-    JudgeResults,
     HumanAnnotationResults,
-    JudgeResultsBuilder,
     HumanAnnotationResultsBuilder,
+    JudgeResults,
+    JudgeResultsBuilder,
 )
 from meta_evaluator.scores import (
-    MetricsConfig,
-    MetricConfig,
     AccuracyScorer,
+    MetricConfig,
+    MetricsConfig,
 )
 from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
 
-
-class MockMetaEvaluator(ScoringMixin):
-    """Mock MetaEvaluator class for testing ScoringMixin."""
-
-    def __init__(self, scores_dir=None):
-        """Initialize the mock evaluator."""
-        self.project_dir = "/mock/project/dir"
-        self.paths = Mock()
-        self.paths.results = Mock()
-        self.paths.annotations = Mock()
-        self.paths.scores = scores_dir or Mock()
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-
-
-@pytest.fixture
-def mock_evaluator(tmp_path):
-    """Create a mock evaluator with ScoringMixin.
-
-    Returns:
-        MockMetaEvaluator: A mock evaluator with ScoringMixin.
-    """
-    # Use a temporary directory for scores to avoid creating Mock directories
-    scores_dir = tmp_path / "scores"
-    return MockMetaEvaluator(scores_dir=str(scores_dir))
-
-
-@pytest.fixture
-def judge_results_1():
-    """Create first judge results.
-
-    Returns:
-        Mock: A mock judge results object.
-    """
-    judge_results = Mock(spec=JudgeResults)
-    judge_results.judge_id = "judge_1"
-    judge_results.run_id = "run_1"
-    # Support both classification and text tasks
-    judge_results.task_schemas = {
-        "task1": ["A", "B", "C"],
-        "task2": None,
-        "safety": ["SAFE", "UNSAFE"],
-    }
-    judge_results.get_successful_results.return_value = pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3", "4"],
-            "task1": ["A", "B", "A", "C"],
-            "task2": ["text1", "text2", "text3", "text4"],
-            "safety": ["SAFE", "UNSAFE", "SAFE", "UNSAFE"],
-        }
-    )
-    return judge_results
-
-
-@pytest.fixture
-def judge_results_2():
-    """Create second judge results.
-
-    Returns:
-        Mock: A mock judge results object.
-    """
-    judge_results = Mock(spec=JudgeResults)
-    judge_results.judge_id = "judge_2"
-    judge_results.run_id = "run_2"
-    # Support both classification and text tasks
-    judge_results.task_schemas = {
-        "task1": ["A", "B", "C"],
-        "task2": None,
-        "safety": ["SAFE", "UNSAFE"],
-    }
-    judge_results.get_successful_results.return_value = pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3", "4"],
-            "task1": ["A", "B", "A", "C"],
-            "task2": ["text1", "text2", "text3", "text4"],
-            "safety": ["SAFE", "SAFE", "SAFE", "SAFE"],
-        }
-    )
-    return judge_results
-
-
-@pytest.fixture
-def judge_results_dict(judge_results_1, judge_results_2):
-    """Create a dictionary of judge results.
-
-    Returns:
-        dict: A dictionary of judge results.
-    """
-    return {"run_1": judge_results_1, "run_2": judge_results_2}
-
-
-@pytest.fixture
-def human_results_1():
-    """Create first human results.
-
-    Returns:
-        Mock: A mock human results object.
-    """
-    # Create human_1 results
-    human_results = Mock(spec=HumanAnnotationResults)
-    human_results.annotator_id = "human_1"
-    human_results.run_id = "run_1"
-    human_results.get_successful_results.return_value = pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3", "4"],
-            "task1": ["A", "B", "B", "C"],
-            "task2": ["text1", "text2_modified", "text3", "text4"],
-            "safety": ["SAFE", "UNSAFE", "SAFE", "SAFE"],
-        }
-    )
-    return human_results
-
-
-@pytest.fixture
-def human_results_2():
-    """Create second human results.
-
-    Returns:
-        Mock: A mock human results object.
-    """
-    # Create human_2 results
-    human_results = Mock(spec=HumanAnnotationResults)
-    human_results.annotator_id = "human_2"
-    human_results.run_id = "run_2"
-    human_results.get_successful_results.return_value = pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3", "4"],
-            "task1": ["A", "A", "A", "C"],
-            "task2": ["text1", "text2", "text3_modified", "text4"],
-            "safety": ["SAFE", "SAFE", "UNSAFE", "UNSAFE"],
-        }
-    )
-    return human_results
-
-
-@pytest.fixture
-def human_results_dict(human_results_1, human_results_2):
-    """Create a dictionary of human results.
-
-    Returns:
-        dict: A dictionary of human results.
-    """
-    return {"run_1": human_results_1, "run_2": human_results_2}
-
-
-@pytest.fixture
-def human_results(human_results_dict):
-    """Human results dictionary for tests that expect multiple humans.
-
-    Returns:
-        dict: A dictionary of human results.
-    """
-    return human_results_dict
+# Note: All fixtures are now available from conftest.py
 
 
 class TestDataProcessing:
@@ -299,7 +154,9 @@ class TestDataProcessing:
         judge_dict = {"run_1": judge_results}
         human_dict = {"run_1": human_results}
 
-        with pytest.raises(ValueError, match="No aligned judge-human data found"):
+        with pytest.raises(
+            InsufficientDataError, match="No aligned judge-human data found"
+        ):
             mock_evaluator._align_results_by_id(judge_dict, human_dict, ["task1"])
 
     def test_empty_dataframes(self, mock_evaluator):
@@ -319,7 +176,7 @@ class TestDataProcessing:
         judge_dict = {"run_1": judge_results}
         human_dict = {"run_1": human_results}
 
-        with pytest.raises(ValueError, match="No aligned judge-human data found"):
+        with pytest.raises(InsufficientDataError, match="No judge outcomes found"):
             mock_evaluator._align_results_by_id(judge_dict, human_dict, ["task1"])
 
     def test_extract_task_schemas(self, mock_evaluator, judge_results_dict):
@@ -348,9 +205,7 @@ class TestDataProcessing:
         scorer = AccuracyScorer()
         task_schemas = {"task1": None}  # Free-form text task
 
-        with pytest.raises(
-            ValueError, match="Scorer accuracy cannot handle task task1"
-        ):
+        with pytest.raises(IncompatibleTaskError, match="Incompatible task"):
             mock_evaluator._validate_scorer_compatibility(scorer, task_schemas)
 
     def test_extract_task_schemas_missing_task(
@@ -360,7 +215,8 @@ class TestDataProcessing:
         task_names = ["task1", "missing_task"]
 
         with pytest.raises(
-            ValueError, match="Task 'missing_task' not found in judge results schemas"
+            EvalTaskNotFoundError,
+            match="Task 'missing_task' not found in judge results schemas",
         ):
             mock_evaluator._extract_task_schemas(judge_results_dict, task_names)
 
@@ -405,53 +261,7 @@ class TestDataProcessing:
 class TestResultsLoading:
     """Test suite for MetaEvaluator results loading methods."""
 
-    @pytest.fixture
-    def completed_judge_results(self):
-        """Fixture for creating completed JudgeResults.
-
-        Returns:
-            JudgeResults: A completed JudgeResults instance for testing.
-        """
-        builder = JudgeResultsBuilder(
-            run_id="test_run",
-            judge_id="test_judge",
-            llm_client_enum=LLMClientEnum.OPENAI,
-            model_used="gpt-4",
-            task_schemas={"sentiment": ["positive", "negative"]},
-            expected_ids=["id1"],
-        )
-        builder.create_success_row(
-            sample_example_id="test_1",
-            original_id="id1",
-            outcomes={"sentiment": "positive"},
-            llm_raw_response_content="positive",
-            llm_prompt_tokens=10,
-            llm_completion_tokens=5,
-            llm_total_tokens=15,
-            llm_call_duration_seconds=1.0,
-        )
-        return builder.complete()
-
-    @pytest.fixture
-    def completed_human_results(self):
-        """Fixture for creating completed HumanAnnotationResults.
-
-        Returns:
-            HumanAnnotationResults: A completed HumanAnnotationResults instance for testing.
-        """
-        builder = HumanAnnotationResultsBuilder(
-            run_id="test_annotation_run",
-            annotator_id="test_annotator",
-            task_schemas={"accuracy": ["accurate", "inaccurate"]},
-            expected_ids=["id1"],
-        )
-        builder.create_success_row(
-            sample_example_id="test_1",
-            original_id="id1",
-            outcomes={"accuracy": "accurate"},
-            annotation_timestamp=datetime.now(),
-        )
-        return builder.complete()
+    # Note: Fixtures are now available from conftest.py
 
     # === Judge Results Loading Tests ===
 
@@ -665,7 +475,9 @@ class TestScoring:
         """Test comparison when no metrics are configured."""
         config = MetricsConfig(metrics=[])
 
-        with pytest.raises(ValueError, match="No metrics configured for comparison"):
+        with pytest.raises(
+            ScoringConfigError, match="No metrics configured for comparison"
+        ):
             mock_evaluator.compare(config)
 
     def test_compare_no_task_names_specified(self, mock_evaluator):
@@ -675,7 +487,9 @@ class TestScoring:
             metrics=[MetricConfig(scorer=mock_scorer, task_names=[])]
         )
 
-        with pytest.raises(ValueError, match="No task names specified for metric 0"):
+        with pytest.raises(
+            ScoringConfigError, match="No task names specified for metric 0"
+        ):
             mock_evaluator.compare(config)
 
     def test_compare_success(
@@ -724,7 +538,9 @@ class TestScoring:
             metrics=[MetricConfig(scorer=AccuracyScorer(), task_names=["task1"])]
         )
 
-        with pytest.raises(ValueError, match="No judge results provided or found"):
+        with pytest.raises(
+            InsufficientDataError, match="No judge results provided or found"
+        ):
             mock_evaluator.compare(config)
 
     def test_compare_no_human_results(self, mock_evaluator):
@@ -736,17 +552,15 @@ class TestScoring:
             metrics=[MetricConfig(scorer=AccuracyScorer(), task_names=["task1"])]
         )
 
-        with pytest.raises(ValueError, match="No human results provided or found"):
+        with pytest.raises(
+            InsufficientDataError, match="No human results provided or found"
+        ):
             mock_evaluator.compare(config)
 
     def test_aggregation_with_mixed_scorers(
-        self, judge_results_dict, human_results_dict, tmp_path
+        self, judge_results_dict, human_results_dict, mock_evaluator
     ):
         """Test aggregation with scorers that both support aggregation."""
-        # Create evaluator with real scores directory
-        scores_dir = tmp_path / "scores"
-        mock_evaluator = MockMetaEvaluator(scores_dir=str(scores_dir))
-
         # Mock the load methods
         mock_evaluator.load_all_judge_results = Mock(return_value=judge_results_dict)
         mock_evaluator.load_all_human_results = Mock(return_value=human_results_dict)
@@ -776,7 +590,7 @@ class TestScoring:
         assert len(results["accuracy"]) == 2
 
         # Verify aggregation directory was created for AltTestScorer
-        alt_test_dir = scores_dir / "alt_test"
+        alt_test_dir = Path(mock_evaluator.paths.scores) / "alt_test"
         assert alt_test_dir.exists()
 
         # Verify aggregation files were created (AltTestScorer creates 3 plots)
@@ -790,7 +604,7 @@ class TestScoring:
             assert plot_path.exists(), f"Missing aggregate plot: {plot_name}"
 
         # Verify aggregation directory was created for AccuracyScorer
-        accuracy_dir = scores_dir / "accuracy"
+        accuracy_dir = Path(mock_evaluator.paths.scores) / "accuracy"
         assert accuracy_dir.exists()
 
         # Verify individual result files were saved for AccuracyScorer

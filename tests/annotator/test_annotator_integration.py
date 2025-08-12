@@ -23,92 +23,21 @@ browser automation dependencies, making them suitable for CI/CD environments
 while still testing the core integration functionality.
 """
 
-import pytest
-import time
 import socket
 import subprocess
 import threading
-import requests
+import time
 from datetime import datetime
 
-import polars as pl
+import pytest
+import requests
 
-from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.data import EvalData
 from meta_evaluator.annotator.launcher import StreamlitLauncher
 from meta_evaluator.results import HumanAnnotationResults
-
 
 # -------------------------
 # Test Setup and Fixtures
 # -------------------------
-
-
-@pytest.fixture
-def test_eval_task():
-    """Create a test EvalTask for integration testing.
-
-    Returns:
-        EvalTask: A configured evaluation task with:
-            - Mixed task types (structured sentiment/quality, no free-form)
-            - Prompt and response column definitions
-            - Structured answering method for radio button interactions
-    """
-    return EvalTask(
-        task_schemas={
-            "sentiment": ["positive", "negative", "neutral"],
-            "quality": ["good", "bad"],
-        },
-        prompt_columns=["text"],
-        response_columns=["response"],
-        answering_method="structured",
-    )
-
-
-@pytest.fixture
-def test_eval_data():
-    """Create test EvalData for integration testing.
-
-    Returns:
-        EvalData: A test dataset containing:
-            - 3 sample text/response pairs for annotation
-            - Varied content (positive, negative, neutral sentiment)
-            - Properly structured with ID column for tracking
-    """
-    df = pl.DataFrame(
-        {
-            "id": ["sample_1", "sample_2", "sample_3"],
-            "text": [
-                "I love this product!",
-                "This is terrible!",
-                "It's okay, nothing special",
-            ],
-            "response": [
-                "Thank you for your feedback!",
-                "We apologize for the inconvenience.",
-                "We appreciate your honest review.",
-            ],
-        }
-    )
-    return EvalData(
-        name="integration_test_data",
-        data=df,
-        id_column="id",
-    )
-
-
-@pytest.fixture
-def free_port():
-    """Find and return a free port for testing.
-
-    Returns:
-        int: An available port number that can be used for the Streamlit
-             app during testing without conflicts.
-    """
-    with socket.socket() as s:
-        s.bind(("", 0))
-        port = s.getsockname()[1]
-    return port
 
 
 def check_streamlit_app_running(port, timeout=30):
@@ -244,7 +173,7 @@ class StreamlitLauncherRunner:
 
 @pytest.mark.integration
 def test_streamlit_launcher_basic_integration(
-    test_eval_task, test_eval_data, free_port, tmp_path
+    integration_eval_task, integration_eval_data, free_port, tmp_path
 ):
     """Basic integration test for the complete annotation launcher workflow.
 
@@ -259,12 +188,6 @@ def test_streamlit_launcher_basic_integration(
     4. Data persistence works correctly (save/load cycle)
     5. Process cleanup releases ports and removes temporary files
     6. Annotation directory persists with saved results
-
-    Args:
-        test_eval_task: Fixture providing test evaluation task configuration
-        test_eval_data: Fixture providing test data for annotation
-        free_port: Fixture providing an available port for testing
-        tmp_path: pytest fixture providing temporary directory
     """
     # Setup annotations directory
     annotations_dir = tmp_path / "annotations"
@@ -272,8 +195,8 @@ def test_streamlit_launcher_basic_integration(
 
     # Create launcher
     launcher = StreamlitLauncher(
-        eval_data=test_eval_data,
-        eval_task=test_eval_task,
+        eval_data=integration_eval_data,
+        eval_task=integration_eval_task,
         annotations_dir=str(annotations_dir),
         port=free_port,
     )
@@ -308,7 +231,7 @@ def test_streamlit_launcher_basic_integration(
         builder = HumanAnnotationResultsBuilder(
             run_id="test_run_001",
             annotator_id="test_annotator",
-            task_schemas=test_eval_task.task_schemas,
+            task_schemas=integration_eval_task.task_schemas,
             expected_ids=["sample_1", "sample_2", "sample_3"],
             is_sampled_run=False,
         )

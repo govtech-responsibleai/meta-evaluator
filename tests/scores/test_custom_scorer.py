@@ -1,7 +1,7 @@
 """Tests for custom scorer."""
 
-import pytest
 import polars as pl
+import pytest
 
 from meta_evaluator.scores import (
     BaseScorer,

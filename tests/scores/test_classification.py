@@ -1,56 +1,11 @@
 """Tests for classification Metrics."""
 
-import pytest
 import numpy as np
 import polars as pl
-from meta_evaluator.scores import AccuracyScorer
-
-
-@pytest.fixture
-def sample_consolidated_judge_df():
-    """Reusable sample consolidated judge DataFrame for testing.
-
-    Returns:
-        pl.DataFrame: A sample consolidated judge DataFrame.
-    """
-    return pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3"],
-            "judge_id": ["judge_1", "judge_1", "judge_1"],
-            "task_name": ["task1", "task1", "task1"],
-            "task_value": ["A", "B", "C"],
-        }
-    )
-
-
-@pytest.fixture
-def sample_consolidated_human_df():
-    """Reusable sample consolidated human DataFrame for testing.
-
-    Returns:
-        pl.DataFrame: A sample consolidated human DataFrame.
-    """
-    return pl.DataFrame(
-        {
-            "original_id": ["1", "2", "3"],
-            "annotator_id": ["human_1", "human_1", "human_1"],
-            "task_name": ["task1", "task1", "task1"],
-            "task_value": ["A", "B", "C"],
-        }
-    )
 
 
 class TestAccuracyScorer:
     """Test AccuracyScorer functionality."""
-
-    @pytest.fixture
-    def accuracy_scorer(self):
-        """Create an AccuracyScorer instance.
-
-        Returns:
-            AccuracyScorer: An AccuracyScorer instance.
-        """
-        return AccuracyScorer()
 
     def test_can_score_classification(self, accuracy_scorer):
         """Test that AccuracyScorer can handle classification tasks and rejects text tasks."""

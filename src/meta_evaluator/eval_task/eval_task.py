@@ -1,12 +1,68 @@
 """Main class for evaluation tasks."""
 
+import logging
 from typing import Any, Callable, Literal, Optional
+
 from pydantic import BaseModel, Field, create_model, model_validator
+
+from .exceptions import TaskSchemaError
 from .serialization import EvalTaskState
 
 
 class EvalTask(BaseModel):
-    """Main class for evaluation tasks."""
+    """Central class used throughout evaluations to define what and how to evaluate.
+
+    EvalTask configures evaluation tasks by specifying what should be evaluated
+    (task_schemas), which data columns to use, and how responses should be parsed.
+    It supports two main evaluation scenarios:
+
+    1. **Judge LLM outputs**: When judges evaluate another LLM's responses
+       - prompt_columns: contain the input to the evaluated LLM
+       - response_columns: contain the evaluated LLM's outputs
+       - task_schemas: define evaluation criteria.
+
+    2. **Judge any text content**: When judges evaluate arbitrary text
+       - response_columns: contain the text to evaluate
+       - task_schemas: define what aspects to evaluate.
+
+    Currently, this class handles
+    - classification tasks (with predefined outcomes)
+    - free-form text evaluation
+
+    Attributes:
+        task_schemas (dict[str, list[str] | None]): Maps task names to allowed outcomes.
+            Use None for free-form text outputs, or list of strings for classification.
+        prompt_columns (Optional[list[str]]): Column names containing inputs to the
+            evaluated LLM. Only used when judging LLM outputs, None when judging text.
+        response_columns (list[str]): Column names containing text/outputs to evaluate.
+            Required for all evaluation scenarios.
+        skip_function (Callable): Function to determine if a data row should be skipped.
+        answering_method (Literal["structured", "xml"]): Output parsing method.
+            "structured" uses Pydantic models, "xml" uses XML tag parsing.
+        annotation_prompt (str): Static prompt text shown to human annotators in the
+            annotation interface. Similar to judge prompts but simpler and one-off.
+        logger (logging.Logger): Logger instance for this task.
+
+    Raises:
+        TaskSchemaError: If task_schemas is empty or any task has fewer than 2 outcomes.
+
+    Examples:
+        >>> # Evaluate LLM responses for toxicity and relevance
+        >>> task = EvalTask(
+        ...     task_schemas={"toxicity": ["toxic", "non_toxic"], "relevance": ["relevant", "irrelevant"]},
+        ...     prompt_columns=["user_input"],  # Input to evaluated LLM
+        ...     response_columns=["llm_response"],  # LLM output to judge
+        ...     answering_method="structured"
+        ... )
+        >>>
+        >>> # Evaluate arbitrary text summaries (free-form)
+        >>> task = EvalTask(
+        ...     task_schemas={"summary_quality": None},  # Free-form evaluation
+        ...     response_columns=["summary_text"],  # No prompt_columns needed
+        ...     answering_method="xml",
+        ...     annotation_prompt="Please evaluate the quality of this summary."
+        ... )
+    """
 
     task_schemas: dict[str, list[str] | None] = Field(
         ...,
@@ -20,6 +76,13 @@ class EvalTask(BaseModel):
         default="Please evaluate the following response:",
         description="If necessary, this is the prompt text shown to human annotators in the annotation interface.",
     )
+    logger: logging.Logger = Field(
+        default_factory=lambda: logging.getLogger(f"{__name__}.EvalTask")
+    )
+
+    model_config = {
+        "arbitrary_types_allowed": True,  # Allow Logger
+    }
 
     @model_validator(mode="after")
     def validate_task_configuration(self) -> "EvalTask":
@@ -29,15 +92,17 @@ class EvalTask(BaseModel):
             EvalTask: The validated instance
 
         Raises:
-            ValueError: If task_schemas is empty or any task has fewer than 2 outcomes
+            TaskSchemaError: If task_schemas is empty or if any task has fewer than 2 outcomes
         """
         if not self.task_schemas:
-            raise ValueError("task_schemas cannot be empty")
+            raise TaskSchemaError(
+                "task_schema is empty. Please define your tasks and their allowed outcome values."
+            )
 
         for task_name, outcomes in self.task_schemas.items():
             if outcomes is not None and len(outcomes) < 2:
-                raise ValueError(
-                    f"Task '{task_name}' must have at least 2 outcomes when using predefined outcomes"
+                raise TaskSchemaError(
+                    f"Please define at least 2 outcomes for task {task_name}."
                 )
 
         return self
@@ -68,6 +133,10 @@ class EvalTask(BaseModel):
         Returns:
             type[BaseModel]: A new evaluation task class with appropriate field types.
         """
+        self.logger.info(
+            f"Creating task class with {len(self.task_schemas)} tasks: {list(self.task_schemas.keys())}"
+        )
+
         model_fields: dict[str, Any] = {}
 
         # Create one field per task
@@ -104,6 +173,8 @@ class EvalTask(BaseModel):
         Returns:
             EvalTaskState: Serialized state for EvalTask.
         """
+        self.logger.info(f"Serializing EvalTask with {len(self.task_schemas)} tasks")
+
         return EvalTaskState(
             task_schemas=self.task_schemas,
             prompt_columns=self.prompt_columns,

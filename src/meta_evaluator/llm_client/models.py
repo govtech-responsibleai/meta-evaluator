@@ -10,31 +10,15 @@ The package contains the following models:
 The models are used to provide a unified interface for interacting with LLM clients from different providers, such as OpenAI, Anthropic, and Gemini. The models are also used to provide type safety and to enable auto-completion when interacting with LLM clients in Python.
 """
 
-from enum import Enum
 import time
-from typing import Any, Literal, Optional, Union
 import uuid
+from typing import Any, Literal, Optional, Union
+
 from pydantic import BaseModel, model_validator
 
+from .enums import ErrorType, LLMClientEnum, RoleEnum
+
 _RESPONSE_ID_UUID_LENGTH = 12
-
-
-class RoleEnum(str, Enum):
-    """Enum representing different roles in a conversation.
-
-    This enum defines the roles supported in a conversation with an LLM client.
-
-    The role enum is used when sending a prompt to the LLM client to specify the role of the message sender.
-
-    Attributes:
-        SYSTEM: Represents the system role, responsible for managing the conversation flow and providing context.
-        USER: Represents the user role, typically the human participant interacting with the LLM.
-        ASSISTANT: Represents the assistant role, which is the LLM itself providing responses to the user's queries.
-    """
-
-    SYSTEM = "system"
-    USER = "user"
-    ASSISTANT = "assistant"
 
 
 class Message(BaseModel):
@@ -64,33 +48,6 @@ class Message(BaseModel):
             str: The string representation of the message.
         """
         return f"{self.role.value}: {self.content}"
-
-
-class LLMClientEnum(Enum):
-    """Enum class representing the supported LLM clients.
-
-    This enum class is used to identify the provider-specific LLM client that is
-    used to interact with the LLM service. The enum values are used in the
-    LLMClient implementations as a unique identifier for the client.
-
-    The enum values are:
-
-    - OPENAI: OpenAI LLM client
-    - AZURE_OPENAI: Azure OpenAI LLM client
-    - GEMINI: Gemini LLM client
-    - ANTHROPIC: Anthropic LLM client
-
-    The values are used in the LLMClient implementations to identify the client
-    that is used to interact with the LLM service.
-    The enum values are also used in logging and other contexts to identify the
-    client that is being used.
-    """
-
-    OPENAI = "openai"
-    AZURE_OPENAI = "azure_openai"
-    GEMINI = "gemini"
-    ANTHROPIC = "anthropic"
-    TEST = "test"
 
 
 class LLMUsage(BaseModel):
@@ -175,7 +132,9 @@ class LLMResponse(BaseModel):
     @model_validator(mode="after")
     def _validate_messages_not_empty(self) -> "LLMResponse":
         if not self.messages:
-            raise ValueError("LLMResponse must have at least one message")
+            raise ValueError(
+                "LLMResponse must have at least one message"
+            )  # No custom exceptions from exceptions.py due to circular import
         return self
 
     @property
@@ -280,19 +239,6 @@ class TagConfig(BaseModel):
     cardinality: Literal["one", "many"] = "many"
     # Only matters when cardinality="one" but found multiple
     multiple_handling: Literal["error", "allow_both", "error_if_different"] = "error"
-
-
-class ErrorType(str, Enum):
-    """Error types for XML tag parsing.
-
-    Attributes:
-        INVALID_VALUE: Tag value is invalid (e.g. not in allowed_values).
-    """
-
-    INVALID_VALUE = "invalid_value"
-    CARDINALITY_MISMATCH = "cardinality_mismatch"
-    MULTIPLE_VALUES_CONFLICT = "multiple_values_conflict"
-    TAG_NOT_FOUND = "tag_not_found"
 
 
 class ParseError(BaseModel):

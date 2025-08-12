@@ -16,9 +16,10 @@ from openai.types.chat.chat_completion_user_message_param import (
 )
 from pydantic import BaseModel
 
-from .LLM_client import LLMClientConfig, LLMClient
-from .models import LLMClientEnum, Message, LLMUsage, RoleEnum
-from .serialization import OpenAISerializedState, LLMClientSerializedState
+from .client import LLMClient, LLMClientConfig
+from .exceptions import LLMAPIError
+from .models import LLMClientEnum, LLMUsage, Message, RoleEnum
+from .serialization import LLMClientSerializedState, OpenAISerializedState
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -141,7 +142,7 @@ class OpenAIClient(LLMClient):
             tuple[str, LLMUsage]: A tuple containing the response content and usage statistics.
 
         Raises:
-            ValueError: If the response content is empty or usage data is missing.
+            LLMAPIError: If the response content is empty or usage data is missing.
         """
         openai_messages = self._convert_messages_to_openai_format(messages)
 
@@ -158,14 +159,20 @@ class OpenAIClient(LLMClient):
         # Extract content
         content = response.choices[0].message.content
         if not content:
-            raise ValueError(
-                f"Expected non-empty content from OpenAI response but got: {content}"
+            raise LLMAPIError(
+                f"Expected non-empty content from OpenAI response but got: {content}",
+                provider=LLMClientEnum.OPENAI,
+                original_error=ValueError("Empty content in response"),
             )
 
         # Extract usage information
         usage_data = response.usage
         if not usage_data:
-            raise ValueError("Expected usage data from OpenAI response but got None")
+            raise LLMAPIError(
+                "Expected usage data from OpenAI response but got None",
+                provider=LLMClientEnum.OPENAI,
+                original_error=ValueError("Missing usage data in response"),
+            )
 
         usage = LLMUsage(
             prompt_tokens=usage_data.prompt_tokens,

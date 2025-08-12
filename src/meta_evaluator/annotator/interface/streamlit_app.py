@@ -1,18 +1,21 @@
 """Streamlit-based annotation interface for meta-evaluator."""
 
+import logging
 import os
-from typing import Any, Optional, Literal
 from datetime import datetime
+from typing import Any, Literal, Optional
 
 import polars as pl
 import streamlit as st
-from meta_evaluator.data import EvalData
-from meta_evaluator.eval_task import EvalTask
+
 from meta_evaluator.annotator.exceptions import (
     AnnotationValidationError,
     NameValidationError,
     SaveError,
 )
+from meta_evaluator.data import EvalData
+from meta_evaluator.eval_task import EvalTask
+
 from .streamlit_session_manager import StreamlitSessionManager
 
 
@@ -43,6 +46,7 @@ class StreamlitAnnotator:
         self.annotation_prompt: str = eval_task.annotation_prompt
         self.annotations_dir: str = annotations_dir
         self.annotator_name: str | None = None
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
         # Initialize session manager
         self.session_manager = StreamlitSessionManager()
@@ -51,10 +55,10 @@ class StreamlitAnnotator:
         if not os.path.exists(self.annotations_dir):
             try:
                 os.makedirs(self.annotations_dir, exist_ok=True)
-            except Exception as e:
+            except OSError as e:
                 raise SaveError(
                     f"Cannot create annotations directory ({e})", self.annotations_dir
-                )
+                ) from e
 
     def display_top_header(self, current_row_idx: int, total_samples: int) -> None:
         """Display the header section with sample number and progress."""
@@ -248,7 +252,7 @@ class StreamlitAnnotator:
                 raise SaveError(
                     f"Failed to save results ({e})",
                     os.path.join(self.annotations_dir, metadata_filename),
-                )
+                ) from e
 
             # Show success information
             st.success("✅ Export completed successfully!")

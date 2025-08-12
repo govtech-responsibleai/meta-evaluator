@@ -4,9 +4,10 @@ This package uses beartype for runtime type checking. All type-annotated paramet
 and return values are validated at runtime.
 """
 
-from .LLM_client import LLMClient, LLMClientConfig
-from .exceptions import LLMAPIError, LLMValidationError, LLMClientError
-from .models import LLMClientEnum, LLMUsage, Message, LLMResponse, RoleEnum
+from .client import LLMClient, LLMClientConfig
+from .enums import LLMClientEnum, RoleEnum
+from .exceptions import LLMAPIError, LLMClientError, LLMValidationError
+from .models import LLMResponse, LLMUsage, Message
 
 __all__ = [
     "LLMClientEnum",

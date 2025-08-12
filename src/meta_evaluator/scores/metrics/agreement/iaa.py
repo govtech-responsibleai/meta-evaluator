@@ -1,7 +1,7 @@
 """Cohen's kappa scorer for inter-annotator agreement."""
 
-from typing import List, Optional
 import os
+from typing import List, Optional
 
 import numpy as np
 import polars as pl
@@ -209,7 +209,7 @@ class CohensKappaScorer(BaseScorer):
             scores_dir: Directory to save results and plots
         """
         if not results:
-            print("No Cohen's kappa results to aggregate")
+            self.logger.info("No Cohen's kappa results to aggregate")
             return
 
         # Create cohens_kappa directory for results and plots
@@ -219,6 +219,6 @@ class CohensKappaScorer(BaseScorer):
         # Save individual results
         self.save_results(results, cohens_kappa_dir)
 
-        print(
+        self.logger.info(
             f"Generated Cohen's kappa results for {len(results)} judge(s) in {cohens_kappa_dir}"
         )

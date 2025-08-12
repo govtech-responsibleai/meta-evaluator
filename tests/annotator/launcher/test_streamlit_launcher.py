@@ -6,64 +6,21 @@ Covers:
 - Script entry (argument parsing, error handling, integration)
 """
 
-import pytest
-
 import os
-import sys
 import socket
 import subprocess
-from unittest.mock import patch, MagicMock
+import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-# Import your real EvalTask and EvalData
-from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.data import EvalData
+import pytest
 
-from meta_evaluator.annotator.launcher import StreamlitLauncher
 from meta_evaluator.annotator.exceptions import PortOccupiedError
-
-import polars as pl
+from meta_evaluator.annotator.launcher import StreamlitLauncher
 
 # -------------------------
 # Fixtures for Real Objects
 # -------------------------
-
-
-@pytest.fixture
-def basic_eval_task():
-    """Provides a basic evaluation task for testing.
-
-    Returns:
-        EvalTask: A basic evaluation task.
-    """
-    return EvalTask(
-        task_schemas={"sentiment": ["positive", "negative", "neutral"]},
-        prompt_columns=["text"],
-        response_columns=["response"],
-        answering_method="structured",
-    )
-
-
-@pytest.fixture
-def basic_eval_data():
-    """Provides a basic EvalData object for testing.
-
-    Returns:
-        EvalData: A basic EvalData object.
-    """
-    df = pl.DataFrame(
-        {
-            "id": ["1", "2"],
-            "text": ["I love this!", "I hate this!"],
-            "response": ["Great!", "Awful!"],
-        }
-    )
-    # EvalData expects id_column and data
-    return EvalData(
-        name="test_data",
-        data=df,
-        id_column="id",
-    )
 
 
 # -------------------------
@@ -71,7 +28,9 @@ def basic_eval_data():
 # -------------------------
 
 
-def test_launcher_creates_annotations_dir(basic_eval_task, basic_eval_data, tmp_path):
+def test_launcher_creates_annotations_dir(
+    annotator_eval_task, annotator_eval_data, tmp_path
+):
     """Test that the StreamlitLauncher creates the annotations directory if it doesn't exist."""
     # Create a path that does not exist
     non_existent_dir = tmp_path / "new_annotations_dir"
@@ -79,8 +38,8 @@ def test_launcher_creates_annotations_dir(basic_eval_task, basic_eval_data, tmp_
 
     # Instantiate the launcher (should create the directory)
     StreamlitLauncher(
-        eval_data=basic_eval_data,
-        eval_task=basic_eval_task,
+        eval_data=annotator_eval_data,
+        eval_task=annotator_eval_task,
         annotations_dir=str(non_existent_dir),
     )
 
@@ -90,15 +49,15 @@ def test_launcher_creates_annotations_dir(basic_eval_task, basic_eval_data, tmp_
 
 
 def test_save_and_load_files_for_annotations(
-    basic_eval_task, basic_eval_data, tmp_path
+    annotator_eval_task, annotator_eval_data, tmp_path
 ):
     """Test that the StreamlitLauncher can save and load the evaluation task and data."""
     # Setup
     annotations_dir = tmp_path / "annotations"
     annotations_dir.mkdir()
     launcher = StreamlitLauncher(
-        eval_data=basic_eval_data,
-        eval_task=basic_eval_task,
+        eval_data=annotator_eval_data,
+        eval_task=annotator_eval_task,
         annotations_dir=str(annotations_dir),
     )
 
@@ -120,9 +79,9 @@ def test_save_and_load_files_for_annotations(
     )
 
     # Verify the loaded objects match the original
-    assert loaded_task == basic_eval_task
-    assert loaded_data.name == basic_eval_data.name
-    assert loaded_data.data.equals(basic_eval_data.data)
+    assert loaded_task == annotator_eval_task
+    assert loaded_data.name == annotator_eval_data.name
+    assert loaded_data.data.equals(annotator_eval_data.data)
 
 
 # -------------------------
@@ -132,11 +91,11 @@ def test_save_and_load_files_for_annotations(
 ### Command Construction
 
 
-def test_streamlit_command_is_safe(basic_eval_task, basic_eval_data, tmp_path):
+def test_streamlit_command_is_safe(annotator_eval_task, annotator_eval_data, tmp_path):
     """Test that the Streamlit command is safe."""
     launcher = StreamlitLauncher(
-        eval_data=basic_eval_data,
-        eval_task=basic_eval_task,
+        eval_data=annotator_eval_data,
+        eval_task=annotator_eval_task,
         annotations_dir=str(tmp_path),
         port=12345,
     )
@@ -146,11 +105,11 @@ def test_streamlit_command_is_safe(basic_eval_task, basic_eval_data, tmp_path):
     assert cmd_str.endswith(f"--server.port {launcher.port}")
 
 
-def test_ngrok_command_is_safe(basic_eval_task, basic_eval_data, tmp_path):
+def test_ngrok_command_is_safe(annotator_eval_task, annotator_eval_data, tmp_path):
     """Test that the ngrok command is safe."""
     launcher = StreamlitLauncher(
-        eval_data=basic_eval_data,
-        eval_task=basic_eval_task,
+        eval_data=annotator_eval_data,
+        eval_task=annotator_eval_task,
         annotations_dir=str(tmp_path),
         port=12345,
     )
@@ -163,11 +122,13 @@ def test_ngrok_command_is_safe(basic_eval_task, basic_eval_data, tmp_path):
 ### Process Management
 
 
-def test_streamlit_locally_process_launches(basic_eval_task, basic_eval_data, tmp_path):
+def test_streamlit_locally_process_launches(
+    annotator_eval_task, annotator_eval_data, tmp_path
+):
     """Test that the Streamlit app process launches."""
     launcher = StreamlitLauncher(
-        eval_data=basic_eval_data,
-        eval_task=basic_eval_task,
+        eval_data=annotator_eval_data,
+        eval_task=annotator_eval_task,
         annotations_dir=str(tmp_path),
         port=12345,
     )
@@ -177,12 +138,12 @@ def test_streamlit_locally_process_launches(basic_eval_task, basic_eval_data, tm
 
 
 def test_streamlit_with_ngrok_process_launches(
-    basic_eval_task, basic_eval_data, tmp_path
+    annotator_eval_task, annotator_eval_data, tmp_path
 ):
     """Test that the Streamlit app with ngrok process launches two processes."""
     launcher = StreamlitLauncher(
-        eval_data=basic_eval_data,
-        eval_task=basic_eval_task,
+        eval_data=annotator_eval_data,
+        eval_task=annotator_eval_task,
         annotations_dir=str(tmp_path),
         port=12345,
     )
@@ -245,7 +206,9 @@ def test_entry_point_excess_args(tmp_path):
 ### Port handling
 
 
-def test_launcher_raises_on_occupied_port(basic_eval_task, basic_eval_data, tmp_path):
+def test_launcher_raises_on_occupied_port(
+    annotator_eval_task, annotator_eval_data, tmp_path
+):
     """Test that the StreamlitLauncher raises a PortOccupiedError when the specified port is already in use."""
     # Occupy a port
     sock = socket.socket()
@@ -254,8 +217,8 @@ def test_launcher_raises_on_occupied_port(basic_eval_task, basic_eval_data, tmp_
     port = sock.getsockname()[1]
 
     launcher = StreamlitLauncher(
-        eval_data=basic_eval_data,
-        eval_task=basic_eval_task,
+        eval_data=annotator_eval_data,
+        eval_task=annotator_eval_task,
         annotations_dir=str(tmp_path),
         port=port,
     )
@@ -279,7 +242,9 @@ def is_port_open(port):
         return sock.connect_ex(("localhost", port)) == 0
 
 
-def test_streamlit_occupies_port_on_launch(basic_eval_task, basic_eval_data, tmp_path):
+def test_streamlit_occupies_port_on_launch(
+    annotator_eval_task, annotator_eval_data, tmp_path
+):
     """Test that launching a Streamlit app with a given port occupies the given port."""
     # Pick a free port
     with socket.socket() as s:
@@ -287,8 +252,8 @@ def test_streamlit_occupies_port_on_launch(basic_eval_task, basic_eval_data, tmp
         port = s.getsockname()[1]
 
     launcher = StreamlitLauncher(
-        eval_data=basic_eval_data,
-        eval_task=basic_eval_task,
+        eval_data=annotator_eval_data,
+        eval_task=annotator_eval_task,
         annotations_dir=str(tmp_path),
         port=port,
     )
@@ -320,11 +285,13 @@ def test_streamlit_occupies_port_on_launch(basic_eval_task, basic_eval_data, tmp
 # # -------------------------
 
 
-def test_tmp_directory_created_and_deleted(basic_eval_task, basic_eval_data, tmp_path):
+def test_tmp_directory_created_and_deleted(
+    annotator_eval_task, annotator_eval_data, tmp_path
+):
     """Test that the temporary directory is created and deleted when the StreamlitLauncher is launched."""
     launcher = StreamlitLauncher(
-        eval_data=basic_eval_data,
-        eval_task=basic_eval_task,
+        eval_data=annotator_eval_data,
+        eval_task=annotator_eval_task,
         annotations_dir=str(tmp_path),
         port=12345,
     )
@@ -355,11 +322,13 @@ def test_tmp_directory_created_and_deleted(basic_eval_task, basic_eval_data, tmp
         mock_launch.assert_called_once()
 
 
-def test_launch_calls_correct_function(basic_eval_task, basic_eval_data, tmp_path):
+def test_launch_calls_correct_function(
+    annotator_eval_task, annotator_eval_data, tmp_path
+):
     """Test that the correct launch function is called based on the use_ngrok argument."""
     launcher = StreamlitLauncher(
-        eval_data=basic_eval_data,
-        eval_task=basic_eval_task,
+        eval_data=annotator_eval_data,
+        eval_task=annotator_eval_task,
         annotations_dir=str(tmp_path),
         port=12345,
     )

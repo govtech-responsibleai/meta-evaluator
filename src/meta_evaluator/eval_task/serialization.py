@@ -1,7 +1,8 @@
 """Pydantic models for Evaluation Task serialization."""
 
+from typing import Dict, List, Literal, Optional
+
 from pydantic import BaseModel
-from typing import Optional, Dict, List, Literal
 
 
 class EvalTaskState(BaseModel):

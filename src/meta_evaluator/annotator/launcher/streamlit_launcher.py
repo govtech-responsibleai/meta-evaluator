@@ -1,19 +1,19 @@
 """Launcher for the Streamlit annotation interface."""
 
-import os
 import logging
-from pathlib import Path
+import os
 import socket
 import subprocess
 import tempfile
 import time
-from typing import Optional, List
+from pathlib import Path
+from typing import List, Optional
 
+from meta_evaluator.annotator.exceptions import PortOccupiedError
 from meta_evaluator.data import EvalData
 from meta_evaluator.data.serialization import DataMetadata
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.eval_task.serialization import EvalTaskState
-from meta_evaluator.annotator.exceptions import PortOccupiedError
 
 
 class StreamlitLauncher:
@@ -42,6 +42,7 @@ class StreamlitLauncher:
         self.eval_data = eval_data
         self.annotations_dir = annotations_dir
         self.port = port
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
         # Create the annotations directory if it doesn't exist
         os.makedirs(self.annotations_dir, exist_ok=True)
@@ -57,7 +58,8 @@ class StreamlitLauncher:
                 sock.settimeout(1)
                 result = sock.connect_ex(("localhost", self.port))
                 return result == 0
-        except Exception:
+        except (OSError, socket.error) as e:
+            self.logger.debug(f"Port check failed for {self.port}: {e}")
             return False
 
     def _save_files_for_annotations(self, tmp_dir: str) -> None:
@@ -216,8 +218,7 @@ class StreamlitLauncher:
                 "Traffic policy file provided but ngrok is not being used."
             )
 
-        logger = logging.getLogger(__name__)
-        logger.info("Launching Streamlit annotation interface...")
+        self.logger.info("Launching Streamlit annotation interface...")
         # Create temporary folder to store files needed for the annotation interface
         with tempfile.TemporaryDirectory(
             dir=self.annotations_dir, prefix="tmp_"

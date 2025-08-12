@@ -1,7 +1,7 @@
 """Concrete implementation of LLMClient for Azure OpenAI."""
 
-from typing import TypeVar
 import warnings
+from typing import TypeVar
 
 import instructor
 from openai import AzureOpenAI
@@ -17,8 +17,9 @@ from openai.types.chat.chat_completion_user_message_param import (
 )
 from pydantic import BaseModel
 
-from .LLM_client import LLMClientConfig, LLMClient
-from .models import LLMClientEnum, Message, LLMUsage, RoleEnum
+from .client import LLMClient, LLMClientConfig
+from .exceptions import LLMAPIError
+from .models import LLMClientEnum, LLMUsage, Message, RoleEnum
 from .serialization import AzureOpenAISerializedState, LLMClientSerializedState
 
 T = TypeVar("T", bound=BaseModel)
@@ -157,7 +158,7 @@ class AzureOpenAIClient(LLMClient):
             tuple[str, LLMUsage]: A tuple containing the response content and usage statistics.
 
         Raises:
-            ValueError: If the response content is empty or usage data is missing.
+            LLMAPIError: If the response content is empty or usage data is missing.
         """
         openai_messages = self._convert_messages_to_openai_format(messages)
 
@@ -174,15 +175,19 @@ class AzureOpenAIClient(LLMClient):
         # Extract content
         content = response.choices[0].message.content
         if not content:
-            raise ValueError(
-                f"Expected non-empty content from Azure OpenAI response but got: {content}"
+            raise LLMAPIError(
+                f"Expected non-empty content from Azure OpenAI response but got: {content}",
+                provider=LLMClientEnum.AZURE_OPENAI,
+                original_error=ValueError("Empty content in response"),
             )
 
         # Extract usage information
         usage_data = response.usage
         if not usage_data:
-            raise ValueError(
-                "Expected usage data from Azure OpenAI response but got None"
+            raise LLMAPIError(
+                "Expected usage data from Azure OpenAI response but got None",
+                provider=LLMClientEnum.AZURE_OPENAI,
+                original_error=ValueError("Missing usage data in response"),
             )
 
         usage = LLMUsage(

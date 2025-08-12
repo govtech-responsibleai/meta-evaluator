@@ -7,140 +7,121 @@ Covers:
 - Builder logic (row creation, error handling, completion, duplicate prevention)
 """
 
-import pytest
 from datetime import datetime
 
-from meta_evaluator.results import (
-    HumanAnnotationResults,
-    HumanAnnotationResultsBuilder,
-    HumanAnnotationResultRow,
-)
-from meta_evaluator.results.human_results import (
+import pytest
+
+from meta_evaluator.common.error_constants import (
     INVALID_JSON_STRUCTURE_MSG,
     STATE_FILE_NOT_FOUND_MSG,
+)
+from meta_evaluator.results import (
+    HumanAnnotationResultRow,
+    HumanAnnotationResults,
+    HumanAnnotationResultsBuilder,
+)
+from meta_evaluator.results.exceptions import (
+    BuilderInitializationError,
+    DataFileError,
+    IncompleteResultsError,
+    InvalidFileError,
+    MismatchedTasksError,
+    TaskNotFoundError,
 )
 
 
 class TestHumanAnnotationResultsBuilder:
     """Comprehensive test suite for HumanAnnotationResultsBuilder."""
 
-    @pytest.fixture
-    def builder(self) -> HumanAnnotationResultsBuilder:
-        """Provide a HumanAnnotationResultsBuilder instance for testing.
-
-        Returns:
-            HumanAnnotationResultsBuilder: A builder instance ready to create
-                                        annotation result rows for testing.
-        """
-        return HumanAnnotationResultsBuilder(
-            run_id="run_001",
-            annotator_id="annotator_1",
-            task_schemas={"task1": ["yes", "no"], "task2": ["good", "bad"]},
-            expected_ids=["id1", "id2"],
-            is_sampled_run=False,
-        )
-
-    @pytest.fixture
-    def single_task_builder(self) -> HumanAnnotationResultsBuilder:
-        """Provides a builder with single task and id.
-
-        Returns:
-            HumanAnnotationResultsBuilder: A builder with single task.
-        """
-        return HumanAnnotationResultsBuilder(
-            run_id="single_task_run",
-            annotator_id="annotator_1",
-            task_schemas={"task1": ["yes", "no"]},
-            expected_ids=["id1"],
-            is_sampled_run=False,
-        )
+    # Note: builder and single_task_builder fixtures are now provided by the shared conftest.py
+    # as base_human_results_builder and single_task_human_results_builder
 
     # === Initialization Tests ===
 
-    def test_initialization_happy_path(self, builder):
+    def test_initialization_happy_path(self, base_human_results_builder):
         """Test successful builder initialization."""
-        assert builder.run_id == "run_001"
-        assert builder.evaluator_id == "annotator_1"
-        assert builder.task_schemas == {
+        assert base_human_results_builder.run_id == "run_001"
+        assert base_human_results_builder.evaluator_id == "annotator_1"
+        assert base_human_results_builder.task_schemas == {
             "task1": ["yes", "no"],
             "task2": ["good", "bad"],
         }
-        assert builder.is_sampled_run is False
-        assert builder.total_count == 2  # expected_ids provided
-        assert builder.completed_count == 0
-        assert not builder.is_complete
+        assert base_human_results_builder.is_sampled_run is False
+        assert base_human_results_builder.total_count == 2  # expected_ids provided
+        assert base_human_results_builder.completed_count == 0
+        assert not base_human_results_builder.is_complete
 
     # === Property Access Tests ===
 
-    def test_completed_count_property(self, builder):
+    def test_completed_count_property(self, base_human_results_builder):
         """Test completed_count property."""
-        assert builder.completed_count == 0
+        assert base_human_results_builder.completed_count == 0
 
         # Add a success row
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        assert builder.completed_count == 1
+        assert base_human_results_builder.completed_count == 1
 
-    def test_total_count_property(self, builder):
+    def test_total_count_property(self, base_human_results_builder):
         """Test total_count property with expected IDs."""
-        assert builder.total_count == 2
+        assert base_human_results_builder.total_count == 2
 
-    def test_is_complete_property(self, builder):
+    def test_is_complete_property(self, base_human_results_builder):
         """Test is_complete property in various scenarios."""
-        assert not builder.is_complete
+        assert not base_human_results_builder.is_complete
 
         # After adding first result
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        assert not builder.is_complete  # Still incomplete (needs 2)
+        assert not base_human_results_builder.is_complete  # Still incomplete (needs 2)
 
         # After adding second result
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="test_2",
             original_id="id2",
             outcomes={"task1": "no", "task2": "bad"},
             annotation_timestamp=datetime.now(),
         )
-        assert builder.is_complete
+        assert base_human_results_builder.is_complete
 
     # === Row Creation Tests ===
 
-    def test_create_various_row_types(self, builder):
+    def test_create_various_row_types(self, base_human_results_builder):
         """Test creation of different row types."""
         # Success row
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        assert builder.completed_count == 1
+        assert base_human_results_builder.completed_count == 1
         # Check that the row contains the correct outcomes
-        row = builder._results["id1"]
+        row = base_human_results_builder._results["id1"]
         assert row.task1 == "yes"
         assert row.task2 == "good"
 
         # Error row
-        builder.create_error_row(
+        base_human_results_builder.create_error_row(
             sample_example_id="test_2",
             original_id="id2",
             error_message="Test error",
         )
-        assert builder.completed_count == 2
+        assert base_human_results_builder.completed_count == 2
 
-    def test_create_row_validation_errors(self, builder):
+    def test_create_row_validation_errors(self, base_human_results_builder):
         """Test validation errors for row creation."""
         # Missing tasks in success row
-        with pytest.raises(ValueError):
-            builder.create_success_row(
+        with pytest.raises(MismatchedTasksError):
+            base_human_results_builder.create_success_row(
                 sample_example_id="test_1",
                 original_id="id1",
                 outcomes={"task1": "yes"},  # Missing task2
@@ -148,8 +129,8 @@ class TestHumanAnnotationResultsBuilder:
             )
 
         # Extra tasks in success row
-        with pytest.raises(ValueError):
-            builder.create_success_row(
+        with pytest.raises(MismatchedTasksError):
+            base_human_results_builder.create_success_row(
                 sample_example_id="test_1",
                 original_id="id1",
                 outcomes={"task1": "yes", "task2": "good", "extra_task": "value"},
@@ -158,47 +139,51 @@ class TestHumanAnnotationResultsBuilder:
 
     # === Validation Tests (_validate_and_store) ===
 
-    def test_validate_and_store_invalid_original_id_error(self, builder):
+    def test_validate_and_store_invalid_original_id_error(
+        self, base_human_results_builder
+    ):
         """Test that creating a row with an original_id not in expected_ids raises an error."""
-        with pytest.raises(ValueError):
-            builder.create_success_row(
+        with pytest.raises(BuilderInitializationError):
+            base_human_results_builder.create_success_row(
                 sample_example_id="sample_1",
                 original_id="not_in_expected",
                 outcomes={"task1": "yes", "task2": "good"},
                 annotation_timestamp=datetime.now(),
             )
 
-    def test_validate_and_store_duplicate_original_id_error(self, builder):
+    def test_validate_and_store_duplicate_original_id_error(
+        self, base_human_results_builder
+    ):
         """Test that adding a row with a duplicate original_id raises an error."""
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="sample_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        with pytest.raises(ValueError):
-            builder.create_success_row(
+        with pytest.raises(BuilderInitializationError):
+            base_human_results_builder.create_success_row(
                 sample_example_id="sample_2",
                 original_id="id1",  # Duplicate
                 outcomes={"task1": "no", "task2": "bad"},
                 annotation_timestamp=datetime.now(),
             )
 
-    def test_get_successful_and_failed_results(self, builder):
+    def test_get_successful_and_failed_results(self, base_human_results_builder):
         """Test filtering of successful and failed results."""
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="sample_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
         # Simulate an error row
-        builder.create_error_row(
+        base_human_results_builder.create_error_row(
             sample_example_id="sample_2",
             original_id="id2",
             error_message="Test error",
         )
-        results = builder.complete()
+        results = base_human_results_builder.complete()
         successful = results.get_successful_results()
         failed = results.get_failed_results()
         assert successful.shape[0] == 1
@@ -206,22 +191,22 @@ class TestHumanAnnotationResultsBuilder:
 
     # === Completion Tests ===
 
-    def test_complete_happy_path(self, builder):
+    def test_complete_happy_path(self, base_human_results_builder):
         """Test successful completion and HumanAnnotationResults creation."""
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="test_2",
             original_id="id2",
             outcomes={"task1": "no", "task2": "bad"},
             annotation_timestamp=datetime.now(),
         )
 
-        results = builder.complete()
+        results = base_human_results_builder.complete()
 
         assert results.run_id == "run_001"
         assert results.annotator_id == "annotator_1"
@@ -247,31 +232,31 @@ class TestHumanAnnotationResultsBuilder:
             annotation_timestamp=datetime.now(),
         )
 
-        with pytest.raises(ValueError, match="Missing results for IDs"):
+        with pytest.raises(IncompleteResultsError, match="Missing results for IDs"):
             builder.complete()
 
-    def test_complete_no_rows_error(self, builder):
+    def test_complete_no_rows_error(self, base_human_results_builder):
         """Test error when no rows added to builder."""
-        with pytest.raises(ValueError, match="No rows added to builder"):
-            builder.complete()
+        with pytest.raises(IncompleteResultsError, match="No rows added to builder"):
+            base_human_results_builder.complete()
 
-    def test_complete_status_count_calculation(self, builder):
+    def test_complete_status_count_calculation(self, base_human_results_builder):
         """Test correct status count calculation in completion."""
         # Add different types of results
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
 
-        builder.create_error_row(
+        base_human_results_builder.create_error_row(
             sample_example_id="test_2",
             original_id="id2",
             error_message="Test error",
         )
 
-        results = builder.complete()
+        results = base_human_results_builder.complete()
 
         assert results.succeeded_count == 1
         assert results.error_count == 1
@@ -279,7 +264,9 @@ class TestHumanAnnotationResultsBuilder:
 
     def test_builder_empty_expected_ids_error(self):
         """Test that empty expected_ids raises an error."""
-        with pytest.raises(ValueError, match="expected_ids cannot be empty"):
+        with pytest.raises(
+            BuilderInitializationError, match="expected_ids cannot be empty"
+        ):
             HumanAnnotationResultsBuilder(
                 run_id="run_001",
                 annotator_id="annotator_1",
@@ -290,20 +277,20 @@ class TestHumanAnnotationResultsBuilder:
 
     # === Results Analysis Tests ===
 
-    def test_results_model_methods(self, builder):
+    def test_results_model_methods(self, base_human_results_builder):
         """Test various results model methods."""
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        builder.create_error_row(
+        base_human_results_builder.create_error_row(
             sample_example_id="test_2",
             original_id="id2",
             error_message="Test error",
         )
-        results = builder.complete()
+        results = base_human_results_builder.complete()
 
         # Test various model methods
         assert results.get_evaluator_id() == "annotator_1"
@@ -311,20 +298,20 @@ class TestHumanAnnotationResultsBuilder:
         assert results.get_base_result_row_class() == HumanAnnotationResultRow
         assert len(results) == 2
 
-    def test_results_get_task_success_rate(self, builder):
+    def test_results_get_task_success_rate(self, base_human_results_builder):
         """Test get_task_success_rate calculation."""
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        builder.create_error_row(
+        base_human_results_builder.create_error_row(
             sample_example_id="test_2",
             original_id="id2",
             error_message="Test error",
         )
-        results = builder.complete()
+        results = base_human_results_builder.complete()
 
         # task1 has 1 non-null value out of 2 total
         assert results.get_task_success_rate("task1") == 0.5
@@ -332,18 +319,20 @@ class TestHumanAnnotationResultsBuilder:
         # task2 has 1 non-null value out of 2 total
         assert results.get_task_success_rate("task2") == 0.5
 
-    def test_results_get_task_success_rate_invalid_task(self, single_task_builder):
+    def test_results_get_task_success_rate_invalid_task(
+        self, single_task_human_results_builder
+    ):
         """Test get_task_success_rate with invalid task name."""
-        single_task_builder.create_success_row(
+        single_task_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes"},
             annotation_timestamp=datetime.now(),
         )
-        results = single_task_builder.complete()
+        results = single_task_human_results_builder.complete()
 
         with pytest.raises(
-            ValueError, match="Task 'invalid_task' not found in task schema"
+            TaskNotFoundError, match="Task 'invalid_task' not found in task schema"
         ):
             results.get_task_success_rate("invalid_task")
 
@@ -405,21 +394,23 @@ class TestHumanAnnotationResultsSerialization:
         )
 
     @pytest.mark.parametrize("data_format", ["json", "csv", "parquet"])
-    def test_write_and_load_data(self, tmp_path, builder, data_format):
+    def test_write_and_load_data(
+        self, tmp_path, base_human_results_builder, data_format
+    ):
         """Test that write_data and load_data work for all supported formats."""
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="sample_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="sample_2",
             original_id="id2",
             outcomes={"task1": "no", "task2": "bad"},
             annotation_timestamp=datetime.now(),
         )
-        results = builder.complete()
+        results = base_human_results_builder.complete()
         file_path = tmp_path / f"results.{data_format}"
         results.write_data(str(file_path), data_format=data_format)
         loaded_df = HumanAnnotationResults.load_data(
@@ -428,21 +419,21 @@ class TestHumanAnnotationResultsSerialization:
         assert loaded_df.shape[0] == 2
         assert "task1" in loaded_df.columns
 
-    def test_save_and_load_state(self, tmp_path, builder):
+    def test_save_and_load_state(self, tmp_path, base_human_results_builder):
         """Test that save_state and load_state work and preserve all data."""
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="sample_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="sample_2",
             original_id="id2",
             outcomes={"task1": "no", "task2": "bad"},
             annotation_timestamp=datetime.now(),
         )
-        results = builder.complete()
+        results = base_human_results_builder.complete()
         state_file = tmp_path / "state.json"
         results.save_state(str(state_file), data_format="json")
         loaded = HumanAnnotationResults.load_state(str(state_file))
@@ -450,15 +441,17 @@ class TestHumanAnnotationResultsSerialization:
         assert loaded.annotator_id == results.annotator_id
         assert loaded.succeeded_count == results.succeeded_count
 
-    def test_serialization_error_handling(self, tmp_path, single_task_builder):
+    def test_serialization_error_handling(
+        self, tmp_path, single_task_human_results_builder
+    ):
         """Test serialization error handling for unsupported formats and missing files."""
-        single_task_builder.create_success_row(
+        single_task_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes"},
             annotation_timestamp=datetime.now(),
         )
-        results = single_task_builder.complete()
+        results = single_task_human_results_builder.complete()
 
         # Test unsupported format for write_data
         file_path = tmp_path / "results.xml"
@@ -481,20 +474,22 @@ class TestHumanAnnotationResultsSerialization:
             )
 
     @pytest.mark.parametrize("data_format", ["json", "csv", "parquet"])
-    def test_save_and_load_state_formats(self, tmp_path, builder, data_format):
+    def test_save_and_load_state_formats(
+        self, tmp_path, base_human_results_builder, data_format
+    ):
         """Test save_state and load_state work for all data formats."""
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        builder.create_error_row(
+        base_human_results_builder.create_error_row(
             sample_example_id="test_2",
             original_id="id2",
             error_message="Test error",
         )
-        results = builder.complete()
+        results = base_human_results_builder.complete()
 
         state_file = tmp_path / "human_state.json"
 
@@ -526,15 +521,17 @@ class TestHumanAnnotationResultsSerialization:
             results.results_data.columns
         )
 
-    def test_save_state_custom_data_filename(self, tmp_path, single_task_builder):
+    def test_save_state_custom_data_filename(
+        self, tmp_path, single_task_human_results_builder
+    ):
         """Test save_state with custom data filename."""
-        single_task_builder.create_success_row(
+        single_task_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes"},
             annotation_timestamp=datetime.now(),
         )
-        results = single_task_builder.complete()
+        results = single_task_human_results_builder.complete()
 
         state_file = tmp_path / "custom_state.json"
         custom_data_filename = "my_custom_data.json"
@@ -552,35 +549,38 @@ class TestHumanAnnotationResultsSerialization:
         assert loaded_results.run_id == results.run_id
 
     def test_save_state_data_filename_extension_validation(
-        self, tmp_path, single_task_builder
+        self, tmp_path, single_task_human_results_builder
     ):
         """Test that save_state validates data filename extension matches format."""
-        single_task_builder.create_success_row(
+        single_task_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes"},
             annotation_timestamp=datetime.now(),
         )
-        results = single_task_builder.complete()
+        results = single_task_human_results_builder.complete()
 
         state_file = tmp_path / "state.json"
 
         with pytest.raises(
-            ValueError, match="data_filename extension.*must match data_format"
+            DataFileError,
+            match="Unsupported results data format.*json.*for.*wrong_extension.csv",
         ):
             results.save_state(
                 str(state_file), data_format="json", data_filename="wrong_extension.csv"
             )
 
-    def test_save_state_creates_directory(self, tmp_path, single_task_builder):
+    def test_save_state_creates_directory(
+        self, tmp_path, single_task_human_results_builder
+    ):
         """Test that save_state creates parent directories if they don't exist."""
-        single_task_builder.create_success_row(
+        single_task_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes"},
             annotation_timestamp=datetime.now(),
         )
-        results = single_task_builder.complete()
+        results = single_task_human_results_builder.complete()
 
         nested_path = tmp_path / "nested" / "directory"
         state_file = nested_path / "state.json"
@@ -595,16 +595,18 @@ class TestHumanAnnotationResultsSerialization:
         loaded_results = HumanAnnotationResults.load_state(str(state_file))
         assert loaded_results.run_id == results.run_id
 
-    def test_load_state_error_handling(self, tmp_path, single_task_builder):
+    def test_load_state_error_handling(
+        self, tmp_path, single_task_human_results_builder
+    ):
         """Test load_state error handling for various failure scenarios."""
         # Test missing file
-        with pytest.raises(FileNotFoundError, match=STATE_FILE_NOT_FOUND_MSG):
+        with pytest.raises(InvalidFileError, match=STATE_FILE_NOT_FOUND_MSG):
             HumanAnnotationResults.load_state("nonexistent_state.json")
 
         # Test invalid JSON
         state_file = tmp_path / "invalid.json"
         state_file.write_text("{invalid json")
-        with pytest.raises(ValueError, match=INVALID_JSON_STRUCTURE_MSG):
+        with pytest.raises(InvalidFileError, match=INVALID_JSON_STRUCTURE_MSG):
             HumanAnnotationResults.load_state(str(state_file))
 
         # Test missing required keys
@@ -612,17 +614,17 @@ class TestHumanAnnotationResultsSerialization:
         state_file.write_text(
             '{"metadata": {}}'
         )  # Missing data_format and data_filename
-        with pytest.raises(ValueError, match=INVALID_JSON_STRUCTURE_MSG):
+        with pytest.raises(InvalidFileError, match=INVALID_JSON_STRUCTURE_MSG):
             HumanAnnotationResults.load_state(str(state_file))
 
         # Test missing data file
-        single_task_builder.create_success_row(
+        single_task_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes"},
             annotation_timestamp=datetime.now(),
         )
-        results = single_task_builder.complete()
+        results = single_task_human_results_builder.complete()
 
         state_file = tmp_path / "state.json"
         results.save_state(str(state_file), data_format="json")
@@ -636,21 +638,23 @@ class TestHumanAnnotationResultsSerialization:
 
     # === Integration Tests ===
 
-    def test_annotation_specific_field_preservation(self, tmp_path, builder):
+    def test_annotation_specific_field_preservation(
+        self, tmp_path, base_human_results_builder
+    ):
         """Test that serialization preserves annotation-specific fields."""
-        builder.create_success_row(
+        base_human_results_builder.create_success_row(
             sample_example_id="test_1",
             original_id="id1",
             outcomes={"task1": "yes", "task2": "good"},
             annotation_timestamp=datetime.now(),
         )
-        builder.create_error_row(
+        base_human_results_builder.create_error_row(
             sample_example_id="test_2",
             original_id="id2",
             error_message="Test error",
             error_details_json='{"error_type": "validation"}',
         )
-        results = builder.complete()
+        results = base_human_results_builder.complete()
 
         # Test via save_state/load_state
         state_file = tmp_path / "test_state.json"

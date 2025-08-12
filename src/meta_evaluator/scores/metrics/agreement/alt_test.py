@@ -5,16 +5,20 @@ Code adapted from: https://github.com/nitaytech/AltTest/
 """
 
 import os
-from typing import List, Optional, Dict, Any, Callable, Union, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-import polars as pl
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import polars as pl
 from scipy.stats import ttest_1samp
 from sklearn.metrics import jaccard_score
 
 from meta_evaluator.scores.base_scorer import BaseScorer
 from meta_evaluator.scores.base_scoring_result import BaseScoringResult
+from meta_evaluator.scores.exceptions import (
+    AltTestInsufficientAnnotationsError,
+    AltTestInvalidScoringFunctionError,
+)
 
 
 class AltTestScorer(BaseScorer):
@@ -319,7 +323,7 @@ class AltTestScorer(BaseScorer):
             Callable: The scoring function.
 
         Raises:
-            ValueError: If the scoring function is unknown.
+            AltTestInvalidScoringFunctionError: If the scoring function is unknown.
         """
         if scoring_function_name == "accuracy":
             return self._accuracy
@@ -328,7 +332,9 @@ class AltTestScorer(BaseScorer):
         elif scoring_function_name == "jaccard_similarity":
             return self._jaccard_similarity
         else:
-            raise ValueError(f"Unknown scoring function: {scoring_function_name}")
+            raise AltTestInvalidScoringFunctionError(
+                f"Unknown scoring function: {scoring_function_name}"
+            )
 
     # Alt-test core functions
     def _by_procedure(self, p_values: List[float], q: float) -> List[Any]:
@@ -375,7 +381,7 @@ class AltTestScorer(BaseScorer):
             Tuple[float, float, Dict[str, Tuple[float, float]]]: A tuple containing the winning rate, advantage probability, and human advantage probabilities.
 
         Raises:
-            ValueError: If no annotators meet the minimum threshold of instances per human.
+            AltTestInsufficientAnnotationsError: If no annotators meet the minimum threshold of instances per human.
         """
         # Use provided epsilon or fall back to default epsilon == 0.0
         scoring_function = self._get_scoring_function(scoring_function_name)
@@ -412,7 +418,7 @@ class AltTestScorer(BaseScorer):
             excluded_indicators = []
             instances = sorted([i for i in i_set[excluded_h] if i in llm_annotations])
             if len(instances) < self.min_instances_per_human:
-                print(
+                self.logger.info(
                     f"Skipping annotator {excluded_h} with only {len(instances)} instances < {self.min_instances_per_human}."
                 )
                 continue
@@ -454,7 +460,7 @@ class AltTestScorer(BaseScorer):
 
         # Check if we have any valid humans to analyze
         if not humans:
-            raise ValueError(
+            raise AltTestInsufficientAnnotationsError(
                 f"No annotators meet the minimum threshold of {self.min_instances_per_human} instances per human"
             )
 
@@ -474,7 +480,9 @@ class AltTestScorer(BaseScorer):
             scores_dir: Directory to save aggregate plots
         """
         if len(results) == 0:
-            print("Alt-test aggregation skipped: no alt-test results provided")
+            self.logger.info(
+                "Alt-test aggregation skipped: no alt-test results provided"
+            )
             return
 
         # Create alt_test directory for aggregate plots
@@ -486,7 +494,7 @@ class AltTestScorer(BaseScorer):
 
         # Save individual ScoringResult objects as JSON files
         self.save_results(results, alt_test_dir)
-        print(
+        self.logger.info(
             f"Generated alt-test results for {len(results)} judge(s) in {alt_test_dir}"
         )
 
@@ -500,7 +508,7 @@ class AltTestScorer(BaseScorer):
         self.generate_aggregate_human_vs_llm_plot(results, alt_test_dir)
 
         judge_count = len(results)
-        print(
+        self.logger.info(
             f"Generated alt-test aggregate plots for {judge_count} judge(s) in {alt_test_dir}"
         )
 
@@ -686,10 +694,9 @@ class AltTestScorer(BaseScorer):
         self.save_plot(fig, save_path)
         plt.close(fig)
 
-    @staticmethod
-    def save_plot(fig, save_path: str):
+    def save_plot(self, fig, save_path: str):
         """Save a matplotlib figure."""
         fig.savefig(
             save_path, dpi=300, bbox_inches="tight", facecolor="white", edgecolor="none"
         )
-        print(f"Saved plot to {save_path}")
+        self.logger.info(f"Saved plot to {save_path}")

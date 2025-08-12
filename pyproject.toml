@@ -38,7 +38,7 @@ dev = [
 ]
 
 [tool.ruff.lint]
-extend-select = ["D", "DOC"]
+extend-select = ["D", "DOC", "I"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
