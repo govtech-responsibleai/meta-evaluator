@@ -348,21 +348,9 @@ class BaseLLMClient(ABC):
                     data[config.name] = valid_values[0]
                 else:
                     # Multiple valid values found - handle according to multiple_handling strategy
-                    if config.multiple_handling == "error":
-                        errors.append(
-                            ParseError(
-                                error_type=ErrorType.CARDINALITY_MISMATCH,
-                                tag_name=config.name,
-                                message=f"Expected exactly 1 value for '{config.name}', "
-                                f"found {len(valid_values)}",
-                                found_values=valid_values,
-                            )
-                        )
-                        # No data entry - cardinality constraint violated
-                    elif config.multiple_handling == "allow_both":
-                        # Accept multiple values as a list despite cardinality="one"
-                        data[config.name] = valid_values
-                    elif config.multiple_handling == "error_if_different":
+
+                    # Allow if all values are the same
+                    if config.multiple_handling == "error_if_different":
                         # Check if all values are identical
                         unique_values = list(set(valid_values))
                         if len(unique_values) == 1:
@@ -379,7 +367,28 @@ class BaseLLMClient(ABC):
                                     found_values=valid_values,
                                 )
                             )
-                            # No data entry - conflicting values
+
+                    # Allow all different values
+                    elif config.multiple_handling == "allow_both":
+                        # Accept multiple values as a list despite cardinality="one"
+                        data[config.name] = valid_values
+
+                    # Generate error if "error" specified or if undefined
+                    else:
+                        if config.multiple_handling != "error":
+                            logging.warning(
+                                f"Multiple handling {config.multiple_handling} not supported for {config.name}. "
+                                "Assuming config.multiple_handling == 'error'."
+                            )
+                        errors.append(
+                            ParseError(
+                                error_type=ErrorType.CARDINALITY_MISMATCH,
+                                tag_name=config.name,
+                                message=f"Expected exactly 1 value for '{config.name}', "
+                                f"found {len(valid_values)}",
+                                found_values=valid_values,
+                            )
+                        )
 
             elif config.cardinality == "many":
                 # Expect one or more valid values (empty list after filtering is an error)
