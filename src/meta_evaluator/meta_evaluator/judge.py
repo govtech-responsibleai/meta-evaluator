@@ -32,32 +32,6 @@ from .exceptions import (
 )
 
 
-def _map_sync_to_async_enum(sync_enum: LLMClientEnum) -> AsyncLLMClientEnum:
-    """Map sync LLMClientEnum to corresponding AsyncLLMClientEnum.
-
-    Args:
-        sync_enum: The sync LLM client enum
-
-    Returns:
-        The corresponding async enum
-
-    Raises:
-        ValueError: If no async client exists for the sync enum
-    """
-    mapping = {
-        LLMClientEnum.OPENAI: AsyncLLMClientEnum.OPENAI,
-        LLMClientEnum.AZURE_OPENAI: AsyncLLMClientEnum.AZURE_OPENAI,
-    }
-
-    if sync_enum not in mapping:
-        available = list(mapping.keys())
-        raise ValueError(
-            f"No async client available for {sync_enum}. Available: {available}"
-        )
-
-    return mapping[sync_enum]
-
-
 class JudgeConfig(BaseModel):
     """Pydantic model for validating a single judge configuration from YAML."""
 
@@ -130,7 +104,7 @@ class JudgesMixin:
     def add_judge(
         self,
         judge_id: str,
-        llm_client_enum: LLMClientEnum,
+        llm_client_enum: LLMClientEnum | AsyncLLMClientEnum,
         model: str,
         prompt: Prompt,
         override_existing: bool = False,
@@ -197,6 +171,7 @@ class JudgesMixin:
         self,
         yaml_file: str,
         override_existing: bool = False,
+        async_mode: bool = False,
     ) -> None:
         """Load judges from a YAML configuration file.
 
@@ -216,6 +191,8 @@ class JudgesMixin:
         Args:
             yaml_file: Absolute or relative path to the YAML configuration file.
             override_existing: Whether to override existing judges. Defaults to False.
+            async_mode: Whether to load judges for async operation. Defaults to False.
+                       When True, judges will be configured with AsyncLLMClientEnum.
 
         Raises:
             FileNotFoundError: If the YAML file is not found.
@@ -253,7 +230,7 @@ class JudgesMixin:
         # Load each judge
         for judge_config in judges_config.judges:
             self._load_single_judge_from_config(
-                judge_config, override_existing, yaml_path
+                judge_config, override_existing, yaml_path, async_mode
             )
 
         self.logger.info(
@@ -265,6 +242,7 @@ class JudgesMixin:
         judge_config: JudgeConfig,
         override_existing: bool,
         yaml_path: Path,
+        async_mode: bool = False,
     ) -> None:
         """Load a single judge from YAML configuration.
 
@@ -272,17 +250,26 @@ class JudgesMixin:
             judge_config: The judge configuration from YAML.
             override_existing: Whether to override existing judges.
             yaml_path: Path to the YAML file (for resolving relative prompt paths).
+            async_mode: Whether to load judges for async operation.
 
         Raises:
             ValueError: If llm_client value is invalid.
         """
-        # Parse LLM client enum
+        # Parse LLM client enum based on async_mode
         try:
-            llm_client_enum = LLMClientEnum(judge_config.llm_client)
+            if async_mode:
+                llm_client_enum = AsyncLLMClientEnum(judge_config.llm_client)
+            else:
+                llm_client_enum = LLMClientEnum(judge_config.llm_client)
         except ValueError:
-            valid_clients = [e.value for e in LLMClientEnum]
+            if async_mode:
+                valid_clients = [e.value for e in AsyncLLMClientEnum]
+                enum_type = "AsyncLLMClientEnum"
+            else:
+                valid_clients = [e.value for e in LLMClientEnum]
+                enum_type = "LLMClientEnum"
             raise ValueError(
-                f"Invalid llm_client '{judge_config.llm_client}'. Valid options: {valid_clients}"
+                f"Invalid llm_client '{judge_config.llm_client}' for {enum_type}. Valid options: {valid_clients}"
             )
 
         # Load prompt file from absolute or relative path
@@ -531,18 +518,15 @@ class JudgesMixin:
             """
             judge = self.judge_registry[judge_id]
 
-            # Get the appropriate async LLM client for this judge
-            try:
-                async_enum = _map_sync_to_async_enum(judge.llm_client_enum)
-                llm_client = getattr(self, "async_client_registry", {}).get(async_enum)
-            except ValueError:
-                # No async client available for this sync client type
+            # Get the appropriate LLM client for this judge
+            llm_client = getattr(self, "async_client_registry", {}).get(
+                judge.llm_client_enum
+            )
+            if llm_client is None or not isinstance(
+                judge.llm_client_enum, AsyncLLMClientEnum
+            ):
                 client_method = self.get_method_for_client(judge.llm_client_enum)  # type: ignore
                 raise ClientNotFoundError(judge.llm_client_enum.value, client_method)
-
-            if llm_client is None:
-                client_method = self.get_method_for_client(async_enum)  # type: ignore
-                raise ClientNotFoundError(async_enum.value, client_method)
 
             # Run the evaluation
             try:
