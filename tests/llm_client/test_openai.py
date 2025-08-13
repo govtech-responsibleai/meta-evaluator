@@ -12,13 +12,15 @@ from unittest.mock import Mock, patch
 import pytest
 from pydantic import ValidationError
 
-from meta_evaluator.llm_client.enums import LLMClientEnum, RoleEnum
+from meta_evaluator.llm_client.enums import LLMClientEnum
 from meta_evaluator.llm_client.exceptions import LLMAPIError
 from meta_evaluator.llm_client.models import Message
 from meta_evaluator.llm_client.openai_client import (
     OpenAIClient,
     OpenAIConfig,
 )
+
+from .conftest import ExampleResponseModel
 
 
 class TestOpenAIConfig:
@@ -164,47 +166,6 @@ class TestOpenAIClient:
 
     # Note: openai_config and openai_client fixtures are provided by conftest.py
 
-    @pytest.fixture
-    def conversation_messages(self) -> list[Message]:
-        """Provide sample messages for testing conversation flows.
-
-        Returns:
-            list[Message]: A list of sample messages representing a conversation.
-        """
-        return [
-            Message(role=RoleEnum.SYSTEM, content="You are a helpful assistant."),
-            Message(role=RoleEnum.USER, content="Hello, how are you?"),
-            Message(role=RoleEnum.ASSISTANT, content="I'm doing well, thank you!"),
-        ]
-
-    @pytest.fixture
-    def mock_openai_response(self) -> Mock:
-        """Provide a mock OpenAI API response for testing.
-
-        Returns:
-            Mock: A mock response object with typical OpenAI structure.
-        """
-        mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = "Hello! I'm an AI assistant."
-        mock_response.usage.prompt_tokens = 10
-        mock_response.usage.completion_tokens = 8
-        mock_response.usage.total_tokens = 18
-        return mock_response
-
-    @pytest.fixture
-    def mock_embedding_response(self) -> Mock:
-        """Provide a mock OpenAI embedding response for testing.
-
-        Returns:
-            Mock: A mock embedding response with typical structure.
-        """
-        mock_response = Mock()
-        mock_embedding = Mock()
-        mock_embedding.embedding = [0.1, 0.2, 0.3, 0.4, 0.5]
-        mock_response.data = [mock_embedding]
-        return mock_response
-
     @patch("meta_evaluator.llm_client.openai_client.instructor.from_openai")
     @patch("meta_evaluator.llm_client.openai_client.OpenAI")
     def test_client_initialization(
@@ -236,7 +197,7 @@ class TestOpenAIClient:
         assert client.enum_value == LLMClientEnum.OPENAI
 
     def test_convert_messages_to_openai_format(
-        self, openai_config: OpenAIConfig, conversation_messages: list[Message]
+        self, openai_config: OpenAIConfig, sample_messages: list[Message]
     ) -> None:
         """Test message conversion to OpenAI format.
 
@@ -245,16 +206,14 @@ class TestOpenAIClient:
 
         Args:
             openai_config: A valid OpenAI configuration.
-            conversation_messages: Sample messages for testing.
+            sample_messages: Sample messages for testing.
         """
         with (
             patch("meta_evaluator.llm_client.openai_client.OpenAI"),
             patch("meta_evaluator.llm_client.openai_client.instructor.from_openai"),
         ):
             client = OpenAIClient(openai_config)
-            openai_messages = client._convert_messages_to_openai_format(
-                conversation_messages
-            )
+            openai_messages = client._convert_messages_to_openai_format(sample_messages)
 
         assert len(openai_messages) == 3
 
@@ -523,9 +482,6 @@ class TestOpenAIClient:
         )
 
         client = OpenAIClient(openai_config)
-
-        # Import the ExampleResponseModel from conftest for the test
-        from .conftest import ExampleResponseModel
 
         response, usage = client._prompt_with_structured_response(
             messages=structured_output_messages,

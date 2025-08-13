@@ -1,19 +1,22 @@
 """All Exceptions for LLMClient."""
 
 from abc import ABC
+from typing import Union
 
-from .models import LLMClientEnum
+from .enums import AsyncLLMClientEnum, LLMClientEnum
 
 
 class LLMClientError(Exception, ABC):
     """Base exception for LLM client errors."""
 
-    def __init__(self, message: str, provider: LLMClientEnum):
+    def __init__(
+        self, message: str, provider: Union[LLMClientEnum, AsyncLLMClientEnum]
+    ):
         """Initialize the LLMClientError exception.
 
         Args:
             message (str): The message to be displayed.
-            provider (LLMClientEnum): The provider of the LLM client that raised the error.
+            provider (Union[LLMClientEnum, AsyncLLMClientEnum]): The provider of the LLM client that raised the error.
         """
         self.message = message
         self.provider = provider
@@ -35,13 +38,16 @@ class LLMAPIError(LLMClientError):
     """Wraps provider API errors in LLMClient."""
 
     def __init__(
-        self, message: str, provider: LLMClientEnum, original_error: Exception
+        self,
+        message: str,
+        provider: Union[LLMClientEnum, AsyncLLMClientEnum],
+        original_error: Exception,
     ):
         """Initialize the LLMAPIError exception.
 
         Args:
             message (str): The message to be displayed.
-            provider (LLMClientEnum): The provider of the LLM client that raised the error.
+            provider (Union[LLMClientEnum, AsyncLLMClientEnum]): The provider of the LLM client that raised the error.
             original_error (Exception): The original error that was raised.
         """
         super().__init__(message=message, provider=provider)
@@ -62,11 +68,13 @@ class LLMAPIError(LLMClientError):
 class LLMValidationError(LLMClientError):
     """Client-side validation errors."""
 
-    def __init__(self, message: str, provider: LLMClientEnum):
+    def __init__(
+        self, message: str, provider: Union[LLMClientEnum, AsyncLLMClientEnum]
+    ):
         """Initialize the LLMValidationError exception.
 
         Args:
             message (str): The message to be displayed.
-            provider (LLMClientEnum): The provider of the LLM client that raised the error.
+            provider (Union[LLMClientEnum, AsyncLLMClientEnum]): The provider of the LLM client that raised the error.
         """
         super().__init__(message=message, provider=provider)

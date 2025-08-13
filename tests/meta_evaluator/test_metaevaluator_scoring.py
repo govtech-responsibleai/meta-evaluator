@@ -1,5 +1,7 @@
 """Tests for ScoringMixin data processing functionality."""
 
+import os
+import shutil
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock
@@ -273,8 +275,6 @@ class TestResultsLoading:
 
     def test_load_all_judge_results_no_directory(self, meta_evaluator):
         """Test loading all judge results when results directory doesn't exist."""
-        import shutil
-
         if meta_evaluator.paths.results.exists():
             shutil.rmtree(meta_evaluator.paths.results)
         results = meta_evaluator.load_all_judge_results()
@@ -299,8 +299,6 @@ class TestResultsLoading:
         self, tmp_path, completed_judge_results
     ):
         """Test loading judge results with relative project directory."""
-        import os
-
         original_cwd = os.getcwd()
         try:
             os.chdir(str(tmp_path))
@@ -375,8 +373,6 @@ class TestResultsLoading:
 
     def test_load_all_human_results_no_directory(self, meta_evaluator):
         """Test loading all human results when annotations directory doesn't exist."""
-        import shutil
-
         if meta_evaluator.paths.annotations.exists():
             shutil.rmtree(meta_evaluator.paths.annotations)
         results = meta_evaluator.load_all_human_results()
@@ -401,8 +397,6 @@ class TestResultsLoading:
         self, tmp_path, completed_human_results
     ):
         """Test loading human results with relative project directory."""
-        import os
-
         original_cwd = os.getcwd()
         try:
             os.chdir(str(tmp_path))

@@ -18,9 +18,13 @@ from ..data import EvalData, SampleEvalData
 from ..data.serialization import DataMetadata
 from ..eval_task import EvalTask
 from ..eval_task.serialization import EvalTaskState
+from ..llm_client.async_azureopenai_client import (
+    AsyncAzureOpenAIClient,
+    AsyncAzureOpenAIConfig,
+)
+from ..llm_client.async_openai_client import AsyncOpenAIClient, AsyncOpenAIConfig
 from ..llm_client.azureopenai_client import AzureOpenAIClient, AzureOpenAIConfig
-from ..llm_client.client import LLMClient
-from ..llm_client.enums import LLMClientEnum
+from ..llm_client.enums import AsyncLLMClientEnum, LLMClientEnum
 from ..llm_client.openai_client import OpenAIClient, OpenAIConfig
 from ..llm_client.serialization import (
     AzureOpenAISerializedState,
@@ -270,18 +274,22 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
         Returns:
             Complete state object ready for JSON serialization.
         """
+        client_registry, async_client_registry = self._serialize_all_clients()
         return MetaEvaluatorState(
-            client_registry=self._serialize_client_registry(),
+            client_registry=client_registry,
+            async_client_registry=async_client_registry,
             data=self._serialize_data(include_data, data_format, data_filename),
             eval_task=self._serialize_eval_task(include_task),
         )
 
-    def _serialize_client_registry(self) -> dict[str, dict]:
-        """Serialize all clients using individual client serializers.
+    def _serialize_all_clients(self) -> tuple[dict[str, dict], dict[str, dict]]:
+        """Serialize both sync and async clients using individual client serializers.
 
         Returns:
-            Dictionary mapping client type names to their serialized configurations.
+            Tuple containing (sync_clients_dict, async_clients_dict) with client type names
+            mapped to their serialized configurations.
         """
+        # Serialize sync clients
         serialized_clients = {}
         for client_enum, client in self.client_registry.items():
             client_data = self._serialize_single_client(client_enum, client)
@@ -290,16 +298,25 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
                 f"API key found in serialized {client_enum.value} client"
             )
             serialized_clients[client_enum.value] = client_data
-        return serialized_clients
 
-    def _serialize_single_client(
-        self, client_enum: LLMClientEnum, client: LLMClient
-    ) -> dict:
-        """Serialize a single client using its config's serialize method.
+        # Serialize async clients
+        serialized_async_clients = {}
+        for client_enum, client in self.async_client_registry.items():
+            client_data = self._serialize_single_client(client_enum, client)
+            # ASSERT: api_key not in client_data
+            assert "api_key" not in str(client_data), (
+                f"API key found in serialized async {client_enum.value} client"
+            )
+            serialized_async_clients[client_enum.value] = client_data
+
+        return serialized_clients, serialized_async_clients
+
+    def _serialize_single_client(self, client_enum, client) -> dict:
+        """Serialize a single client (sync or async) using its config's serialize method.
 
         Args:
-            client_enum: The LLM client enum type.
-            client: The LLM client instance.
+            client_enum: The LLM client enum type (sync or async).
+            client: The LLM client instance (sync or async).
 
         Returns:
             Serialized client configuration dictionary.
@@ -467,9 +484,12 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
             _AZURE_OPENAI_API_KEY_ENV_VAR
         )
 
-        # Reconstruct clients
-        evaluator._reconstruct_clients(
-            state.client_registry, openai_api_key, azure_openai_api_key
+        # Reconstruct all clients (both sync and async)
+        evaluator._reconstruct_all_clients(
+            state.client_registry,
+            state.async_client_registry,
+            openai_api_key,
+            azure_openai_api_key,
         )
 
         # Load data if requested and available
@@ -482,37 +502,47 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
 
         return evaluator
 
-    def _reconstruct_clients(
+    def _reconstruct_all_clients(
         self,
         client_registry_data: dict,
+        async_client_registry_data: dict,
         openai_api_key: Optional[str],
         azure_openai_api_key: Optional[str],
     ) -> None:
-        """Reconstruct all clients from serialized data.
+        """Reconstruct all clients (both sync and async) from serialized data.
 
         Args:
-            client_registry_data: Dictionary of serialized client configurations.
+            client_registry_data: Dictionary of serialized sync client configurations.
+            async_client_registry_data: Dictionary of serialized async client configurations.
             openai_api_key: API key for OpenAI clients.
             azure_openai_api_key: API key for Azure OpenAI clients.
         """
+        # Reconstruct sync clients
         for client_type_str, client_data in client_registry_data.items():
             client_enum = LLMClientEnum(client_type_str)
-            self._reconstruct_single_client(
+            self._reconstruct_single_sync_client(
                 client_enum, client_data, openai_api_key, azure_openai_api_key
             )
 
-    def _reconstruct_single_client(
+        # Reconstruct async clients
+        for client_type_str, client_data in async_client_registry_data.items():
+            client_enum = AsyncLLMClientEnum(client_type_str)
+            self._reconstruct_single_async_client(
+                client_enum, client_data, openai_api_key, azure_openai_api_key
+            )
+
+    def _reconstruct_single_sync_client(
         self,
         client_enum: LLMClientEnum,
         client_data: dict,
         openai_api_key: Optional[str],
         azure_openai_api_key: Optional[str],
     ) -> None:
-        """Reconstruct a single client from serialized data using config deserialization.
+        """Reconstruct a single sync client from serialized data using config deserialization.
 
         Args:
-            client_enum: The client type enum.
-            client_data: Serialized client configuration.
+            client_enum: The sync client type enum.
+            client_data: Serialized sync client configuration.
             openai_api_key: API key for OpenAI clients.
             azure_openai_api_key: API key for Azure OpenAI clients.
 
@@ -539,6 +569,47 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
                 config = AzureOpenAIConfig.deserialize(state, azure_openai_api_key)
                 client = AzureOpenAIClient(config)
                 self.client_registry[client_enum] = client
+            case _:
+                raise ClientNotFoundError(client_enum.value)
+
+    def _reconstruct_single_async_client(
+        self,
+        client_enum: AsyncLLMClientEnum,
+        client_data: dict,
+        openai_api_key: Optional[str],
+        azure_openai_api_key: Optional[str],
+    ) -> None:
+        """Reconstruct a single async client from serialized data using config deserialization.
+
+        Args:
+            client_enum: The async client type enum.
+            client_data: Serialized async client configuration.
+            openai_api_key: API key for OpenAI clients.
+            azure_openai_api_key: API key for Azure OpenAI clients.
+
+        Raises:
+            ClientNotFoundError: If client type is not supported.
+            MissingConfigurationError: If required API keys are missing.
+        """
+        match client_enum:
+            case AsyncLLMClientEnum.OPENAI:
+                if not openai_api_key:
+                    raise MissingConfigurationError(
+                        "api_key (or OPENAI_API_KEY environment variable)"
+                    )
+                state = OpenAISerializedState.model_validate(client_data)
+                config = AsyncOpenAIConfig.deserialize(state, openai_api_key)
+                client = AsyncOpenAIClient(config)
+                self.async_client_registry[client_enum] = client
+            case AsyncLLMClientEnum.AZURE_OPENAI:
+                if not azure_openai_api_key:
+                    raise MissingConfigurationError(
+                        "api_key (or AZURE_OPENAI_API_KEY environment variable)"
+                    )
+                state = AzureOpenAISerializedState.model_validate(client_data)
+                config = AsyncAzureOpenAIConfig.deserialize(state, azure_openai_api_key)
+                client = AsyncAzureOpenAIClient(config)
+                self.async_client_registry[client_enum] = client
             case _:
                 raise ClientNotFoundError(client_enum.value)
 

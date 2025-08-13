@@ -195,29 +195,47 @@ class ClientAlreadyExistsError(MetaEvaluatorClientError):
 class ClientNotFoundError(MetaEvaluatorClientError):
     """Error raised when trying to get a client that doesn't exist."""
 
-    def __init__(self, client_type: str):
+    def __init__(self, client_type: str, client_method: str = ""):
         """Initialize with client type.
 
         Args:
             client_type: The type of client that was not found.
+            client_method: Optional method name suggestion for configuring the client.
         """
-        super().__init__(f"Client of type {client_type} not found in registry.")
+        message = f"Client of type {client_type} not found in registry."
+        if client_method:
+            message += f" Use {client_method} to configure it."
+        super().__init__(message)
 
 
-class LLMClientNotConfiguredError(MetaEvaluatorClientError):
-    """Error raised when required LLM client is not configured."""
+class AsyncClientAlreadyExistsError(MetaEvaluatorClientError):
+    """Error raised when trying to add an async client that already exists."""
 
-    def __init__(self, judge_id: str, required_client: str):
-        """Initialize with judge ID and required client type.
+    def __init__(self, client_type: str):
+        """Initialize with async client type.
 
         Args:
-            judge_id: The ID of the judge requiring the client.
-            required_client: The type of LLM client that is required.
+            client_type: The type of async client that already exists.
         """
         super().__init__(
-            f"No LLM client configured for judge '{judge_id}' "
-            f"(requires {required_client})"
+            f"Async client of type {client_type} already exists. Use override_existing=True to replace it."
         )
+
+
+class AsyncClientNotFoundError(MetaEvaluatorClientError):
+    """Error raised when trying to get an async client that doesn't exist."""
+
+    def __init__(self, client_type: str, client_method: str = ""):
+        """Initialize with client type.
+
+        Args:
+            client_type: The type of client that was not found.
+            client_method: Optional method name suggestion for configuring the client.
+        """
+        message = f"Async client of type {client_type} not found in registry."
+        if client_method:
+            message += f" Use {client_method} to configure it."
+        super().__init__(message)
 
 
 # Judge-related errors

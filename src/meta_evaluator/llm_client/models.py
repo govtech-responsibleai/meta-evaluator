@@ -16,7 +16,7 @@ from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, model_validator
 
-from .enums import ErrorType, LLMClientEnum, RoleEnum
+from .enums import AsyncLLMClientEnum, ErrorType, LLMClientEnum, RoleEnum
 
 _RESPONSE_ID_UUID_LENGTH = 12
 
@@ -123,7 +123,7 @@ class LLMResponse(BaseModel):
     """
 
     id: str = ""
-    provider: LLMClientEnum
+    provider: LLMClientEnum | AsyncLLMClientEnum
     model: str
     messages: list[Message]
     usage: LLMUsage

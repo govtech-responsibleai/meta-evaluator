@@ -5,11 +5,24 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
-from meta_evaluator.llm_client.enums import LLMClientEnum
-from meta_evaluator.llm_client.openai_client import OpenAIClient
+from meta_evaluator.llm_client.async_azureopenai_client import AsyncAzureOpenAIClient
+from meta_evaluator.llm_client.async_openai_client import AsyncOpenAIClient
+from meta_evaluator.llm_client.azureopenai_client import (
+    AzureOpenAIClient,
+    AzureOpenAIConfig,
+)
+from meta_evaluator.llm_client.client import LLMClient, LLMClientConfig
+from meta_evaluator.llm_client.enums import AsyncLLMClientEnum, LLMClientEnum
+from meta_evaluator.llm_client.openai_client import OpenAIClient, OpenAIConfig
+from meta_evaluator.llm_client.serialization import (
+    AzureOpenAISerializedState,
+    MockLLMClientSerializedState,
+    OpenAISerializedState,
+)
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.meta_evaluator.exceptions import (
+    AsyncClientAlreadyExistsError,
+    AsyncClientNotFoundError,
     ClientAlreadyExistsError,
     ClientNotFoundError,
     MissingConfigurationError,
@@ -338,8 +351,10 @@ class TestMetaEvaluatorClients:
 
     def test_get_client_nonexistent_client(self, meta_evaluator):
         """Test ClientNotFoundError when requesting non-existent client."""
-        # (?i) makes the regex case-insensitive to match both "OPENAI" and "openai"
-        with pytest.raises(ClientNotFoundError, match="(?i)OPENAI.*not found"):
+        # Should suggest the correct method for configuring OPENAI client
+        with pytest.raises(
+            ClientNotFoundError, match=r"(?i)OPENAI.*not found.*add_openai\(\)"
+        ):
             meta_evaluator.get_client(LLMClientEnum.OPENAI)
 
     def test_get_client_from_empty_registry(self, meta_evaluator):
@@ -368,8 +383,6 @@ class TestMetaEvaluatorClients:
             "meta_evaluator.meta_evaluator.clients.OpenAIClient"
         ) as mock_client_class:
             # Create proper mock config with serialize method
-            from meta_evaluator.llm_client.openai_client import OpenAIConfig
-            from meta_evaluator.llm_client.serialization import OpenAISerializedState
 
             mock_config = MagicMock(spec=OpenAIConfig)
             mock_config.default_model = "gpt-4"
@@ -418,10 +431,6 @@ class TestMetaEvaluatorClients:
             "meta_evaluator.meta_evaluator.clients.AzureOpenAIClient"
         ) as mock_client_class:
             # Create proper mock config with serialize method
-            from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIConfig
-            from meta_evaluator.llm_client.serialization import (
-                AzureOpenAISerializedState,
-            )
 
             mock_config = MagicMock(spec=AzureOpenAIConfig)
             mock_config.endpoint = "https://test.openai.azure.com"
@@ -481,6 +490,7 @@ class TestMetaEvaluatorClients:
                     "supports_instructor": True,
                 }
             },
+            "async_client_registry": {},
             "data": None,
         }
 
@@ -516,6 +526,7 @@ class TestMetaEvaluatorClients:
                     "supports_instructor": True,
                 },
             },
+            "async_client_registry": {},
             "data": None,
         }
 
@@ -549,19 +560,21 @@ class TestMetaEvaluatorClients:
             assert LLMClientEnum.OPENAI in loaded_evaluator.client_registry
             assert LLMClientEnum.AZURE_OPENAI in loaded_evaluator.client_registry
 
-    # === serialize_client_registry() Method Tests ===
+    # === _serialize_all_clients() Method Tests ===
 
-    def test_serialize_client_registry_empty(self, meta_evaluator):
-        """Test _serialize_client_registry with empty registry."""
-        serialized = meta_evaluator._serialize_client_registry()
+    def test_serialize_all_clients_empty(self, meta_evaluator):
+        """Test _serialize_all_clients with empty registries."""
+        sync_clients, async_clients = meta_evaluator._serialize_all_clients()
 
-        assert serialized == {}
-        assert isinstance(serialized, dict)
+        assert sync_clients == {}
+        assert async_clients == {}
+        assert isinstance(sync_clients, dict)
+        assert isinstance(async_clients, dict)
 
-    def test_serialize_client_registry_with_openai_client(
+    def test_serialize_all_clients_with_sync_openai_client(
         self, meta_evaluator, mock_openai_client
     ):
-        """Test _serialize_client_registry with OpenAI client present."""
+        """Test _serialize_all_clients with sync OpenAI client present."""
         with patch(
             "meta_evaluator.meta_evaluator.clients.OpenAIClient"
         ) as mock_client_class:
@@ -573,17 +586,18 @@ class TestMetaEvaluatorClients:
                 default_model="gpt-4",
                 default_embedding_model="text-embedding-3-large",
             )
-            serialized = meta_evaluator._serialize_client_registry()
+            sync_clients, async_clients = meta_evaluator._serialize_all_clients()
 
-            assert "openai" in serialized
-            assert serialized["openai"]["client_type"] == "openai"
-            assert serialized["openai"]["default_model"] == "gpt-4"
-            assert "api_key" not in str(serialized)
+            assert "openai" in sync_clients
+            assert sync_clients["openai"]["client_type"] == "openai"
+            assert sync_clients["openai"]["default_model"] == "gpt-4"
+            assert "api_key" not in str(sync_clients)
+            assert async_clients == {}
 
-    def test_serialize_client_registry_with_both_clients(
+    def test_serialize_all_clients_with_both_sync_clients(
         self, meta_evaluator, mock_openai_client, mock_azure_openai_client
     ):
-        """Test _serialize_client_registry with both OpenAI and Azure clients."""
+        """Test _serialize_all_clients with both sync OpenAI and Azure clients."""
         with (
             patch(
                 "meta_evaluator.meta_evaluator.clients.OpenAIClient"
@@ -607,19 +621,76 @@ class TestMetaEvaluatorClients:
                 default_model="gpt-4",
                 default_embedding_model="text-embedding-ada-002",
             )
-            serialized = meta_evaluator._serialize_client_registry()
+            sync_clients, async_clients = meta_evaluator._serialize_all_clients()
 
-            assert len(serialized) == 2
-            assert "openai" in serialized
-            assert "azure_openai" in serialized
-            assert serialized["openai"]["client_type"] == "openai"
-            assert serialized["azure_openai"]["client_type"] == "azure_openai"
+            assert len(sync_clients) == 2
+            assert "openai" in sync_clients
+            assert "azure_openai" in sync_clients
+            assert sync_clients["openai"]["client_type"] == "openai"
+            assert sync_clients["azure_openai"]["client_type"] == "azure_openai"
+            assert async_clients == {}
+
+    def test_serialize_all_clients_with_async_openai_client(
+        self, meta_evaluator, mock_async_openai_client
+    ):
+        """Test _serialize_all_clients with async OpenAI client present."""
+        with patch(
+            "meta_evaluator.meta_evaluator.clients.AsyncOpenAIClient"
+        ) as mock_client_class:
+            mock_client = mock_async_openai_client
+            mock_client_class.return_value = mock_client
+
+            meta_evaluator.add_async_openai(
+                api_key="test-key",
+                default_model="gpt-4",
+                default_embedding_model="text-embedding-3-large",
+            )
+            sync_clients, async_clients = meta_evaluator._serialize_all_clients()
+
+            assert sync_clients == {}
+            assert "openai" in async_clients
+            assert async_clients["openai"]["client_type"] == "openai"
+            assert async_clients["openai"]["default_model"] == "gpt-4"
+            assert "api_key" not in str(async_clients)
+
+    def test_serialize_all_clients_with_mixed_clients(
+        self, meta_evaluator, mock_openai_client, mock_async_openai_client
+    ):
+        """Test _serialize_all_clients with both sync and async clients."""
+        with (
+            patch(
+                "meta_evaluator.meta_evaluator.clients.OpenAIClient"
+            ) as mock_sync_class,
+            patch(
+                "meta_evaluator.meta_evaluator.clients.AsyncOpenAIClient"
+            ) as mock_async_class,
+        ):
+            mock_sync_class.return_value = mock_openai_client
+            mock_async_class.return_value = mock_async_openai_client
+
+            meta_evaluator.add_openai(
+                api_key="test-key",
+                default_model="gpt-4-sync",
+                default_embedding_model="text-embedding-3-large",
+            )
+            meta_evaluator.add_async_openai(
+                api_key="test-key",
+                default_model="gpt-4-async",
+                default_embedding_model="text-embedding-3-large",
+            )
+            sync_clients, async_clients = meta_evaluator._serialize_all_clients()
+
+            assert len(sync_clients) == 1
+            assert len(async_clients) == 1
+            assert "openai" in sync_clients
+            assert "openai" in async_clients
+            assert sync_clients["openai"]["client_type"] == "openai"
+            assert async_clients["openai"]["client_type"] == "openai"
+            assert sync_clients["openai"]["default_model"] == "gpt-4-sync"
+            assert async_clients["openai"]["default_model"] == "gpt-4-async"
 
     def test_serialize_single_client_delegates_to_config(self, meta_evaluator):
         """Test _serialize_single_client delegates to client config serialize method."""
-        from meta_evaluator.llm_client.client import LLMClient, LLMClientConfig
-        from meta_evaluator.llm_client.serialization import MockLLMClientSerializedState
-
         # Create mock config with serialize method
         mock_config = MagicMock(spec=LLMClientConfig)
         mock_state = MockLLMClientSerializedState(
@@ -724,8 +795,6 @@ class TestMetaEvaluatorClients:
 
     def test_api_key_security_assertion_would_trigger(self, meta_evaluator):
         """Test that the security assertion would catch API key in serialized data."""
-        from meta_evaluator.llm_client.client import LLMClient, LLMClientConfig
-
         # Create a mock config that returns a state containing "api_key" (which should never happen)
         mock_config = MagicMock(spec=LLMClientConfig)
 
@@ -749,7 +818,7 @@ class TestMetaEvaluatorClients:
         with pytest.raises(
             AssertionError, match="API key found in serialized test client"
         ):
-            meta_evaluator._serialize_client_registry()
+            meta_evaluator._serialize_all_clients()
 
     # === Integration Tests ===
 
@@ -1051,3 +1120,152 @@ class TestMetaEvaluatorClients:
             # Verify the return type is an LLMClient (or mock thereof)
             assert isinstance(retrieved_client, MagicMock)
             # In a real scenario, this would be: isinstance(retrieved_client, LLMClient)
+
+
+# === ASYNC CLIENT TESTS ===
+
+
+class TestAsyncMetaEvaluatorClients:
+    """Test async client functionality in MetaEvaluator."""
+
+    def test_async_and_sync_client_coexistence(self, meta_evaluator_with_clients):
+        """Test that both sync and async registries can exist together."""
+        evaluator = meta_evaluator_with_clients
+
+        assert hasattr(evaluator, "client_registry")
+        assert hasattr(evaluator, "async_client_registry")
+        assert len(evaluator.client_registry) == 2
+        assert len(evaluator.async_client_registry) == 2
+
+    def test_add_async_openai_with_all_parameters(
+        self, meta_evaluator, clean_environment
+    ):
+        """Test adding async OpenAI client with all parameters provided."""
+        with patch(
+            "meta_evaluator.meta_evaluator.clients.AsyncOpenAIClient"
+        ) as mock_client_class:
+            mock_client = MagicMock(spec=AsyncOpenAIClient)
+            mock_client_class.return_value = mock_client
+
+            meta_evaluator.add_async_openai(
+                api_key="test-key",
+                default_model="gpt-4",
+                default_embedding_model="text-embedding-3-large",
+            )
+
+            assert AsyncLLMClientEnum.OPENAI in meta_evaluator.async_client_registry
+            assert (
+                meta_evaluator.async_client_registry[AsyncLLMClientEnum.OPENAI]
+                == mock_client
+            )
+            mock_client_class.assert_called_once()
+
+    def test_add_async_azure_openai_with_all_parameters(
+        self, meta_evaluator, clean_environment
+    ):
+        """Test adding async Azure OpenAI client with all parameters provided."""
+        with patch(
+            "meta_evaluator.meta_evaluator.clients.AsyncAzureOpenAIClient"
+        ) as mock_client_class:
+            mock_client = MagicMock(spec=AsyncAzureOpenAIClient)
+            mock_client_class.return_value = mock_client
+
+            meta_evaluator.add_async_azure_openai(
+                api_key="test-key",
+                endpoint="https://test.openai.azure.com",
+                api_version="2024-02-15-preview",
+                default_model="gpt-4",
+                default_embedding_model="text-embedding-ada-002",
+            )
+
+            assert (
+                AsyncLLMClientEnum.AZURE_OPENAI in meta_evaluator.async_client_registry
+            )
+            assert (
+                meta_evaluator.async_client_registry[AsyncLLMClientEnum.AZURE_OPENAI]
+                == mock_client
+            )
+            mock_client_class.assert_called_once()
+
+    def test_async_client_already_exists_error(
+        self, meta_evaluator, openai_environment
+    ):
+        """Test error when trying to add async client that already exists."""
+        with patch("meta_evaluator.meta_evaluator.clients.AsyncOpenAIClient"):
+            # Add client first time
+            meta_evaluator.add_async_openai()
+
+            # Try to add again without override
+
+            with pytest.raises(
+                AsyncClientAlreadyExistsError, match="OPENAI.*already exists"
+            ):
+                meta_evaluator.add_async_openai()
+
+    def test_get_async_client_existing_client(self, meta_evaluator, openai_environment):
+        """Test retrieving an existing async client."""
+        with patch(
+            "meta_evaluator.meta_evaluator.clients.AsyncOpenAIClient"
+        ) as mock_client_class:
+            mock_client = MagicMock(spec=AsyncOpenAIClient)
+            mock_client_class.return_value = mock_client
+
+            meta_evaluator.add_async_openai()
+
+            retrieved_client = meta_evaluator.get_async_client(
+                AsyncLLMClientEnum.OPENAI
+            )
+
+            assert retrieved_client == mock_client
+            assert isinstance(retrieved_client, MagicMock)
+
+    def test_get_async_client_nonexistent_client(self, meta_evaluator):
+        """Test error when requesting non-existent async client."""
+        with pytest.raises(
+            AsyncClientNotFoundError,
+            match=r"(?i)OPENAI.*not found.*add_async_openai\(\)",
+        ):
+            meta_evaluator.get_async_client(AsyncLLMClientEnum.OPENAI)
+
+    def test_load_state_with_async_clients(self, tmp_path, openai_environment):
+        """Test loading MetaEvaluator with async clients from JSON."""
+        # Create state file with async client data
+        state_data = {
+            "version": "1.0",
+            "client_registry": {},
+            "async_client_registry": {
+                "openai": {
+                    "client_type": "openai",
+                    "default_model": "gpt-4",
+                    "default_embedding_model": "text-embedding-ada-002",
+                    "supports_structured_output": True,
+                    "supports_logprobs": True,
+                    "supports_instructor": True,
+                }
+            },
+            "data": None,
+        }
+
+        state_file = tmp_path / "test_async.json"
+
+        with open(state_file, "w") as f:
+            json.dump(state_data, f)
+
+        with patch(
+            "meta_evaluator.meta_evaluator.clients.AsyncOpenAIClient"
+        ) as mock_client_class:
+            mock_client = MagicMock(spec=AsyncOpenAIClient)
+            mock_client_class.return_value = mock_client
+
+            # Load from JSON with async client API key
+
+            loaded_evaluator = MetaEvaluator.load_state(
+                project_dir=str(tmp_path),
+                state_filename="test_async.json",
+                load_data=False,
+                openai_api_key="test-api-key",
+            )
+
+            # Verify async client was reconstructed
+            assert AsyncLLMClientEnum.OPENAI in loaded_evaluator.async_client_registry
+            assert loaded_evaluator.data is None

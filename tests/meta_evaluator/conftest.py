@@ -16,15 +16,22 @@ import pytest
 from meta_evaluator.data import SampleEvalData
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.judge.judge import Judge
-from meta_evaluator.llm_client import LLMClientEnum
+from meta_evaluator.llm_client.async_azureopenai_client import AsyncAzureOpenAIClient
+from meta_evaluator.llm_client.async_openai_client import AsyncOpenAIClient
 from meta_evaluator.llm_client.azureopenai_client import AzureOpenAIClient
+from meta_evaluator.llm_client.enums import AsyncLLMClientEnum, LLMClientEnum
 from meta_evaluator.llm_client.openai_client import OpenAIClient
 from meta_evaluator.llm_client.serialization import (
     AzureOpenAISerializedState,
     OpenAISerializedState,
 )
 from meta_evaluator.meta_evaluator.scoring import ScoringMixin
-from meta_evaluator.results import HumanAnnotationResults, JudgeResults
+from meta_evaluator.results import (
+    HumanAnnotationResults,
+    HumanAnnotationResultsBuilder,
+    JudgeResults,
+    JudgeResultsBuilder,
+)
 
 # ==== ENVIRONMENT FIXTURES ====
 
@@ -115,14 +122,20 @@ def meta_evaluator_with_data(meta_evaluator, sample_eval_data):
 
 @pytest.fixture
 def meta_evaluator_with_clients(
-    meta_evaluator, mock_openai_client, mock_azure_openai_client
+    meta_evaluator,
+    mock_openai_client,
+    mock_azure_openai_client,
+    mock_async_openai_client,
+    mock_async_azure_openai_client,
 ):
-    """Provides a MetaEvaluator with mock clients configured.
+    """Provides a MetaEvaluator with mock sync and async clients configured.
 
     Args:
         meta_evaluator: The MetaEvaluator instance from main conftest.
         mock_openai_client: Mock OpenAI client fixture.
         mock_azure_openai_client: Mock Azure OpenAI client fixture.
+        mock_async_openai_client: Mock async OpenAI client fixture.
+        mock_async_azure_openai_client: Mock async Azure OpenAI client fixture.
 
     Returns:
         MetaEvaluator: The modified MetaEvaluator instance.
@@ -131,12 +144,20 @@ def meta_evaluator_with_clients(
         LLMClientEnum.OPENAI: mock_openai_client,
         LLMClientEnum.AZURE_OPENAI: mock_azure_openai_client,
     }
+    meta_evaluator.async_client_registry = {
+        AsyncLLMClientEnum.OPENAI: mock_async_openai_client,
+        AsyncLLMClientEnum.AZURE_OPENAI: mock_async_azure_openai_client,
+    }
     return meta_evaluator
 
 
 @pytest.fixture
 def meta_evaluator_with_judges_and_data(
-    meta_evaluator, sample_prompt, sample_eval_data, mock_openai_client
+    meta_evaluator,
+    sample_prompt,
+    sample_eval_data,
+    mock_openai_client,
+    mock_async_openai_client,
 ):
     """Provides a MetaEvaluator with mock judges and data configured for integration testing.
 
@@ -145,6 +166,7 @@ def meta_evaluator_with_judges_and_data(
         sample_prompt: Sample prompt from main conftest.
         sample_eval_data: Sample evaluation data from main conftest.
         mock_openai_client: Mock OpenAI client fixture.
+        mock_async_openai_client: Mock async OpenAI client fixture.
 
     Returns:
         MetaEvaluator: The modified MetaEvaluator instance with configured judges and data.
@@ -162,6 +184,9 @@ def meta_evaluator_with_judges_and_data(
 
     # Configure LLM client registry
     meta_evaluator.client_registry = {LLMClientEnum.OPENAI: mock_openai_client}
+    meta_evaluator.async_client_registry = {
+        AsyncLLMClientEnum.OPENAI: mock_async_openai_client
+    }
 
     # Create mock judges
     mock_judge1 = Mock(spec=Judge)
@@ -426,15 +451,52 @@ def human_results(human_results_dict):
 
 
 @pytest.fixture
+def basic_judge(basic_eval_task, sample_prompt):
+    """Provides a basic judge configuration for testing.
+
+    Args:
+        basic_eval_task: Basic evaluation task fixture.
+        sample_prompt: Sample prompt fixture.
+
+    Returns:
+        Judge: A basic judge instance for testing.
+    """
+    return Judge(
+        id="test_judge",
+        eval_task=basic_eval_task,
+        llm_client_enum=LLMClientEnum.OPENAI,
+        model="gpt-4",
+        prompt=sample_prompt,
+    )
+
+
+@pytest.fixture
+def xml_judge(xml_eval_task, sample_prompt):
+    """Provides an XML-based judge configuration for testing.
+
+    Args:
+        xml_eval_task: XML evaluation task fixture.
+        sample_prompt: Sample prompt fixture.
+
+    Returns:
+        Judge: An XML judge instance for testing.
+    """
+    return Judge(
+        id="test_xml_judge",
+        eval_task=xml_eval_task,
+        llm_client_enum=LLMClientEnum.OPENAI,
+        model="gpt-4",
+        prompt=sample_prompt,
+    )
+
+
+@pytest.fixture
 def completed_judge_results():
     """Fixture for creating completed JudgeResults for file system tests.
 
     Returns:
         JudgeResults: A completed JudgeResults instance for testing.
     """
-    from meta_evaluator.llm_client import LLMClientEnum
-    from meta_evaluator.results import JudgeResultsBuilder
-
     builder = JudgeResultsBuilder(
         run_id="test_run",
         judge_id="test_judge",
@@ -463,8 +525,6 @@ def completed_human_results():
     Returns:
         HumanAnnotationResults: A completed HumanAnnotationResults instance for testing.
     """
-    from meta_evaluator.results import HumanAnnotationResultsBuilder
-
     builder = HumanAnnotationResultsBuilder(
         run_id="test_annotation_run",
         annotator_id="test_annotator",
@@ -575,3 +635,100 @@ def mock_azure_openai_client():
         MagicMock: A mock Azure OpenAI client with configured attributes.
     """
     return create_mock_azure_openai_client(supports_structured_output=False)
+
+
+# ==== ASYNC CLIENT FIXTURES ====
+
+
+def create_mock_async_openai_client(**config_overrides):
+    """Helper function to create a customized mock async OpenAI client.
+
+    Args:
+        **config_overrides: Override default configuration values.
+
+    Returns:
+        MagicMock: A mock async OpenAI client with custom configuration.
+    """
+    mock_client = MagicMock(spec=AsyncOpenAIClient)
+    mock_config = MagicMock()
+    mock_config.default_model = config_overrides.get("default_model", "gpt-4")
+    mock_config.default_embedding_model = config_overrides.get(
+        "default_embedding_model", "text-embedding-3-large"
+    )
+    mock_config.supports_structured_output = config_overrides.get(
+        "supports_structured_output", True
+    )
+    mock_config.supports_logprobs = config_overrides.get("supports_logprobs", True)
+
+    # Mock the serialize method to return a proper OpenAISerializedState
+    serialized_state = OpenAISerializedState(
+        default_model=mock_config.default_model,
+        default_embedding_model=mock_config.default_embedding_model,
+        supports_structured_output=mock_config.supports_structured_output,
+        supports_logprobs=mock_config.supports_logprobs,
+        supports_instructor=True,
+    )
+    mock_config.serialize.return_value = serialized_state
+
+    mock_client.config = mock_config
+    return mock_client
+
+
+def create_mock_async_azure_openai_client(**config_overrides):
+    """Helper function to create a customized mock async Azure OpenAI client.
+
+    Args:
+        **config_overrides: Override default configuration values.
+
+    Returns:
+        MagicMock: A mock async Azure OpenAI client with custom configuration.
+    """
+    mock_client = MagicMock(spec=AsyncAzureOpenAIClient)
+    mock_config = MagicMock()
+    mock_config.endpoint = config_overrides.get(
+        "endpoint", "https://test.openai.azure.com"
+    )
+    mock_config.api_version = config_overrides.get("api_version", "2024-02-15-preview")
+    mock_config.default_model = config_overrides.get("default_model", "gpt-4")
+    mock_config.default_embedding_model = config_overrides.get(
+        "default_embedding_model", "text-embedding-ada-002"
+    )
+    mock_config.supports_structured_output = config_overrides.get(
+        "supports_structured_output", True
+    )
+    mock_config.supports_logprobs = config_overrides.get("supports_logprobs", True)
+
+    # Mock the serialize method to return a proper AzureOpenAISerializedState
+    serialized_state = AzureOpenAISerializedState(
+        endpoint=mock_config.endpoint,
+        api_version=mock_config.api_version,
+        default_model=mock_config.default_model,
+        default_embedding_model=mock_config.default_embedding_model,
+        supports_structured_output=mock_config.supports_structured_output,
+        supports_logprobs=mock_config.supports_logprobs,
+        supports_instructor=True,
+    )
+    mock_config.serialize.return_value = serialized_state
+
+    mock_client.config = mock_config
+    return mock_client
+
+
+@pytest.fixture
+def mock_async_openai_client():
+    """Create a properly mocked async OpenAI client for testing.
+
+    Returns:
+        MagicMock: A mock async OpenAI client with configured attributes.
+    """
+    return create_mock_async_openai_client()
+
+
+@pytest.fixture
+def mock_async_azure_openai_client():
+    """Create a properly mocked async Azure OpenAI client for testing.
+
+    Returns:
+        MagicMock: A mock async Azure OpenAI client with configured attributes.
+    """
+    return create_mock_async_azure_openai_client(supports_structured_output=False)

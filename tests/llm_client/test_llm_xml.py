@@ -1,5 +1,6 @@
 """Comprehensive tests for XML parsing functionality in LLMClient."""
 
+import time
 from typing import TypeVar
 
 import pytest
@@ -776,8 +777,6 @@ class TestXMLParsing:
         large_content = "x" * 50000
         text = f"<content>{large_content}</content>"
 
-        import time
-
         start_time = time.time()
         result = basic_llm_client._extract_tag_values("content", text)
         end_time = time.time()
@@ -789,8 +788,6 @@ class TestXMLParsing:
         """Test parsing many tags performs reasonably."""
         # Create 1000 tags
         tags = "".join(f"<item>value{i}</item>" for i in range(1000))
-
-        import time
 
         start_time = time.time()
         result = basic_llm_client._extract_tag_values("item", tags)

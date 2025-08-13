@@ -1,5 +1,6 @@
 """Judge management functionality for MetaEvaluator."""
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime
@@ -16,19 +17,45 @@ from ..common.models import Prompt
 from ..data import EvalData
 from ..eval_task import EvalTask
 from ..judge import Judge
-from ..llm_client.enums import LLMClientEnum
+from ..llm_client.enums import AsyncLLMClientEnum, LLMClientEnum
 from ..results import JudgeResults
 from .exceptions import (
+    ClientNotFoundError,
     EvalDataNotFoundError,
     EvalTaskNotFoundError,
     InvalidYAMLStructureError,
     JudgeAlreadyExistsError,
     JudgeExecutionError,
     JudgeNotFoundError,
-    LLMClientNotConfiguredError,
     PromptFileNotFoundError,
     ResultsSaveError,
 )
+
+
+def _map_sync_to_async_enum(sync_enum: LLMClientEnum) -> AsyncLLMClientEnum:
+    """Map sync LLMClientEnum to corresponding AsyncLLMClientEnum.
+
+    Args:
+        sync_enum: The sync LLM client enum
+
+    Returns:
+        The corresponding async enum
+
+    Raises:
+        ValueError: If no async client exists for the sync enum
+    """
+    mapping = {
+        LLMClientEnum.OPENAI: AsyncLLMClientEnum.OPENAI,
+        LLMClientEnum.AZURE_OPENAI: AsyncLLMClientEnum.AZURE_OPENAI,
+    }
+
+    if sync_enum not in mapping:
+        available = list(mapping.keys())
+        raise ValueError(
+            f"No async client available for {sync_enum}. Available: {available}"
+        )
+
+    return mapping[sync_enum]
 
 
 class JudgeConfig(BaseModel):
@@ -311,6 +338,58 @@ class JudgesMixin:
         prompt_id = resolved_prompt_path.stem
         return Prompt(id=prompt_id, prompt=prompt_content)
 
+    def _validate_and_prepare_judges_run(
+        self, judge_ids: Optional[Union[str, list[str]]], run_id: Optional[str]
+    ) -> tuple[list[str], str]:
+        """Validate prerequisites and prepare judges list for execution.
+
+        Args:
+            judge_ids: Judge ID(s) to run.
+            run_id: Run identifier.
+
+        Returns:
+            tuple: (judges_to_run, final_run_id)
+
+        Raises:
+            EvalTaskNotFoundError: If eval_task is not set.
+            EvalDataNotFoundError: If data is not set.
+            JudgeNotFoundError: If specified judges don't exist.
+        """
+        # Validate prerequisites
+        if self.eval_task is None:
+            raise EvalTaskNotFoundError("eval_task must be set before running judges")
+        if self.data is None:
+            raise EvalDataNotFoundError("data must be set before running judges")
+
+        # Determine which judges to run
+        if judge_ids is None:
+            judges_to_run = list(self.judge_registry.keys())
+        elif isinstance(judge_ids, str):
+            judges_to_run = [judge_ids]
+        else:
+            judges_to_run = judge_ids
+
+        # Validate judges exist and are available
+        missing_judges = [
+            j_id for j_id in judges_to_run if j_id not in self.judge_registry
+        ]
+        if missing_judges:
+            raise JudgeNotFoundError(
+                f"Judge IDs not found in registry: {missing_judges}"
+            )
+        if not judges_to_run:
+            raise JudgeNotFoundError("No judges available to run")
+
+        # Generate run ID if not provided
+        if run_id is None:
+            run_id = (
+                f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+            )
+
+        self.paths.ensure_directories()
+
+        return judges_to_run, run_id
+
     def run_judges(
         self,
         judge_ids: Optional[Union[str, list[str]]] = None,
@@ -338,10 +417,7 @@ class JudgesMixin:
             dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
 
         Raises:
-            EvalTaskNotFoundError: If eval_task is not set.
-            EvalDataNotFoundError: If data is not set.
-            JudgeNotFoundError: If specified judge_ids don't exist or no judges are available to run.
-            LLMClientNotConfiguredError: If required LLM client is not configured.
+            ClientNotFoundError: If required LLM client is not configured.
             JudgeExecutionError: If judge execution fails.
             ResultsSaveError: If saving results fails.
 
@@ -355,45 +431,7 @@ class JudgesMixin:
             >>> # Run with custom run ID
             >>> results = evaluator.run_judges(run_id="experiment_1")
         """
-        # Validate prerequisites
-        if self.eval_task is None:
-            raise EvalTaskNotFoundError("eval_task must be set before running judges")
-
-        if self.data is None:
-            raise EvalDataNotFoundError("data must be set before running judges")
-
-        # Determine which judges to run
-        if judge_ids is None:
-            # Run all judges
-            judges_to_run = list(self.judge_registry.keys())
-        elif isinstance(judge_ids, str):
-            # Run single judge
-            judges_to_run = [judge_ids]
-        else:
-            # Run specified judges
-            judges_to_run = judge_ids
-
-        # Validate that all specified judges exist
-        missing_judges = [
-            j_id for j_id in judges_to_run if j_id not in self.judge_registry
-        ]
-        if missing_judges:
-            raise JudgeNotFoundError(
-                f"Judge IDs not found in registry: {missing_judges}"
-            )
-
-        # Check if any judges are available
-        if not judges_to_run:
-            raise JudgeNotFoundError("No judges available to run")
-
-        # Generate run ID if not provided
-        if run_id is None:
-            run_id = (
-                f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
-            )
-
-        # Ensure results directory exists
-        self.paths.ensure_directories()
+        judges_to_run, run_id = self._validate_and_prepare_judges_run(judge_ids, run_id)
 
         self.logger.info(
             f"Starting judge evaluation run '{run_id}' with {len(judges_to_run)} judge(s): {', '.join(judges_to_run)}"
@@ -401,14 +439,14 @@ class JudgesMixin:
 
         # Run each judge and collect results
         results = {}
-
         for judge_id in judges_to_run:
             judge = self.judge_registry[judge_id]
 
             # Get the appropriate LLM client for this judge
             llm_client = getattr(self, "client_registry", {}).get(judge.llm_client_enum)
             if llm_client is None:
-                raise LLMClientNotConfiguredError(judge_id, judge.llm_client_enum.value)
+                client_method = self.get_method_for_client(judge.llm_client_enum)  # type: ignore
+                raise ClientNotFoundError(judge.llm_client_enum.value, client_method)
 
             # Run the evaluation
             try:
@@ -442,6 +480,131 @@ class JudgesMixin:
 
         self.logger.info(
             f"Judge evaluation run '{run_id}' completed successfully with {len(results)} judge(s)"
+        )
+        return results
+
+    async def run_judges_async(
+        self,
+        judge_ids: Optional[Union[str, list[str]]] = None,
+        run_id: Optional[str] = None,
+        save_results: bool = True,
+        results_format: Literal["json", "csv", "parquet"] = "json",
+    ) -> dict[str, JudgeResults]:
+        """Execute evaluations using specified judges with parallel processing and save results.
+
+        This is an async version of run_judges that executes multiple judges concurrently
+        for improved performance. All judges run in parallel, and results are saved
+        concurrently as well.
+
+        Args:
+            judge_ids: Judge ID(s) to run. Can be:
+                - None: Run all judges in the registry
+                - str: Run a single judge by ID
+                - list[str]: Run specified judges by ID
+            run_id: Unique identifier for this evaluation run. If None,
+                auto-generates a timestamp-based ID.
+            save_results: Whether to save results to disk. Defaults to True.
+            results_format: Format for saving results files. Defaults to "json".
+
+        Returns:
+            dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
+        """
+        judges_to_run, run_id = self._validate_and_prepare_judges_run(judge_ids, run_id)
+
+        self.logger.info(
+            f"Starting async judge evaluation run '{run_id}' with {len(judges_to_run)} judge(s): {', '.join(judges_to_run)}"
+        )
+
+        # Define function to run single judge evaluation in parallel
+        async def run_single_judge(judge_id: str) -> tuple[str, JudgeResults]:
+            """Run evaluation for a single judge and return results.
+
+            Args:
+                judge_id: ID of the judge.
+
+            Returns:
+                tuple[str, JudgeResults]: Tuple containing the judge ID and its results.
+
+            Raises:
+                ClientNotFoundError: If the LLM client is not configured.
+                JudgeExecutionError: If the judge execution fails.
+            """
+            judge = self.judge_registry[judge_id]
+
+            # Get the appropriate async LLM client for this judge
+            try:
+                async_enum = _map_sync_to_async_enum(judge.llm_client_enum)
+                llm_client = getattr(self, "async_client_registry", {}).get(async_enum)
+            except ValueError:
+                # No async client available for this sync client type
+                client_method = self.get_method_for_client(judge.llm_client_enum)  # type: ignore
+                raise ClientNotFoundError(judge.llm_client_enum.value, client_method)
+
+            if llm_client is None:
+                client_method = self.get_method_for_client(async_enum)  # type: ignore
+                raise ClientNotFoundError(async_enum.value, client_method)
+
+            # Run the evaluation
+            try:
+                self.logger.info(f"Running async evaluation for judge '{judge_id}'...")
+                judge_results = await judge.evaluate_eval_data_async(
+                    eval_data=self.data,
+                    llm_client=llm_client,
+                    run_id=f"{run_id}_{judge_id}",
+                )
+                self.logger.info(
+                    f"Judge '{judge_id}' completed: {judge_results.succeeded_count}/{judge_results.total_count} successful evaluations"
+                )
+                return judge_id, judge_results
+            except Exception as e:
+                raise JudgeExecutionError(judge_id, str(e))
+
+        # Execute all judges in parallel
+        judge_tasks = [run_single_judge(judge_id) for judge_id in judges_to_run]
+        judge_results_list = await asyncio.gather(*judge_tasks)
+
+        # Collect results into dictionary
+        results = {}
+        for judge_id, judge_results in judge_results_list:
+            results[judge_id] = judge_results
+
+        # Save results if requested
+        if save_results:
+            # Define function to save single judge results in parallel
+            async def save_single_judge_results(
+                judge_id: str, judge_results: JudgeResults
+            ):
+                """Save results for a single judge.
+
+                Args:
+                    judge_id: ID of the judge.
+                    judge_results: The JudgeResults object to save.
+
+                Raises:
+                    ResultsSaveError: If saving results fails.
+                """
+                try:
+                    self._save_judge_results(
+                        judge_results=judge_results,
+                        judge_id=judge_id,
+                        run_id=run_id,
+                        results_format=results_format,
+                    )
+                    self.logger.info(
+                        f"Saved results for judge '{judge_id}' to results directory"
+                    )
+                except Exception as e:
+                    raise ResultsSaveError(judge_id, run_id, str(e))
+
+            # Save all results in parallel
+            save_tasks = [
+                save_single_judge_results(judge_id, judge_results)
+                for judge_id, judge_results in results.items()
+            ]
+            await asyncio.gather(*save_tasks)
+
+        self.logger.info(
+            f"Async judge evaluation run '{run_id}' completed successfully with {len(results)} judge(s)"
         )
         return results
 

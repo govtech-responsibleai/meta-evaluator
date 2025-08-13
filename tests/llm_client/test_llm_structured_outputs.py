@@ -1,9 +1,11 @@
 """File for testing the structured output functionality in LLMClient module."""
 
+import json
+
 import pytest
 from pydantic import BaseModel
 
-from meta_evaluator.llm_client.client import (
+from meta_evaluator.llm_client.base_client import (
     _FAILED_RESPONSE_ERROR_TEMPLATE,
     _LOGPROBS_NOT_SUPPORTED_ERROR_TEMPLATE,
     _NO_MESSAGES_ERROR,
@@ -123,8 +125,6 @@ class TestStructuredOutput:
         )
 
         # Parse the JSON to verify it's valid and contains expected data
-        import json
-
         parsed_content = json.loads(response.content)
 
         assert parsed_content["task_id"] == "json_test_123"
@@ -416,8 +416,6 @@ class TestStructuredOutput:
         assert structured_response.active is True
 
         # Verify JSON content
-        import json
-
         parsed_content = json.loads(llm_response.content)
         assert parsed_content["name"] == "Test User"
         assert parsed_content["age"] == 30

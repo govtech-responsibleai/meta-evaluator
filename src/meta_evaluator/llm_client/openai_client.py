@@ -17,8 +17,9 @@ from openai.types.chat.chat_completion_user_message_param import (
 from pydantic import BaseModel
 
 from .client import LLMClient, LLMClientConfig
+from .enums import LLMClientEnum, RoleEnum
 from .exceptions import LLMAPIError
-from .models import LLMClientEnum, LLMUsage, Message, RoleEnum
+from .models import LLMUsage, Message
 from .serialization import LLMClientSerializedState, OpenAISerializedState
 
 T = TypeVar("T", bound=BaseModel)

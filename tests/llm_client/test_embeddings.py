@@ -5,7 +5,7 @@ from typing import TypeVar
 import pytest
 from pydantic import BaseModel
 
-from meta_evaluator.llm_client.client import (
+from meta_evaluator.llm_client.base_client import (
     _FAILED_EMBEDDING_ERROR_TEMPLATE,
     _NO_PROMPTS_ERROR,
 )

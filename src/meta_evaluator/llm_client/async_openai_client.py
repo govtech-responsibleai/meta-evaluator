@@ -1,10 +1,13 @@
-"""Concrete implementation of LLMClient for Azure OpenAI."""
+"""Async OpenAI client implementation.
 
-import warnings
+This module provides an asynchronous implementation of the LLM client interface
+specifically for OpenAI's API, including GPT models and embeddings.
+"""
+
 from typing import TypeVar
 
 import instructor
-from openai import AzureOpenAI
+from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from openai.types.chat.chat_completion_assistant_message_param import (
     ChatCompletionAssistantMessageParam,
@@ -17,46 +20,37 @@ from openai.types.chat.chat_completion_user_message_param import (
 )
 from pydantic import BaseModel
 
-from .client import LLMClient, LLMClientConfig
-from .enums import LLMClientEnum, RoleEnum
+from .async_client import AsyncLLMClient, AsyncLLMClientConfig
+from .enums import AsyncLLMClientEnum, RoleEnum
 from .exceptions import LLMAPIError
 from .models import LLMUsage, Message
-from .serialization import AzureOpenAISerializedState, LLMClientSerializedState
+from .serialization import LLMClientSerializedState, OpenAISerializedState
 
 T = TypeVar("T", bound=BaseModel)
 
 
-class AzureOpenAIConfig(LLMClientConfig):
-    """Configuration settings for Azure OpenAI LLMClient."""
+class AsyncOpenAIConfig(AsyncLLMClientConfig):
+    """Configuration settings for async OpenAI LLMClient."""
 
     supports_structured_output: bool = True
     supports_logprobs: bool = True
-    endpoint: str
-    api_version: str
 
     def _prevent_instantiation(self) -> None:
-        """Allow instantiation.
-
-        This is a dummy method that must be implemented according to the
-        abstract base class. It is not intended to be used, and calling it
-        will have no effect.
-        """
+        """Required abstract method - allows instantiation."""
         pass
 
-    def serialize(self) -> AzureOpenAISerializedState:
-        """Serialize Azure OpenAI config to typed state object (excluding API key for security).
+    def serialize(self) -> OpenAISerializedState:
+        """Serialize OpenAI config to typed state object (excluding API key for security).
 
         Returns:
-            AzureOpenAISerializedState: Configuration as typed state object without sensitive data.
+            OpenAISerializedState: Configuration as typed state object without sensitive data.
         """
-        return AzureOpenAISerializedState(
-            endpoint=self.endpoint,
-            api_version=self.api_version,
+        return OpenAISerializedState(
             default_model=self.default_model,
             default_embedding_model=self.default_embedding_model,
             supports_structured_output=self.supports_structured_output,
             supports_logprobs=self.supports_logprobs,
-            supports_instructor=True,  # Azure OpenAI always supports instructor
+            supports_instructor=True,  # OpenAI always supports instructor
         )
 
     @classmethod
@@ -65,29 +59,27 @@ class AzureOpenAIConfig(LLMClientConfig):
         state: LLMClientSerializedState,
         api_key: str,
         **kwargs,
-    ) -> "AzureOpenAIConfig":
-        """Deserialize Azure OpenAI config from typed state object and API key.
+    ) -> "AsyncOpenAIConfig":
+        """Deserialize OpenAI config from typed state object and API key.
 
         Args:
             state: Serialized configuration state object.
             api_key: API key to use for the config.
-            **kwargs: Additional configuration parameters (unused for Azure OpenAI).
+            **kwargs: Additional configuration parameters (unused for OpenAI).
 
         Returns:
-            AzureOpenAIConfig: Reconstructed configuration instance.
+            AsyncOpenAIConfig: Reconstructed configuration instance.
 
         Raises:
-            TypeError: If state is not an AzureOpenAISerializedState instance.
+            TypeError: If state is not an OpenAISerializedState instance.
         """
-        if not isinstance(state, AzureOpenAISerializedState):
+        if not isinstance(state, OpenAISerializedState):
             raise TypeError(
-                f"Expected AzureOpenAISerializedState, got {type(state).__name__}"
+                f"Expected OpenAISerializedState, got {type(state).__name__}"
             )
 
         return cls(
             api_key=api_key,
-            endpoint=state.endpoint,
-            api_version=state.api_version,
             default_model=state.default_model,
             default_embedding_model=state.default_embedding_model,
             supports_structured_output=state.supports_structured_output,
@@ -95,28 +87,19 @@ class AzureOpenAIConfig(LLMClientConfig):
         )
 
 
-class AzureOpenAIClient(LLMClient):
-    """Concrete implementation of LLMClient for Azure OpenAI."""
+class AsyncOpenAIClient(AsyncLLMClient):
+    """Concrete implementation of AsyncLLMClient for OpenAI."""
 
-    def __init__(self, config: AzureOpenAIConfig):
-        """Initialize the Azure OpenAI client with the given configuration."""
+    def __init__(self, config: AsyncOpenAIConfig):
+        """Initialize the async OpenAI client with the given configuration."""
         super().__init__(config)
-        self.config: AzureOpenAIConfig = config
+        self.config: AsyncOpenAIConfig = config
 
-        # Initialize Azure OpenAI client
-        self.client = AzureOpenAI(
-            api_key=config.api_key,
-            azure_endpoint=config.endpoint,
-            api_version=config.api_version,
-        )
+        # Initialize async OpenAI client
+        self.client = AsyncOpenAI(api_key=config.api_key)
 
         # Initialize instructor client for structured responses
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message="Client should be an instance of openai.OpenAI or openai.AsyncOpenAI.*",
-            )
-            self.instructor_client = instructor.from_openai(self.client)
+        self.instructor_client = instructor.from_openai(self.client)
 
     def _convert_messages_to_openai_format(
         self, messages: list[Message]
@@ -150,13 +133,18 @@ class AzureOpenAIClient(LLMClient):
 
         return openai_messages
 
-    def _prompt(
+    async def _prompt(
         self, model: str, messages: list[Message], get_logprobs: bool
     ) -> tuple[str, LLMUsage]:
-        """Send messages to Azure OpenAI and return response content and usage.
+        """Send messages to OpenAI and return response content and usage.
+
+        Args:
+            model: The model name to use for this request.
+            messages: List of Message objects representing the conversation.
+            get_logprobs: Whether to get logprobs from the underlying LLM client.
 
         Returns:
-            tuple[str, LLMUsage]: A tuple containing the response content and usage statistics.
+            tuple[str, LLMUsage]: Response content and usage statistics.
 
         Raises:
             LLMAPIError: If the response content is empty or usage data is missing.
@@ -165,11 +153,11 @@ class AzureOpenAIClient(LLMClient):
 
         # Make API call with or without logprobs
         if get_logprobs and self.config.supports_logprobs:
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=model, messages=openai_messages, logprobs=True, top_logprobs=5
             )
         else:
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=model, messages=openai_messages
             )
 
@@ -177,8 +165,8 @@ class AzureOpenAIClient(LLMClient):
         content = response.choices[0].message.content
         if not content:
             raise LLMAPIError(
-                f"Expected non-empty content from Azure OpenAI response but got: {content}",
-                provider=LLMClientEnum.AZURE_OPENAI,
+                f"Expected non-empty content from OpenAI response but got: {content}",
+                provider=AsyncLLMClientEnum.OPENAI,
                 original_error=ValueError("Empty content in response"),
             )
 
@@ -186,8 +174,8 @@ class AzureOpenAIClient(LLMClient):
         usage_data = response.usage
         if not usage_data:
             raise LLMAPIError(
-                "Expected usage data from Azure OpenAI response but got None",
-                provider=LLMClientEnum.AZURE_OPENAI,
+                "Expected usage data from OpenAI response but got None",
+                provider=AsyncLLMClientEnum.OPENAI,
                 original_error=ValueError("Missing usage data in response"),
             )
 
@@ -199,23 +187,29 @@ class AzureOpenAIClient(LLMClient):
 
         return content, usage
 
-    def _prompt_with_structured_response(
+    async def _prompt_with_structured_response(
         self, messages: list[Message], response_model: type[T], model: str
     ) -> tuple[T, LLMUsage]:
-        """Send messages to Azure OpenAI and return structured response and usage.
+        """Send messages to OpenAI and return structured response and usage.
+
+        Args:
+            messages: List of Message objects representing the conversation.
+            response_model: Pydantic model class to parse the response into.
+            model: The model name to use for this request.
 
         Returns:
-            tuple[T, LLMUsage]: A tuple containing the structured response and usage statistics.
+            tuple[T, LLMUsage]: Structured response and usage statistics.
         """
         openai_messages = self._convert_messages_to_openai_format(messages)
 
-        # Use instructor for structured response
-        response, completion = (
-            self.instructor_client.chat.completions.create_with_completion(
-                model=model,
-                response_model=response_model,
-                messages=openai_messages,
-            )
+        # Use instructor for structured output
+        (
+            response,
+            completion,
+        ) = await self.instructor_client.chat.completions.create_with_completion(
+            model=model,
+            response_model=response_model,
+            messages=openai_messages,
         )
 
         usage = LLMUsage(
@@ -227,20 +221,28 @@ class AzureOpenAIClient(LLMClient):
         return response, usage
 
     @property
-    def enum_value(self) -> LLMClientEnum:
-        """Return the unique LLMClientEnum value for Azure OpenAI."""
-        return LLMClientEnum.AZURE_OPENAI
+    def enum_value(self) -> AsyncLLMClientEnum:
+        """Return the unique AsyncLLMClientEnum value associated with this client.
 
-    def _get_embedding(self, text_list: list[str], model: str) -> list[list[float]]:
-        """Get embeddings for a list of prompts using Azure OpenAI.
+        Returns:
+            AsyncLLMClientEnum: The OpenAI enum value.
+        """
+        return AsyncLLMClientEnum.OPENAI
+
+    async def _get_embedding(
+        self, text_list: list[str], model: str
+    ) -> list[list[float]]:
+        """Get embeddings for a list of prompts using OpenAI.
 
         Args:
             text_list: List of text prompts to generate embeddings for.
             model: The embedding model to use for this request.
 
         Returns:
-            list[list[float]]: List of embedding vectors, one for each input prompt.
+            List of embedding vectors, one for each input prompt.
         """
-        embedding_response = self.client.embeddings.create(input=text_list, model=model)
+        embedding_response = await self.client.embeddings.create(
+            input=text_list, model=model
+        )
 
         return [embedding.embedding for embedding in embedding_response.data]

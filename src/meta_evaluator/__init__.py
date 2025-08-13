@@ -3,30 +3,37 @@
 Note: This class is currently under development
 """
 
+# Temporarily disable beartype to resolve import issues
+
+# Apply beartype after all imports are complete to avoid path resolution conflicts
 from beartype.claw import beartype_this_package
+
+from .llm_client import (
+    AsyncLLMClientEnum,
+    ErrorType,
+    LLMClient,
+    LLMClientConfig,
+    LLMClientEnum,
+    RoleEnum,
+)
+from .llm_client.exceptions import LLMAPIError, LLMClientError, LLMValidationError
+from .llm_client.models import LLMResponse, LLMUsage, Message
+from .meta_evaluator import MetaEvaluator
 
 beartype_this_package()
 
-from .llm_client import LLMClient, LLMClientConfig  # noqa: E402
-from .llm_client.enums import LLMClientEnum, RoleEnum  # noqa: E402
-from .llm_client.exceptions import (  # noqa: E402
-    LLMAPIError,
-    LLMClientError,
-    LLMValidationError,
-)
-from .llm_client.models import LLMResponse, LLMUsage, Message  # noqa: E402
-from .meta_evaluator import MetaEvaluator  # noqa: E402
-
 __all__ = [
+    "LLMClient",
+    "LLMClientConfig",
     "LLMClientEnum",
+    "AsyncLLMClientEnum",
+    "RoleEnum",
+    "ErrorType",
     "LLMAPIError",
-    "LLMValidationError",
     "LLMClientError",
+    "LLMValidationError",
     "LLMUsage",
     "Message",
     "LLMResponse",
-    "LLMClientConfig",
-    "LLMClient",
-    "RoleEnum",
     "MetaEvaluator",
 ]

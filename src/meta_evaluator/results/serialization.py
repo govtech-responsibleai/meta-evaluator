@@ -5,7 +5,7 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel
 
-from ..llm_client.enums import LLMClientEnum
+from ..llm_client.enums import AsyncLLMClientEnum, LLMClientEnum
 
 
 class BaseResultsSerializedState(BaseModel):
@@ -32,7 +32,7 @@ class JudgeResultsSerializedState(BaseResultsSerializedState):
     """
 
     judge_id: str
-    llm_client_enum: LLMClientEnum
+    llm_client_enum: LLMClientEnum | AsyncLLMClientEnum
     model_used: str
     skipped_count: int
     partial_count: int

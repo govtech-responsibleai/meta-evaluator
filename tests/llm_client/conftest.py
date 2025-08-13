@@ -5,6 +5,7 @@ Common fixtures are defined in the main tests/conftest.py file.
 """
 
 import os
+import warnings
 from typing import Any, TypeVar
 from unittest.mock import MagicMock, Mock
 
@@ -12,16 +13,21 @@ import pytest
 from pydantic import BaseModel
 
 from meta_evaluator.llm_client import LLMClient, LLMClientConfig
+from meta_evaluator.llm_client.async_azureopenai_client import (
+    AsyncAzureOpenAIClient,
+    AsyncAzureOpenAIConfig,
+)
+from meta_evaluator.llm_client.async_client import AsyncLLMClient, AsyncLLMClientConfig
+from meta_evaluator.llm_client.async_openai_client import (
+    AsyncOpenAIClient,
+    AsyncOpenAIConfig,
+)
 from meta_evaluator.llm_client.azureopenai_client import (
     AzureOpenAIClient,
     AzureOpenAIConfig,
 )
-from meta_evaluator.llm_client.models import (
-    LLMClientEnum,
-    LLMUsage,
-    Message,
-    RoleEnum,
-)
+from meta_evaluator.llm_client.enums import AsyncLLMClientEnum, LLMClientEnum
+from meta_evaluator.llm_client.models import LLMUsage, Message, RoleEnum
 from meta_evaluator.llm_client.openai_client import (
     OpenAIClient,
     OpenAIConfig,
@@ -146,6 +152,118 @@ class ConcreteTestLLMClient(LLMClient):
         )
 
 
+class AsyncLLMClientConfigConcreteTest(AsyncLLMClientConfig):
+    """A concrete async configuration class for testing AsyncLLMClient."""
+
+    api_key: str = "test-api-key"
+    supports_structured_output: bool = False
+    default_model: str = "test-default-model"
+    default_embedding_model: str = "test-default-embedding-model"
+
+    def _prevent_instantiation(self) -> None:
+        pass
+
+    def serialize(self) -> MockLLMClientSerializedState:
+        """Serialize test config to typed state object (excluding API key for security).
+
+        Returns:
+            MockLLMClientSerializedState: Configuration as typed state object without sensitive data.
+        """
+        return MockLLMClientSerializedState(
+            default_model=self.default_model,
+            default_embedding_model=self.default_embedding_model,
+            supports_structured_output=self.supports_structured_output,
+            supports_logprobs=self.supports_logprobs,
+            supports_instructor=False,
+        )
+
+    @classmethod
+    def deserialize(
+        cls,
+        state: LLMClientSerializedState,
+        api_key: str,
+        **kwargs,
+    ) -> "AsyncLLMClientConfigConcreteTest":
+        """Deserialize test config from typed state object and API key.
+
+        Args:
+            state: Serialized configuration state object.
+            api_key: API key to use for the config.
+            **kwargs: Additional configuration parameters.
+
+        Returns:
+            AsyncLLMClientConfigConcreteTest: Reconstructed configuration instance.
+
+        Raises:
+            TypeError: If state is not a MockLLMClientSerializedState instance.
+        """
+        if not isinstance(state, MockLLMClientSerializedState):
+            raise TypeError(
+                f"Expected MockLLMClientSerializedState, got {type(state).__name__}"
+            )
+
+        return cls(
+            api_key=api_key,
+            default_model=state.default_model,
+            default_embedding_model=state.default_embedding_model,
+            supports_structured_output=state.supports_structured_output,
+            supports_logprobs=state.supports_logprobs,
+        )
+
+
+class ConcreteTestAsyncLLMClient(AsyncLLMClient):
+    """A concrete AsyncLLMClient subclass for testing."""
+
+    @property
+    def enum_value(self) -> AsyncLLMClientEnum:
+        """Return the unique AsyncLLMClientEnum value for the test client."""
+        return AsyncLLMClientEnum.OPENAI
+
+    async def _prompt(
+        self, model: str, messages: list[Message], get_logprobs: bool
+    ) -> tuple[str, LLMUsage]:
+        """Abstract method implementation for testing.
+
+        This method is intended to be mocked in actual tests.
+
+        Args:
+            model: The model to use.
+            messages: The list of messages.
+            get_logprobs: Whether to get logprobs.
+
+        Returns:
+            A tuple containing a mock response and LLMUsage.
+        """
+        raise NotImplementedError(
+            "ConcreteTestAsyncLLMClient._prompt should be mocked for tests"
+        )
+
+    async def _get_embedding(
+        self, text_list: list[str], model: str
+    ) -> list[list[float]]:
+        """Abstract method implementation for testing.
+
+        This method is intended to be mocked in actual tests.
+
+        Args:
+            text_list: List of text prompts to generate embeddings for.
+            model: The embedding model to use for this request.
+
+        Returns:
+            List of embedding vectors, one for each input prompt.
+        """
+        raise NotImplementedError(
+            "ConcreteTestAsyncLLMClient._get_embedding should be mocked for tests"
+        )
+
+    async def _prompt_with_structured_response(
+        self, messages: list[Message], response_model: type[T], model: str
+    ) -> tuple[T, LLMUsage]:
+        raise NotImplementedError(
+            "ConcreteTestAsyncLLMClient._prompt_with_structured_response should be mocked for tests"
+        )
+
+
 class ExampleResponseModel(BaseModel):
     """Example Pydantic model for structured output testing."""
 
@@ -251,6 +369,102 @@ def logprobs_client(
     return ConcreteTestLLMClient(logprobs_config)
 
 
+# ==== ASYNC CLIENT FIXTURES ====
+
+
+@pytest.fixture
+def async_basic_llm_config() -> AsyncLLMClientConfigConcreteTest:
+    """Provides a basic async LLM client configuration for testing.
+
+    Returns:
+        AsyncLLMClientConfigConcreteTest: A basic async configuration instance.
+    """
+    return AsyncLLMClientConfigConcreteTest(
+        api_key="test-api-key",
+        supports_structured_output=False,
+        default_model="gpt-4",
+        default_embedding_model="text-embedding-ada-002",
+        supports_logprobs=False,
+    )
+
+
+@pytest.fixture
+def async_structured_output_config() -> AsyncLLMClientConfigConcreteTest:
+    """Provides an async configuration with structured output support.
+
+    Returns:
+        AsyncLLMClientConfigConcreteTest: An async configuration with structured output enabled.
+    """
+    return AsyncLLMClientConfigConcreteTest(
+        api_key="test-api-key",
+        supports_structured_output=True,
+        default_model="gpt-4",
+        default_embedding_model="text-embedding-ada-002",
+        supports_logprobs=False,
+    )
+
+
+@pytest.fixture
+def async_logprobs_config() -> AsyncLLMClientConfigConcreteTest:
+    """Provides an async configuration with logprobs support.
+
+    Returns:
+        AsyncLLMClientConfigConcreteTest: An async configuration with logprobs enabled.
+    """
+    return AsyncLLMClientConfigConcreteTest(
+        api_key="test-api-key",
+        supports_structured_output=True,
+        default_model="gpt-4",
+        default_embedding_model="text-embedding-ada-002",
+        supports_logprobs=True,
+    )
+
+
+@pytest.fixture
+def async_basic_llm_client(
+    async_basic_llm_config: AsyncLLMClientConfigConcreteTest,
+) -> ConcreteTestAsyncLLMClient:
+    """Provides a basic async LLM client instance.
+
+    Args:
+        async_basic_llm_config: A basic async configuration instance.
+
+    Returns:
+        ConcreteTestAsyncLLMClient: An async client instance for testing.
+    """
+    return ConcreteTestAsyncLLMClient(async_basic_llm_config)
+
+
+@pytest.fixture
+def async_structured_output_client(
+    async_structured_output_config: AsyncLLMClientConfigConcreteTest,
+) -> ConcreteTestAsyncLLMClient:
+    """Provides an async LLM client with structured output support.
+
+    Args:
+        async_structured_output_config: An async configuration with structured output enabled.
+
+    Returns:
+        ConcreteTestAsyncLLMClient: An async client instance with structured output support.
+    """
+    return ConcreteTestAsyncLLMClient(async_structured_output_config)
+
+
+@pytest.fixture
+def async_logprobs_client(
+    async_logprobs_config: AsyncLLMClientConfigConcreteTest,
+) -> ConcreteTestAsyncLLMClient:
+    """Provides an async LLM client with logprobs support.
+
+    Args:
+        async_logprobs_config: An async configuration with logprobs enabled.
+
+    Returns:
+        ConcreteTestAsyncLLMClient: An async client instance with logprobs support.
+    """
+    return ConcreteTestAsyncLLMClient(async_logprobs_config)
+
+
 # ==== AZURE OPENAI FIXTURES ====
 
 
@@ -296,6 +510,34 @@ def azure_client(azure_config: AzureOpenAIConfig) -> AzureOpenAIClient:
     return AzureOpenAIClient(azure_config)
 
 
+@pytest.fixture
+def async_azure_config(azure_config_data: dict[str, Any]) -> AsyncAzureOpenAIConfig:
+    """Provides a valid async Azure OpenAI configuration.
+
+    Args:
+        azure_config_data: Configuration data dictionary.
+
+    Returns:
+        AsyncAzureOpenAIConfig: A valid async Azure OpenAI configuration instance.
+    """
+    return AsyncAzureOpenAIConfig(**azure_config_data)
+
+
+@pytest.fixture
+def async_azure_client(
+    async_azure_config: AsyncAzureOpenAIConfig,
+) -> AsyncAzureOpenAIClient:
+    """Provides an async Azure OpenAI client instance.
+
+    Args:
+        async_azure_config: A valid async Azure OpenAI configuration.
+
+    Returns:
+        AsyncAzureOpenAIClient: An async Azure OpenAI client instance.
+    """
+    return AsyncAzureOpenAIClient(async_azure_config)
+
+
 # ==== OPENAI FIXTURES ====
 
 
@@ -339,6 +581,32 @@ def openai_client(openai_config: OpenAIConfig) -> OpenAIClient:
     return OpenAIClient(openai_config)
 
 
+@pytest.fixture
+def async_openai_config(openai_config_data: dict[str, Any]) -> AsyncOpenAIConfig:
+    """Provides a valid async OpenAI configuration for unit tests.
+
+    Args:
+        openai_config_data: Configuration data dictionary.
+
+    Returns:
+        AsyncOpenAIConfig: A valid async OpenAI configuration instance for unit tests.
+    """
+    return AsyncOpenAIConfig(**openai_config_data)
+
+
+@pytest.fixture
+def async_openai_client(async_openai_config: AsyncOpenAIConfig) -> AsyncOpenAIClient:
+    """Provides an async OpenAI client for unit tests.
+
+    Args:
+        async_openai_config: A valid async OpenAI configuration.
+
+    Returns:
+        AsyncOpenAIClient: Async OpenAI client instance for unit tests.
+    """
+    return AsyncOpenAIClient(async_openai_config)
+
+
 # ==== AZURE OPENAI INTEGRATION FIXTURES ====
 
 
@@ -349,8 +617,6 @@ def azure_config_integration() -> AzureOpenAIConfig:
     Returns:
         AzureOpenAIConfig: Azure OpenAI configuration if credentials available.
     """
-    import warnings
-
     # Check if required environment variables are set
     azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
     azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
@@ -400,6 +666,62 @@ def azure_client_integration(
     return AzureOpenAIClient(azure_config_integration)
 
 
+@pytest.fixture
+def async_azure_config_integration() -> AsyncAzureOpenAIConfig:
+    """Provides async Azure OpenAI configuration from environment variables for integration tests.
+
+    Returns:
+        AsyncAzureOpenAIConfig: Async Azure OpenAI configuration if credentials available.
+    """
+    # Check if required environment variables are set
+    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
+    azure_version = os.getenv("AZURE_OPENAI_VERSION")
+
+    azure_credentials_available = all(
+        [
+            azure_endpoint,
+            azure_api_key,
+            azure_version,
+        ]
+    )
+
+    if not azure_credentials_available:
+        warnings.warn(
+            "Azure OpenAI credentials not available in environment variables. "
+            "Integration tests will be skipped.",
+            UserWarning,
+            stacklevel=2,
+        )
+        pytest.skip("Azure OpenAI credentials not available in environment variables")
+
+    assert azure_endpoint is not None
+    assert azure_api_key is not None
+    assert azure_version is not None
+    return AsyncAzureOpenAIConfig(
+        api_key=azure_api_key,
+        endpoint=azure_endpoint,
+        api_version=azure_version,
+        default_model="gpt-4o-2024-11-20",
+        default_embedding_model="text-embedding-3-large",
+    )
+
+
+@pytest.fixture
+def async_azure_client_integration(
+    async_azure_config_integration: AsyncAzureOpenAIConfig,
+) -> AsyncAzureOpenAIClient:
+    """Provides an async Azure OpenAI client for integration testing.
+
+    Args:
+        async_azure_config_integration: Async Azure OpenAI configuration from environment variables.
+
+    Returns:
+        AsyncAzureOpenAIClient: Async Azure OpenAI client instance for integration testing.
+    """
+    return AsyncAzureOpenAIClient(async_azure_config_integration)
+
+
 # ==== OPENAI INTEGRATION FIXTURES ====
 
 
@@ -410,8 +732,6 @@ def openai_config_integration() -> OpenAIConfig:
     Returns:
         OpenAIConfig: OpenAI configuration if API key available.
     """
-    import warnings
-
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         warnings.warn(
@@ -437,9 +757,48 @@ def openai_client_integration(openai_config_integration: OpenAIConfig) -> OpenAI
         openai_config_integration: OpenAI configuration from environment variables.
 
     Returns:
-        OpenAIClient: OpenAI client instance for integration testing.
+        OpenAI: OpenAI client instance for integration testing.
     """
     return OpenAIClient(openai_config_integration)
+
+
+@pytest.fixture
+def async_openai_config_integration() -> AsyncOpenAIConfig:
+    """Provides async OpenAI configuration from environment variables for integration tests.
+
+    Returns:
+        AsyncOpenAIConfig: Async OpenAI configuration if API key available.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        warnings.warn(
+            "OpenAI API key not available in environment variables. "
+            "Integration tests will be skipped.",
+            UserWarning,
+            stacklevel=2,
+        )
+        pytest.skip("OpenAI API key not available in environment variables")
+
+    return AsyncOpenAIConfig(
+        api_key=api_key,
+        default_model="gpt-4o-2024-11-20",
+        default_embedding_model="text-embedding-3-large",
+    )
+
+
+@pytest.fixture
+def async_openai_client_integration(
+    async_openai_config_integration: AsyncOpenAIConfig,
+) -> AsyncOpenAIClient:
+    """Provides an async OpenAI client for integration testing.
+
+    Args:
+        async_openai_config_integration: Async OpenAI configuration from environment variables.
+
+    Returns:
+        AsyncOpenAIClient: Async OpenAI client instance for integration testing.
+    """
+    return AsyncOpenAIClient(async_openai_config_integration)
 
 
 # ==== MESSAGE FIXTURES ====
@@ -456,11 +815,11 @@ def simple_user_message() -> list[Message]:
 
 
 @pytest.fixture
-def conversation_messages() -> list[Message]:
-    """Provides a conversation with multiple messages.
+def sample_messages() -> list[Message]:
+    """Provide sample messages for testing conversation flows.
 
     Returns:
-        list[Message]: A list of messages representing a conversation.
+        list[Message]: A list of sample messages representing a conversation.
     """
     return [
         Message(role=RoleEnum.SYSTEM, content="You are a helpful assistant."),
@@ -518,6 +877,22 @@ def mock_structured_response() -> ExampleResponseModel:
         confidence=0.95,
         tags=["important", "urgent"],
     )
+
+
+@pytest.fixture
+def mock_openai_response() -> Mock:
+    """Provide a mock OpenAI API response for testing.
+
+    Returns:
+        Mock: A mock response object with typical OpenAI structure.
+    """
+    mock_response = Mock()
+    mock_response.choices = [Mock()]
+    mock_response.choices[0].message.content = "Hello! I'm an AI assistant."
+    mock_response.usage.prompt_tokens = 10
+    mock_response.usage.completion_tokens = 8
+    mock_response.usage.total_tokens = 18
+    return mock_response
 
 
 @pytest.fixture
@@ -611,3 +986,48 @@ def mock_logger(mocker) -> MagicMock:
         MagicMock: A mock logger instance.
     """
     return mocker.patch("logging.getLogger").return_value
+
+
+# ==== BATCH PROCESSING FIXTURES ====
+
+
+@pytest.fixture
+def batch_message_lists() -> list[list[Message]]:
+    """Provides multiple message lists for batch processing tests.
+
+    Returns:
+        list[list[Message]]: List of message conversations for batch testing.
+    """
+    return [
+        [Message(role=RoleEnum.USER, content="Hello, world!")],
+        [Message(role=RoleEnum.USER, content="How are you?")],
+        [Message(role=RoleEnum.USER, content="What's the weather like?")],
+    ]
+
+
+@pytest.fixture
+def batch_text_lists() -> list[list[str]]:
+    """Provides multiple text lists for batch embedding tests.
+
+    Returns:
+        list[list[str]]: List of text lists for batch embedding testing.
+    """
+    return [
+        ["Hello world", "Goodbye world"],
+        ["Good morning", "Good night"],
+        ["How are you?", "Fine, thanks"],
+    ]
+
+
+@pytest.fixture
+def batch_structured_items() -> list[tuple[list[Message], type[ExampleResponseModel]]]:
+    """Provides batch items for structured response testing.
+
+    Returns:
+        list[tuple[list[Message], type[ExampleResponseModel]]]: Batch items for testing.
+    """
+    return [
+        ([Message(role=RoleEnum.USER, content="Task 1")], ExampleResponseModel),
+        ([Message(role=RoleEnum.USER, content="Task 2")], ExampleResponseModel),
+        ([Message(role=RoleEnum.USER, content="Task 3")], ExampleResponseModel),
+    ]

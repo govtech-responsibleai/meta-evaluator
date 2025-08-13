@@ -13,7 +13,7 @@ from ..common.error_constants import (
     INVALID_JSON_STRUCTURE_MSG,
     STATE_FILE_NOT_FOUND_MSG,
 )
-from ..llm_client.enums import LLMClientEnum
+from ..llm_client.enums import AsyncLLMClientEnum, LLMClientEnum
 from .base import (
     BaseEvaluationResults,
     BaseEvaluationResultsBuilder,
@@ -37,7 +37,7 @@ class JudgeResults(BaseEvaluationResults):
     judge_id: str = Field(
         ..., description="ID of the Judge configuration used for this run."
     )
-    llm_client_enum: LLMClientEnum = Field(
+    llm_client_enum: LLMClientEnum | AsyncLLMClientEnum = Field(
         ..., description="The LLM client provider used for this run."
     )
     model_used: str = Field(..., description="Name of the LLM model used for this run.")
@@ -272,7 +272,7 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         self,
         run_id: str,
         judge_id: str,
-        llm_client_enum: LLMClientEnum,
+        llm_client_enum: LLMClientEnum | AsyncLLMClientEnum,
         model_used: str,
         task_schemas: Dict[str, List[str] | None],
         expected_ids: List[str | int],
