@@ -6,13 +6,21 @@ Common fixtures are defined in the main tests/conftest.py file.
 
 import os
 import warnings
-from typing import Any, TypeVar
+from typing import Any, Optional, TypeVar
 from unittest.mock import MagicMock, Mock
 
 import pytest
 from pydantic import BaseModel
 
 from meta_evaluator.llm_client import LLMClient, LLMClientConfig
+from meta_evaluator.llm_client.anthropic_client import (
+    AnthropicClient,
+    AnthropicConfig,
+)
+from meta_evaluator.llm_client.async_anthropic_client import (
+    AsyncAnthropicClient,
+    AsyncAnthropicConfig,
+)
 from meta_evaluator.llm_client.async_azureopenai_client import (
     AsyncAzureOpenAIClient,
     AsyncAzureOpenAIConfig,
@@ -48,7 +56,7 @@ class LLMClientConfigConcreteTest(LLMClientConfig):
     api_key: str = "test-api-key"
     supports_structured_output: bool = False
     default_model: str = "test-default-model"
-    default_embedding_model: str = "test-default-embedding-model"
+    default_embedding_model: Optional[str] = "test-default-embedding-model"
 
     def _prevent_instantiation(self) -> None:
         pass
@@ -158,7 +166,7 @@ class AsyncLLMClientConfigConcreteTest(AsyncLLMClientConfig):
     api_key: str = "test-api-key"
     supports_structured_output: bool = False
     default_model: str = "test-default-model"
-    default_embedding_model: str = "test-default-embedding-model"
+    default_embedding_model: Optional[str] = "test-default-embedding-model"
 
     def _prevent_instantiation(self) -> None:
         pass
@@ -1031,3 +1039,170 @@ def batch_structured_items() -> list[tuple[list[Message], type[ExampleResponseMo
         ([Message(role=RoleEnum.USER, content="Task 2")], ExampleResponseModel),
         ([Message(role=RoleEnum.USER, content="Task 3")], ExampleResponseModel),
     ]
+
+
+# ==== ANTHROPIC FIXTURES ====
+
+
+@pytest.fixture
+def anthropic_config_data() -> dict[str, Any]:
+    """Provides valid Anthropic configuration data for unit tests.
+
+    Returns:
+        dict[str, Any]: Configuration data for Anthropic unit tests.
+    """
+    return {
+        "api_key": "test-anthropic-key",
+        "default_model": "claude-3-5-sonnet-20241022",
+    }
+
+
+@pytest.fixture
+def anthropic_config(anthropic_config_data: dict[str, Any]) -> AnthropicConfig:
+    """Provides a valid Anthropic configuration for unit tests.
+
+    Args:
+        anthropic_config_data: Configuration data dictionary.
+
+    Returns:
+        AnthropicConfig: A valid Anthropic configuration instance for unit tests.
+    """
+    return AnthropicConfig(**anthropic_config_data)
+
+
+@pytest.fixture
+def anthropic_client(anthropic_config: AnthropicConfig) -> AnthropicClient:
+    """Provides an Anthropic client for unit tests.
+
+    Args:
+        anthropic_config: A valid Anthropic configuration.
+
+    Returns:
+        AnthropicClient: Anthropic client instance for unit tests.
+    """
+    return AnthropicClient(anthropic_config)
+
+
+@pytest.fixture
+def async_anthropic_config(
+    anthropic_config_data: dict[str, Any],
+) -> AsyncAnthropicConfig:
+    """Provides a valid async Anthropic configuration for unit tests.
+
+    Args:
+        anthropic_config_data: Configuration data dictionary.
+
+    Returns:
+        AsyncAnthropicConfig: A valid async Anthropic configuration instance for unit tests.
+    """
+    return AsyncAnthropicConfig(**anthropic_config_data)
+
+
+@pytest.fixture
+def async_anthropic_client(
+    async_anthropic_config: AsyncAnthropicConfig,
+) -> AsyncAnthropicClient:
+    """Provides an async Anthropic client for unit tests.
+
+    Args:
+        async_anthropic_config: A valid async Anthropic configuration.
+
+    Returns:
+        AsyncAnthropicClient: Async Anthropic client instance for unit tests.
+    """
+    return AsyncAnthropicClient(async_anthropic_config)
+
+
+@pytest.fixture
+def mock_anthropic_response() -> Mock:
+    """Provides a mock Anthropic API response for testing.
+
+    Returns:
+        Mock: A mock response object with typical Anthropic structure.
+    """
+    mock_response = Mock()
+    mock_content = Mock()
+    mock_content.text = "Hello! I'm Claude, an AI assistant."
+    mock_response.content = [mock_content]
+    mock_response.usage.input_tokens = 10
+    mock_response.usage.output_tokens = 15
+    return mock_response
+
+
+# ==== ANTHROPIC INTEGRATION FIXTURES ====
+
+
+@pytest.fixture
+def anthropic_config_integration() -> AnthropicConfig:
+    """Provides Anthropic configuration from environment variables for integration tests.
+
+    Returns:
+        AnthropicConfig: Anthropic configuration if API key available.
+    """
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        warnings.warn(
+            "Anthropic API key not available in environment variables. "
+            "Integration tests will be skipped.",
+            UserWarning,
+            stacklevel=2,
+        )
+        pytest.skip("Anthropic API key not available in environment variables")
+
+    return AnthropicConfig(
+        api_key=api_key,
+        default_model="claude-3-5-sonnet-20241022",
+    )
+
+
+@pytest.fixture
+def anthropic_client_integration(
+    anthropic_config_integration: AnthropicConfig,
+) -> AnthropicClient:
+    """Provides an Anthropic client for integration testing.
+
+    Args:
+        anthropic_config_integration: Anthropic configuration from environment variables.
+
+    Returns:
+        AnthropicClient: Anthropic client instance for integration testing.
+    """
+    return AnthropicClient(anthropic_config_integration)
+
+
+@pytest.fixture
+def async_anthropic_config_integration() -> AsyncAnthropicConfig:
+    """Provides async Anthropic configuration from environment variables for integration tests.
+
+    Returns:
+        AsyncAnthropicConfig: Async Anthropic configuration if API key available.
+    """
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        warnings.warn(
+            "Anthropic API key not available in environment variables. "
+            "Integration tests will be skipped.",
+            UserWarning,
+            stacklevel=2,
+        )
+        pytest.skip("Anthropic API key not available in environment variables")
+
+    return AsyncAnthropicConfig(
+        api_key=api_key,
+        default_model="claude-3-5-sonnet-20241022",
+    )
+
+
+@pytest.fixture
+def async_anthropic_client_integration(
+    async_anthropic_config_integration: AsyncAnthropicConfig,
+) -> AsyncAnthropicClient:
+    """Provides an async Anthropic client for integration testing.
+
+    Args:
+        async_anthropic_config_integration: Async Anthropic configuration from environment variables.
+
+    Returns:
+        AsyncAnthropicClient: Async Anthropic client instance for integration testing.
+    """
+    return AsyncAnthropicClient(async_anthropic_config_integration)

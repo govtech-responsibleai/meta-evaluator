@@ -259,6 +259,13 @@ class AsyncLLMClient(BaseLLMClient):
         """
         model_used = model or self.config.default_embedding_model
 
+        if model_used is None:
+            raise LLMAPIError(
+                f"No embedding model specified and {self.enum_value} has no default embedding model",
+                self.enum_value,
+                ValueError("No embedding model available"),
+            )
+
         # Re-raise validation errors to make them visible to ruff's DOC501 rule.
         # Without this, ruff can't see exceptions from private methods and won't
         # enforce docstring accuracy. DO NOT remove this try/catch.

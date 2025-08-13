@@ -143,21 +143,6 @@ class TestAzureOpenAIConfig:
                 default_embedding_model="text-embedding-ada-002",
             )
 
-    def test_missing_default_embedding_model_raises_validation_error(self) -> None:
-        """Test that missing default_embedding_model field raises ValidationError.
-
-        Verifies that attempting to create an AzureOpenAIConfig instance
-        without providing the required default_embedding_model field
-        (inherited from base class) results in a ValidationError.
-        """
-        with pytest.raises(ValidationError):
-            AzureOpenAIConfig(  # type: ignore
-                api_key="test-key",
-                endpoint="https://test.openai.azure.com/",
-                api_version="2023-12-01-preview",
-                default_model="gpt-4",
-            )
-
     def test_empty_strings_are_allowed(self) -> None:
         """Test that empty strings are accepted for all string fields.
 

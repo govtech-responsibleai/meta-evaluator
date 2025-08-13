@@ -8,7 +8,7 @@ validation, XML parsing, response construction, and configuration management.
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import TypeVar
+from typing import Optional, TypeVar
 
 from pydantic import BaseModel, StrictBool
 
@@ -43,15 +43,15 @@ class BaseLLMClientConfig(ABC, BaseModel):
         api_key (str): API key for authenticating requests to the LLM service.
         supports_structured_output (bool): Indicates whether the client supports structured output.
         default_model (str): The default language model to use when none is specified.
-        default_embedding_model (str): The default embedding model for generating vector representations.
         supports_logprobs (bool): Indicates whether the client supports log probabilities.
+        default_embedding_model (str): The default embedding model for generating vector representations. Can be None.
     """
 
     api_key: str
     supports_structured_output: StrictBool
     default_model: str
-    default_embedding_model: str
     supports_logprobs: StrictBool
+    default_embedding_model: Optional[str] = None
 
     @abstractmethod
     def _prevent_instantiation(self) -> None:

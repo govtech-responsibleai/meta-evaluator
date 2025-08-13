@@ -211,6 +211,66 @@ def meta_evaluator_with_judges_and_data(
     return meta_evaluator
 
 
+@pytest.fixture
+def meta_evaluator_with_async_judges_and_data(
+    meta_evaluator,
+    sample_prompt,
+    sample_eval_data,
+    mock_openai_client,
+    mock_async_openai_client,
+):
+    """Provides a MetaEvaluator with mock judges and data configured for integration testing.
+
+    Args:
+        meta_evaluator: The MetaEvaluator instance from main conftest.
+        sample_prompt: Sample prompt from main conftest.
+        sample_eval_data: Sample evaluation data from main conftest.
+        mock_openai_client: Mock OpenAI client fixture.
+        mock_async_openai_client: Mock async OpenAI client fixture.
+
+    Returns:
+        MetaEvaluator: The modified MetaEvaluator instance with configured judges and data.
+    """
+    # Create a custom eval_task that matches the sample_eval_data columns
+    eval_task = EvalTask(
+        task_schemas={"sentiment": ["positive", "negative", "neutral"]},
+        prompt_columns=["question"],  # matches sample_eval_data
+        response_columns=["answer"],  # matches sample_eval_data
+        answering_method="structured",
+    )
+
+    meta_evaluator.add_eval_task(eval_task)
+    meta_evaluator.add_data(sample_eval_data)
+
+    # Configure LLM client registry
+    meta_evaluator.client_registry = {LLMClientEnum.OPENAI: mock_openai_client}
+    meta_evaluator.async_client_registry = {
+        AsyncLLMClientEnum.OPENAI: mock_async_openai_client
+    }
+
+    # Create mock judges
+    mock_judge1 = Mock(spec=Judge)
+    mock_judge1.llm_client_enum = AsyncLLMClientEnum.OPENAI
+    mock_results1 = Mock(spec=JudgeResults)
+    mock_results1.save_state = Mock()
+    mock_results1.succeeded_count = 2
+    mock_results1.total_count = 3
+    mock_judge1.evaluate_eval_data.return_value = mock_results1
+
+    mock_judge2 = Mock(spec=Judge)
+    mock_judge2.llm_client_enum = AsyncLLMClientEnum.OPENAI
+    mock_results2 = Mock(spec=JudgeResults)
+    mock_results2.save_state = Mock()
+    mock_results2.succeeded_count = 1
+    mock_results2.total_count = 3
+    mock_judge2.evaluate_eval_data.return_value = mock_results2
+
+    # Add judges to the meta_evaluator
+    meta_evaluator.judge_registry = {"judge1": mock_judge1, "judge2": mock_judge2}
+
+    return meta_evaluator
+
+
 # ==== ORCHESTRATION DATA FIXTURES ====
 
 

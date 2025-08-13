@@ -102,18 +102,6 @@ class TestOpenAIConfig:
                 default_embedding_model="text-embedding-3-large",
             )
 
-    def test_missing_default_embedding_model_raises_validation_error(self) -> None:
-        """Test that missing default_embedding_model field raises ValidationError.
-
-        Verifies that attempting to create an OpenAIConfig instance
-        without providing the required default_embedding_model field results in a ValidationError.
-        """
-        with pytest.raises(ValidationError):
-            OpenAIConfig(  # type: ignore
-                api_key="test-key",
-                default_model="gpt-4o-2024-11-20",
-            )
-
     def test_serialization_excludes_api_key(self, openai_config: OpenAIConfig) -> None:
         """Test that serialization properly excludes the API key.
 

@@ -429,8 +429,8 @@ class Judge(BaseModel):
         # Validate LLM client matches configuration
         if llm_client.enum_value != self.llm_client_enum:
             raise IncorrectClientError(
-                expected_client=self.llm_client_enum.value,
-                actual_client=llm_client.enum_value.value,
+                expected_client=self.llm_client_enum,
+                actual_client=llm_client.enum_value,
             )
 
         # Create builder
@@ -864,8 +864,8 @@ class Judge(BaseModel):
         # Validate LLM client matches configuration
         if llm_client.enum_value != self.llm_client_enum:
             raise IncorrectClientError(
-                expected_client=self.llm_client_enum.value,
-                actual_client=llm_client.enum_value.value,
+                expected_client=self.llm_client_enum,
+                actual_client=llm_client.enum_value,
             )
 
         # Create builder

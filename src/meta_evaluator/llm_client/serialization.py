@@ -1,6 +1,7 @@
 """Pydantic models for LLM client serialization."""
 
 from abc import ABC
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -16,7 +17,7 @@ class LLMClientSerializedState(BaseModel, ABC):
 
     client_type: LLMClientEnum
     default_model: str
-    default_embedding_model: str
+    default_embedding_model: Optional[str] = None
     supports_structured_output: bool
     supports_logprobs: bool
     supports_instructor: bool
@@ -34,6 +35,12 @@ class AzureOpenAISerializedState(LLMClientSerializedState):
     client_type: LLMClientEnum = LLMClientEnum.AZURE_OPENAI
     endpoint: str
     api_version: str
+
+
+class AnthropicSerializedState(LLMClientSerializedState):
+    """Serialized state for Anthropic client configuration."""
+
+    client_type: LLMClientEnum = LLMClientEnum.ANTHROPIC
 
 
 class MockLLMClientSerializedState(LLMClientSerializedState):

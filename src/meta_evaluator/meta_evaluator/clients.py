@@ -4,6 +4,11 @@ import logging
 import os
 from typing import Optional
 
+from ..llm_client.anthropic_client import AnthropicClient, AnthropicConfig
+from ..llm_client.async_anthropic_client import (
+    AsyncAnthropicClient,
+    AsyncAnthropicConfig,
+)
 from ..llm_client.async_azureopenai_client import (
     AsyncAzureOpenAIClient,
     AsyncAzureOpenAIConfig,
@@ -32,6 +37,9 @@ _AZURE_OPENAI_ENDPOINT_ENV_VAR = "AZURE_OPENAI_ENDPOINT"
 _AZURE_OPENAI_API_VERSION_ENV_VAR = "AZURE_OPENAI_API_VERSION"
 _AZURE_OPENAI_DEFAULT_MODEL_ENV_VAR = "AZURE_OPENAI_DEFAULT_MODEL"
 _AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL_ENV_VAR = "AZURE_OPENAI_DEFAULT_EMBEDDING_MODEL"
+
+_ANTHROPIC_API_KEY_ENV_VAR = "ANTHROPIC_API_KEY"
+_ANTHROPIC_DEFAULT_MODEL_ENV_VAR = "ANTHROPIC_DEFAULT_MODEL"
 
 # Registry mapping client enums to their configuration methods - at module level
 _CLIENT_METHODS = {}
@@ -406,6 +414,117 @@ class ClientsMixin:
         self.async_client_registry[AsyncLLMClientEnum.AZURE_OPENAI] = client
         self.logger.info(
             f"...Successfully added async Azure OpenAI client with default model: {final_default_model}"
+        )
+
+    @for_client(LLMClientEnum.ANTHROPIC)
+    def add_anthropic(
+        self,
+        api_key: Optional[str] = None,
+        default_model: Optional[str] = None,
+        override_existing: bool = False,
+    ):
+        """Add an Anthropic client to the registry.
+
+        Args:
+            api_key: Anthropic API key. If None, will look for ANTHROPIC_API_KEY in environment.
+            default_model: Default model to use. If None, will look for ANTHROPIC_DEFAULT_MODEL in environment.
+            override_existing: Whether to override existing client. Defaults to False.
+
+        Raises:
+            MissingConfigurationError: If required parameters are missing from both arguments and environment.
+            ClientAlreadyExistsError: If client already exists and override_existing is False.
+        """
+        self.logger.info("Adding Anthropic client to registry...")
+
+        # Check if client already exists
+        if LLMClientEnum.ANTHROPIC in self.client_registry and not override_existing:
+            raise ClientAlreadyExistsError("ANTHROPIC")
+
+        # Get configuration values, fallback to environment variables
+        final_api_key = api_key or os.getenv(_ANTHROPIC_API_KEY_ENV_VAR)
+        final_default_model = default_model or os.getenv(
+            _ANTHROPIC_DEFAULT_MODEL_ENV_VAR
+        )
+
+        # Validate required parameters
+        if not final_api_key:
+            raise MissingConfigurationError(
+                f"api_key (or {_ANTHROPIC_API_KEY_ENV_VAR} environment variable)"
+            )
+        if not final_default_model:
+            raise MissingConfigurationError(
+                f"default_model (or {_ANTHROPIC_DEFAULT_MODEL_ENV_VAR} environment variable)"
+            )
+        # Create configuration and client
+        config = AnthropicConfig(
+            api_key=final_api_key,
+            default_model=final_default_model,
+        )
+        client = AnthropicClient(config)
+
+        # Add to registry
+        self.client_registry[LLMClientEnum.ANTHROPIC] = client
+        self.logger.info(
+            f"...Successfully added Anthropic client with default model: {final_default_model}"
+        )
+
+    @for_client(AsyncLLMClientEnum.ANTHROPIC)
+    def add_async_anthropic(
+        self,
+        api_key: Optional[str] = None,
+        default_model: Optional[str] = None,
+        override_existing: bool = False,
+    ) -> None:
+        """Add an async Anthropic client to the evaluator.
+
+        Creates and configures an AsyncAnthropicClient with the specified parameters.
+        Configuration values will be loaded from environment variables if not provided.
+
+        Args:
+            api_key: Anthropic API key. If None, will look for ANTHROPIC_API_KEY in environment.
+            default_model: Default model to use. If None, will look for ANTHROPIC_DEFAULT_MODEL in environment.
+            override_existing: Whether to override existing client. Defaults to False.
+
+        Raises:
+            MissingConfigurationError: If required parameters are missing from both arguments and environment.
+            AsyncClientAlreadyExistsError: If client already exists and override_existing is False.
+        """
+        self.logger.info("Adding async Anthropic client to registry...")
+
+        # Check if client already exists
+        if (
+            AsyncLLMClientEnum.ANTHROPIC in self.async_client_registry
+            and not override_existing
+        ):
+            raise AsyncClientAlreadyExistsError("ANTHROPIC")
+
+        # Get configuration values, fallback to environment variables
+        final_api_key = api_key or os.getenv(_ANTHROPIC_API_KEY_ENV_VAR)
+        final_default_model = default_model or os.getenv(
+            _ANTHROPIC_DEFAULT_MODEL_ENV_VAR
+        )
+
+        # Validate required parameters
+        if not final_api_key:
+            raise MissingConfigurationError(
+                f"api_key (or {_ANTHROPIC_API_KEY_ENV_VAR} environment variable)"
+            )
+        if not final_default_model:
+            raise MissingConfigurationError(
+                f"default_model (or {_ANTHROPIC_DEFAULT_MODEL_ENV_VAR} environment variable)"
+            )
+
+        # Create async configuration and client
+        config = AsyncAnthropicConfig(
+            api_key=final_api_key,
+            default_model=final_default_model,
+        )
+        client = AsyncAnthropicClient(config)
+
+        # Add to async registry
+        self.async_client_registry[AsyncLLMClientEnum.ANTHROPIC] = client
+        self.logger.info(
+            f"...Successfully added async Anthropic client with default model: {final_default_model}"
         )
 
     def get_client(self, client_type: LLMClientEnum) -> LLMClient:
