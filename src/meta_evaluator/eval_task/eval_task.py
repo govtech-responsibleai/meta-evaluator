@@ -37,8 +37,14 @@ class EvalTask(BaseModel):
         response_columns (list[str]): Column names containing text/outputs to evaluate.
             Required for all evaluation scenarios.
         skip_function (Callable): Function to determine if a data row should be skipped.
-        answering_method (Literal["structured", "xml"]): Output parsing method.
-            "structured" uses Pydantic models, "xml" uses XML tag parsing.
+        answering_method (Literal["structured", "instructor", "xml"]): Output parsing method.
+            "structured" uses Pydantic models, "instructor" uses instructor library,
+            "xml" uses XML tag parsing.
+        structured_outputs_fallback (bool): When True, automatically falls back to other
+            answering methods if the specified method is unsupported by the model.
+            When False, strictly uses the specified answering method, and raises
+            UnsupportedFormatMethodError for unsupported methods.
+            Only applies when answering_method is "structured" or "instructor".
         annotation_prompt (str): Static prompt text shown to human annotators in the
             annotation interface. Similar to judge prompts but simpler and one-off.
         logger (logging.Logger): Logger instance for this task.
@@ -52,7 +58,8 @@ class EvalTask(BaseModel):
         ...     task_schemas={"toxicity": ["toxic", "non_toxic"], "relevance": ["relevant", "irrelevant"]},
         ...     prompt_columns=["user_input"],  # Input to evaluated LLM
         ...     response_columns=["llm_response"],  # LLM output to judge
-        ...     answering_method="structured"
+        ...     answering_method="structured",
+        ...     structured_outputs_fallback=True  # Fallback to xml if structured not supported
         ... )
         >>>
         >>> # Evaluate arbitrary text summaries (free-form)
@@ -71,7 +78,11 @@ class EvalTask(BaseModel):
     prompt_columns: Optional[list[str]] = Field(default=None)
     response_columns: list[str] = Field(..., min_length=1)
     skip_function: Callable[[dict[str, Any]], bool] = lambda x: False
-    answering_method: Literal["structured", "xml"]
+    answering_method: Literal["structured", "instructor", "xml"]
+    structured_outputs_fallback: bool = Field(
+        default=False,
+        description="When True, automatically falls back to other answering methods if the specified method is unsupported. When False, strictly uses the specified answering method, and raises an error for unsupported methods.",
+    )
     annotation_prompt: str = Field(
         default="Please evaluate the following response:",
         description="If necessary, this is the prompt text shown to human annotators in the annotation interface.",
@@ -167,6 +178,27 @@ class EvalTask(BaseModel):
 
         return DynamicTaskOutcome
 
+    def get_fallback_sequence(self) -> list[str]:
+        """Get the sequence of answering methods to try with fallback enabled.
+
+        Returns the prioritized list of methods to attempt when fallback is enabled.
+        The original method is tried first, followed by alternatives in order of preference.
+
+        Returns:
+            list[str]: Ordered list of answering methods to try
+        """
+        if not self.structured_outputs_fallback:
+            return [self.answering_method]
+
+        # Define fallback sequences for each method
+        fallback_sequences = {
+            "structured": ["structured", "instructor", "xml"],
+            "instructor": ["instructor", "structured", "xml"],
+            "xml": ["xml"],  # XML doesn't need fallback as it's most compatible
+        }
+
+        return fallback_sequences.get(self.answering_method, [self.answering_method])
+
     def serialize(self) -> EvalTaskState:
         """Serialize the EvalTask to metadata (excluding skip_function).
 
@@ -180,6 +212,7 @@ class EvalTask(BaseModel):
             prompt_columns=self.prompt_columns,
             response_columns=self.response_columns,
             answering_method=self.answering_method,
+            structured_outputs_fallback=self.structured_outputs_fallback,
         )
 
     @classmethod
@@ -197,5 +230,8 @@ class EvalTask(BaseModel):
             prompt_columns=state.prompt_columns,
             response_columns=state.response_columns,
             answering_method=state.answering_method,
+            structured_outputs_fallback=getattr(
+                state, "structured_outputs_fallback", False
+            ),
             # skip_function must be set manually or defaulted
         )

@@ -8,7 +8,6 @@ import pytest
 
 from meta_evaluator.common.error_constants import INVALID_JSON_STRUCTURE_MSG
 from meta_evaluator.data import EvalData, SampleEvalData
-from meta_evaluator.llm_client.enums import LLMClientEnum
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.meta_evaluator.exceptions import (
     DataAlreadyExistsError,
@@ -28,10 +27,9 @@ class TestMetaEvaluatorBase:
 
     def test_initialization_state(self, meta_evaluator):
         """Test that MetaEvaluator initializes with proper initial state."""
-        assert meta_evaluator.client_registry == {}
-        assert isinstance(meta_evaluator.client_registry, dict)
         assert meta_evaluator.data is None
         assert meta_evaluator.eval_task is None
+        assert meta_evaluator.judge_registry == {}
 
     # === add_data() Method Tests ===
 
@@ -160,15 +158,6 @@ class TestMetaEvaluatorBase:
 
     def test_save_state_include_data_false(self, meta_evaluator, mock_openai_client):
         """Test saving state without data serialization."""
-        # Add a client to have something to serialize
-        with patch(
-            "meta_evaluator.meta_evaluator.clients.OpenAIClient"
-        ) as mock_client_class:
-            mock_client = mock_openai_client
-            mock_client_class.return_value = mock_client
-
-            meta_evaluator.add_openai()
-
         # Save without data
         meta_evaluator.save_state("test_state.json", include_data=False)
 
@@ -187,7 +176,6 @@ class TestMetaEvaluatorBase:
 
         assert state_data["version"] == "1.0"
         assert state_data["data"] is None
-        assert "openai" in state_data["client_registry"]
 
     @pytest.mark.parametrize("data_format", ["parquet", "csv", "json"])
     def test_save_state_with_data_formats(
@@ -244,15 +232,6 @@ class TestMetaEvaluatorBase:
 
     def test_save_state_include_task_false(self, meta_evaluator, mock_openai_client):
         """Test saving state without evaluation task serialization."""
-        # Add a client to have something to serialize
-        with patch(
-            "meta_evaluator.meta_evaluator.clients.OpenAIClient"
-        ) as mock_client_class:
-            mock_client = mock_openai_client
-            mock_client_class.return_value = mock_client
-
-            meta_evaluator.add_openai()
-
         # Save without data
         meta_evaluator.save_state("test_state.json", include_data=False)
 
@@ -269,7 +248,6 @@ class TestMetaEvaluatorBase:
             state_data = json.load(f)
 
         assert state_data["version"] == "1.0"
-        assert "openai" in state_data["client_registry"]
         assert state_data["eval_task"] is None
 
     def test_save_state_creates_directories(self, meta_evaluator, tmp_path):
@@ -422,7 +400,6 @@ class TestMetaEvaluatorBase:
             project_dir=str(meta_evaluator.project_dir),
             state_filename="test_state.json",
             load_task=True,
-            openai_api_key="test-api-key",
         )
 
         # Verify task was loaded correctly with no prompt columns
@@ -455,7 +432,6 @@ class TestMetaEvaluatorBase:
             project_dir=str(meta_evaluator.project_dir),
             state_filename="test_state.json",
             load_task=True,
-            openai_api_key="test-api-key",
         )
 
         # Verify task was loaded correctly with empty prompt columns
@@ -480,7 +456,6 @@ class TestMetaEvaluatorBase:
 
         assert state.version == "1.0"
         assert state.data is None
-        assert state.client_registry is not None
         assert state.eval_task is None
 
     def test_serialize_include_data_true(self, meta_evaluator, sample_eval_data):
@@ -539,65 +514,47 @@ class TestMetaEvaluatorBase:
     ):
         """Test complete save operation and verify actual file contents match expected structure."""
         # Set up complete MetaEvaluator state
-        with patch(
-            "meta_evaluator.meta_evaluator.clients.OpenAIClient"
-        ) as mock_client_class:
-            mock_client = mock_openai_client
-            mock_client_class.return_value = mock_client
+        meta_evaluator.add_data(sample_eval_data)
+        meta_evaluator.add_eval_task(basic_eval_task)
 
-            meta_evaluator.add_openai()
-            meta_evaluator.add_data(sample_eval_data)
-            meta_evaluator.add_eval_task(basic_eval_task)
+        # Save state
+        meta_evaluator.save_state(
+            "integration_test.json", include_data=True, data_format="parquet"
+        )
 
-            # Save state
-            meta_evaluator.save_state(
-                "integration_test.json", include_data=True, data_format="parquet"
-            )
+        # Verify files exist
+        state_file = meta_evaluator.project_dir / "integration_test.json"
+        assert state_file.exists()
 
-            # Verify files exist
-            state_file = meta_evaluator.project_dir / "integration_test.json"
-            assert state_file.exists()
+        # Verify state file structure
+        with open(state_file) as f:
+            state_data = json.load(f)
 
-            # Verify state file structure
-            with open(state_file) as f:
-                state_data = json.load(f)
+        # Verify top-level structure
+        assert state_data["version"] == "1.0"
+        assert "data" in state_data
+        assert "eval_task" in state_data
 
-            # Verify top-level structure
-            assert state_data["version"] == "1.0"
-            assert "client_registry" in state_data
-            assert "data" in state_data
-            assert "eval_task" in state_data
+        # Verify data structure
+        data_config = state_data["data"]
+        assert data_config["name"] == "sample_test_data"
+        assert data_config["id_column"] == "sample_id"
+        assert data_config["data_format"] == "parquet"
+        assert data_config["data_file"] == "integration_test_data.parquet"
+        assert data_config["type"] == "SampleEvalData"
 
-            # Verify client registry structure
-            assert "openai" in state_data["client_registry"]
-            openai_config = state_data["client_registry"]["openai"]
-            assert openai_config["client_type"] == "openai"
-            assert openai_config["default_model"] == "gpt-4"
-            assert openai_config["default_embedding_model"] == "text-embedding-3-large"
-            assert openai_config["supports_structured_output"] is True
-            assert openai_config["supports_logprobs"] is True
-            assert "api_key" not in str(openai_config)
+        # Verify evaluation task structure
+        eval_task_config = state_data["eval_task"]
+        assert eval_task_config["task_schemas"] == {
+            "sentiment": ["positive", "negative", "neutral"]
+        }
+        assert eval_task_config["prompt_columns"] == ["text"]
+        assert eval_task_config["response_columns"] == ["response"]
+        assert eval_task_config["answering_method"] == "structured"
 
-            # Verify data structure
-            data_config = state_data["data"]
-            assert data_config["name"] == "sample_test_data"
-            assert data_config["id_column"] == "sample_id"
-            assert data_config["data_format"] == "parquet"
-            assert data_config["data_file"] == "integration_test_data.parquet"
-            assert data_config["type"] == "SampleEvalData"
-
-            # Verify evaluation task structure
-            eval_task_config = state_data["eval_task"]
-            assert eval_task_config["task_schemas"] == {
-                "sentiment": ["positive", "negative", "neutral"]
-            }
-            assert eval_task_config["prompt_columns"] == ["text"]
-            assert eval_task_config["response_columns"] == ["response"]
-            assert eval_task_config["answering_method"] == "structured"
-
-            # Verify data file was created (this test uses parquet format)
-            # In real usage, actual data files may not be created by EvalData.write_data depending on format
-            # For this test, we're just verifying the state is saved correctly
+        # Verify data file was created (this test uses parquet format)
+        # In real usage, actual data files may not be created by EvalData.write_data depending on format
+        # For this test, we're just verifying the state is saved correctly
 
     def test_save_with_complex_file_paths(self, meta_evaluator, tmp_path):
         """Test saving with complex file paths including spaces and nested directories."""
@@ -623,36 +580,27 @@ class TestMetaEvaluatorBase:
         self, tmp_path, sample_eval_data, basic_eval_task, mock_openai_client
     ):
         """Test loading MetaEvaluator with EvalData in JSON format."""
-        with patch(
-            "meta_evaluator.meta_evaluator.clients.OpenAIClient"
-        ) as mock_client_class:
-            # Create mock client with proper configuration
-            mock_client = mock_openai_client
-            mock_client_class.return_value = mock_client
+        # Create and save evaluator with data and evaluation task
+        original_evaluator = MetaEvaluator(str(tmp_path / "test_project"))
+        original_evaluator.add_data(sample_eval_data)
+        original_evaluator.add_eval_task(basic_eval_task)
 
-            # Create and save evaluator with data and evaluation task
-            original_evaluator = MetaEvaluator(str(tmp_path / "test_project"))
-            original_evaluator.add_openai()
-            original_evaluator.add_data(sample_eval_data)
-            original_evaluator.add_eval_task(basic_eval_task)
+        original_evaluator.save_state(
+            "test_state.json", include_data=True, data_format="json"
+        )
 
-            original_evaluator.save_state(
-                "test_state.json", include_data=True, data_format="json"
-            )
+        # Load from JSON
+        loaded_evaluator = MetaEvaluator.load_state(
+            project_dir=str(original_evaluator.project_dir),
+            state_filename="test_state.json",
+            load_data=True,
+        )
 
-            # Load from JSON
-            loaded_evaluator = MetaEvaluator.load_state(
-                project_dir=str(original_evaluator.project_dir),
-                state_filename="test_state.json",
-                load_data=True,
-                openai_api_key="test-api-key",
-            )
-
-            # Verify data was loaded
-            assert loaded_evaluator.data is not None
-            assert loaded_evaluator.data.name == sample_eval_data.name
-            assert loaded_evaluator.data.id_column == sample_eval_data.id_column
-            assert isinstance(loaded_evaluator.data, EvalData)
+        # Verify data was loaded
+        assert loaded_evaluator.data is not None
+        assert loaded_evaluator.data.name == sample_eval_data.name
+        assert loaded_evaluator.data.id_column == sample_eval_data.id_column
+        assert isinstance(loaded_evaluator.data, EvalData)
 
     def test_load_state_with_sample_eval_data_csv_format(
         self,
@@ -662,134 +610,100 @@ class TestMetaEvaluatorBase:
         mock_openai_client,
     ):
         """Test loading MetaEvaluator with SampleEvalData in CSV format."""
-        with patch(
-            "meta_evaluator.meta_evaluator.clients.OpenAIClient"
-        ) as mock_client_class:
-            # Create mock client with proper configuration
-            mock_client = mock_openai_client
-            mock_client_class.return_value = mock_client
+        # Create and save evaluator with sample data
+        original_evaluator = MetaEvaluator(str(tmp_path / "test_project"))
+        original_evaluator.add_data(sample_eval_data)
+        original_evaluator.add_eval_task(basic_eval_task)
 
-            # Create and save evaluator with sample data
-            original_evaluator = MetaEvaluator(str(tmp_path / "test_project"))
-            original_evaluator.add_openai()
-            original_evaluator.add_data(sample_eval_data)
-            original_evaluator.add_eval_task(basic_eval_task)
+        original_evaluator.save_state(
+            "test_state.json", include_data=True, data_format="csv"
+        )
 
-            original_evaluator.save_state(
-                "test_state.json", include_data=True, data_format="csv"
-            )
+        # Ensure the data file exists in the data directory
+        data_file = original_evaluator.project_dir / "data" / "test_state_data.csv"
+        assert data_file.exists()
 
-            # Ensure the data file exists in the data directory
-            data_file = original_evaluator.project_dir / "data" / "test_state_data.csv"
-            assert data_file.exists()
+        # Load from JSON
+        loaded_evaluator = MetaEvaluator.load_state(
+            project_dir=str(original_evaluator.project_dir),
+            state_filename="test_state.json",
+            load_data=True,
+        )
 
-            # Load from JSON
-            loaded_evaluator = MetaEvaluator.load_state(
-                project_dir=str(original_evaluator.project_dir),
-                state_filename="test_state.json",
-                load_data=True,
-                openai_api_key="test-api-key",
-            )
-
-            # Verify sample data was loaded with all metadata
-            assert loaded_evaluator.data is not None
-            assert isinstance(loaded_evaluator.data, SampleEvalData)
-            assert loaded_evaluator.data.sample_name == sample_eval_data.sample_name
-            assert (
-                loaded_evaluator.data.stratification_columns
-                == sample_eval_data.stratification_columns
-            )
-            assert (
-                loaded_evaluator.data.sample_percentage
-                == sample_eval_data.sample_percentage
-            )
-            assert loaded_evaluator.data.seed == sample_eval_data.seed
-            assert (
-                loaded_evaluator.data.sampling_method
-                == sample_eval_data.sampling_method
-            )
+        # Verify sample data was loaded with all metadata
+        assert loaded_evaluator.data is not None
+        assert isinstance(loaded_evaluator.data, SampleEvalData)
+        assert loaded_evaluator.data.sample_name == sample_eval_data.sample_name
+        assert (
+            loaded_evaluator.data.stratification_columns
+            == sample_eval_data.stratification_columns
+        )
+        assert (
+            loaded_evaluator.data.sample_percentage
+            == sample_eval_data.sample_percentage
+        )
+        assert loaded_evaluator.data.seed == sample_eval_data.seed
+        assert loaded_evaluator.data.sampling_method == sample_eval_data.sampling_method
 
     def test_load_state_with_eval_task(
         self, tmp_path, sample_eval_data, basic_eval_task, mock_openai_client
     ):
         """Test loading MetaEvaluator with evaluation task from JSON."""
-        with patch(
-            "meta_evaluator.meta_evaluator.clients.OpenAIClient"
-        ) as mock_client_class:
-            # Create mock client with proper configuration
-            mock_client = mock_openai_client
-            mock_client_class.return_value = mock_client
+        # Create and save evaluator with data and evaluation task
+        original_evaluator = MetaEvaluator(str(tmp_path / "test_project"))
+        original_evaluator.add_data(sample_eval_data)
+        original_evaluator.add_eval_task(basic_eval_task)
 
-            # Create and save evaluator with data and evaluation task
-            original_evaluator = MetaEvaluator(str(tmp_path / "test_project"))
-            original_evaluator.add_openai()
-            original_evaluator.add_data(sample_eval_data)
-            original_evaluator.add_eval_task(basic_eval_task)
+        original_evaluator.save_state(
+            "test_state.json", include_data=True, data_format="json"
+        )
 
-            original_evaluator.save_state(
-                "test_state.json", include_data=True, data_format="json"
-            )
+        # Load from JSON
+        loaded_evaluator = MetaEvaluator.load_state(
+            project_dir=str(original_evaluator.project_dir),
+            state_filename="test_state.json",
+            load_data=True,
+        )
 
-            # Load from JSON
-            loaded_evaluator = MetaEvaluator.load_state(
-                project_dir=str(original_evaluator.project_dir),
-                state_filename="test_state.json",
-                load_data=True,
-                openai_api_key="test-api-key",
-            )
-
-            # Verify evaluation task was loaded
-            assert loaded_evaluator.eval_task is not None
-            assert (
-                loaded_evaluator.eval_task.task_schemas == basic_eval_task.task_schemas
-            )
-            assert (
-                loaded_evaluator.eval_task.prompt_columns
-                == basic_eval_task.prompt_columns
-            )
-            assert (
-                loaded_evaluator.eval_task.response_columns
-                == basic_eval_task.response_columns
-            )
-            assert (
-                loaded_evaluator.eval_task.answering_method
-                == basic_eval_task.answering_method
-            )
+        # Verify evaluation task was loaded
+        assert loaded_evaluator.eval_task is not None
+        assert loaded_evaluator.eval_task.task_schemas == basic_eval_task.task_schemas
+        assert (
+            loaded_evaluator.eval_task.prompt_columns == basic_eval_task.prompt_columns
+        )
+        assert (
+            loaded_evaluator.eval_task.response_columns
+            == basic_eval_task.response_columns
+        )
+        assert (
+            loaded_evaluator.eval_task.answering_method
+            == basic_eval_task.answering_method
+        )
 
     def test_load_state_skip_data_and_eval_task_loading(
         self, tmp_path, sample_eval_data, basic_eval_task, mock_openai_client
     ):
         """Test loading MetaEvaluator while skipping data loading."""
-        with patch(
-            "meta_evaluator.meta_evaluator.clients.OpenAIClient"
-        ) as mock_client_class:
-            # Create mock client with proper configuration
-            mock_client = mock_openai_client
-            mock_client_class.return_value = mock_client
+        # Create and save evaluator with data and evaluation task
+        original_evaluator = MetaEvaluator(str(tmp_path / "test_project"))
+        original_evaluator.add_data(sample_eval_data)
+        original_evaluator.add_eval_task(basic_eval_task)
 
-            # Create and save evaluator with data and evaluation task
-            original_evaluator = MetaEvaluator(str(tmp_path / "test_project"))
-            original_evaluator.add_openai()
-            original_evaluator.add_data(sample_eval_data)
-            original_evaluator.add_eval_task(basic_eval_task)
+        original_evaluator.save_state(
+            "test_state.json", include_data=True, data_format="json"
+        )
 
-            original_evaluator.save_state(
-                "test_state.json", include_data=True, data_format="json"
-            )
+        # Load from JSON without data and evaluation task
+        loaded_evaluator = MetaEvaluator.load_state(
+            project_dir=str(original_evaluator.project_dir),
+            state_filename="test_state.json",
+            load_data=False,
+            load_task=False,
+        )
 
-            # Load from JSON without data and evaluation task
-            loaded_evaluator = MetaEvaluator.load_state(
-                project_dir=str(original_evaluator.project_dir),
-                state_filename="test_state.json",
-                load_data=False,
-                load_task=False,
-                openai_api_key="test-api-key",
-            )
-
-            # Verify client loaded but data and evaluation task skipped
-            assert LLMClientEnum.OPENAI in loaded_evaluator.client_registry
-            assert loaded_evaluator.data is None
-            assert loaded_evaluator.eval_task is None
+        # Verifydata and evaluation task skipped
+        assert loaded_evaluator.data is None
+        assert loaded_evaluator.eval_task is None
 
     def test_load_state_invalid_file_extension(self, tmp_path):
         """Test InvalidFileError when state filename doesn't end with .json."""
@@ -819,7 +733,7 @@ class TestMetaEvaluatorBase:
     def test_load_state_missing_required_keys(self, tmp_path):
         """Test InvalidFileError when state file is missing required keys."""
         state_file = tmp_path / "incomplete.json"
-        state_file.write_text('{"version": "1.0"}')  # Missing client_registry and data
+        state_file.write_text('{"version": "1.0"}')
 
         with pytest.raises(
             InvalidFileError,
@@ -834,16 +748,6 @@ class TestMetaEvaluatorBase:
         # Create state file that references nonexistent data file
         state_data = {
             "version": "1.0",
-            "client_registry": {
-                "openai": {
-                    "client_type": "openai",
-                    "default_model": "gpt-4",
-                    "default_embedding_model": "text-embedding-ada-002",
-                    "supports_structured_output": True,
-                    "supports_logprobs": True,
-                    "supports_instructor": True,
-                }
-            },
             "data": {
                 "name": "Test Data",
                 "id_column": "message_id",
@@ -868,7 +772,6 @@ class TestMetaEvaluatorBase:
                     project_dir=str(tmp_path),
                     state_filename="test.json",
                     load_data=True,
-                    openai_api_key="test-api-key",
                 )
 
     def test_load_state_unsupported_data_format(self, tmp_path, mock_openai_client):
@@ -876,16 +779,6 @@ class TestMetaEvaluatorBase:
         # Create state file with unsupported data format
         state_data = {
             "version": "1.0",
-            "client_registry": {
-                "openai": {
-                    "client_type": "openai",
-                    "default_model": "gpt-4",
-                    "default_embedding_model": "text-embedding-ada-002",
-                    "supports_structured_output": True,
-                    "supports_logprobs": True,
-                    "supports_instructor": True,
-                }
-            },
             "data": {
                 "name": "Test Data",
                 "id_column": "message_id",
@@ -920,7 +813,6 @@ class TestMetaEvaluatorBase:
                     project_dir=str(tmp_path),
                     state_filename="test.json",
                     load_data=True,
-                    openai_api_key="test-api-key",
                 )
 
 

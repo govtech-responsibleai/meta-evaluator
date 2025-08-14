@@ -9,7 +9,6 @@ from unittest.mock import Mock
 import polars as pl
 import pytest
 
-from meta_evaluator.llm_client.enums import LLMClientEnum
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.meta_evaluator.exceptions import (
     EvalTaskNotFoundError,
@@ -321,7 +320,7 @@ class TestResultsLoading:
             builder = JudgeResultsBuilder(
                 run_id=f"test_run_{i}",
                 judge_id=judge_id,
-                llm_client_enum=LLMClientEnum.OPENAI,
+                llm_client="openai",
                 model_used="gpt-4",
                 task_schemas={"sentiment": ["positive", "negative"]},
                 expected_ids=[f"id{i}"],

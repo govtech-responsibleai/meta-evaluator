@@ -1,24 +1,40 @@
 """Main class of judge module."""
 
+import json
+import logging
 import re
-import time
 from collections.abc import Generator
-from typing import Any, Optional, cast
+from typing import Any, cast
 
+from openai.types.chat import ChatCompletionMessageParam
+from openai.types.chat.chat_completion_assistant_message_param import (
+    ChatCompletionAssistantMessageParam,
+)
+from openai.types.chat.chat_completion_system_message_param import (
+    ChatCompletionSystemMessageParam,
+)
+from openai.types.chat.chat_completion_user_message_param import (
+    ChatCompletionUserMessageParam,
+)
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from ..common.models import Prompt
-from ..data import EvalData, SampleEvalData
+from ..data import EvalData
 from ..eval_task import EvalTask
-from ..llm_client import AsyncLLMClient, LLMClient
-from ..llm_client.enums import AsyncLLMClientEnum, LLMClientEnum, RoleEnum
-from ..llm_client.exceptions import LLMAPIError
-from ..llm_client.models import Message, TagConfig
-from ..results import JudgeResults, JudgeResultsBuilder
-from .exceptions import IncorrectClientError
+from ..results import JudgeResultsBuilder
+from .async_evaluator import AsyncEvaluationMixin
+from .enums import ErrorType, RoleEnum
+from .models import (
+    LLMResponse,
+    Message,
+    ParseError,
+    ParseResult,
+    TagConfig,
+)
+from .sync_evaluator import SyncEvaluationMixin
 
 
-class Judge(BaseModel):
+class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
     """Represents a specific configuration for executing an evaluation task using an LLM.
 
     This class bundles all necessary parameters to define how a single evaluation
@@ -39,10 +55,7 @@ class Judge(BaseModel):
             defining the criteria and desired outcomes for the evaluation. This
             specifies *what* is being evaluated (e.g., toxicity, relevance) and
             the possible labels or scores the Judge is expected to produce.
-        llm_client (LLMClientEnum): An enumeration value specifying the LLM provider
-            to be used for this evaluation (e.g., OpenAI, Anthropic). This indicates
-            which underlying client implementation should be selected by the
-            MetaEvaluator.
+        llm_client (str): The LLM client to be used for this evaluation (e.g., openai, azure).
         model (str): The specific name of the LLM model to be used from the
             selected provider (e.g., "gpt-4", "claude-3-opus-20240229"). This
             model will receive the prompt and perform the evaluation.
@@ -64,9 +77,16 @@ class Judge(BaseModel):
     id: str
     model_config = ConfigDict(frozen=True)
     eval_task: EvalTask
-    llm_client_enum: LLMClientEnum | AsyncLLMClientEnum
+    llm_client: str
     model: str
     prompt: Prompt
+
+    @property
+    def logger(self) -> logging.Logger:
+        """Get logger for this Judge instance."""
+        return logging.getLogger(
+            f"{self.__class__.__module__}.{self.__class__.__name__}"
+        )
 
     @model_validator(mode="after")
     def validate_id(self) -> "Judge":
@@ -86,6 +106,48 @@ class Judge(BaseModel):
             )
 
         return self
+
+    # def _convert_messages_to_openai_format(
+    #     self, messages: list[Message]
+    # ) -> list[dict[str, str]]:
+    #     """Convert Message objects to OpenAI messages format.
+
+    #     Returns:
+    #         list[dict[str, str]]: List of OpenAI-formatted message parameters.
+    #     """
+    #     return [{"role": msg.role.value, "content": msg.content} for msg in messages]
+
+    def _convert_messages_to_openai_format(
+        self, messages: list[Message]
+    ) -> list[ChatCompletionMessageParam]:
+        """Convert Message objects to OpenAI ChatCompletionMessageParam format.
+
+        Returns:
+            list[ChatCompletionMessageParam]: List of OpenAI-formatted message parameters.
+        """
+        openai_messages: list[ChatCompletionMessageParam] = []
+
+        for message in messages:
+            if message.role == RoleEnum.USER:
+                user_message: ChatCompletionUserMessageParam = {
+                    "role": "user",
+                    "content": message.content,
+                }
+                openai_messages.append(user_message)
+            elif message.role == RoleEnum.SYSTEM:
+                system_message: ChatCompletionSystemMessageParam = {
+                    "role": "system",
+                    "content": message.content,
+                }
+                openai_messages.append(system_message)
+            elif message.role == RoleEnum.ASSISTANT:
+                assistant_message: ChatCompletionAssistantMessageParam = {
+                    "role": "assistant",
+                    "content": message.content,
+                }
+                openai_messages.append(assistant_message)
+
+        return openai_messages
 
     def _get_xml_instructions(self) -> str:
         """Get XML formatting instructions for the prompt.
@@ -168,181 +230,114 @@ class Judge(BaseModel):
         for row in eval_data.data.iter_rows(named=True):
             yield row
 
-    def _evaluate_row_structured(
+    def _extract_outcomes_from_json(
+        self, json_response: str
+    ) -> tuple[dict[str, Any], list[str]]:
+        """Extract outcomes from a JSON string response.
+
+        Args:
+            json_response: JSON string from structured response
+
+        Returns:
+            Tuple of (outcomes_dict, missing_tasks_list)
+        """
+        parsed_response = json.loads(json_response)
+        outcomes = {}
+        missing_tasks = []
+
+        for task_name in self.eval_task.task_schemas.keys():
+            if task_name in parsed_response:
+                outcomes[task_name] = parsed_response[task_name]
+            else:
+                missing_tasks.append(task_name)
+
+        return outcomes, missing_tasks
+
+    def _extract_outcomes_from_parse_result(
+        self, parse_result: ParseResult
+    ) -> tuple[dict[str, Any], list[str]]:
+        """Extract outcomes from XML ParseResult.
+
+        Args:
+            parse_result: ParseResult from XML parsing
+
+        Returns:
+            Tuple of (outcomes_dict, missing_tasks_list)
+        """
+        task_names = set(self.eval_task.task_schemas.keys())
+        parsed_tasks = set(parse_result.data.keys())
+        missing_tasks = list(task_names - parsed_tasks)
+
+        # Convert ParseResult data to outcomes (cast to str for XML)
+        outcomes = {}
+        for task_name in parsed_tasks:
+            outcome = parse_result.data[task_name]
+            outcomes[task_name] = cast(
+                str, outcome
+            )  # TagConfig cardinality="one" guarantees str
+
+        return outcomes, missing_tasks
+
+    def _assign_outcomes(
         self,
+        outcomes: dict[str, Any],
+        missing_tasks: list[str],
+        llm_response: LLMResponse,
+        call_duration: float,
         row: dict[str, Any],
         eval_data: EvalData,
         sample_example_id: str,
-        llm_client: LLMClient,
-        task_class: type[BaseModel],
         builder: JudgeResultsBuilder,
     ) -> None:
-        """Evaluate a single row using structured response method.
+        """Assign outcomes to builder rows based on parsing results.
 
         Args:
+            outcomes: Dictionary of successfully parsed task outcomes
+            missing_tasks: List of task names that were missing from the response
+            llm_response: The LLM response object
+            call_duration: Duration of the LLM call
             row: Row data from EvalData
             eval_data: The EvalData instance
             sample_example_id: Unique identifier for this sample
-            llm_client: The LLMClient instance
-            task_class: The dynamically created Pydantic model for responses
             builder: The JudgeResultsBuilder instance
         """
         assert eval_data.id_column is not None, (
             f"EvalData {eval_data.name} has no ID column, but was expected to have one."
         )
-
         try:
-            # Create messages
-            system_message = self._create_system_message(include_xml_instructions=False)
-            user_content = self._format_row_data(row)
-            user_message = Message(role=RoleEnum.USER, content=user_content)
-            messages = [system_message, user_message]
-
-            # Call LLM with structured response
-            start_time = time.time()
-            structured_response, llm_response = (
-                llm_client.prompt_with_structured_response(
-                    messages=messages, response_model=task_class, model=self.model
-                )
-            )
-            call_duration = time.time() - start_time
-
-            # Extract outcomes from structured response for all tasks
-            try:
-                outcomes = {}
-                missing_tasks = []
-
-                for task_name in self.eval_task.task_schemas.keys():
-                    try:
-                        outcome = getattr(structured_response, task_name)
-                        outcomes[task_name] = outcome
-                    except AttributeError:
-                        missing_tasks.append(task_name)
-
-                if missing_tasks:
-                    # Partial success - some tasks missing
-                    if outcomes:  # At least some tasks succeeded
-                        error_message = (
-                            f"Structured response missing tasks: {missing_tasks}"
-                        )
-                        builder.create_partial_row(
-                            sample_example_id=sample_example_id,
-                            original_id=row[eval_data.id_column],
-                            outcomes=outcomes,
-                            error_message=error_message,
-                            llm_raw_response_content=llm_response.content,
-                            llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                            llm_completion_tokens=llm_response.usage.completion_tokens,
-                            llm_total_tokens=llm_response.usage.total_tokens,
-                            llm_call_duration_seconds=call_duration,
-                        )
-                    else:
-                        # Complete failure - no tasks found
-                        builder.create_parsing_error_row(
-                            sample_example_id=sample_example_id,
-                            original_id=row[eval_data.id_column],
-                            error=AttributeError(
-                                f"Structured response missing all tasks: {missing_tasks}"
-                            ),
-                            llm_raw_response_content=llm_response.content,
-                            llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                            llm_completion_tokens=llm_response.usage.completion_tokens,
-                            llm_total_tokens=llm_response.usage.total_tokens,
-                            llm_call_duration_seconds=call_duration,
-                        )
-                else:
-                    # Perfect success - all tasks found
-                    builder.create_success_row(
+            if missing_tasks:
+                # Partial success - some tasks missing
+                if outcomes:  # At least some tasks succeeded
+                    error_message = (
+                        f"Structured response missing tasks: {missing_tasks}"
+                    )
+                    builder.create_partial_row(
                         sample_example_id=sample_example_id,
                         original_id=row[eval_data.id_column],
                         outcomes=outcomes,
+                        error_message=error_message,
                         llm_raw_response_content=llm_response.content,
                         llm_prompt_tokens=llm_response.usage.prompt_tokens,
                         llm_completion_tokens=llm_response.usage.completion_tokens,
                         llm_total_tokens=llm_response.usage.total_tokens,
                         llm_call_duration_seconds=call_duration,
                     )
-                return
-
-            except Exception as attr_error:
-                # This is a parsing error - structured response doesn't have expected attributes
-                builder.create_parsing_error_row(
-                    sample_example_id=sample_example_id,
-                    original_id=row[eval_data.id_column],
-                    error=attr_error,
-                    llm_raw_response_content=llm_response.content,
-                    llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                    llm_completion_tokens=llm_response.usage.completion_tokens,
-                    llm_total_tokens=llm_response.usage.total_tokens,
-                    llm_call_duration_seconds=call_duration,
-                )
-                return
-
-        except LLMAPIError as llm_error:
-            # LLM API error
-            builder.create_llm_error_row(
-                sample_example_id=sample_example_id,
-                original_id=row[eval_data.id_column],
-                error=llm_error,
-            )
-
-        except Exception as unexpected_error:
-            # Any other unexpected error (e.g., message creation, network issues)
-            builder.create_other_error_row(
-                sample_example_id=sample_example_id,
-                original_id=row[eval_data.id_column],
-                error=unexpected_error,
-            )
-
-    def _evaluate_row_xml(
-        self,
-        row: dict[str, Any],
-        eval_data: EvalData,
-        sample_example_id: str,
-        llm_client: LLMClient,
-        tag_configs: list[TagConfig],
-        builder: JudgeResultsBuilder,
-    ) -> None:
-        """Evaluate a single row using XML tags method.
-
-        Args:
-            row: Row data from EvalData
-            eval_data: The EvalData instance
-            sample_example_id: Unique identifier for this sample
-            llm_client: The LLMClient instance
-            tag_configs: List of TagConfigs for parsing XML response (one per task)
-            builder: The JudgeResultsBuilder instance
-        """
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
-
-        try:
-            # Create messages with XML instructions
-            system_message = self._create_system_message(include_xml_instructions=True)
-            user_content = self._format_row_data(row)
-            user_message = Message(role=RoleEnum.USER, content=user_content)
-            messages = [system_message, user_message]
-
-            # Call LLM with XML tags
-            start_time = time.time()
-            parse_result, llm_response = llm_client.prompt_with_xml_tags(
-                messages=messages, tag_configs=tag_configs, model=self.model
-            )
-            call_duration = time.time() - start_time
-
-            # Check parsing results - we need all tasks to succeed for a success row
-            task_names = set(self.eval_task.task_schemas.keys())
-            parsed_tasks = set(parse_result.data.keys())
-
-            if parse_result.success and parsed_tasks == task_names:
-                # Perfect success - all tasks parsed successfully
-                outcomes = {}
-                for task_name in task_names:
-                    outcome = parse_result.data[task_name]
-                    # TagConfig cardinality="one" guarantees str, not list[str]
-                    outcomes[task_name] = cast(str, outcome)
-
+                else:
+                    # Complete failure - no tasks found
+                    builder.create_parsing_error_row(
+                        sample_example_id=sample_example_id,
+                        original_id=row[eval_data.id_column],
+                        error=AttributeError(
+                            f"Structured response missing all tasks: {missing_tasks}"
+                        ),
+                        llm_raw_response_content=llm_response.content,
+                        llm_prompt_tokens=llm_response.usage.prompt_tokens,
+                        llm_completion_tokens=llm_response.usage.completion_tokens,
+                        llm_total_tokens=llm_response.usage.total_tokens,
+                        llm_call_duration_seconds=call_duration,
+                    )
+            else:
+                # Perfect success - all tasks found
                 builder.create_success_row(
                     sample_example_id=sample_example_id,
                     original_id=row[eval_data.id_column],
@@ -353,573 +348,214 @@ class Judge(BaseModel):
                     llm_total_tokens=llm_response.usage.total_tokens,
                     llm_call_duration_seconds=call_duration,
                 )
-            elif (
-                parse_result.partial_success
-                and parsed_tasks.issubset(task_names)
-                and len(parsed_tasks) > 0
-            ):
-                # Partial success - some tasks parsed successfully
-                outcomes = {}
-                for task_name in parsed_tasks:
-                    outcome = parse_result.data[task_name]
-                    outcomes[task_name] = cast(str, outcome)
+            return
 
-                error_message = f"XML parsing partial success. Missing tasks: {task_names - parsed_tasks}. Errors: {[str(e) for e in parse_result.errors]}"
-                builder.create_partial_row(
-                    sample_example_id=sample_example_id,
-                    original_id=row[eval_data.id_column],
-                    outcomes=outcomes,
-                    error_message=error_message,
-                    llm_raw_response_content=llm_response.content,
-                    llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                    llm_completion_tokens=llm_response.usage.completion_tokens,
-                    llm_total_tokens=llm_response.usage.total_tokens,
-                    llm_call_duration_seconds=call_duration,
-                )
-            else:
-                # Complete parsing failure
-                error_message = f"XML parsing failed completely: {[str(e) for e in parse_result.errors]}"
-                builder.create_parsing_error_row(
-                    sample_example_id=sample_example_id,
-                    original_id=row[eval_data.id_column],
-                    error=ValueError(error_message),
-                    llm_raw_response_content=llm_response.content,
-                    llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                    llm_completion_tokens=llm_response.usage.completion_tokens,
-                    llm_total_tokens=llm_response.usage.total_tokens,
-                    llm_call_duration_seconds=call_duration,
-                )
-
-        except LLMAPIError as llm_error:
-            # LLM API error
-            builder.create_llm_error_row(
+        except Exception as attr_error:
+            # This is a parsing error - structured response doesn't have expected attributes
+            builder.create_parsing_error_row(
                 sample_example_id=sample_example_id,
                 original_id=row[eval_data.id_column],
-                error=llm_error,
+                error=attr_error,
+                llm_raw_response_content=llm_response.content,
+                llm_prompt_tokens=llm_response.usage.prompt_tokens,
+                llm_completion_tokens=llm_response.usage.completion_tokens,
+                llm_total_tokens=llm_response.usage.total_tokens,
+                llm_call_duration_seconds=call_duration,
             )
+            return
 
-        except Exception as unexpected_error:
-            # Any other unexpected error (e.g., message creation, network issues)
-            builder.create_other_error_row(
-                sample_example_id=sample_example_id,
-                original_id=row[eval_data.id_column],
-                error=unexpected_error,
-            )
+    # ================================
+    # Shared XML Parsing Methods
+    # ================================
 
-    def evaluate_eval_data(
-        self, eval_data: EvalData, llm_client: LLMClient, run_id: str
-    ) -> JudgeResults:
-        """Evaluate the input EvalData using the configured Judge.
+    def _extract_tag_values(self, tag_name: str, raw_text: str) -> list[str]:
+        """Extract all content values from XML tags with the given name.
 
         Args:
-            eval_data (EvalData): The EvalData instance to be evaluated.
-            llm_client (LLMClient): The LLMClient instance to be used for evaluation.
-            run_id (str): A unique identifier for the evaluation run.
+            tag_name: The XML tag name to search for (e.g., "user_id", "status")
+            raw_text: Raw XML text to search within
 
         Returns:
-            JudgeResults: A JudgeResults instance containing the results of the evaluation.
-
-        Raises:
-            IncorrectClientError: If the LLMClient is not equal to the configured LLMClient.
+            List of string values found within the specified XML tags
         """
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
+        # Pattern matches <tag_name>content</tag_name> or <tag_name attr="value">content</tag_name>
+        pattern = rf"<{re.escape(tag_name)}(?:\s[^>]*)?>(.*?)</{re.escape(tag_name)}>"
+        matches = re.findall(pattern, raw_text, re.DOTALL | re.IGNORECASE)
 
-        # Validate LLM client matches configuration
-        if llm_client.enum_value != self.llm_client_enum:
-            raise IncorrectClientError(
-                expected_client=self.llm_client_enum,
-                actual_client=llm_client.enum_value,
-            )
+        # Strip whitespace from each match and filter out empty strings
+        values = [match.strip() for match in matches if match.strip()]
 
-        # Create builder
-        expected_ids = eval_data.data[eval_data.id_column].to_list()
-        builder = JudgeResultsBuilder(
-            run_id=run_id,
-            judge_id=self.id,
-            llm_client_enum=self.llm_client_enum,
-            model_used=self.model,
-            task_schemas=self.eval_task.task_schemas,
-            expected_ids=expected_ids,
-            is_sampled_run=isinstance(eval_data, SampleEvalData),
-        )
+        return values
 
-        # Pre-create models/configs once to avoid recreating in loop
-        task_class: Optional[type[BaseModel]] = None
-        tag_configs: Optional[list[TagConfig]] = None
+    def _construct_xml_tag_parsing(
+        self, tag_config_list: list[TagConfig], raw_text: str
+    ) -> ParseResult:
+        """Parse XML tags from raw text according to configuration rules.
 
-        if self.eval_task.answering_method == "structured":
-            task_class = self.eval_task.create_task_class()
-        elif self.eval_task.answering_method == "xml":
-            tag_configs = []
-            for task_name, outcomes in self.eval_task.task_schemas.items():
-                tag_configs.append(
-                    TagConfig(
-                        name=task_name,
-                        allowed_values=outcomes,
-                        cardinality="one",
+        Extracts content from XML tags specified in the configuration list and validates
+        the results according to value constraints, cardinality rules, and error handling
+        preferences. Returns both successfully parsed data and detailed error information
+        for any validation failures.
+
+        The parsing process follows these steps for each configured tag:
+        1. Extract all instances of the tag from raw text using regex matching
+        2. If no instances found, record TAG_NOT_FOUND error and skip to next tag
+        3. Validate extracted values against allowed_values if specified, recording
+        INVALID_VALUE errors for non-matching values while keeping valid ones
+        4. Apply cardinality constraints to valid values:
+        - cardinality="one": Requires exactly 1 valid value
+        - cardinality="many": Requires 1+ valid values (empty is an error)
+        5. Handle multiple values for cardinality="one" according to multiple_handling rules
+        6. Add successfully parsed values to data dict, failures only go to errors list
+
+        This method uses a "clean separation" design where the data dict contains only
+        successfully parsed values, while all failure information is recorded in the
+        errors list. This avoids redundant None values and empty lists in the data.
+
+        Args:
+            tag_config_list: List of TagConfig objects defining parsing rules for each
+                XML tag. Each config specifies the tag name, allowed values, cardinality
+                expectations, and behavior when multiple values are found.
+            raw_text: Raw XML text content to parse. Should contain the XML tags
+                specified in the tag configurations.
+
+        Returns:
+            ParseResult containing:
+                - data: Dictionary mapping tag names to successfully parsed values.
+                Keys only exist for tags that were successfully parsed and satisfied
+                all validation rules. Values are strings for cardinality="one" or
+                lists of strings for cardinality="many".
+                - errors: List of ParseError objects detailing any validation failures.
+                Includes errors for missing tags, invalid values, cardinality mismatches,
+                and multiple value conflicts.
+
+        Note:
+            Failed parsing attempts do not create entries in the data dictionary.
+            Use `"tag_name" in result.data` or `result.data.get("tag_name")` to check
+            for successful parsing. Use `result.get_errors_by_tag("tag_name")` to get
+            detailed error information for failed tags.
+
+            Tag extraction uses case-insensitive regex matching and handles both
+            self-closing and standard XML tag formats. Whitespace is automatically
+            trimmed from extracted values, and empty values are filtered out.
+
+        Examples:
+            Successful parsing with mixed results:
+                >>> configs = [
+                ...     TagConfig(name="status", allowed_values=["active"], cardinality="one"),
+                ...     TagConfig(name="missing", cardinality="one")
+                ... ]
+                >>> result = self._construct_xml_tag_parsing(configs, "<status>active</status>")
+                >>> result.data  # {"status": "active"} - no "missing" key
+                >>> len(result.errors)  # 1 - TAG_NOT_FOUND for "missing"
+
+            All parsing failures:
+                >>> configs = [TagConfig(name="invalid", allowed_values=["valid"], cardinality="one")]
+                >>> result = self._construct_xml_tag_parsing(configs, "<invalid>bad</invalid>")
+                >>> result.data  # {} - empty dict, no successful parses
+                >>> result.errors[0].error_type  # ErrorType.INVALID_VALUE
+        """
+        data = {}
+        errors = []
+
+        for config in tag_config_list:
+            # Step 1: Extract all instances of this tag from the raw text
+            raw_values = self._extract_tag_values(config.name, raw_text)
+
+            # Step 2: Handle case where no tag instances were found
+            if not raw_values:
+                errors.append(
+                    ParseError(
+                        error_type=ErrorType.TAG_NOT_FOUND,
+                        tag_name=config.name,
+                        message=f"Required tag '{config.name}' not found in text",
                     )
                 )
-
-        # Process each row in the evaluation data
-        total_count = 0
-        for row in self._get_dicts_as_generator(eval_data):
-            total_count += 1
-            sample_example_id = f"{run_id}_{total_count}"
-
-            try:
-                # Check if this row should be skipped
-                if self.eval_task.skip_function and self.eval_task.skip_function(row):
-                    builder.create_skipped_row(
-                        sample_example_id=sample_example_id,
-                        original_id=row[eval_data.id_column],
-                    )
-                    continue
-
-                # Evaluate the row based on answering method
-                if self.eval_task.answering_method == "structured":
-                    assert task_class is not None, "task_class was to be set previously"
-                    self._evaluate_row_structured(
-                        row=row,
-                        eval_data=eval_data,
-                        sample_example_id=sample_example_id,
-                        llm_client=llm_client,
-                        task_class=task_class,
-                        builder=builder,
-                    )
-                else:  # xml
-                    assert tag_configs is not None, (
-                        "tag_configs was to be set previously"
-                    )
-                    self._evaluate_row_xml(
-                        row=row,
-                        eval_data=eval_data,
-                        sample_example_id=sample_example_id,
-                        llm_client=llm_client,
-                        tag_configs=tag_configs,
-                        builder=builder,
-                    )
-
-            except Exception as unexpected_error:
-                # Handle errors that occur outside of the evaluation methods
-                # (e.g., skip function errors, row processing errors)
-                builder.create_other_error_row(
-                    sample_example_id=sample_example_id,
-                    original_id=row.get(
-                        eval_data.id_column, "unknown"
-                    ),  # Use .get() in case row access fails
-                    error=unexpected_error,
-                )
-
-        # Complete the builder and return JudgeResults
-        return builder.complete()
-
-    #################
-    # ASYNC METHODS #
-    #################
-
-    def _handle_batch_exception(
-        self,
-        exception: Exception,
-        sample_example_id: str,
-        row: dict[str, Any],
-        eval_data: EvalData,
-        builder: JudgeResultsBuilder,
-    ) -> None:
-        """Handle exceptions from batch processing."""
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
-
-        if isinstance(exception, LLMAPIError):
-            builder.create_llm_error_row(
-                sample_example_id=sample_example_id,
-                original_id=row[eval_data.id_column],
-                error=exception,
-            )
-        else:
-            builder.create_other_error_row(
-                sample_example_id=sample_example_id,
-                original_id=row[eval_data.id_column],
-                error=exception,
-            )
-
-    async def _process_batch_results_structured(
-        self,
-        results: list,
-        rows_to_evaluate: list[tuple[dict[str, Any], str]],
-        eval_data: EvalData,
-        builder: JudgeResultsBuilder,
-    ) -> None:
-        """Process structured response batch results."""
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
-
-        start_time = time.time()
-        total_duration = time.time() - start_time
-
-        for i, result in enumerate(results):
-            row, sample_example_id = rows_to_evaluate[i]
-
-            # Handle exceptions from batch processing (return_exceptions=True can return exceptions directly)
-            if isinstance(result, Exception):
-                self._handle_batch_exception(
-                    exception=result,
-                    sample_example_id=sample_example_id,
-                    row=row,
-                    eval_data=eval_data,
-                    builder=builder,
-                )
+                # Skip to next config - no data entry for missing tags
                 continue
 
-            # Unpack successful result
-            structured_response, llm_response = result
+            # Step 3: Validate extracted values against allowed_values constraint
+            if config.allowed_values is not None:
+                valid_values = []
+                allowed_values_lower = [v.lower() for v in config.allowed_values]
 
-            call_duration = total_duration / len(results) if results else 0
-
-            # Extract outcomes from structured response
-            try:
-                outcomes = {}
-                missing_tasks = []
-
-                for task_name in self.eval_task.task_schemas.keys():
-                    try:
-                        outcome = getattr(structured_response, task_name)
-                        outcomes[task_name] = outcome
-                    except AttributeError:
-                        missing_tasks.append(task_name)
-
-                if missing_tasks:
-                    # Partial success - some tasks missing
-                    if outcomes:  # At least some tasks succeeded
-                        error_message = (
-                            f"Structured response missing tasks: {missing_tasks}"
-                        )
-                        builder.create_partial_row(
-                            sample_example_id=sample_example_id,
-                            original_id=row[eval_data.id_column],
-                            outcomes=outcomes,
-                            error_message=error_message,
-                            llm_raw_response_content=llm_response.content,
-                            llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                            llm_completion_tokens=llm_response.usage.completion_tokens,
-                            llm_total_tokens=llm_response.usage.total_tokens,
-                            llm_call_duration_seconds=call_duration,
-                        )
+                for value in raw_values:
+                    if value in allowed_values_lower:
+                        valid_values.append(value)
                     else:
-                        # Complete failure - no tasks found
-                        builder.create_parsing_error_row(
-                            sample_example_id=sample_example_id,
-                            original_id=row[eval_data.id_column],
-                            error=AttributeError(
-                                f"Structured response missing all tasks: {missing_tasks}"
-                            ),
-                            llm_raw_response_content=llm_response.content,
-                            llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                            llm_completion_tokens=llm_response.usage.completion_tokens,
-                            llm_total_tokens=llm_response.usage.total_tokens,
-                            llm_call_duration_seconds=call_duration,
+                        # Record invalid value error but continue processing other values
+                        errors.append(
+                            ParseError(
+                                error_type=ErrorType.INVALID_VALUE,
+                                tag_name=config.name,
+                                message=f"Invalid value '{value}' for tag '{config.name}'. "
+                                f"Allowed values: {config.allowed_values}",
+                                found_values=[value],
+                                expected_values=config.allowed_values,
+                            )
                         )
-                else:
-                    # Perfect success - all tasks found
-                    builder.create_success_row(
-                        sample_example_id=sample_example_id,
-                        original_id=row[eval_data.id_column],
-                        outcomes=outcomes,
-                        llm_raw_response_content=llm_response.content,
-                        llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                        llm_completion_tokens=llm_response.usage.completion_tokens,
-                        llm_total_tokens=llm_response.usage.total_tokens,
-                        llm_call_duration_seconds=call_duration,
-                    )
-
-            except Exception as attr_error:
-                builder.create_parsing_error_row(
-                    sample_example_id=sample_example_id,
-                    original_id=row[eval_data.id_column],
-                    error=attr_error,
-                    llm_raw_response_content=llm_response.content,
-                    llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                    llm_completion_tokens=llm_response.usage.completion_tokens,
-                    llm_total_tokens=llm_response.usage.total_tokens,
-                    llm_call_duration_seconds=call_duration,
-                )
-
-    async def _process_batch_results_xml(
-        self,
-        results: list,
-        rows_to_evaluate: list[tuple[dict[str, Any], str]],
-        eval_data: EvalData,
-        builder: JudgeResultsBuilder,
-    ) -> None:
-        """Process XML tag parsing batch results."""
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
-
-        start_time = time.time()
-        total_duration = time.time() - start_time
-
-        for i, result in enumerate(results):
-            row, sample_example_id = rows_to_evaluate[i]
-
-            # Handle exceptions from batch processing (return_exceptions=True can return exceptions directly)
-            if isinstance(result, Exception):
-                self._handle_batch_exception(
-                    exception=result,
-                    sample_example_id=sample_example_id,
-                    row=row,
-                    eval_data=eval_data,
-                    builder=builder,
-                )
-                continue
-
-            # Unpack successful result
-            parse_result, llm_response = result
-
-            call_duration = total_duration / len(results) if results else 0
-
-            # Process XML parsing results
-            task_names = set(self.eval_task.task_schemas.keys())
-            parsed_tasks = set(parse_result.data.keys())
-
-            if parse_result.success and parsed_tasks == task_names:
-                # Perfect success - all tasks parsed successfully
-                outcomes = {}
-                for task_name in task_names:
-                    outcome = parse_result.data[task_name]
-                    outcomes[task_name] = cast(str, outcome)
-
-                builder.create_success_row(
-                    sample_example_id=sample_example_id,
-                    original_id=row[eval_data.id_column],
-                    outcomes=outcomes,
-                    llm_raw_response_content=llm_response.content,
-                    llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                    llm_completion_tokens=llm_response.usage.completion_tokens,
-                    llm_total_tokens=llm_response.usage.total_tokens,
-                    llm_call_duration_seconds=call_duration,
-                )
-            elif (
-                parse_result.partial_success
-                and parsed_tasks.issubset(task_names)
-                and len(parsed_tasks) > 0
-            ):
-                # Partial success - some tasks parsed successfully
-                outcomes = {}
-                for task_name in parsed_tasks:
-                    outcome = parse_result.data[task_name]
-                    outcomes[task_name] = cast(str, outcome)
-
-                error_message = f"XML parsing partial success. Missing tasks: {task_names - parsed_tasks}. Errors: {[str(e) for e in parse_result.errors]}"
-                builder.create_partial_row(
-                    sample_example_id=sample_example_id,
-                    original_id=row[eval_data.id_column],
-                    outcomes=outcomes,
-                    error_message=error_message,
-                    llm_raw_response_content=llm_response.content,
-                    llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                    llm_completion_tokens=llm_response.usage.completion_tokens,
-                    llm_total_tokens=llm_response.usage.total_tokens,
-                    llm_call_duration_seconds=call_duration,
-                )
             else:
-                # Complete parsing failure
-                error_message = f"XML parsing failed completely: {[str(e) for e in parse_result.errors]}"
-                builder.create_parsing_error_row(
-                    sample_example_id=sample_example_id,
-                    original_id=row[eval_data.id_column],
-                    error=ValueError(error_message),
-                    llm_raw_response_content=llm_response.content,
-                    llm_prompt_tokens=llm_response.usage.prompt_tokens,
-                    llm_completion_tokens=llm_response.usage.completion_tokens,
-                    llm_total_tokens=llm_response.usage.total_tokens,
-                    llm_call_duration_seconds=call_duration,
-                )
+                # No value restrictions - all extracted values are considered valid
+                valid_values = raw_values
 
-    async def _evaluate_rows_batch_structured(
-        self,
-        rows_to_evaluate: list[tuple[dict[str, Any], str]],
-        eval_data: EvalData,
-        llm_client: AsyncLLMClient,
-        builder: JudgeResultsBuilder,
-        batch_size: int,
-        max_concurrency: int,
-    ) -> None:
-        """Evaluate multiple rows using structured response method with batching."""
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
-
-        # Create the task class once for all requests
-        task_class = self.eval_task.create_task_class()
-
-        # Prepare batch items: (messages, response_model)
-        batch_items = []
-        for row, sample_example_id in rows_to_evaluate:
-            system_message = self._create_system_message(include_xml_instructions=False)
-            user_content = self._format_row_data(row)
-            user_message = Message(role=RoleEnum.USER, content=user_content)
-            messages = [system_message, user_message]
-            batch_items.append((messages, task_class))
-
-        # Execute batch and process results. Client will handle batching and concurrency.
-        results = await llm_client.prompt_with_structured_response_batch(
-            items=batch_items,
-            model=self.model,
-            batch_size=batch_size,
-            max_concurrency=max_concurrency,
-        )
-
-        # Process all results. Handle exceptions, extract outcomes, and create result rows.
-        await self._process_batch_results_structured(
-            results=results,
-            rows_to_evaluate=rows_to_evaluate,
-            eval_data=eval_data,
-            builder=builder,
-        )
-
-    async def _evaluate_rows_batch_xml(
-        self,
-        rows_to_evaluate: list[tuple[dict[str, Any], str]],
-        eval_data: EvalData,
-        llm_client: AsyncLLMClient,
-        builder: JudgeResultsBuilder,
-        batch_size: int,
-        max_concurrency: int,
-    ) -> None:
-        """Evaluate multiple rows using XML tags method with batching."""
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
-
-        # Create tag configs once for all requests
-        tag_configs = []
-        for task_name, outcomes in self.eval_task.task_schemas.items():
-            tag_configs.append(
-                TagConfig(
-                    name=task_name,
-                    allowed_values=outcomes,
-                    cardinality="one",
-                )
-            )
-
-        # Prepare batch items: (messages, tag_configs)
-        batch_items = []
-        for row, sample_example_id in rows_to_evaluate:
-            system_message = self._create_system_message(include_xml_instructions=True)
-            user_content = self._format_row_data(row)
-            user_message = Message(role=RoleEnum.USER, content=user_content)
-            messages = [system_message, user_message]
-            batch_items.append((messages, tag_configs))
-
-        # Execute batch and process results. Client will handle batching and concurrency.
-        results = await llm_client.prompt_with_xml_tags_batch(
-            items=batch_items,
-            model=self.model,
-            batch_size=batch_size,
-            max_concurrency=max_concurrency,
-        )
-
-        # Process all results. Handle exceptions, extract outcomes, and create result rows.
-        await self._process_batch_results_xml(
-            results=results,
-            rows_to_evaluate=rows_to_evaluate,
-            eval_data=eval_data,
-            builder=builder,
-        )
-
-    async def evaluate_eval_data_async(
-        self,
-        eval_data: EvalData,
-        llm_client: AsyncLLMClient,
-        run_id: str,
-        batch_size: int = 10,
-        max_concurrency: int = 5,
-    ) -> JudgeResults:
-        """Evaluate the input EvalData using the configured Judge with async batching.
-
-        This method provides the same functionality as evaluate_eval_data but uses
-        async batching for better performance when processing large datasets.
-
-        Args:
-            eval_data (EvalData): The EvalData instance to be evaluated.
-            llm_client (AsyncLLMClient): The AsyncLLMClient instance to be used for evaluation.
-            run_id (str): A unique identifier for the evaluation run.
-            batch_size (int): Number of requests to process in each batch. Defaults to 10.
-            max_concurrency (int): Maximum number of concurrent requests. Defaults to 5.
-
-        Returns:
-            JudgeResults: A JudgeResults instance containing the results of the evaluation.
-
-        Raises:
-            IncorrectClientError: If the LLMClient is not equal to the configured LLMClient.
-        """
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
-
-        # Validate LLM client matches configuration
-        if llm_client.enum_value != self.llm_client_enum:
-            raise IncorrectClientError(
-                expected_client=self.llm_client_enum,
-                actual_client=llm_client.enum_value,
-            )
-
-        # Create builder
-        expected_ids = eval_data.data[eval_data.id_column].to_list()
-        builder = JudgeResultsBuilder(
-            run_id=run_id,
-            judge_id=self.id,
-            llm_client_enum=self.llm_client_enum,
-            model_used=self.model,
-            task_schemas=self.eval_task.task_schemas,
-            expected_ids=expected_ids,
-            is_sampled_run=isinstance(eval_data, SampleEvalData),
-        )
-
-        # Collect all rows that need evaluation
-        rows_to_evaluate = []
-        total_count = 0
-        for row in self._get_dicts_as_generator(eval_data):
-            total_count += 1
-            sample_example_id = f"{run_id}_{total_count}"
-
-            # Check if this row should be skipped
-            if self.eval_task.skip_function and self.eval_task.skip_function(row):
-                builder.create_skipped_row(
-                    sample_example_id=sample_example_id,
-                    original_id=row[eval_data.id_column],
-                )
+            # Step 4: Check if we have any valid values after filtering
+            if not valid_values:
+                # All values were invalid - no data entry, errors already recorded above
                 continue
 
-            rows_to_evaluate.append((row, sample_example_id))
+            # Step 5: Apply cardinality constraints to valid values
+            if config.cardinality == "one":
+                # Expect exactly one valid value
+                if len(valid_values) == 1:
+                    # Perfect - exactly one valid value
+                    data[config.name] = valid_values[0]
+                else:
+                    # Multiple valid values found - handle according to multiple_handling strategy
 
-        if not rows_to_evaluate:
-            # All rows were skipped, return the completed builder
-            return builder.complete()
+                    # Allow if all values are the same
+                    if config.multiple_handling == "error_if_different":
+                        # Check if all values are identical
+                        unique_values = list(set(valid_values))
+                        if len(unique_values) == 1:
+                            # All values are the same - accept the common value
+                            data[config.name] = unique_values[0]
+                        else:
+                            # Multiple different values - this is an error
+                            errors.append(
+                                ParseError(
+                                    error_type=ErrorType.MULTIPLE_VALUES_CONFLICT,
+                                    tag_name=config.name,
+                                    message=f"Multiple different values for '{config.name}': "
+                                    f"{valid_values}",
+                                    found_values=valid_values,
+                                )
+                            )
 
-        # Process based on answering method
-        if self.eval_task.answering_method == "structured":
-            await self._evaluate_rows_batch_structured(
-                rows_to_evaluate=rows_to_evaluate,
-                eval_data=eval_data,
-                llm_client=llm_client,
-                builder=builder,
-                batch_size=batch_size,
-                max_concurrency=max_concurrency,
-            )
-        else:  # xml
-            await self._evaluate_rows_batch_xml(
-                rows_to_evaluate=rows_to_evaluate,
-                eval_data=eval_data,
-                llm_client=llm_client,
-                builder=builder,
-                batch_size=batch_size,
-                max_concurrency=max_concurrency,
-            )
+                    # Allow all different values
+                    elif config.multiple_handling == "allow_both":
+                        # Accept multiple values as a list despite cardinality="one"
+                        data[config.name] = valid_values
 
-        # Complete the builder and return JudgeResults
-        return builder.complete()
+                    # Generate error if "error" specified or if undefined
+                    else:
+                        if config.multiple_handling != "error":
+                            logging.warning(
+                                f"Multiple handling {config.multiple_handling} not supported for {config.name}. "
+                                "Assuming config.multiple_handling == 'error'."
+                            )
+                        errors.append(
+                            ParseError(
+                                error_type=ErrorType.CARDINALITY_MISMATCH,
+                                tag_name=config.name,
+                                message=f"Expected exactly 1 value for '{config.name}', "
+                                f"found {len(valid_values)}",
+                                found_values=valid_values,
+                            )
+                        )
+
+            elif config.cardinality == "many":
+                # Expect one or more valid values (empty list after filtering is an error)
+                # Note: We already checked `not valid_values` above, so we have 1+ values here
+                data[config.name] = valid_values
+
+        return ParseResult(data=data, errors=errors)

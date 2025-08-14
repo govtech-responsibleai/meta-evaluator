@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Literal, Optional, cast
 
@@ -18,28 +17,13 @@ from ..data import EvalData, SampleEvalData
 from ..data.serialization import DataMetadata
 from ..eval_task import EvalTask
 from ..eval_task.serialization import EvalTaskState
-from ..llm_client.async_azureopenai_client import (
-    AsyncAzureOpenAIClient,
-    AsyncAzureOpenAIConfig,
-)
-from ..llm_client.async_openai_client import AsyncOpenAIClient, AsyncOpenAIConfig
-from ..llm_client.azureopenai_client import AzureOpenAIClient, AzureOpenAIConfig
-from ..llm_client.enums import AsyncLLMClientEnum, LLMClientEnum
-from ..llm_client.openai_client import OpenAIClient, OpenAIConfig
-from ..llm_client.serialization import (
-    AzureOpenAISerializedState,
-    OpenAISerializedState,
-)
-from .clients import ClientsMixin
 from .exceptions import (
-    ClientNotFoundError,
     DataAlreadyExistsError,
     DataFormatError,
     EvalDataNotFoundError,
     EvalTaskAlreadyExistsError,
     EvalTaskNotFoundError,
     InvalidFileError,
-    MissingConfigurationError,
 )
 from .judge import JudgesMixin
 from .scoring import ScoringMixin
@@ -76,19 +60,18 @@ class Paths:
             path.mkdir(parents=True, exist_ok=True)
 
 
-class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
-    """Main class for managing evaluation workflows with LLM clients, data, and evaluation tasks.
+class MetaEvaluator(JudgesMixin, ScoringMixin):
+    """Main class for managing evaluation workflows with LLMs, data, and evaluation tasks.
 
     The MetaEvaluator provides a unified interface for:
     - Managing the evaluation dataset
     - Managing the evaluation task
-    - Managing multiple LLM client configurations (OpenAI, Azure OpenAI)
-    - Managing judges for evaluation
+    - Managing judges with various LLM providers (via litellm)
     - Initialising the annotator interface
     - Loading judge and human annotation results
     - Comparing judge and human results using various scoring metrics
     - Serializing and deserializing complete evaluation states
-    - Supporting both structured and XML-based evaluation methods
+    - Supporting structured outputs, instructor, and XML-based evaluation methods
     """
 
     def __init__(self, project_dir: Optional[str] = None):
@@ -274,55 +257,10 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
         Returns:
             Complete state object ready for JSON serialization.
         """
-        client_registry, async_client_registry = self._serialize_all_clients()
         return MetaEvaluatorState(
-            client_registry=client_registry,
-            async_client_registry=async_client_registry,
             data=self._serialize_data(include_data, data_format, data_filename),
             eval_task=self._serialize_eval_task(include_task),
         )
-
-    def _serialize_all_clients(self) -> tuple[dict[str, dict], dict[str, dict]]:
-        """Serialize both sync and async clients using individual client serializers.
-
-        Returns:
-            Tuple containing (sync_clients_dict, async_clients_dict) with client type names
-            mapped to their serialized configurations.
-        """
-        # Serialize sync clients
-        serialized_clients = {}
-        for client_enum, client in self.client_registry.items():
-            client_data = self._serialize_single_client(client_enum, client)
-            # ASSERT: api_key not in client_data
-            assert "api_key" not in str(client_data), (
-                f"API key found in serialized {client_enum.value} client"
-            )
-            serialized_clients[client_enum.value] = client_data
-
-        # Serialize async clients
-        serialized_async_clients = {}
-        for client_enum, client in self.async_client_registry.items():
-            client_data = self._serialize_single_client(client_enum, client)
-            # ASSERT: api_key not in client_data
-            assert "api_key" not in str(client_data), (
-                f"API key found in serialized async {client_enum.value} client"
-            )
-            serialized_async_clients[client_enum.value] = client_data
-
-        return serialized_clients, serialized_async_clients
-
-    def _serialize_single_client(self, client_enum, client) -> dict:
-        """Serialize a single client (sync or async) using its config's serialize method.
-
-        Args:
-            client_enum: The LLM client enum type (sync or async).
-            client: The LLM client instance (sync or async).
-
-        Returns:
-            Serialized client configuration dictionary.
-        """
-        serialized_state = client.config.serialize()
-        return serialized_state.model_dump(mode="json")
 
     def _serialize_data(
         self,
@@ -375,8 +313,6 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
         state_filename: str = "main_state.json",
         load_data: bool = True,
         load_task: bool = True,
-        openai_api_key: Optional[str] = None,
-        azure_openai_api_key: Optional[str] = None,
     ) -> "MetaEvaluator":
         """Load MetaEvaluator state from JSON file with automatic data loading.
 
@@ -386,7 +322,6 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
         and loaded based on information stored in the state.
 
         The loaded evaluator will include:
-        - LLM client configurations (requires API keys to be provided or in environment)
         - Evaluation task configuration (task schemas, input/output columns, answering method)
         - Data files (if load_data=True and data was included in the saved state)
 
@@ -395,13 +330,11 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
             state_filename: Filename of the state JSON file. Defaults to 'main_state.json'.
             load_data: Whether to load the data file referenced in the state. Defaults to True.
                 When True, automatically finds and loads the data file that was saved with this state.
-                When False, only loads client configurations and skips data loading.
+                When False, skips data loading.
             load_task: Whether to load the evaluation task configuration. Defaults to True.
                 When True, loads the evaluation task with all its configuration including
                 task schemas, input/output columns, and answering method.
                 When False, skips evaluation task loading.
-            openai_api_key: API key for OpenAI clients. If None, will look for OPENAI_API_KEY in environment.
-            azure_openai_api_key: API key for Azure OpenAI clients. If None, will look for AZURE_OPENAI_API_KEY in environment.
 
         Returns:
             MetaEvaluator: A new MetaEvaluator instance loaded from the JSON state.
@@ -425,8 +358,6 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
             project_dir=project_dir,
             load_data=load_data,
             load_task=load_task,
-            openai_api_key=openai_api_key,
-            azure_openai_api_key=azure_openai_api_key,
         )
 
     @classmethod
@@ -459,8 +390,6 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
         project_dir: str,
         load_data: bool = True,
         load_task: bool = True,
-        openai_api_key: Optional[str] = None,
-        azure_openai_api_key: Optional[str] = None,
     ) -> "MetaEvaluator":
         """Deserialize MetaEvaluatorState to MetaEvaluator instance.
 
@@ -469,8 +398,6 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
             project_dir: Project directory containing the evaluation files.
             load_data: Whether to load the data file referenced in the state.
             load_task: Whether to load the evaluation task configuration.
-            openai_api_key: API key for OpenAI clients.
-            azure_openai_api_key: API key for Azure OpenAI clients.
 
         Returns:
             MetaEvaluator: A new MetaEvaluator instance.
@@ -478,19 +405,7 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
         # Create new MetaEvaluator instance with project_dir
         evaluator = cls(project_dir)
 
-        # Use environment variables if API keys are not provided
-        openai_api_key = openai_api_key or os.getenv(_OPENAI_API_KEY_ENV_VAR)
-        azure_openai_api_key = azure_openai_api_key or os.getenv(
-            _AZURE_OPENAI_API_KEY_ENV_VAR
-        )
-
-        # Reconstruct all clients (both sync and async)
-        evaluator._reconstruct_all_clients(
-            state.client_registry,
-            state.async_client_registry,
-            openai_api_key,
-            azure_openai_api_key,
-        )
+        # Client reconstruction is no longer needed since judges handle their own LLM clients
 
         # Load data if requested and available
         if load_data and state.data is not None:
@@ -501,117 +416,6 @@ class MetaEvaluator(ClientsMixin, JudgesMixin, ScoringMixin):
             evaluator._reconstruct_task(state.eval_task)
 
         return evaluator
-
-    def _reconstruct_all_clients(
-        self,
-        client_registry_data: dict,
-        async_client_registry_data: dict,
-        openai_api_key: Optional[str],
-        azure_openai_api_key: Optional[str],
-    ) -> None:
-        """Reconstruct all clients (both sync and async) from serialized data.
-
-        Args:
-            client_registry_data: Dictionary of serialized sync client configurations.
-            async_client_registry_data: Dictionary of serialized async client configurations.
-            openai_api_key: API key for OpenAI clients.
-            azure_openai_api_key: API key for Azure OpenAI clients.
-        """
-        # Reconstruct sync clients
-        for client_type_str, client_data in client_registry_data.items():
-            client_enum = LLMClientEnum(client_type_str)
-            self._reconstruct_single_sync_client(
-                client_enum, client_data, openai_api_key, azure_openai_api_key
-            )
-
-        # Reconstruct async clients
-        for client_type_str, client_data in async_client_registry_data.items():
-            client_enum = AsyncLLMClientEnum(client_type_str)
-            self._reconstruct_single_async_client(
-                client_enum, client_data, openai_api_key, azure_openai_api_key
-            )
-
-    def _reconstruct_single_sync_client(
-        self,
-        client_enum: LLMClientEnum,
-        client_data: dict,
-        openai_api_key: Optional[str],
-        azure_openai_api_key: Optional[str],
-    ) -> None:
-        """Reconstruct a single sync client from serialized data using config deserialization.
-
-        Args:
-            client_enum: The sync client type enum.
-            client_data: Serialized sync client configuration.
-            openai_api_key: API key for OpenAI clients.
-            azure_openai_api_key: API key for Azure OpenAI clients.
-
-        Raises:
-            ClientNotFoundError: If client type is not supported.
-            MissingConfigurationError: If required API keys are missing.
-        """
-        match client_enum:
-            case LLMClientEnum.OPENAI:
-                if not openai_api_key:
-                    raise MissingConfigurationError(
-                        "api_key (or OPENAI_API_KEY environment variable)"
-                    )
-                state = OpenAISerializedState.model_validate(client_data)
-                config = OpenAIConfig.deserialize(state, openai_api_key)
-                client = OpenAIClient(config)
-                self.client_registry[client_enum] = client
-            case LLMClientEnum.AZURE_OPENAI:
-                if not azure_openai_api_key:
-                    raise MissingConfigurationError(
-                        "api_key (or AZURE_OPENAI_API_KEY environment variable)"
-                    )
-                state = AzureOpenAISerializedState.model_validate(client_data)
-                config = AzureOpenAIConfig.deserialize(state, azure_openai_api_key)
-                client = AzureOpenAIClient(config)
-                self.client_registry[client_enum] = client
-            case _:
-                raise ClientNotFoundError(client_enum.value)
-
-    def _reconstruct_single_async_client(
-        self,
-        client_enum: AsyncLLMClientEnum,
-        client_data: dict,
-        openai_api_key: Optional[str],
-        azure_openai_api_key: Optional[str],
-    ) -> None:
-        """Reconstruct a single async client from serialized data using config deserialization.
-
-        Args:
-            client_enum: The async client type enum.
-            client_data: Serialized async client configuration.
-            openai_api_key: API key for OpenAI clients.
-            azure_openai_api_key: API key for Azure OpenAI clients.
-
-        Raises:
-            ClientNotFoundError: If client type is not supported.
-            MissingConfigurationError: If required API keys are missing.
-        """
-        match client_enum:
-            case AsyncLLMClientEnum.OPENAI:
-                if not openai_api_key:
-                    raise MissingConfigurationError(
-                        "api_key (or OPENAI_API_KEY environment variable)"
-                    )
-                state = OpenAISerializedState.model_validate(client_data)
-                config = AsyncOpenAIConfig.deserialize(state, openai_api_key)
-                client = AsyncOpenAIClient(config)
-                self.async_client_registry[client_enum] = client
-            case AsyncLLMClientEnum.AZURE_OPENAI:
-                if not azure_openai_api_key:
-                    raise MissingConfigurationError(
-                        "api_key (or AZURE_OPENAI_API_KEY environment variable)"
-                    )
-                state = AzureOpenAISerializedState.model_validate(client_data)
-                config = AsyncAzureOpenAIConfig.deserialize(state, azure_openai_api_key)
-                client = AsyncAzureOpenAIClient(config)
-                self.async_client_registry[client_enum] = client
-            case _:
-                raise ClientNotFoundError(client_enum.value)
 
     def _reconstruct_task(self, state: EvalTaskState) -> None:
         """Reconstruct the evaluation task from serialized data.

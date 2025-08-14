@@ -14,4 +14,5 @@ class EvalTaskState(BaseModel):
     task_schemas: Dict[str, Optional[List[str]]]
     prompt_columns: Optional[List[str]]
     response_columns: List[str]
-    answering_method: Literal["structured", "xml"]
+    answering_method: Literal["structured", "instructor", "xml"]
+    structured_outputs_fallback: bool = False

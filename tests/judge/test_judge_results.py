@@ -6,7 +6,6 @@ from meta_evaluator.common.error_constants import (
     INVALID_JSON_STRUCTURE_MSG,
     STATE_FILE_NOT_FOUND_MSG,
 )
-from meta_evaluator.llm_client import LLMClientEnum
 from meta_evaluator.results import JudgeResults, JudgeResultsBuilder
 from meta_evaluator.results.exceptions import (
     BuilderInitializationError,
@@ -26,7 +25,7 @@ class TestJudgeResultsBuilder:
         """Test successful builder initialization."""
         assert base_judge_results_builder.run_id == "test_run_123"
         assert base_judge_results_builder.evaluator_id == "test_judge_1"
-        assert base_judge_results_builder.llm_client_enum == LLMClientEnum.OPENAI
+        assert base_judge_results_builder.llm_client == "openai"
         assert base_judge_results_builder.model_used == "gpt-4"
         assert base_judge_results_builder.task_schemas == {
             "sentiment": ["positive", "negative", "neutral"]
@@ -309,7 +308,7 @@ class TestJudgeResultsBuilder:
             JudgeResultsBuilder(
                 run_id="test_run_123",
                 judge_id="test_judge_1",
-                llm_client_enum=LLMClientEnum.OPENAI,
+                llm_client="openai",
                 model_used="gpt-4",
                 task_schemas={"sentiment": ["positive", "negative", "neutral"]},
                 expected_ids=[],  # Empty expected_ids should raise error
@@ -403,7 +402,7 @@ class TestJudgeResultsSerialization:
         # Verify loaded results match original
         assert loaded_results.run_id == sample_judge_results.run_id
         assert loaded_results.judge_id == sample_judge_results.judge_id
-        assert loaded_results.llm_client_enum == sample_judge_results.llm_client_enum
+        assert loaded_results.llm_client == sample_judge_results.llm_client
         assert loaded_results.model_used == sample_judge_results.model_used
         assert loaded_results.task_schemas == sample_judge_results.task_schemas
         assert loaded_results.total_count == sample_judge_results.total_count
@@ -512,7 +511,7 @@ class TestJudgeResultsSerialization:
 
         # Verify judge-specific fields are preserved
         assert reconstructed.judge_id == sample_judge_results.judge_id
-        assert reconstructed.llm_client_enum == sample_judge_results.llm_client_enum
+        assert reconstructed.llm_client == sample_judge_results.llm_client
         assert reconstructed.model_used == sample_judge_results.model_used
         assert reconstructed.partial_count == sample_judge_results.partial_count
         assert reconstructed.llm_error_count == sample_judge_results.llm_error_count
