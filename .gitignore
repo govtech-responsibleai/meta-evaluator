@@ -18,3 +18,11 @@ plan.md
 
 # Data directories
 */examples/demo_annotations/
+
+# Project directories - ignore contents but keep structure
+**/project_dir/*
+!**/project_dir/.gitkeep
+
+# Logs
+**/logs/*
+!**/logs/.gitkeep
