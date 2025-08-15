@@ -665,6 +665,67 @@ class TestMetaEvaluatorJudges:
                 judge_ids="judge1", save_results=True
             )
 
+    # === Judge Registry Serialization Tests ===
+
+    def test_load_judges_from_yaml_judge_registry_validation(
+        self, meta_evaluator_with_task, tmp_path
+    ):
+        """Test that load_judges_from_yaml correctly populates judge_registry."""
+        # Create test judges configuration
+        judges_config = [
+            {
+                "id": "test_judge_1",
+                "llm_client": "openai",
+                "model": "gpt-4",
+                "prompt_file": "prompt1.txt",
+            },
+            {
+                "id": "test_judge_2",
+                "llm_client": "anthropic",
+                "model": "claude-3",
+                "prompt_file": "prompt2.txt",
+            },
+        ]
+
+        # Create YAML file and prompt files
+        yaml_file = self.create_test_yaml_file(tmp_path, judges_config)
+        self.create_test_prompt_file(tmp_path, "prompt1.txt", "Evaluate prompt 1")
+        self.create_test_prompt_file(tmp_path, "prompt2.txt", "Evaluate prompt 2")
+
+        # Verify judge registry is initially empty
+        assert len(meta_evaluator_with_task.judge_registry) == 0
+
+        # Load judges from YAML
+        meta_evaluator_with_task.load_judges_from_yaml(str(yaml_file))
+
+        # Verify correct number of judges loaded
+        assert len(meta_evaluator_with_task.judge_registry) == 2
+
+        # Verify judges exist with correct IDs
+        assert "test_judge_1" in meta_evaluator_with_task.judge_registry
+        assert "test_judge_2" in meta_evaluator_with_task.judge_registry
+
+        # Verify judge objects are actual Judge instances
+        from meta_evaluator.judge import Judge
+
+        assert isinstance(
+            meta_evaluator_with_task.judge_registry["test_judge_1"], Judge
+        )
+        assert isinstance(
+            meta_evaluator_with_task.judge_registry["test_judge_2"], Judge
+        )
+
+        # Verify judge configuration
+        judge1 = meta_evaluator_with_task.judge_registry["test_judge_1"]
+        assert judge1.id == "test_judge_1"
+        assert judge1.llm_client == "openai"
+        assert judge1.model == "gpt-4"
+
+        judge2 = meta_evaluator_with_task.judge_registry["test_judge_2"]
+        assert judge2.id == "test_judge_2"
+        assert judge2.llm_client == "anthropic"
+        assert judge2.model == "claude-3"
+
 
 # === ASYNC JUDGE TESTS ===
 

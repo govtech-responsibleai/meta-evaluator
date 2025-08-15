@@ -573,3 +573,16 @@ class JudgesMixin:
         # Save results using save_state method
         state_filepath = self.paths.results / state_filename
         judge_results.save_state(str(state_filepath), results_format, data_filename)
+
+    def validate_judge_registry(self) -> None:
+        """Validate that judge_registry contains only Judge instances.
+
+        Raises:
+            JudgeNotFoundError: If judge_registry contains non-Judge values.
+        """
+        for judge_id, judge_instance in self.judge_registry.items():
+            if not isinstance(judge_instance, Judge):
+                raise JudgeNotFoundError(
+                    f"Judge registry contains non-Judge instance for key '{judge_id}': "
+                    f"got {type(judge_instance).__name__}, expected Judge"
+                )

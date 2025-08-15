@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Literal, Optional, cast
+from typing import Dict, Literal, Optional, cast
 
 from pydantic import ValidationError
 
@@ -17,6 +17,7 @@ from ..data import EvalData, SampleEvalData
 from ..data.serialization import DataMetadata
 from ..eval_task import EvalTask
 from ..eval_task.serialization import EvalTaskState
+from ..judge.serialization import JudgeState
 from .exceptions import (
     DataAlreadyExistsError,
     DataFormatError,
@@ -260,6 +261,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         return MetaEvaluatorState(
             data=self._serialize_data(include_data, data_format, data_filename),
             eval_task=self._serialize_eval_task(include_task),
+            judge_registry=self._serialize_judge_registry(),
         )
 
     def _serialize_data(
@@ -303,6 +305,19 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         serialized_state = self.eval_task.serialize()
 
         return serialized_state
+
+    def _serialize_judge_registry(self) -> Dict[str, JudgeState]:
+        """Serialize judge registry to JudgeState objects.
+
+        Returns:
+            Dictionary mapping judge IDs to their serialized JudgeState objects.
+        """
+        serialized_judges = {}
+        for judge_id, judge in self.judge_registry.items():
+            serialized_judges[judge_id] = judge.serialize()
+
+        self.logger.info(f"Serialized {len(serialized_judges)} judges from registry")
+        return serialized_judges
 
     # ===== DESERIALIZATION METHODS =====
 
@@ -415,6 +430,9 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         if load_task and state.eval_task is not None:
             evaluator._reconstruct_task(state.eval_task)
 
+        # Load judge registry
+        evaluator._reconstruct_judge_registry(state.judge_registry)
+
         return evaluator
 
     def _reconstruct_task(self, state: EvalTaskState) -> None:
@@ -447,6 +465,26 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
         # Add to evaluator
         self.add_data(eval_data, overwrite=True)
+
+    def _reconstruct_judge_registry(
+        self, serialized_judges: Dict[str, JudgeState]
+    ) -> None:
+        """Reconstruct the judge registry from serialized judge states.
+
+        Args:
+            serialized_judges: Dictionary mapping judge IDs to their JudgeState objects.
+        """
+        from ..judge import Judge
+
+        self.judge_registry = {}
+        for judge_id, judge_state in serialized_judges.items():
+            judge = Judge.deserialize(judge_state)
+            self.judge_registry[judge_id] = judge
+
+        self.logger.info(f"Reconstructed {len(serialized_judges)} judges in registry")
+
+        # Validate the reconstructed judge registry
+        self.validate_judge_registry()
 
     def launch_annotator(
         self,

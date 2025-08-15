@@ -416,3 +416,52 @@ class TestJudge:
                         assert mock_evaluate_structured.called
                         assert not mock_evaluate_instructor.called
                         assert not mock_evaluate_xml.called
+
+    # === Serialization Tests ===
+
+    def test_judge_serialize(self, basic_judge):
+        """Test that Judge can be serialized to JudgeState."""
+        judge_state = basic_judge.serialize()
+
+        # Check that all fields are preserved
+        assert judge_state.id == basic_judge.id
+        assert judge_state.llm_client == basic_judge.llm_client
+        assert judge_state.model == basic_judge.model
+        assert judge_state.prompt == basic_judge.prompt
+        assert judge_state.eval_task == basic_judge.eval_task.serialize()
+
+    def test_judge_deserialize(self, basic_judge):
+        """Test that Judge can be deserialized from JudgeState."""
+        # First serialize the judge
+        judge_state = basic_judge.serialize()
+
+        # Then deserialize it
+        deserialized_judge = Judge.deserialize(judge_state)
+
+        # Check that all fields match the original
+        assert deserialized_judge.id == basic_judge.id
+        assert deserialized_judge.llm_client == basic_judge.llm_client
+        assert deserialized_judge.model == basic_judge.model
+        assert deserialized_judge.prompt == basic_judge.prompt
+        assert (
+            deserialized_judge.eval_task.task_schemas
+            == basic_judge.eval_task.task_schemas
+        )
+        assert (
+            deserialized_judge.eval_task.prompt_columns
+            == basic_judge.eval_task.prompt_columns
+        )
+        assert (
+            deserialized_judge.eval_task.response_columns
+            == basic_judge.eval_task.response_columns
+        )
+        assert (
+            deserialized_judge.eval_task.answering_method
+            == basic_judge.eval_task.answering_method
+        )
+
+        # Verify the deserialized judge is frozen (immutable)
+        from pydantic_core import ValidationError
+
+        with pytest.raises(ValidationError, match="Instance is frozen"):
+            deserialized_judge.id = "new_id"

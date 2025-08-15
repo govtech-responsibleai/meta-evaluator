@@ -510,12 +510,20 @@ class TestMetaEvaluatorBase:
         meta_evaluator,
         sample_eval_data,
         basic_eval_task,
-        mock_openai_client,
     ):
         """Test complete save operation and verify actual file contents match expected structure."""
         # Set up complete MetaEvaluator state
         meta_evaluator.add_data(sample_eval_data)
         meta_evaluator.add_eval_task(basic_eval_task)
+
+        # Add judges to the evaluator
+        from meta_evaluator.common.models import Prompt
+
+        prompt1 = Prompt(id="test_prompt_1", prompt="Evaluate sentiment")
+        prompt2 = Prompt(id="test_prompt_2", prompt="Evaluate toxicity")
+
+        meta_evaluator.add_judge("judge_1", "openai", "gpt-4", prompt1)
+        meta_evaluator.add_judge("judge_2", "anthropic", "claude-3", prompt2)
 
         # Save state
         meta_evaluator.save_state(
@@ -534,6 +542,7 @@ class TestMetaEvaluatorBase:
         assert state_data["version"] == "1.0"
         assert "data" in state_data
         assert "eval_task" in state_data
+        assert "judge_registry" in state_data
 
         # Verify data structure
         data_config = state_data["data"]
@@ -552,9 +561,26 @@ class TestMetaEvaluatorBase:
         assert eval_task_config["response_columns"] == ["response"]
         assert eval_task_config["answering_method"] == "structured"
 
-        # Verify data file was created (this test uses parquet format)
-        # In real usage, actual data files may not be created by EvalData.write_data depending on format
-        # For this test, we're just verifying the state is saved correctly
+        # Verify judge registry structure
+        judge_registry = state_data["judge_registry"]
+        assert len(judge_registry) == 2
+        assert "judge_1" in judge_registry
+        assert "judge_2" in judge_registry
+
+        # Verify individual judge structure
+        judge_1_data = judge_registry["judge_1"]
+        assert judge_1_data["id"] == "judge_1"
+        assert judge_1_data["llm_client"] == "openai"
+        assert judge_1_data["model"] == "gpt-4"
+        assert judge_1_data["prompt"]["id"] == "test_prompt_1"
+        assert judge_1_data["prompt"]["prompt"] == "Evaluate sentiment"
+
+        judge_2_data = judge_registry["judge_2"]
+        assert judge_2_data["id"] == "judge_2"
+        assert judge_2_data["llm_client"] == "anthropic"
+        assert judge_2_data["model"] == "claude-3"
+        assert judge_2_data["prompt"]["id"] == "test_prompt_2"
+        assert judge_2_data["prompt"]["prompt"] == "Evaluate toxicity"
 
     def test_save_with_complex_file_paths(self, meta_evaluator, tmp_path):
         """Test saving with complex file paths including spaces and nested directories."""
@@ -679,6 +705,67 @@ class TestMetaEvaluatorBase:
             loaded_evaluator.eval_task.answering_method
             == basic_eval_task.answering_method
         )
+
+    def test_load_state_with_judge_registry(
+        self, tmp_path, sample_eval_data, basic_eval_task
+    ):
+        """Test loading MetaEvaluator with judge registry from JSON."""
+        # Create and save evaluator with data, evaluation task, and judges
+        original_evaluator = MetaEvaluator(str(tmp_path / "test_project"))
+        original_evaluator.add_data(sample_eval_data)
+        original_evaluator.add_eval_task(basic_eval_task)
+
+        # Add judges to the evaluator
+        from meta_evaluator.common.models import Prompt
+
+        prompt1 = Prompt(id="test_prompt_1", prompt="Evaluate sentiment")
+        prompt2 = Prompt(id="test_prompt_2", prompt="Evaluate toxicity")
+
+        original_evaluator.add_judge("judge_1", "openai", "gpt-4", prompt1)
+        original_evaluator.add_judge("judge_2", "anthropic", "claude-3", prompt2)
+
+        original_evaluator.save_state(
+            "test_state_with_judges.json", include_data=True, data_format="json"
+        )
+
+        # Load from JSON
+        loaded_evaluator = MetaEvaluator.load_state(
+            project_dir=str(original_evaluator.project_dir),
+            state_filename="test_state_with_judges.json",
+            load_data=True,
+        )
+
+        # Verify judge registry was loaded correctly
+        assert len(loaded_evaluator.judge_registry) == 2
+        assert "judge_1" in loaded_evaluator.judge_registry
+        assert "judge_2" in loaded_evaluator.judge_registry
+
+        # Verify judges are actual Judge instances
+        from meta_evaluator.judge import Judge
+
+        assert isinstance(loaded_evaluator.judge_registry["judge_1"], Judge)
+        assert isinstance(loaded_evaluator.judge_registry["judge_2"], Judge)
+
+        # Verify judge configurations match original
+        judge_1 = loaded_evaluator.judge_registry["judge_1"]
+        assert judge_1.id == "judge_1"
+        assert judge_1.llm_client == "openai"
+        assert judge_1.model == "gpt-4"
+        assert judge_1.prompt.id == "test_prompt_1"
+        assert judge_1.prompt.prompt == "Evaluate sentiment"
+
+        judge_2 = loaded_evaluator.judge_registry["judge_2"]
+        assert judge_2.id == "judge_2"
+        assert judge_2.llm_client == "anthropic"
+        assert judge_2.model == "claude-3"
+        assert judge_2.prompt.id == "test_prompt_2"
+        assert judge_2.prompt.prompt == "Evaluate toxicity"
+
+        # Verify judges are frozen (immutable)
+        from pydantic_core import ValidationError
+
+        with pytest.raises(ValidationError, match="Instance is frozen"):
+            judge_1.id = "new_id"
 
     def test_load_state_skip_data_and_eval_task_loading(
         self, tmp_path, sample_eval_data, basic_eval_task, mock_openai_client
