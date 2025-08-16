@@ -6,6 +6,8 @@ import logging
 import sys
 import time
 
+import dotenv
+
 from meta_evaluator.data import DataLoader, EvalData
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.meta_evaluator import MetaEvaluator
@@ -16,6 +18,8 @@ from meta_evaluator.scores.metrics import (
     CohensKappaScorer,
     TextSimilarityScorer,
 )
+
+dotenv.load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,6 +49,7 @@ def rejection_task() -> EvalTask:
         prompt_columns=["prompt"],  # Column name of the prompt to evaluate
         response_columns=["llm_response"],  # Column name of the response to evaluate
         answering_method="structured",
+        structured_outputs_fallback=True,  # Enable fallback to other methods if structured is not supported
     )
     return task
 

@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import instructor
 from litellm import acompletion
@@ -79,6 +79,7 @@ class AsyncEvaluationMixin(ABC):
                         sample_example_id=sample_example_id,
                         task_class=task_class,
                         builder=builder,
+                        fallback_enabled=True,
                     )
                     return  # Success, exit early
                 elif method == "instructor":
@@ -97,6 +98,7 @@ class AsyncEvaluationMixin(ABC):
                         task_class=task_class,
                         builder=builder,
                         messages=messages,
+                        fallback_enabled=True,
                     )
                     return  # Success, exit early
                 elif method == "xml":
@@ -106,19 +108,17 @@ class AsyncEvaluationMixin(ABC):
                         sample_example_id=sample_example_id,
                         tag_configs=tag_configs,
                         builder=builder,
+                        fallback_enabled=True,
                     )
                     return  # Success, exit early
 
-            except UnsupportedFormatMethodError as e:
+            except Exception as e:
                 # This method is not supported, try the next one
                 last_error = e
                 self.logger.warning(
-                    f"Method '{method}' not supported, trying next fallback method"
+                    f"Error: {e} | Method '{method}' not supported, trying next fallback method"
                 )
                 continue
-            except Exception as e:
-                # Other errors should not trigger fallback, they indicate actual failure
-                raise e
 
         # All methods failed, raise the last UnsupportedFormatMethodError
         if last_error:
@@ -139,6 +139,7 @@ class AsyncEvaluationMixin(ABC):
         sample_example_id: str,
         task_class: type[BaseModel],
         builder: JudgeResultsBuilder,
+        fallback_enabled: bool = False,
     ) -> None:
         """Evaluate a single row using structured response method (async version).
 
@@ -148,6 +149,7 @@ class AsyncEvaluationMixin(ABC):
             sample_example_id: Unique identifier for this sample
             task_class: The dynamically created Pydantic model for responses
             builder: The JudgeResultsBuilder instance
+            fallback_enabled: Whether fallback is enabled
 
         Raises:
             UnsupportedFormatMethodError: If the answering method is not supported.
@@ -156,7 +158,6 @@ class AsyncEvaluationMixin(ABC):
         assert eval_data.id_column is not None, (
             f"EvalData {eval_data.name} has no ID column, but was expected to have one."
         )
-
         try:
             # Create messages
             system_message = self._create_system_message(include_xml_instructions=False)  # type: ignore
@@ -171,6 +172,9 @@ class AsyncEvaluationMixin(ABC):
 
             # Check if model supports structured output
             if not supports_response_schema(model=full_model_name):
+                self.logger.info(
+                    f"Model {full_model_name} does not support structured output"
+                )
                 # Raise exception suggesting alternatives instead of auto-fallback
                 raise UnsupportedFormatMethodError(
                     method="structured",
@@ -244,6 +248,9 @@ class AsyncEvaluationMixin(ABC):
                 )
 
         except LLMAPIError as llm_error:
+            if fallback_enabled:
+                raise llm_error
+
             # LLM API error
             builder.create_llm_error_row(
                 sample_example_id=sample_example_id,
@@ -252,6 +259,9 @@ class AsyncEvaluationMixin(ABC):
             )
 
         except Exception as unexpected_error:
+            if fallback_enabled:
+                raise unexpected_error
+
             # Any other unexpected error (e.g., message creation, network issues)
             builder.create_other_error_row(
                 sample_example_id=sample_example_id,
@@ -267,6 +277,7 @@ class AsyncEvaluationMixin(ABC):
         task_class: type[BaseModel],
         builder: JudgeResultsBuilder,
         messages: list[Message],
+        fallback_enabled: bool = False,
     ) -> None:
         """Evaluate a single row using instructor for structured response (async version).
 
@@ -277,6 +288,7 @@ class AsyncEvaluationMixin(ABC):
             task_class: The dynamically created Pydantic model for responses
             builder: The JudgeResultsBuilder instance
             messages: Pre-created messages for the LLM
+            fallback_enabled: Whether fallback is enabled
         """
         assert eval_data.id_column is not None, (
             f"EvalData {eval_data.name} has no ID column, but was expected to have one."
@@ -341,6 +353,9 @@ class AsyncEvaluationMixin(ABC):
             )
 
         except Exception as unexpected_error:
+            if fallback_enabled:
+                raise unexpected_error
+
             # Any unexpected error (LLM API error, instructor error, etc.)
             builder.create_other_error_row(
                 sample_example_id=sample_example_id,
@@ -355,6 +370,7 @@ class AsyncEvaluationMixin(ABC):
         sample_example_id: str,
         tag_configs: list[TagConfig],
         builder: JudgeResultsBuilder,
+        fallback_enabled: bool = False,
     ) -> None:
         """Evaluate a single row using XML tags method (async version).
 
@@ -364,6 +380,7 @@ class AsyncEvaluationMixin(ABC):
             sample_example_id: Unique identifier for this sample
             tag_configs: List of TagConfigs for parsing XML response (one per task)
             builder: The JudgeResultsBuilder instance
+            fallback_enabled: Whether fallback is enabled
         """
         assert eval_data.id_column is not None, (
             f"EvalData {eval_data.name} has no ID column, but was expected to have one."
@@ -437,6 +454,9 @@ class AsyncEvaluationMixin(ABC):
             )
 
         except LLMAPIError as llm_error:
+            if fallback_enabled:
+                raise llm_error
+
             # LLM API error
             builder.create_llm_error_row(
                 sample_example_id=sample_example_id,
@@ -445,6 +465,9 @@ class AsyncEvaluationMixin(ABC):
             )
 
         except Exception as unexpected_error:
+            if fallback_enabled:
+                raise unexpected_error
+
             # Any other unexpected error (e.g., message creation, network issues)
             builder.create_other_error_row(
                 sample_example_id=sample_example_id,
@@ -456,7 +479,7 @@ class AsyncEvaluationMixin(ABC):
     # ASYNC METHODS #
     #################
 
-    async def _evaluate_rows_batch_structured(
+    async def _evaluate_rows_batch(
         self,
         rows_to_evaluate: list[tuple[dict[str, Any], str]],
         eval_data: EvalData,
@@ -464,155 +487,110 @@ class AsyncEvaluationMixin(ABC):
         batch_size: int,
         max_concurrency: int,
     ) -> None:
-        """Evaluate multiple rows using structured response method with batching."""
+        """Unified batch evaluation method supporting all answering methods and fallback.
+
+        Args:
+            rows_to_evaluate: List of (row, sample_id) tuples to evaluate
+            eval_data: The EvalData instance
+            builder: The JudgeResultsBuilder instance
+            batch_size: Number of requests to process in each batch (unused in current implementation)
+            max_concurrency: Maximum number of concurrent requests
+            method: Specific method to use. If None, uses fallback logic when enabled
+        """
         assert eval_data.id_column is not None, (
             f"EvalData {eval_data.name} has no ID column, but was expected to have one."
         )
 
-        # Create the task class once for all requests
+        # Pre-create models/configs once to avoid recreating in loop
+        task_class: Optional[type[BaseModel]] = None
+        tag_configs: Optional[list[TagConfig]] = None
+
         task_class = self.eval_task.create_task_class()
-
-        # Prepare batch items: (messages, response_model)
-        batch_items = []
-        for row, sample_example_id in rows_to_evaluate:
-            system_message = self._create_system_message(include_xml_instructions=False)  # type: ignore
-            user_content = self._format_row_data(row)  # type: ignore
-            user_message = Message(role=RoleEnum.USER, content=user_content)
-            messages = [system_message, user_message]
-            batch_items.append((messages, task_class))
+        # If fallback is enabled, always create both task_class and tag_configs
+        if (
+            self.eval_task.structured_outputs_fallback
+            or self.eval_task.answering_method == "xml"
+        ):
+            tag_configs = []
+            for task_name, outcomes in self.eval_task.task_schemas.items():
+                tag_configs.append(
+                    TagConfig(
+                        name=task_name,
+                        allowed_values=outcomes,
+                        cardinality="one",
+                    )
+                )
 
         # Execute batch using concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def process_single_row(row_data, sample_id, task_cls):
+        async def process_single_row(row_data, sample_id):
             async with semaphore:
-                # Use the existing async structured evaluation method
-                await self._evaluate_row_structured_async(
-                    row=row_data,
-                    eval_data=eval_data,
-                    sample_example_id=sample_id,
-                    task_class=task_cls,
-                    builder=builder,
-                )
+                if self.eval_task.structured_outputs_fallback:
+                    # Use fallback evaluation method
+                    assert task_class is not None, (
+                        "task_class should be set for fallback mode"
+                    )
+                    assert tag_configs is not None, (
+                        "tag_configs should be set for fallback mode"
+                    )
+                    await self._evaluate_row_with_fallback_async(
+                        row=row_data,
+                        eval_data=eval_data,
+                        sample_example_id=sample_id,
+                        task_class=task_class,
+                        tag_configs=tag_configs,
+                        builder=builder,
+                    )
+                else:
+                    # Use specific method
+                    if self.eval_task.answering_method == "structured":
+                        assert task_class is not None, (
+                            "task_class was to be set previously"
+                        )
+                        await self._evaluate_row_structured_async(
+                            row=row_data,
+                            eval_data=eval_data,
+                            sample_example_id=sample_id,
+                            task_class=task_class,
+                            builder=builder,
+                        )
+                    elif self.eval_task.answering_method == "instructor":
+                        assert task_class is not None, (
+                            "task_class was to be set previously"
+                        )
+                        # Create messages for instructor method
+                        system_message = self._create_system_message(  # type: ignore
+                            include_xml_instructions=False
+                        )
+                        user_content = self._format_row_data(row_data)  # type: ignore
+                        user_message = Message(role=RoleEnum.USER, content=user_content)
+                        messages = [system_message, user_message]
 
-        # Create tasks for all rows
-        tasks = []
-        for (row, sample_example_id), (messages, task_cls) in zip(
-            rows_to_evaluate, batch_items
-        ):
-            task = process_single_row(row, sample_example_id, task_cls)
-            tasks.append(task)
+                        await self._evaluate_row_instructor_async(
+                            row=row_data,
+                            eval_data=eval_data,
+                            sample_example_id=sample_id,
+                            task_class=task_class,
+                            builder=builder,
+                            messages=messages,
+                        )
+                    elif self.eval_task.answering_method == "xml":
+                        assert tag_configs is not None, (
+                            "tag_configs was to be set previously"
+                        )
+                        await self._evaluate_row_xml_async(
+                            row=row_data,
+                            eval_data=eval_data,
+                            sample_example_id=sample_id,
+                            tag_configs=tag_configs,
+                            builder=builder,
+                        )
 
-        # Execute all tasks concurrently
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-    async def _evaluate_rows_batch_xml(
-        self,
-        rows_to_evaluate: list[tuple[dict[str, Any], str]],
-        eval_data: EvalData,
-        builder: JudgeResultsBuilder,
-        batch_size: int,
-        max_concurrency: int,
-    ) -> None:
-        """Evaluate multiple rows using XML tags method with batching."""
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
-
-        # Create tag configs once for all requests
-        tag_configs = []
-        for task_name, outcomes in self.eval_task.task_schemas.items():
-            tag_configs.append(
-                TagConfig(
-                    name=task_name,
-                    allowed_values=outcomes,
-                    cardinality="one",
-                )
-            )
-
-        # Prepare batch items: (messages, tag_configs)
-        batch_items = []
-        for row, sample_example_id in rows_to_evaluate:
-            system_message = self._create_system_message(include_xml_instructions=True)  # type: ignore
-            user_content = self._format_row_data(row)  # type: ignore
-            user_message = Message(role=RoleEnum.USER, content=user_content)
-            messages = [system_message, user_message]
-            batch_items.append((messages, tag_configs))
-
-        # Execute batch using concurrency control
-        semaphore = asyncio.Semaphore(max_concurrency)
-
-        async def process_single_row(row_data, sample_id, tag_cfgs):
-            async with semaphore:
-                # Use the existing async XML evaluation method
-                await self._evaluate_row_xml_async(
-                    row=row_data,
-                    eval_data=eval_data,
-                    sample_example_id=sample_id,
-                    tag_configs=tag_cfgs,
-                    builder=builder,
-                )
-
-        # Create tasks for all rows
-        tasks = []
-        for (row, sample_example_id), (messages, tag_cfgs) in zip(
-            rows_to_evaluate, batch_items
-        ):
-            task = process_single_row(row, sample_example_id, tag_cfgs)
-            tasks.append(task)
-
-        # Execute all tasks concurrently
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-    async def _evaluate_rows_batch_instructor(
-        self,
-        rows_to_evaluate: list[tuple[dict[str, Any], str]],
-        eval_data: EvalData,
-        builder: JudgeResultsBuilder,
-        batch_size: int,
-        max_concurrency: int,
-    ) -> None:
-        """Evaluate multiple rows using instructor method with batching."""
-        assert eval_data.id_column is not None, (
-            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
-        )
-
-        # Create the task class once for all requests
-        task_class = self.eval_task.create_task_class()
-
-        # Prepare batch items: (messages, task_class)
-        batch_items = []
-        for row, sample_example_id in rows_to_evaluate:
-            system_message = self._create_system_message(include_xml_instructions=False)  # type: ignore
-            user_content = self._format_row_data(row)  # type: ignore
-            user_message = Message(role=RoleEnum.USER, content=user_content)
-            messages = [system_message, user_message]
-            batch_items.append((messages, task_class))
-
-        # Execute batch using concurrency control
-        semaphore = asyncio.Semaphore(max_concurrency)
-
-        async def process_single_row(row_data, sample_id, task_cls, msgs):
-            async with semaphore:
-                # Use the existing async instructor evaluation method
-                await self._evaluate_row_instructor_async(
-                    row=row_data,
-                    eval_data=eval_data,
-                    sample_example_id=sample_id,
-                    task_class=task_cls,
-                    builder=builder,
-                    messages=msgs,
-                )
-
-        # Create tasks for all rows
-        tasks = []
-        for (row, sample_example_id), (messages, task_cls) in zip(
-            rows_to_evaluate, batch_items
-        ):
-            task = process_single_row(row, sample_example_id, task_cls, messages)
-            tasks.append(task)
-
-        # Execute all tasks concurrently
+        # Create and execute tasks for all rows
+        tasks = [
+            process_single_row(row, sample_id) for row, sample_id in rows_to_evaluate
+        ]
         await asyncio.gather(*tasks, return_exceptions=True)
 
     async def evaluate_eval_data_async(
@@ -657,6 +635,15 @@ class AsyncEvaluationMixin(ABC):
             is_sampled_run=isinstance(eval_data, SampleEvalData),
         )
 
+        if self.eval_task.structured_outputs_fallback:
+            self.logger.info(
+                f"Evaluating {eval_data.name} with structured outputs fallback enabled"
+            )
+        else:
+            self.logger.info(
+                f"Evaluating {eval_data.name} with structured outputs fallback disabled"
+            )
+
         # Collect all rows that need evaluation
         rows_to_evaluate = []
         total_count = 0
@@ -678,31 +665,14 @@ class AsyncEvaluationMixin(ABC):
             # All rows were skipped, return the completed builder
             return builder.complete()
 
-        # Process based on answering method
-        if self.eval_task.answering_method == "structured":
-            await self._evaluate_rows_batch_structured(
-                rows_to_evaluate=rows_to_evaluate,
-                eval_data=eval_data,
-                builder=builder,
-                batch_size=batch_size,
-                max_concurrency=max_concurrency,
-            )
-        elif self.eval_task.answering_method == "instructor":
-            await self._evaluate_rows_batch_instructor(
-                rows_to_evaluate=rows_to_evaluate,
-                eval_data=eval_data,
-                builder=builder,
-                batch_size=batch_size,
-                max_concurrency=max_concurrency,
-            )
-        else:  # xml
-            await self._evaluate_rows_batch_xml(
-                rows_to_evaluate=rows_to_evaluate,
-                eval_data=eval_data,
-                builder=builder,
-                batch_size=batch_size,
-                max_concurrency=max_concurrency,
-            )
+        # Process using unified batch method
+        await self._evaluate_rows_batch(
+            rows_to_evaluate=rows_to_evaluate,
+            eval_data=eval_data,
+            builder=builder,
+            batch_size=batch_size,
+            max_concurrency=max_concurrency,
+        )
 
         # Complete the builder and return JudgeResults
         return builder.complete()

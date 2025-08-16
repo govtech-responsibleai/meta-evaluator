@@ -78,6 +78,7 @@ class SyncEvaluationMixin(ABC):
                         sample_example_id=sample_example_id,
                         task_class=task_class,
                         builder=builder,
+                        fallback_enabled=True,
                     )
                     return  # Success, exit early
                 elif method == "instructor":
@@ -96,6 +97,7 @@ class SyncEvaluationMixin(ABC):
                         task_class=task_class,
                         builder=builder,
                         messages=messages,
+                        fallback_enabled=True,
                     )
                     return  # Success, exit early
                 elif method == "xml":
@@ -105,19 +107,17 @@ class SyncEvaluationMixin(ABC):
                         sample_example_id=sample_example_id,
                         tag_configs=tag_configs,
                         builder=builder,
+                        fallback_enabled=True,
                     )
                     return  # Success, exit early
 
-            except UnsupportedFormatMethodError as e:
+            except Exception as e:
                 # This method is not supported, try the next one
                 last_error = e
                 self.logger.warning(
-                    f"Method '{method}' not supported, trying next fallback method"
+                    f"Error: {e} | Method '{method}' not supported, trying next fallback method"
                 )
                 continue
-            except Exception as e:
-                # Other errors should not trigger fallback, they indicate actual failure
-                raise e
 
         # All methods failed, raise the last UnsupportedFormatMethodError
         if last_error:
@@ -138,6 +138,7 @@ class SyncEvaluationMixin(ABC):
         sample_example_id: str,
         task_class: type[BaseModel],
         builder: JudgeResultsBuilder,
+        fallback_enabled: bool = False,
     ) -> None:
         """Evaluate a single row using structured response method.
 
@@ -147,6 +148,7 @@ class SyncEvaluationMixin(ABC):
             sample_example_id: Unique identifier for this sample
             task_class: The dynamically created Pydantic model for responses
             builder: The JudgeResultsBuilder instance
+            fallback_enabled: Whether fallback is enabled
 
         Raises:
             UnsupportedFormatMethodError: If the answering method is not supported.
@@ -241,6 +243,9 @@ class SyncEvaluationMixin(ABC):
                 )
 
         except LLMAPIError as llm_error:
+            if fallback_enabled:
+                raise llm_error
+
             # LLM API error
             builder.create_llm_error_row(
                 sample_example_id=sample_example_id,
@@ -249,6 +254,9 @@ class SyncEvaluationMixin(ABC):
             )
 
         except Exception as unexpected_error:
+            if fallback_enabled:
+                raise unexpected_error
+
             # Any other unexpected error (e.g., message creation, network issues)
             builder.create_other_error_row(
                 sample_example_id=sample_example_id,
@@ -264,6 +272,7 @@ class SyncEvaluationMixin(ABC):
         task_class: type[BaseModel],
         builder: JudgeResultsBuilder,
         messages: list[Message],
+        fallback_enabled: bool = False,
     ) -> None:
         """Evaluate a single row using instructor for structured response (fallback method).
 
@@ -274,7 +283,7 @@ class SyncEvaluationMixin(ABC):
             task_class: The dynamically created Pydantic model for responses
             builder: The JudgeResultsBuilder instance
             messages: Pre-created messages for the LLM
-            start_time: Start time for duration calculation
+            fallback_enabled: Whether fallback is enabled
         """
         assert eval_data.id_column is not None, (
             f"EvalData {eval_data.name} has no ID column, but was expected to have one."
@@ -339,6 +348,9 @@ class SyncEvaluationMixin(ABC):
             )
 
         except Exception as unexpected_error:
+            if fallback_enabled:
+                raise unexpected_error
+
             # Any unexpected error (LLM API error, instructor error, etc.)
             builder.create_other_error_row(
                 sample_example_id=sample_example_id,
@@ -353,6 +365,7 @@ class SyncEvaluationMixin(ABC):
         sample_example_id: str,
         tag_configs: list[TagConfig],
         builder: JudgeResultsBuilder,
+        fallback_enabled: bool = False,
     ) -> None:
         """Evaluate a single row using XML tags method.
 
@@ -364,6 +377,7 @@ class SyncEvaluationMixin(ABC):
             model: The model to use for the LLM
             tag_configs: List of TagConfigs for parsing XML response (one per task)
             builder: The JudgeResultsBuilder instance
+            fallback_enabled: Whether fallback is enabled
         """
         assert eval_data.id_column is not None, (
             f"EvalData {eval_data.name} has no ID column, but was expected to have one."
@@ -435,6 +449,9 @@ class SyncEvaluationMixin(ABC):
             )
 
         except LLMAPIError as llm_error:
+            if fallback_enabled:
+                raise llm_error
+
             # LLM API error
             builder.create_llm_error_row(
                 sample_example_id=sample_example_id,
@@ -443,6 +460,9 @@ class SyncEvaluationMixin(ABC):
             )
 
         except Exception as unexpected_error:
+            if fallback_enabled:
+                raise unexpected_error
+
             # Any other unexpected error (e.g., message creation, network issues)
             builder.create_other_error_row(
                 sample_example_id=sample_example_id,
@@ -509,6 +529,14 @@ class SyncEvaluationMixin(ABC):
                     )
                 )
 
+        if self.eval_task.structured_outputs_fallback:
+            self.logger.info(
+                f"Evaluating {eval_data.name} with structured outputs fallback enabled"
+            )
+        else:
+            self.logger.info(
+                f"Evaluating {eval_data.name} with structured outputs fallback disabled"
+            )
         # Process each row in the evaluation data
         total_count = 0
         for row in self._get_dicts_as_generator(eval_data):  # type: ignore

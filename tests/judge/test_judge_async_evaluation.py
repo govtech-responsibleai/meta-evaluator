@@ -763,3 +763,99 @@ class TestJudgeAsyncEvaluation:
         assert "summary" in xml_instructions
         assert "explanation" in xml_instructions
         assert "free form text" in xml_instructions.lower()
+
+    # === FALLBACK TESTS ===
+
+    @patch("meta_evaluator.judge.async_evaluator.acompletion")
+    @patch("meta_evaluator.judge.async_evaluator.instructor")
+    @patch("meta_evaluator.judge.async_evaluator.supports_response_schema")
+    @pytest.mark.asyncio
+    async def test_async_fallback_chain_structured_to_instructor_to_xml(
+        self,
+        mock_supports,
+        mock_instructor,
+        mock_acompletion,
+        sentiment_judge_prompt,
+        basic_eval_data,
+        sample_row,
+        single_row_test_builder,
+    ):
+        """Test full async fallback chain: structured -> instructor -> XML when each method fails."""
+        from meta_evaluator.judge.exceptions import UnsupportedFormatMethodError
+
+        # Create fallback-enabled judge with mock client/model
+        fallback_task = EvalTask(
+            task_schemas={"sentiment": ["positive", "negative", "neutral"]},
+            prompt_columns=["text"],
+            response_columns=["response"],
+            answering_method="structured",
+            structured_outputs_fallback=True,
+        )
+
+        fallback_judge = Judge(
+            id="fallback_test_judge",
+            eval_task=fallback_task,
+            llm_client="mock_client",
+            model="mock_model",
+            prompt=sentiment_judge_prompt,
+        )
+
+        # 1. Mock supports_response_schema to raise UnsupportedFormatMethodError
+        mock_supports.side_effect = UnsupportedFormatMethodError(
+            method="structured",
+            model="mock_client/mock_model",
+            suggested_methods=["instructor", "xml"],
+        )
+
+        # 2. Mock instructor to fail
+        mock_client = Mock()
+        mock_instructor.from_provider.return_value = mock_client
+        mock_client.chat.completions.create = AsyncMock(
+            side_effect=Exception("Instructor failed")
+        )
+
+        # 3. Mock XML acompletion to succeed
+        mock_xml_response = Mock()
+        mock_xml_response.choices = [Mock()]
+        mock_xml_response.choices[0].message.content = "<sentiment>positive</sentiment>"
+        mock_xml_response.usage.prompt_tokens = 10
+        mock_xml_response.usage.completion_tokens = 5
+        mock_xml_response.usage.total_tokens = 15
+        mock_acompletion.return_value = mock_xml_response
+
+        # Create necessary components
+        task_class = fallback_judge.eval_task.create_task_class()
+        tag_configs = [
+            TagConfig(
+                name="sentiment",
+                allowed_values=["positive", "negative", "neutral"],
+                cardinality="one",
+            )
+        ]
+
+        # Test the complete async fallback chain
+        await fallback_judge._evaluate_row_with_fallback_async(
+            row=sample_row,
+            eval_data=basic_eval_data,
+            sample_example_id="test_1",
+            task_class=task_class,
+            tag_configs=tag_configs,
+            builder=single_row_test_builder,
+        )
+
+        # Verify all methods were called in sequence:
+        # 1. supports_response_schema was called
+        mock_supports.assert_called_once_with(model="mock_client/mock_model")
+
+        # 2. instructor was attempted
+        mock_instructor.from_provider.assert_called_once_with("mock_client/mock_model")
+        mock_client.chat.completions.create.assert_called_once()
+
+        # 3. XML acompletion was called (final fallback)
+        mock_acompletion.assert_called_once()
+
+        # Verify successful result (XML fallback succeeded)
+        result = single_row_test_builder.complete()
+        assert result.succeeded_count == 1
+        assert result.llm_error_count == 0
+        assert result.other_error_count == 0
