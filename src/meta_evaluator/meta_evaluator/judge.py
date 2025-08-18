@@ -105,7 +105,7 @@ class JudgesMixin:
         llm_client: str,
         model: str,
         prompt: Prompt,
-        override_existing: bool = False,
+        override: bool = False,
     ) -> None:
         """Add a judge to the evaluator programmatically.
 
@@ -114,16 +114,16 @@ class JudgesMixin:
             llm_client: The LLM client to use.
             model: The model name to use.
             prompt: The Prompt object containing the evaluation instructions.
-            override_existing: Whether to override existing judge. Defaults to False.
+            override: Whether to override existing judge. Defaults to False.
 
         Raises:
-            JudgeAlreadyExistsError: If judge already exists and override_existing is False.
+            JudgeAlreadyExistsError: If judge already exists and override is False.
             EvalTaskNotFoundError: If eval_task is not set.
         """
         if self.eval_task is None:
             raise EvalTaskNotFoundError("eval_task must be set before adding judges")
 
-        if judge_id in self.judge_registry and not override_existing:
+        if judge_id in self.judge_registry and not override:
             raise JudgeAlreadyExistsError(judge_id)
 
         judge = Judge(
@@ -168,7 +168,7 @@ class JudgesMixin:
     def load_judges_from_yaml(
         self,
         yaml_file: str,
-        override_existing: bool = False,
+        override: bool = False,
         async_mode: bool = False,
     ) -> None:
         """Load judges from a YAML configuration file.
@@ -188,7 +188,7 @@ class JudgesMixin:
 
         Args:
             yaml_file: Absolute or relative path to the YAML configuration file.
-            override_existing: Whether to override existing judges. Defaults to False.
+            override: Whether to override existing judges. Defaults to False.
             async_mode: Whether to load judges for async operation. Defaults to False.
                        When True, judges will be configured with async methods.
 
@@ -228,7 +228,7 @@ class JudgesMixin:
         # Load each judge
         for judge_config in judges_config.judges:
             self._load_single_judge_from_config(
-                judge_config, override_existing, yaml_path, async_mode
+                judge_config, override, yaml_path, async_mode
             )
 
         self.logger.info(
@@ -238,7 +238,7 @@ class JudgesMixin:
     def _load_single_judge_from_config(
         self,
         judge_config: JudgeConfig,
-        override_existing: bool,
+        override: bool,
         yaml_path: Path,
         async_mode: bool = False,
     ) -> None:
@@ -246,7 +246,7 @@ class JudgesMixin:
 
         Args:
             judge_config: The judge configuration from YAML.
-            override_existing: Whether to override existing judges.
+            override: Whether to override existing judges.
             yaml_path: Path to the YAML file (for resolving relative prompt paths).
             async_mode: Whether to load judges for async operation.
         """
@@ -259,7 +259,7 @@ class JudgesMixin:
             llm_client=judge_config.llm_client,
             model=judge_config.model,
             prompt=prompt,
-            override_existing=override_existing,
+            override=override,
         )
 
     def _load_prompt_from_file(

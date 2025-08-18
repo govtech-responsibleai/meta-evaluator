@@ -115,7 +115,7 @@ class TestMetaEvaluatorJudges:
         with pytest.raises(JudgeAlreadyExistsError):
             self.add_test_judge(meta_evaluator_with_task, sample_prompt, judge_id)
 
-    def test_add_judge_override_existing(self, meta_evaluator_with_task, sample_prompt):
+    def test_add_judge_override(self, meta_evaluator_with_task, sample_prompt):
         """Test overriding existing judge."""
         judge_id = "test_judge"
 
@@ -129,7 +129,7 @@ class TestMetaEvaluatorJudges:
             llm_client="openai",
             model="gpt-3.5-turbo",
             prompt=new_prompt,
-            override_existing=True,
+            override=True,
         )
 
         # Verify override worked
@@ -329,7 +329,7 @@ class TestMetaEvaluatorJudges:
         assert judge1.prompt.prompt == "Prompt 1"
         assert judge2.prompt.prompt == "Prompt 2"
 
-    def test_load_judges_from_yaml_override_existing(
+    def test_load_judges_from_yaml_override(
         self, meta_evaluator_with_task, tmp_path, sample_prompt
     ):
         """Test overriding existing judge when loading from YAML."""
@@ -354,9 +354,7 @@ class TestMetaEvaluatorJudges:
         )
 
         # Load with override
-        meta_evaluator_with_task.load_judges_from_yaml(
-            str(yaml_file), override_existing=True
-        )
+        meta_evaluator_with_task.load_judges_from_yaml(str(yaml_file), override=True)
 
         # Verify judge was overridden
         judge = meta_evaluator_with_task.judge_registry["test_judge"]

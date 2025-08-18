@@ -16,6 +16,8 @@ from meta_evaluator.meta_evaluator.exceptions import (
     EvalTaskAlreadyExistsError,
     EvalTaskNotFoundError,
     InvalidFileError,
+    ProjectDirectoryExistsError,
+    SavedStateNotFoundError,
 )
 
 
@@ -601,6 +603,103 @@ class TestMetaEvaluatorBase:
         assert state_data["version"] == "1.0"
 
     # === load_state() Method Tests ===
+
+    def test_load_true_with_existing_state(
+        self, tmp_path, sample_eval_data, basic_eval_task
+    ):
+        """Test load=True when directory contains valid saved state."""
+        # Create a MetaEvaluator and save its state
+        project_dir = tmp_path / "test_project"
+        original_evaluator = MetaEvaluator(str(project_dir), load=False)
+        original_evaluator.add_data(sample_eval_data)
+        original_evaluator.add_eval_task(basic_eval_task)
+
+        # Add a judge for more complete testing
+        from meta_evaluator.common.models import Prompt
+
+        prompt = Prompt(id="test_prompt", prompt="Evaluate this")
+        original_evaluator.add_judge("test_judge", "openai", "gpt-4", prompt)
+
+        # Save the state
+        original_evaluator.save_state(
+            "main_state.json", include_data=True, data_format="json"
+        )
+
+        # Now load the state using load=True
+        loaded_evaluator = MetaEvaluator(str(project_dir), load=True)
+
+        # Verify that the loaded evaluator has the same state
+        assert loaded_evaluator.data is not None
+        assert loaded_evaluator.data.name == sample_eval_data.name
+        assert loaded_evaluator.data.id_column == sample_eval_data.id_column
+
+        assert loaded_evaluator.eval_task is not None
+        assert loaded_evaluator.eval_task.task_schemas == basic_eval_task.task_schemas
+        assert (
+            loaded_evaluator.eval_task.prompt_columns == basic_eval_task.prompt_columns
+        )
+        assert (
+            loaded_evaluator.eval_task.response_columns
+            == basic_eval_task.response_columns
+        )
+
+        assert "test_judge" in loaded_evaluator.judge_registry
+        assert loaded_evaluator.judge_registry["test_judge"].id == "test_judge"
+
+    def test_load_true_without_saved_state(self, tmp_path):
+        """Test load=True when directory does not exist."""
+        project_dir = tmp_path / "nonexistent_project"
+
+        # Verify directory doesn't exist
+        assert not project_dir.exists()
+
+        # Attempt to load from nonexistent directory
+        with pytest.raises(SavedStateNotFoundError, match="No saved state found"):
+            MetaEvaluator(str(project_dir), load=True)
+
+    def test_load_false_with_existing_directory(self, tmp_path):
+        """Test load=False when directory already exists."""
+        project_dir = tmp_path / "existing_project"
+        project_dir.mkdir()  # Create directory
+
+        # Attempt to create new MetaEvaluator in existing directory
+        with pytest.raises(ProjectDirectoryExistsError, match="already exists"):
+            MetaEvaluator(str(project_dir), load=False)
+
+    def test_load_false_with_new_directory(self, tmp_path):
+        """Test load=False when directory doesn't exist (creates new MetaEvaluator)."""
+        project_dir = tmp_path / "new_project"
+
+        # Verify directory doesn't exist initially
+        assert not project_dir.exists()
+
+        # Create new MetaEvaluator
+        evaluator = MetaEvaluator(str(project_dir), load=False)
+
+        # Verify directory was created and evaluator is in initial state
+        assert project_dir.exists()
+        assert evaluator.data is None
+        assert evaluator.eval_task is None
+        assert evaluator.judge_registry == {}
+
+        # Verify subdirectories were created
+        assert (project_dir / "data").exists()
+        assert (project_dir / "results").exists()
+        assert (project_dir / "annotations").exists()
+        assert (project_dir / "scores").exists()
+
+    def test_load_true_with_invalid_state_file(self, tmp_path):
+        """Test load=True when directory contains invalid state file."""
+        project_dir = tmp_path / "invalid_state_project"
+        project_dir.mkdir()
+
+        # Create invalid state file
+        state_file = project_dir / "main_state.json"
+        state_file.write_text("{ invalid json content }")
+
+        # Attempt to load from directory with invalid state
+        with pytest.raises(SavedStateNotFoundError, match="No saved state found"):
+            MetaEvaluator(str(project_dir), load=True)
 
     def test_load_state_with_eval_data_json_format(
         self, tmp_path, sample_eval_data, basic_eval_task, mock_openai_client

@@ -25,13 +25,12 @@ from .exceptions import (
     EvalTaskAlreadyExistsError,
     EvalTaskNotFoundError,
     InvalidFileError,
+    ProjectDirectoryExistsError,
+    SavedStateNotFoundError,
 )
 from .judge import JudgesMixin
 from .scoring import ScoringMixin
 from .serialization import MetaEvaluatorState
-
-_OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY"
-_AZURE_OPENAI_API_KEY_ENV_VAR = "AZURE_OPENAI_API_KEY"
 
 
 class Paths:
@@ -75,27 +74,76 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
     - Supporting structured outputs, instructor, and XML-based evaluation methods
     """
 
-    def __init__(self, project_dir: Optional[str] = None):
-        """Initialize a new MetaEvaluator instance.
-
-        Creates an empty evaluator with no clients, data, or evaluation tasks configured.
+    def __init__(self, project_dir: Optional[str] = None, load: bool = False):
+        """Initialize a MetaEvaluator instance.
 
         Args:
             project_dir: Directory for organizing all evaluation files. If provided, all file operations
                 will be organized within this directory structure. If None, creates 'my_project' directory in current working directory.
+            load: Whether to load an existing MetaEvaluator from saved state.
+                If True, checks for existing saved state in project_dir and loads it.
+                If False, creates a new MetaEvaluator instance.
+
+        Raises:
+            ProjectDirectoryExistsError: If load=False but project_dir already exists.
         """
         super().__init__()
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-        self.data: Optional[EvalData] = None
-        self.eval_task: Optional[EvalTask] = None
 
         # If no project directory is provided, create a default directory in the current working directory
         if project_dir is None:
             project_dir = "./my_project"
 
-        # Initialize project paths and create directory structure
+        # Initialize project paths
         self.paths = Paths(project_dir)
-        self.paths.ensure_directories()
+
+        if load:
+            # Check if saved state exists and load it
+            self._load_existing_state()
+        else:
+            # Check if directory exists and raise error if it does
+            if self.paths.project.exists():
+                raise ProjectDirectoryExistsError(str(self.paths.project))
+
+            # Initialize empty state
+            self.data: Optional[EvalData] = None
+            self.eval_task: Optional[EvalTask] = None
+
+            # Create directory structure for new project
+            self.paths.ensure_directories()
+
+    def _load_existing_state(self) -> None:
+        """Load existing state from the project directory.
+
+        Raises:
+            SavedStateNotFoundError: If no saved state is found in the project directory.
+        """
+        state_file = self.paths.project / "main_state.json"
+
+        if not state_file.exists():
+            raise SavedStateNotFoundError(str(self.paths.project))
+
+        try:
+            # Load the saved state using the existing load_state class method
+            loaded_evaluator = self.__class__.load_state(
+                project_dir=str(self.paths.project),
+                state_filename="main_state.json",
+                load_data=True,
+                load_task=True,
+            )
+
+            # Copy loaded state to this instance
+            self.data = loaded_evaluator.data
+            self.eval_task = loaded_evaluator.eval_task
+            self.judge_registry = loaded_evaluator.judge_registry
+
+            self.logger.info(
+                f"Loaded existing MetaEvaluator state from {self.paths.project}"
+            )
+
+        except InvalidFileError as e:
+            # If state file exists but is invalid, treat as no saved state
+            raise SavedStateNotFoundError(str(self.paths.project)) from e
 
     @property
     def project_dir(self) -> Path:
