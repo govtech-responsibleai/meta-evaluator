@@ -164,13 +164,16 @@ def mock_judge_results():
         "sentiment": ["positive", "negative", "neutral"],
         "quality": ["high", "medium", "low"],
     }
-    judge_results.get_successful_results.return_value = pl.DataFrame(
+    successful_results_df = pl.DataFrame(
         {
             "original_id": ["1", "2", "3"],
             "sentiment": ["positive", "negative", "neutral"],
             "quality": ["high", "medium", "low"],
         }
     )
+    judge_results.get_successful_results.return_value = successful_results_df
+    # Add results_data attribute needed by _validate_judge_success_rate
+    judge_results.results_data = successful_results_df
     judge_results.succeeded_count = 3
     judge_results.total_count = 3
     return judge_results
@@ -240,7 +243,7 @@ def judge_results_1():
         "task2": None,
         "safety": ["SAFE", "UNSAFE"],
     }
-    judge_results.get_successful_results.return_value = pl.DataFrame(
+    successful_results_df = pl.DataFrame(
         {
             "original_id": ["1", "2", "3", "4"],
             "task1": ["A", "B", "A", "C"],
@@ -248,6 +251,9 @@ def judge_results_1():
             "safety": ["SAFE", "UNSAFE", "SAFE", "UNSAFE"],
         }
     )
+    judge_results.get_successful_results.return_value = successful_results_df
+    # Add results_data attribute needed by _validate_judge_success_rate
+    judge_results.results_data = successful_results_df
     return judge_results
 
 
@@ -267,7 +273,7 @@ def judge_results_2():
         "task2": None,
         "safety": ["SAFE", "UNSAFE"],
     }
-    judge_results.get_successful_results.return_value = pl.DataFrame(
+    successful_results_df = pl.DataFrame(
         {
             "original_id": ["1", "2", "3", "4"],
             "task1": ["A", "B", "A", "C"],
@@ -275,6 +281,9 @@ def judge_results_2():
             "safety": ["SAFE", "SAFE", "SAFE", "SAFE"],
         }
     )
+    judge_results.get_successful_results.return_value = successful_results_df
+    # Add results_data attribute needed by _validate_judge_success_rate
+    judge_results.results_data = successful_results_df
     return judge_results
 
 

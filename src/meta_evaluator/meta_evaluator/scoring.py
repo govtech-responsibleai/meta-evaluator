@@ -350,6 +350,53 @@ class ScoringMixin:
 
         return consolidated_judge_df, consolidated_human_df
 
+    def _validate_judge_success_rate(
+        self, judge_id: str, judge_results: Dict[str, "JudgeResults"]
+    ) -> bool:
+        """Check if a judge has at least 50% successful results.
+
+        Args:
+            judge_id: The judge ID to check
+            judge_results: Dictionary of judge results (keyed by run_id)
+
+        Returns:
+            bool: True if judge has >= 50% success rate, False otherwise
+        """
+        # Find the JudgeResults object with matching judge_id
+        judge_result = None
+        for run_id, result in judge_results.items():
+            if result.judge_id == judge_id:
+                judge_result = result
+                break
+
+        if judge_result is None:
+            self.logger.warning(f"  Judge {judge_id} not found in judge results")
+            return False
+
+        # Count total and successful results
+        total_results = len(judge_result.results_data)
+        successful_results = len(judge_result.get_successful_results())
+
+        if total_results == 0:
+            self.logger.warning(f"  Judge {judge_id} has no results")
+            return False
+
+        success_rate = successful_results / total_results
+
+        if success_rate < 0.5:
+            self.logger.warning(
+                f"  Skipping judge {judge_id}: only {successful_results}/{total_results} "
+                f"({success_rate:.1%}) results were successful. "
+                f"Recommend re-running this judge as <50% of results were successful."
+            )
+            return False
+
+        self.logger.info(
+            f"  Judge {judge_id}: {successful_results}/{total_results} "
+            f"({success_rate:.1%}) results successful"
+        )
+        return True
+
     def _extract_task_schemas(
         self, judge_results: Dict[str, JudgeResults], task_names: List[str]
     ) -> dict:
@@ -513,6 +560,10 @@ class ScoringMixin:
                 consolidated_judge_subset = consolidated_judge_df.filter(
                     pl.col("judge_id") == judge_id
                 )
+
+                # Check if this judge has sufficient success rate (at least 50%)
+                if not self._validate_judge_success_rate(judge_id, judge_results):
+                    continue
 
                 # Compute the score for this judge
                 score_result = metric_config.scorer.compute_score(
