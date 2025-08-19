@@ -105,7 +105,7 @@ class JudgesMixin:
         llm_client: str,
         model: str,
         prompt: Prompt,
-        override: bool = False,
+        on_duplicate: Optional[Literal["skip", "overwrite"]] = None,
     ) -> None:
         """Add a judge to the evaluator programmatically.
 
@@ -114,17 +114,30 @@ class JudgesMixin:
             llm_client: The LLM client to use.
             model: The model name to use.
             prompt: The Prompt object containing the evaluation instructions.
-            override: Whether to override existing judge. Defaults to False.
+            on_duplicate: How to handle duplicate judge IDs. Options:
+                - None: Throw JudgeAlreadyExistsError if judge exists
+                - "skip": Skip adding if judge already exists
+                - "overwrite": Replace existing judge
 
         Raises:
-            JudgeAlreadyExistsError: If judge already exists and override is False.
+            JudgeAlreadyExistsError: If judge already exists and on_duplicate is None.
             EvalTaskNotFoundError: If eval_task is not set.
         """
         if self.eval_task is None:
             raise EvalTaskNotFoundError("eval_task must be set before adding judges")
 
-        if judge_id in self.judge_registry and not override:
-            raise JudgeAlreadyExistsError(judge_id)
+        # Handle duplicate judge IDs
+        if judge_id in self.judge_registry:
+            if on_duplicate is None:
+                raise JudgeAlreadyExistsError(judge_id)
+
+            elif on_duplicate == "skip":
+                self.logger.info(f"Skipping judge '{judge_id}' - already exists")
+                return
+
+            elif on_duplicate == "overwrite":
+                self.logger.info(f"Overwriting existing judge '{judge_id}'")
+            # Continue to create judge for overwrite case
 
         judge = Judge(
             id=judge_id,
@@ -168,7 +181,7 @@ class JudgesMixin:
     def load_judges_from_yaml(
         self,
         yaml_file: str,
-        override: bool = False,
+        on_duplicate: Optional[Literal["skip", "overwrite"]] = None,
         async_mode: bool = False,
     ) -> None:
         """Load judges from a YAML configuration file.
@@ -188,7 +201,10 @@ class JudgesMixin:
 
         Args:
             yaml_file: Absolute or relative path to the YAML configuration file.
-            override: Whether to override existing judges. Defaults to False.
+            on_duplicate: How to handle duplicate judge IDs. Options:
+                - None: Throw JudgeAlreadyExistsError if judge exists
+                - "skip": Skip adding if judge already exists
+                - "overwrite": Replace existing judge
             async_mode: Whether to load judges for async operation. Defaults to False.
                        When True, judges will be configured with async methods.
 
@@ -228,7 +244,10 @@ class JudgesMixin:
         # Load each judge
         for judge_config in judges_config.judges:
             self._load_single_judge_from_config(
-                judge_config, override, yaml_path, async_mode
+                judge_config=judge_config,
+                yaml_path=yaml_path,
+                on_duplicate=on_duplicate,
+                async_mode=async_mode,
             )
 
         self.logger.info(
@@ -238,16 +257,16 @@ class JudgesMixin:
     def _load_single_judge_from_config(
         self,
         judge_config: JudgeConfig,
-        override: bool,
         yaml_path: Path,
+        on_duplicate: Optional[Literal["skip", "overwrite"]],
         async_mode: bool = False,
     ) -> None:
         """Load a single judge from YAML configuration.
 
         Args:
             judge_config: The judge configuration from YAML.
-            override: Whether to override existing judges.
             yaml_path: Path to the YAML file (for resolving relative prompt paths).
+            on_duplicate: How to handle duplicate judge IDs.
             async_mode: Whether to load judges for async operation.
         """
         # Load prompt file from absolute or relative path
@@ -259,7 +278,7 @@ class JudgesMixin:
             llm_client=judge_config.llm_client,
             model=judge_config.model,
             prompt=prompt,
-            override=override,
+            on_duplicate=on_duplicate,
         )
 
     def _load_prompt_from_file(
@@ -361,6 +380,7 @@ class JudgesMixin:
         run_id: Optional[str] = None,
         save_results: bool = True,
         results_format: Literal["json", "csv", "parquet"] = "json",
+        skip_duplicates: bool = False,
     ) -> dict[str, JudgeResults]:
         """Execute evaluations using specified judges and save results.
 
@@ -377,6 +397,12 @@ class JudgesMixin:
                 auto-generates a timestamp-based ID.
             save_results: Whether to save results to disk. Defaults to True.
             results_format: Format for saving results files. Defaults to "json".
+            skip_duplicates: Whether to skip judges that already have results in the
+                project directory. Works like overwrite=False, except it doesn't overwrite
+                and instead collects all results. The load_all_judge_results method
+                handles how to deal with duplicate results (currently takes most recent).
+                - False: Run judges regardless and log duplicate warnings
+                - True: Skip judges with existing results and log warnings
 
         Returns:
             dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
@@ -386,7 +412,7 @@ class JudgesMixin:
             ResultsSaveError: If saving results fails.
 
         Example:
-            >>> # Run all judges
+            >>> # Run all judges, skipping those with existing results
             >>> results = evaluator.run_judges()
 
             >>> # Run specific judges
@@ -394,16 +420,41 @@ class JudgesMixin:
 
             >>> # Run with custom run ID
             >>> results = evaluator.run_judges(run_id="experiment_1")
+
+            >>> # Force run all judges even if results exist
+            >>> results = evaluator.run_judges(skip_duplicates=False)
         """
         judges_to_run, run_id = self._validate_and_prepare_judges_run(judge_ids, run_id)
 
+        # Get set of existing judge IDs from results directory
+        existing_judge_ids = self._get_existing_judge_ids()
+
+        # Filter judges based on skip_duplicates setting
+        final_judges_to_run = []
+        for judge_id in judges_to_run:
+            if judge_id in existing_judge_ids:
+                if skip_duplicates:
+                    self.logger.info(
+                        f"Skipping judge '{judge_id}' - existing results found in project directory"
+                    )
+                    continue
+                else:
+                    self.logger.warning(
+                        f"Judge '{judge_id}' has existing results but will be run again (skip_duplicates=False)"
+                    )
+            final_judges_to_run.append(judge_id)
+
+        if not final_judges_to_run:
+            self.logger.info("No judges to run after checking for duplicates")
+            return {}
+
         self.logger.info(
-            f"Starting judge evaluation run '{run_id}' with {len(judges_to_run)} judge(s): {', '.join(judges_to_run)}"
+            f"Starting judge evaluation run '{run_id}' with {len(final_judges_to_run)} judge(s): {', '.join(final_judges_to_run)}"
         )
 
         # Run each judge and collect results
         results = {}
-        for judge_id in judges_to_run:
+        for judge_id in final_judges_to_run:
             judge = self.judge_registry[judge_id]
 
             # Run the evaluation
@@ -446,6 +497,7 @@ class JudgesMixin:
         run_id: Optional[str] = None,
         save_results: bool = True,
         results_format: Literal["json", "csv", "parquet"] = "json",
+        skip_duplicates: bool = False,
     ) -> dict[str, JudgeResults]:
         """Execute evaluations using specified judges with parallel processing and save results.
 
@@ -462,14 +514,42 @@ class JudgesMixin:
                 auto-generates a timestamp-based ID.
             save_results: Whether to save results to disk. Defaults to True.
             results_format: Format for saving results files. Defaults to "json".
+            skip_duplicates: Whether to skip judges that already have results in the
+                project directory. Works like overwrite=False, except it doesn't overwrite
+                and instead collects all results. The load_all_judge_results method
+                handles how to deal with duplicate results (currently takes most recent).
+                - False: Run judges regardless and log duplicate warnings
+                - True: Skip judges with existing results and log warnings
 
         Returns:
             dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
         """
         judges_to_run, run_id = self._validate_and_prepare_judges_run(judge_ids, run_id)
 
+        # Get set of existing judge IDs from results directory
+        existing_judge_ids = self._get_existing_judge_ids()
+
+        # Filter judges based on skip_duplicates setting
+        final_judges_to_run = []
+        for judge_id in judges_to_run:
+            if judge_id in existing_judge_ids:
+                if skip_duplicates:
+                    self.logger.info(
+                        f"Skipping judge '{judge_id}' - existing results found in project directory"
+                    )
+                    continue
+                else:
+                    self.logger.warning(
+                        f"Judge '{judge_id}' has existing results but will be run again (skip_duplicates=False)"
+                    )
+            final_judges_to_run.append(judge_id)
+
+        if not final_judges_to_run:
+            self.logger.info("No judges to run after checking for duplicates")
+            return {}
+
         self.logger.info(
-            f"Starting async judge evaluation run '{run_id}' with {len(judges_to_run)} judge(s): {', '.join(judges_to_run)}"
+            f"Starting async judge evaluation run '{run_id}' with {len(final_judges_to_run)} judge(s): {', '.join(final_judges_to_run)}"
         )
 
         # Define function to run single judge evaluation in parallel
@@ -502,7 +582,7 @@ class JudgesMixin:
                 raise JudgeExecutionError(judge_id, str(e))
 
         # Execute all judges in parallel
-        judge_tasks = [run_single_judge(judge_id) for judge_id in judges_to_run]
+        judge_tasks = [run_single_judge(judge_id) for judge_id in final_judges_to_run]
         judge_results_list = await asyncio.gather(*judge_tasks)
 
         # Collect results into dictionary
@@ -573,6 +653,34 @@ class JudgesMixin:
         # Save results using save_state method
         state_filepath = self.paths.results / state_filename
         judge_results.save_state(str(state_filepath), results_format, data_filename)
+
+    def _get_existing_judge_ids(self) -> set[str]:
+        """Get set of judge IDs that already have results in the project directory.
+
+        Returns:
+            set[str]: Set of judge IDs found in existing result files.
+        """
+        existing_judge_ids = set()
+
+        if not self.paths.results.exists():
+            return existing_judge_ids
+
+        # Look for all *_state.json files in results directory
+        state_files = list(self.paths.results.glob("*_state.json"))
+
+        for state_file in state_files:
+            try:
+                # Load the state file to get judge_id
+                judge_results = JudgeResults.load_state(str(state_file))
+                existing_judge_ids.add(judge_results.judge_id)
+            except Exception as e:
+                # Skip files that can't be loaded as judge results
+                self.logger.debug(
+                    f"Could not load judge results from {state_file.name}: {e}"
+                )
+                continue
+
+        return existing_judge_ids
 
     def validate_judge_registry(self) -> None:
         """Validate that judge_registry contains only Judge instances.

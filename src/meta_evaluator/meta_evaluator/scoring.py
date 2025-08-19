@@ -82,10 +82,14 @@ class ScoringMixin:
         to load them as judge results. Files that fail to load are skipped with
         a warning logged.
 
+        When duplicate judge_ids are found, keeps the most recent run (highest run_id)
+        and logs a warning about the duplicates.
+
         Returns:
             Dict[str, JudgeResults]: Dictionary mapping run_ids to their loaded JudgeResults objects.
         """
         results = {}
+        judge_id_to_results = {}  # Track judge_id -> list of (run_id, JudgeResults) for duplicate detection
 
         # Find all state files in results directory
         if not self.paths.results.exists():  # type: ignore
@@ -100,15 +104,43 @@ class ScoringMixin:
             try:
                 # Load directly using absolute path from glob
                 judge_results = JudgeResults.load_state(str(state_file))
-                # Use run_id as key
-                key = judge_results.run_id
-                results[key] = judge_results
+                run_id = judge_results.run_id
+                judge_id = judge_results.judge_id
+
+                # Track for duplicate detection
+                if judge_id not in judge_id_to_results:
+                    judge_id_to_results[judge_id] = []
+                judge_id_to_results[judge_id].append((run_id, judge_results))
+
                 self.logger.info(f"Loaded judge results from {state_file.name}")
             except Exception as e:
                 self.logger.warning(
                     f"Failed to load judge results from {state_file.name}: {e}"
                 )
                 continue
+
+        # TODO: Handle duplicates according to requirements (e.g. take both, drop both, take earliest run, etc.)
+        # Current default: keep most recent run_id for each judge_id
+        # Without this, the last loaded judge results will overwrite the previous ones
+        for judge_id, judge_results_list in judge_id_to_results.items():
+            if len(judge_results_list) > 1:
+                # Sort by run_id (assuming higher run_id means more recent)
+                judge_results_list.sort(key=lambda x: x[0], reverse=True)
+                most_recent_run_id, most_recent_result = judge_results_list[0]
+
+                # Log warning about duplicates
+                duplicate_run_ids = [run_id for run_id, _ in judge_results_list[1:]]
+                self.logger.warning(
+                    f"Found duplicate results for judge_id '{judge_id}'. "
+                    f"Keeping most recent run_id '{most_recent_run_id}', "
+                    f"skipping: {duplicate_run_ids}"
+                )
+
+                results[most_recent_run_id] = most_recent_result
+            else:
+                # No duplicates, add the single result
+                run_id, judge_result = judge_results_list[0]
+                results[run_id] = judge_result
 
         return results
 
@@ -119,10 +151,14 @@ class ScoringMixin:
         to load them as human annotation results. Files that fail to load are skipped
         with a warning logged.
 
+        When duplicate annotator_ids are found, keeps the most recent run (highest run_id)
+        and logs a warning about the duplicates.
+
         Returns:
             Dict[str, HumanAnnotationResults]: Dictionary mapping run_ids to their loaded HumanAnnotationResults objects.
         """
         results = {}
+        annotator_id_to_results = {}  # Track annotator_id -> list of (run_id, HumanAnnotationResults) for duplicate detection
 
         # Find all metadata files in annotations directory
         if not self.paths.annotations.exists():  # type: ignore
@@ -136,9 +172,14 @@ class ScoringMixin:
         for metadata_file in metadata_files:
             try:
                 human_results = HumanAnnotationResults.load_state(str(metadata_file))
-                # Use run_id as key
-                key = human_results.run_id
-                results[key] = human_results
+                run_id = human_results.run_id
+                annotator_id = human_results.annotator_id
+
+                # Track for duplicate detection
+                if annotator_id not in annotator_id_to_results:
+                    annotator_id_to_results[annotator_id] = []
+                annotator_id_to_results[annotator_id].append((run_id, human_results))
+
                 self.logger.info(
                     f"Loaded human annotation results from {metadata_file.name}"
                 )
@@ -147,6 +188,29 @@ class ScoringMixin:
                     f"Failed to load human annotation results from {metadata_file.name}: {e}"
                 )
                 continue
+
+        # TODO: Handle duplicates according to requirements (e.g. take both, drop both, take earliest run, etc.)
+        # Current default: keep most recent run_id for each annotator_id
+        # Without this, the last loaded human results will overwrite the previous ones
+        for annotator_id, human_results_list in annotator_id_to_results.items():
+            if len(human_results_list) > 1:
+                # Sort by run_id (assuming higher run_id means more recent)
+                human_results_list.sort(key=lambda x: x[0], reverse=True)
+                most_recent_run_id, most_recent_result = human_results_list[0]
+
+                # Log warning about duplicates
+                duplicate_run_ids = [run_id for run_id, _ in human_results_list[1:]]
+                self.logger.warning(
+                    f"Found duplicate results for annotator_id '{annotator_id}'. "
+                    f"Keeping most recent run_id '{most_recent_run_id}', "
+                    f"skipping: {duplicate_run_ids}"
+                )
+
+                results[most_recent_run_id] = most_recent_result
+            else:
+                # No duplicates, add the single result
+                run_id, human_result = human_results_list[0]
+                results[run_id] = human_result
 
         return results
 

@@ -465,8 +465,12 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         Returns:
             MetaEvaluator: A new MetaEvaluator instance.
         """
-        # Create new MetaEvaluator instance with project_dir
-        evaluator = cls(project_dir)
+        # Create new MetaEvaluator instance with project_dir (don't load=True to avoid recursive loading)
+        evaluator = cls.__new__(cls)
+        evaluator.logger = logging.getLogger(f"{__name__}.{cls.__name__}")
+        evaluator.paths = Paths(project_dir)
+        evaluator.data = None
+        evaluator.eval_task = None
 
         # Client reconstruction is no longer needed since judges handle their own LLM clients
 

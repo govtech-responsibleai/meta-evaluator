@@ -4,7 +4,7 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import polars as pl
 import pytest
@@ -28,6 +28,8 @@ from meta_evaluator.scores import (
     MetricsConfig,
 )
 from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
+
+from .conftest import create_mock_human_metadata_file, create_mock_judge_state_file
 
 # Note: All fixtures are now available from conftest.py
 
@@ -362,6 +364,70 @@ class TestResultsLoading:
         assert "test_run" in results
         assert results["test_run"].judge_id == "test_judge"
 
+    def test_load_all_judge_results_with_duplicates_keeps_most_recent(
+        self, meta_evaluator, mock_judge_state_template, caplog
+    ):
+        """Test load_all_judge_results with duplicate judge_ids keeps the most recent run."""
+        results_dir = meta_evaluator.paths.results
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create state files for same judge with different run_ids
+        judge_configs = [
+            {"judge_id": "judge1", "run_id": "run_001"},  # Older run
+            {"judge_id": "judge1", "run_id": "run_002"},  # Newer run (higher run_id)
+            {"judge_id": "judge2", "run_id": "run_003"},  # Different judge
+        ]
+
+        for config in judge_configs:
+            create_mock_judge_state_file(
+                results_dir,
+                config["judge_id"],
+                config["run_id"],
+                mock_judge_state_template,
+            )
+
+        with patch("meta_evaluator.results.JudgeResults.load_state") as mock_load:
+
+            def mock_load_side_effect(file_path):
+                mock_results = Mock(spec=JudgeResults)
+                if "run_001" in str(file_path):
+                    mock_results.judge_id = "judge1"
+                    mock_results.run_id = "run_001"
+                elif "run_002" in str(file_path):
+                    mock_results.judge_id = "judge1"
+                    mock_results.run_id = "run_002"
+                elif "run_003" in str(file_path):
+                    mock_results.judge_id = "judge2"
+                    mock_results.run_id = "run_003"
+                return mock_results
+
+            mock_load.side_effect = mock_load_side_effect
+
+            # Load results
+            results = meta_evaluator.load_all_judge_results()
+
+            # Should have 2 results (most recent for judge1, and judge2)
+            assert len(results) == 2
+
+            # Should keep run_002 (higher run_id) for judge1 and skip run_001
+            judge1_result = None
+            for run_id, result in results.items():
+                if result.judge_id == "judge1":
+                    judge1_result = result
+                    break
+
+            assert judge1_result is not None
+            assert judge1_result.run_id == "run_002"  # Most recent
+
+            # Should have judge2 results
+            assert "run_003" in results
+            assert results["run_003"].judge_id == "judge2"
+
+            # Verify warning log
+            assert "Found duplicate results for judge_id 'judge1'" in caplog.text
+            assert "Keeping most recent run_id 'run_002'" in caplog.text
+            assert "skipping: ['run_001']" in caplog.text
+
     # === Human Results Loading Tests ===
 
     def test_load_all_human_results_empty_directory(self, meta_evaluator):
@@ -459,6 +525,75 @@ class TestResultsLoading:
         assert len(results) == 1
         assert "test_annotation_run" in results
         assert results["test_annotation_run"].annotator_id == "test_annotator"
+
+    def test_load_all_human_results_with_duplicates_keeps_most_recent(
+        self, meta_evaluator, mock_human_state_template, caplog
+    ):
+        """Test load_all_human_results with duplicate annotator_ids keeps the most recent run."""
+        annotations_dir = meta_evaluator.paths.annotations
+        annotations_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create metadata files for same annotator with different run_ids
+        human_configs = [
+            {"annotator_id": "human1", "run_id": "run_001"},  # Older run
+            {
+                "annotator_id": "human1",
+                "run_id": "run_002",
+            },  # Newer run (higher run_id)
+            {"annotator_id": "human2", "run_id": "run_003"},  # Different annotator
+        ]
+
+        for config in human_configs:
+            create_mock_human_metadata_file(
+                annotations_dir,
+                config["annotator_id"],
+                config["run_id"],
+                mock_human_state_template,
+            )
+
+        with patch(
+            "meta_evaluator.results.HumanAnnotationResults.load_state"
+        ) as mock_load:
+
+            def mock_load_side_effect(file_path):
+                mock_results = Mock(spec=HumanAnnotationResults)
+                if "run_001" in str(file_path):
+                    mock_results.annotator_id = "human1"
+                    mock_results.run_id = "run_001"
+                elif "run_002" in str(file_path):
+                    mock_results.annotator_id = "human1"
+                    mock_results.run_id = "run_002"
+                elif "run_003" in str(file_path):
+                    mock_results.annotator_id = "human2"
+                    mock_results.run_id = "run_003"
+                return mock_results
+
+            mock_load.side_effect = mock_load_side_effect
+
+            # Load results
+            results = meta_evaluator.load_all_human_results()
+
+            # Should have 2 results (most recent for human1, and human2)
+            assert len(results) == 2
+
+            # Should keep run_002 (higher run_id) for human1 and skip run_001
+            human1_result = None
+            for run_id, result in results.items():
+                if result.annotator_id == "human1":
+                    human1_result = result
+                    break
+
+            assert human1_result is not None
+            assert human1_result.run_id == "run_002"  # Most recent
+
+            # Should have human2 results
+            assert "run_003" in results
+            assert results["run_003"].annotator_id == "human2"
+
+            # Verify warning log
+            assert "Found duplicate results for annotator_id 'human1'" in caplog.text
+            assert "Keeping most recent run_id 'run_002'" in caplog.text
+            assert "skipping: ['run_001']" in caplog.text
 
 
 class TestScoring:

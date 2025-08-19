@@ -6,8 +6,10 @@ Higher-level fixtures for eval tasks, eval data, and logger are available from t
 Specialized fixtures for data, judges, scorers, etc. are available from their respective conftest files.
 """
 
+import json
 import logging
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import Mock
 
 import polars as pl
@@ -436,3 +438,114 @@ def completed_human_results():
         annotation_timestamp=datetime.now(),
     )
     return builder.complete()
+
+
+# ==== DUPLICATE PREVENTION TEST FIXTURES ====
+
+
+@pytest.fixture
+def mock_judge_state_template():
+    """Provides a template for creating mock judge result state files.
+
+    Returns:
+        dict: Template dictionary for judge result state JSON.
+    """
+    return {
+        "task_schemas": {"sentiment": ["positive", "negative"]},
+        "llm_client": "openai",
+        "model_used": "gpt-4",
+        "timestamp_local": "2024-01-01T00:00:00",
+        "total_count": 10,
+        "succeeded_count": 8,
+        "skipped_count": 0,
+        "partial_count": 1,
+        "llm_error_count": 1,
+        "parsing_error_count": 0,
+        "other_error_count": 0,
+        "is_sampled_run": False,
+        "data_format": "json",
+    }
+
+
+def create_mock_judge_state_file(
+    results_dir: Path, judge_id: str, run_id: str, state_template: dict
+) -> Path:
+    """Helper function to create a mock judge results state file.
+
+    Args:
+        results_dir: Directory to create the file in.
+        judge_id: Judge ID for the state file.
+        run_id: Run ID for the state file.
+        state_template: Template dictionary for the state.
+
+    Returns:
+        Path: Path to the created state file.
+    """
+    state_file = results_dir / f"{run_id}_{judge_id}_state.json"
+
+    # Create the full state from template
+    mock_state = state_template.copy()
+    mock_state.update(
+        {
+            "run_id": run_id,
+            "judge_id": judge_id,
+            "data_file": f"{run_id}_{judge_id}_results.json",
+        }
+    )
+
+    with open(state_file, "w") as f:
+        json.dump(mock_state, f)
+
+    return state_file
+
+
+@pytest.fixture
+def mock_human_state_template():
+    """Provides a template for creating mock human annotation metadata files.
+
+    Returns:
+        dict: Template dictionary for human annotation metadata JSON.
+    """
+    return {
+        "task_schemas": {"sentiment": ["positive", "negative"]},
+        "timestamp_local": "2024-01-01T00:00:00",
+        "total_count": 10,
+        "succeeded_count": 9,
+        "skipped_count": 0,
+        "partial_count": 0,
+        "annotation_error_count": 1,
+        "other_error_count": 0,
+        "data_format": "json",
+    }
+
+
+def create_mock_human_metadata_file(
+    annotations_dir: Path, annotator_id: str, run_id: str, metadata_template: dict
+) -> Path:
+    """Helper function to create a mock human annotation metadata file.
+
+    Args:
+        annotations_dir: Directory to create the file in.
+        annotator_id: Annotator ID for the metadata file.
+        run_id: Run ID for the metadata file.
+        metadata_template: Template dictionary for the metadata.
+
+    Returns:
+        Path: Path to the created metadata file.
+    """
+    metadata_file = annotations_dir / f"{run_id}_{annotator_id}_metadata.json"
+
+    # Create the full metadata from template
+    mock_metadata = metadata_template.copy()
+    mock_metadata.update(
+        {
+            "run_id": run_id,
+            "annotator_id": annotator_id,
+            "data_file": f"{run_id}_{annotator_id}_annotations.json",
+        }
+    )
+
+    with open(metadata_file, "w") as f:
+        json.dump(mock_metadata, f)
+
+    return metadata_file

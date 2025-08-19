@@ -48,7 +48,7 @@ def rejection_task() -> EvalTask:
         },
         prompt_columns=["prompt"],  # Column name of the prompt to evaluate
         response_columns=["llm_response"],  # Column name of the response to evaluate
-        answering_method="structured",
+        answering_method="structured",  # Output method for the judge
         structured_outputs_fallback=True,  # Enable fallback to other methods if structured is not supported
     )
     return task
@@ -69,7 +69,8 @@ def rejection_data() -> EvalData:
 
 async def main():
     """Main function to run alt-test evaluation."""
-    evaluator = MetaEvaluator(project_dir="project_dir")
+    # Set load = False to initialise new MetaEvaluator instance
+    evaluator = MetaEvaluator(project_dir="project_dir_test", load=False)
 
     # Add eval task and eval data
     eval_task = rejection_task()
@@ -78,12 +79,21 @@ async def main():
     evaluator.add_data(eval_data)
 
     # Add judges
-    evaluator.load_judges_from_yaml(yaml_file="judges.yaml", async_mode=True)
+    evaluator.load_judges_from_yaml(
+        yaml_file="judges.yaml",
+        on_duplicate="skip",  # Skip if judge_id already exists. Set to "overwrite" to replace existing judge.
+        async_mode=True,  # Run judges asynchronously
+    )
+
+    # Save state (task, data, judges)
+    evaluator.save_state(data_format="json")
 
     # Run judges
     print("Starting async judge evaluation with batching...")
     start_time = time.time()
-    await evaluator.run_judges_async()
+    await evaluator.run_judges_async(
+        skip_duplicates=True  # Skip duplicates to avoid re-running judges
+    )
     end_time = time.time()
     print(f"Async judge evaluation completed in {end_time - start_time:.2f} seconds")
 

@@ -47,7 +47,7 @@ def rejection_task() -> EvalTask:
         },
         prompt_columns=["prompt"],  # Column name of the prompt to evaluate
         response_columns=["llm_response"],  # Column name of the response to evaluate
-        answering_method="structured",
+        answering_method="structured",  # Output method for the judge
         structured_outputs_fallback=True,  # Enable fallback to other methods if structured is not supported
     )
     return task
@@ -77,12 +77,19 @@ def main():
     evaluator.add_data(eval_data)
 
     # Add judges
-    evaluator.load_judges_from_yaml(yaml_file="judges.yaml")
+    evaluator.load_judges_from_yaml(
+        yaml_file="judges.yaml",
+        on_duplicate="skip",  # Skip if judge_id already exists. Set to "overwrite" to replace existing judge.
+    )
+    # Save state (task, data, judges)
+    evaluator.save_state(data_format="json")
 
     # Run judges
     print("Starting sync judge evaluation without batching...")
     start_time = time.time()
-    evaluator.run_judges()
+    evaluator.run_judges(
+        skip_duplicates=False  # Skip duplicates to avoid re-running judges
+    )
     end_time = time.time()
     print(f"Sync judge evaluation completed in {end_time - start_time:.2f} seconds")
 
