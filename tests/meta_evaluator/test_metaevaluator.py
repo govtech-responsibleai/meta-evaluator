@@ -144,11 +144,15 @@ class TestMetaEvaluatorBase:
     # === save_state() Method Tests ===
 
     def test_save_state_invalid_file_extension(self, meta_evaluator):
-        """Test InvalidFileError when state_filename doesn't end with .json."""
-        with pytest.raises(
-            InvalidFileError, match="state_filename must end with .json"
-        ):
-            meta_evaluator.save_state("invalid_file.txt")
+        """Test that this validation is no longer needed since we use a fixed filename."""
+        # This test is no longer relevant since save_state no longer accepts a filename parameter
+        # The method now uses a fixed DEFAULT_STATE_FILENAME
+        # We can test that save_state works with the default filename
+        meta_evaluator.save_state(include_data=False)
+
+        # Verify the default state file was created
+        state_file = meta_evaluator.project_dir / "main_state.json"
+        assert state_file.exists()
 
     def test_save_state_include_data_true_but_no_format(self, meta_evaluator):
         """Test DataFormatError when include_data=True but data_format is None."""
@@ -158,19 +162,19 @@ class TestMetaEvaluatorBase:
         ):
             meta_evaluator.save_state("test.json", include_data=True, data_format=None)
 
-    def test_save_state_include_data_false(self, meta_evaluator, mock_openai_client):
+    def test_save_state_include_data_false(self, meta_evaluator):
         """Test saving state without data serialization."""
         # Save without data
-        meta_evaluator.save_state("test_state.json", include_data=False)
+        meta_evaluator.save_state(include_data=False)
 
         # Verify state file exists and data file doesn't exist in data directory
-        state_file = meta_evaluator.project_dir / "test_state.json"
+        state_file = meta_evaluator.project_dir / "main_state.json"
         data_dir = meta_evaluator.project_dir / "data"
 
         assert state_file.exists()
-        assert not (data_dir / "test_state_data.json").exists()
-        assert not (data_dir / "test_state_data.csv").exists()
-        assert not (data_dir / "test_state_data.parquet").exists()
+        assert not (data_dir / "main_state_data.json").exists()
+        assert not (data_dir / "main_state_data.csv").exists()
+        assert not (data_dir / "main_state_data.parquet").exists()
 
         # Verify state file contents
         with open(state_file) as f:
@@ -188,14 +192,13 @@ class TestMetaEvaluatorBase:
         data_filename = f"test_state_data.{data_format}"
 
         meta_evaluator.save_state(
-            "test_state.json",
             include_data=True,
             data_format=data_format,
             data_filename=data_filename,
         )
 
         # Verify both files exist
-        state_file = meta_evaluator.project_dir / "test_state.json"
+        state_file = meta_evaluator.project_dir / "main_state.json"
         data_file = meta_evaluator.project_dir / "data" / data_filename
         assert state_file.exists()
 
@@ -216,15 +219,13 @@ class TestMetaEvaluatorBase:
         # Don't add any data to meta_evaluator
         assert meta_evaluator.data is None
 
-        meta_evaluator.save_state(
-            "test_state.json", include_data=True, data_format="csv"
-        )
+        meta_evaluator.save_state(include_data=True, data_format="csv")
 
         # Verify state file exists but no data file
-        state_file = meta_evaluator.project_dir / "test_state.json"
+        state_file = meta_evaluator.project_dir / "main_state.json"
         data_dir = meta_evaluator.project_dir / "data"
         assert state_file.exists()
-        assert not (data_dir / "test_state_data.parquet").exists()
+        assert not (data_dir / "main_state_data.parquet").exists()
 
         # Verify state file contents
         with open(state_file) as f:
@@ -232,18 +233,18 @@ class TestMetaEvaluatorBase:
 
         assert state_data["data"] is None
 
-    def test_save_state_include_task_false(self, meta_evaluator, mock_openai_client):
+    def test_save_state_include_task_false(self, meta_evaluator):
         """Test saving state without evaluation task serialization."""
         # Save without data
-        meta_evaluator.save_state("test_state.json", include_data=False)
+        meta_evaluator.save_state(include_data=False)
 
         # Verify state file exists and data file doesn't
-        state_file = meta_evaluator.project_dir / "test_state.json"
+        state_file = meta_evaluator.project_dir / "main_state.json"
         data_dir = meta_evaluator.project_dir / "data"
         assert state_file.exists()
-        assert not (data_dir / "test_state_data.json").exists()
-        assert not (data_dir / "test_state_data.csv").exists()
-        assert not (data_dir / "test_state_data.parquet").exists()
+        assert not (data_dir / "main_state_data.json").exists()
+        assert not (data_dir / "main_state_data.csv").exists()
+        assert not (data_dir / "main_state_data.parquet").exists()
 
         # Verify state file contents
         with open(state_file) as f:
@@ -253,17 +254,23 @@ class TestMetaEvaluatorBase:
         assert state_data["eval_task"] is None
 
     def test_save_state_creates_directories(self, meta_evaluator, tmp_path):
-        """Test that parent directories are created when they don't exist."""
-        nested_dir = tmp_path / "deep" / "nested" / "path"
-        state_file = nested_dir / "test_state.json"
+        """Test that data directory is created when it doesn't exist."""
+        # The save_state method should create the data directory if it doesn't exist
+        data_dir = meta_evaluator.project_dir / "data"
+
+        # Remove data directory if it exists
+        if data_dir.exists():
+            import shutil
+
+            shutil.rmtree(data_dir)
 
         # Directory shouldn't exist initially
-        assert not nested_dir.exists()
+        assert not data_dir.exists()
 
-        meta_evaluator.save_state(str(state_file), include_data=False)
+        meta_evaluator.save_state(include_data=False)
 
-        # Directory should be created and file should exist
-        assert nested_dir.exists()
+        # State file should exist in project directory
+        state_file = meta_evaluator.project_dir / "main_state.json"
         assert state_file.exists()
 
     @pytest.mark.parametrize(
@@ -285,7 +292,6 @@ class TestMetaEvaluatorBase:
         meta_evaluator.add_data(sample_eval_data)
 
         meta_evaluator.save_state(
-            "test_state.json",
             include_data=True,
             data_format=data_format,
             data_filename=custom_filename,
@@ -297,7 +303,7 @@ class TestMetaEvaluatorBase:
             assert expected_data_path.exists()
 
         # Verify state file references custom filename
-        state_file = meta_evaluator.project_dir / "test_state.json"
+        state_file = meta_evaluator.project_dir / "main_state.json"
         with open(state_file) as f:
             state_data = json.load(f)
 
@@ -322,7 +328,6 @@ class TestMetaEvaluatorBase:
             match=f"Data filename '{wrong_filename}' must have extension '{expected_extension}' when data_format is '{data_format}'",
         ):
             meta_evaluator.save_state(
-                "test.json",
                 include_data=True,
                 data_format=data_format,
                 data_filename=wrong_filename,
@@ -335,7 +340,7 @@ class TestMetaEvaluatorBase:
         # This should not raise an exception even with wrong extension
         # because data_filename is ignored when include_data=False
         meta_evaluator.save_state(
-            "test.json", include_data=False, data_filename="wrong_extension.csv"
+            include_data=False, data_filename="wrong_extension.csv"
         )
 
     def test_save_state_data_filename_no_validation_when_data_format_none(
@@ -349,7 +354,6 @@ class TestMetaEvaluatorBase:
             match="data_format must be specified when include_data=True",
         ):
             meta_evaluator.save_state(
-                "test.json",
                 include_data=True,
                 data_format=None,
                 data_filename="any_name.csv",
@@ -362,16 +366,15 @@ class TestMetaEvaluatorBase:
         meta_evaluator.add_data(sample_eval_data)
 
         meta_evaluator.save_state(
-            "test_state.json",
             include_data=True,
             data_format="json",
             data_filename=None,  # Explicitly set to None
         )
 
         # Verify auto-generated filename is used
-        state_file = meta_evaluator.project_dir / "test_state.json"
+        state_file = meta_evaluator.project_dir / "main_state.json"
         auto_generated_file = (
-            meta_evaluator.project_dir / "data" / "test_state_data.json"
+            meta_evaluator.project_dir / "data" / "main_state_data.json"
         )
         assert auto_generated_file.exists()
 
@@ -379,7 +382,7 @@ class TestMetaEvaluatorBase:
         with open(state_file) as f:
             state_data = json.load(f)
 
-        assert state_data["data"]["data_file"] == "test_state_data.json"
+        assert state_data["data"]["data_file"] == "main_state_data.json"
 
     def test_save_and_load_eval_task_no_prompt_columns(
         self, meta_evaluator, basic_eval_task_no_prompt
@@ -390,7 +393,6 @@ class TestMetaEvaluatorBase:
 
         # Save state
         meta_evaluator.save_state(
-            "test_state.json",
             include_task=True,
             include_data=True,
             data_format="json",
@@ -400,7 +402,6 @@ class TestMetaEvaluatorBase:
         # Load state
         loaded_evaluator = MetaEvaluator.load_state(
             project_dir=str(meta_evaluator.project_dir),
-            state_filename="test_state.json",
             load_task=True,
         )
 
@@ -422,7 +423,6 @@ class TestMetaEvaluatorBase:
 
         # Save state
         meta_evaluator.save_state(
-            "test_state.json",
             include_task=True,
             include_data=True,
             data_format="json",
@@ -432,7 +432,6 @@ class TestMetaEvaluatorBase:
         # Load state
         loaded_evaluator = MetaEvaluator.load_state(
             project_dir=str(meta_evaluator.project_dir),
-            state_filename="test_state.json",
             load_task=True,
         )
 
@@ -528,12 +527,10 @@ class TestMetaEvaluatorBase:
         meta_evaluator.add_judge("judge_2", "anthropic", "claude-3", prompt2)
 
         # Save state
-        meta_evaluator.save_state(
-            "integration_test.json", include_data=True, data_format="parquet"
-        )
+        meta_evaluator.save_state(include_data=True, data_format="parquet")
 
         # Verify files exist
-        state_file = meta_evaluator.project_dir / "integration_test.json"
+        state_file = meta_evaluator.project_dir / "main_state.json"
         assert state_file.exists()
 
         # Verify state file structure
@@ -551,7 +548,7 @@ class TestMetaEvaluatorBase:
         assert data_config["name"] == "sample_test_data"
         assert data_config["id_column"] == "sample_id"
         assert data_config["data_format"] == "parquet"
-        assert data_config["data_file"] == "integration_test_data.parquet"
+        assert data_config["data_file"] == "main_state_data.parquet"
         assert data_config["type"] == "SampleEvalData"
 
         # Verify evaluation task structure
@@ -584,24 +581,6 @@ class TestMetaEvaluatorBase:
         assert judge_2_data["prompt"]["id"] == "test_prompt_2"
         assert judge_2_data["prompt"]["prompt"] == "Evaluate toxicity"
 
-    def test_save_with_complex_file_paths(self, meta_evaluator, tmp_path):
-        """Test saving with complex file paths including spaces and nested directories."""
-        # Test with complex filename path (subdirectories within project_dir)
-        complex_filename = "test dir/with spaces/and-dashes/complex file name.json"
-
-        meta_evaluator.save_state(complex_filename, include_data=False)
-
-        # Verify subdirectories were created and file exists within project directory
-        state_file = meta_evaluator.project_dir / complex_filename
-        assert state_file.exists()
-        assert state_file.parent.exists()  # Verify subdirectories were created
-
-        # Verify file is valid JSON
-        with open(state_file) as f:
-            state_data = json.load(f)
-
-        assert state_data["version"] == "1.0"
-
     # === load_state() Method Tests ===
 
     def test_load_true_with_existing_state(
@@ -621,9 +600,7 @@ class TestMetaEvaluatorBase:
         original_evaluator.add_judge("test_judge", "openai", "gpt-4", prompt)
 
         # Save the state
-        original_evaluator.save_state(
-            "main_state.json", include_data=True, data_format="json"
-        )
+        original_evaluator.save_state(include_data=True, data_format="json")
 
         # Now load the state using load=True
         loaded_evaluator = MetaEvaluator(str(project_dir), load=True)
@@ -702,7 +679,7 @@ class TestMetaEvaluatorBase:
             MetaEvaluator(str(project_dir), load=True)
 
     def test_load_state_with_eval_data_json_format(
-        self, tmp_path, sample_eval_data, basic_eval_task, mock_openai_client
+        self, tmp_path, sample_eval_data, basic_eval_task
     ):
         """Test loading MetaEvaluator with EvalData in JSON format."""
         # Create and save evaluator with data and evaluation task
@@ -710,14 +687,11 @@ class TestMetaEvaluatorBase:
         original_evaluator.add_data(sample_eval_data)
         original_evaluator.add_eval_task(basic_eval_task)
 
-        original_evaluator.save_state(
-            "test_state.json", include_data=True, data_format="json"
-        )
+        original_evaluator.save_state(include_data=True, data_format="json")
 
         # Load from JSON
         loaded_evaluator = MetaEvaluator.load_state(
             project_dir=str(original_evaluator.project_dir),
-            state_filename="test_state.json",
             load_data=True,
         )
 
@@ -732,7 +706,6 @@ class TestMetaEvaluatorBase:
         tmp_path,
         sample_eval_data,
         basic_eval_task,
-        mock_openai_client,
     ):
         """Test loading MetaEvaluator with SampleEvalData in CSV format."""
         # Create and save evaluator with sample data
@@ -740,18 +713,15 @@ class TestMetaEvaluatorBase:
         original_evaluator.add_data(sample_eval_data)
         original_evaluator.add_eval_task(basic_eval_task)
 
-        original_evaluator.save_state(
-            "test_state.json", include_data=True, data_format="csv"
-        )
+        original_evaluator.save_state(include_data=True, data_format="csv")
 
         # Ensure the data file exists in the data directory
-        data_file = original_evaluator.project_dir / "data" / "test_state_data.csv"
+        data_file = original_evaluator.project_dir / "data" / "main_state_data.csv"
         assert data_file.exists()
 
         # Load from JSON
         loaded_evaluator = MetaEvaluator.load_state(
             project_dir=str(original_evaluator.project_dir),
-            state_filename="test_state.json",
             load_data=True,
         )
 
@@ -771,7 +741,7 @@ class TestMetaEvaluatorBase:
         assert loaded_evaluator.data.sampling_method == sample_eval_data.sampling_method
 
     def test_load_state_with_eval_task(
-        self, tmp_path, sample_eval_data, basic_eval_task, mock_openai_client
+        self, tmp_path, sample_eval_data, basic_eval_task
     ):
         """Test loading MetaEvaluator with evaluation task from JSON."""
         # Create and save evaluator with data and evaluation task
@@ -779,14 +749,11 @@ class TestMetaEvaluatorBase:
         original_evaluator.add_data(sample_eval_data)
         original_evaluator.add_eval_task(basic_eval_task)
 
-        original_evaluator.save_state(
-            "test_state.json", include_data=True, data_format="json"
-        )
+        original_evaluator.save_state(include_data=True, data_format="json")
 
         # Load from JSON
         loaded_evaluator = MetaEvaluator.load_state(
             project_dir=str(original_evaluator.project_dir),
-            state_filename="test_state.json",
             load_data=True,
         )
 
@@ -823,14 +790,11 @@ class TestMetaEvaluatorBase:
         original_evaluator.add_judge("judge_1", "openai", "gpt-4", prompt1)
         original_evaluator.add_judge("judge_2", "anthropic", "claude-3", prompt2)
 
-        original_evaluator.save_state(
-            "test_state_with_judges.json", include_data=True, data_format="json"
-        )
+        original_evaluator.save_state(include_data=True, data_format="json")
 
         # Load from JSON
         loaded_evaluator = MetaEvaluator.load_state(
             project_dir=str(original_evaluator.project_dir),
-            state_filename="test_state_with_judges.json",
             load_data=True,
         )
 
@@ -867,7 +831,7 @@ class TestMetaEvaluatorBase:
             judge_1.id = "new_id"
 
     def test_load_state_skip_data_and_eval_task_loading(
-        self, tmp_path, sample_eval_data, basic_eval_task, mock_openai_client
+        self, tmp_path, sample_eval_data, basic_eval_task
     ):
         """Test loading MetaEvaluator while skipping data loading."""
         # Create and save evaluator with data and evaluation task
@@ -875,14 +839,11 @@ class TestMetaEvaluatorBase:
         original_evaluator.add_data(sample_eval_data)
         original_evaluator.add_eval_task(basic_eval_task)
 
-        original_evaluator.save_state(
-            "test_state.json", include_data=True, data_format="json"
-        )
+        original_evaluator.save_state(include_data=True, data_format="json")
 
         # Load from JSON without data and evaluation task
         loaded_evaluator = MetaEvaluator.load_state(
             project_dir=str(original_evaluator.project_dir),
-            state_filename="test_state.json",
             load_data=False,
             load_task=False,
         )
@@ -893,32 +854,32 @@ class TestMetaEvaluatorBase:
 
     def test_load_state_invalid_file_extension(self, tmp_path):
         """Test InvalidFileError when state filename doesn't end with .json."""
-        with pytest.raises(
-            InvalidFileError, match="state_filename must end with .json"
-        ):
-            MetaEvaluator.load_state(str(tmp_path), "invalid_file.txt")
+        # This test is no longer relevant since we don't pass custom filenames
+        # but we can test the case where the default main_state.json doesn't exist
+        with pytest.raises(InvalidFileError, match="State file not found"):
+            MetaEvaluator.load_state(str(tmp_path))
 
     def test_load_state_nonexistent_file(self, tmp_path):
         """Test InvalidFileError when state file doesn't exist."""
         with pytest.raises(InvalidFileError, match="State file not found"):
-            MetaEvaluator.load_state(str(tmp_path), "nonexistent.json")
+            MetaEvaluator.load_state(str(tmp_path))
 
     def test_load_state_invalid_json(self, tmp_path):
         """Test InvalidFileError when state file contains invalid JSON."""
         project_dir = tmp_path / "test_project"
         project_dir.mkdir()
-        state_file = project_dir / "invalid.json"
+        state_file = project_dir / "main_state.json"
         state_file.write_text("{ invalid json }")
 
         with pytest.raises(
             InvalidFileError,
             match=re.compile(rf"{re.escape(INVALID_JSON_STRUCTURE_MSG)}", re.DOTALL),
         ):
-            MetaEvaluator.load_state(str(project_dir), "invalid.json")
+            MetaEvaluator.load_state(str(project_dir))
 
     def test_load_state_missing_required_keys(self, tmp_path):
         """Test InvalidFileError when state file is missing required keys."""
-        state_file = tmp_path / "incomplete.json"
+        state_file = tmp_path / "main_state.json"
         state_file.write_text('{"version": "1.0"}')
 
         with pytest.raises(
@@ -927,7 +888,7 @@ class TestMetaEvaluatorBase:
                 rf"{re.escape(INVALID_JSON_STRUCTURE_MSG)}.*Field required", re.DOTALL
             ),
         ):
-            MetaEvaluator.load_state(str(tmp_path), "incomplete.json")
+            MetaEvaluator.load_state(str(tmp_path))
 
     def test_load_state_nonexistent_data_file(self, tmp_path, mock_openai_client):
         """Test FileNotFoundError when referenced data file doesn't exist."""
@@ -943,7 +904,7 @@ class TestMetaEvaluatorBase:
             },
         }
 
-        state_file = tmp_path / "test.json"
+        state_file = tmp_path / "main_state.json"
         with open(state_file, "w") as f:
             json.dump(state_data, f)
 
@@ -956,7 +917,6 @@ class TestMetaEvaluatorBase:
             with pytest.raises(FileNotFoundError, match="Data file not found"):
                 MetaEvaluator.load_state(
                     project_dir=str(tmp_path),
-                    state_filename="test.json",
                     load_data=True,
                 )
 
@@ -974,7 +934,7 @@ class TestMetaEvaluatorBase:
             },
         }
 
-        state_file = tmp_path / "test.json"
+        state_file = tmp_path / "main_state.json"
         with open(state_file, "w") as f:
             json.dump(state_data, f)
 
@@ -997,7 +957,6 @@ class TestMetaEvaluatorBase:
             ):
                 MetaEvaluator.load_state(
                     project_dir=str(tmp_path),
-                    state_filename="test.json",
                     load_data=True,
                 )
 

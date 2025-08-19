@@ -74,6 +74,8 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
     - Supporting structured outputs, instructor, and XML-based evaluation methods
     """
 
+    DEFAULT_STATE_FILENAME = "main_state.json"
+
     def __init__(self, project_dir: Optional[str] = None, load: bool = False):
         """Initialize a MetaEvaluator instance.
 
@@ -101,8 +103,9 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
             # Check if saved state exists and load it
             self._load_existing_state()
         else:
-            # Check if directory exists and raise error if it does
-            if self.paths.project.exists():
+            # Check if MetaEvaluator state already exists and raise error if it does
+            state_file = self.paths.project / self.DEFAULT_STATE_FILENAME
+            if state_file.exists():
                 raise ProjectDirectoryExistsError(str(self.paths.project))
 
             # Initialize empty state
@@ -118,7 +121,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         Raises:
             SavedStateNotFoundError: If no saved state is found in the project directory.
         """
-        state_file = self.paths.project / "main_state.json"
+        state_file = self.paths.project / self.DEFAULT_STATE_FILENAME
 
         if not state_file.exists():
             raise SavedStateNotFoundError(str(self.paths.project))
@@ -127,7 +130,6 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
             # Load the saved state using the existing load_state class method
             loaded_evaluator = self.__class__.load_state(
                 project_dir=str(self.paths.project),
-                state_filename="main_state.json",
                 load_data=True,
                 load_task=True,
             )
@@ -197,7 +199,6 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
     def save_state(
         self,
-        state_filename: str = "main_state.json",
         include_task: bool = True,
         include_data: bool = True,
         data_format: Optional[Literal["json", "csv", "parquet"]] = None,
@@ -211,28 +212,22 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         - Data metadata and optional data file serialization
 
         Files are saved within the project directory structure:
-        - State file: project_dir/{state_filename}
+        - State file: project_dir/{DEFAULT_STATE_FILENAME}
         - Data file: project_dir/data/{data_filename}
 
         Args:
-            state_filename: Filename for state JSON file. Defaults to 'main_state.json'.
             include_task: Whether to serialize EvalTask. Defaults to True.
             include_data: Whether to serialize EvalData. Defaults to True.
             data_format: Format for data file when include_data=True.
                 Must be specified if include_data=True.
             data_filename: Optional custom filename for data file. If None,
-                auto-generates using pattern {base_name}_data.{format}.
+                auto-generates using pattern main_data.{format}.
                 Must have extension matching data_format.
 
         Raises:
-            InvalidFileError: If state_filename doesn't end with .json
             DataFormatError: If include_data=True but data_format is None, or
                 if data_filename extension doesn't match data_format.
         """
-        # Validate state_filename ends with .json
-        if not state_filename.endswith(".json"):
-            raise InvalidFileError("state_filename must end with .json")
-
         # Validate data_format when include_data is True
         if include_data and data_format is None:
             raise DataFormatError(
@@ -249,7 +244,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
                 )
 
         # Extract base_name from state_filename
-        base_name = Path(state_filename).stem
+        base_name = Path(self.DEFAULT_STATE_FILENAME).stem
 
         # Generate or use provided data_filename if include_data
         final_data_filename = None
@@ -268,7 +263,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         self.paths.ensure_directories()
 
         # Resolve state file path within project directory
-        state_file_path = self.paths.project / state_filename
+        state_file_path = self.paths.project / self.DEFAULT_STATE_FILENAME
 
         # Ensure parent directories exist for state file (for nested paths)
         state_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -373,7 +368,6 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
     def load_state(
         cls,
         project_dir: str,
-        state_filename: str = "main_state.json",
         load_data: bool = True,
         load_task: bool = True,
     ) -> "MetaEvaluator":
@@ -390,7 +384,6 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
         Args:
             project_dir: Project directory containing the evaluation files.
-            state_filename: Filename of the state JSON file. Defaults to 'main_state.json'.
             load_data: Whether to load the data file referenced in the state. Defaults to True.
                 When True, automatically finds and loads the data file that was saved with this state.
                 When False, skips data loading.
@@ -401,16 +394,9 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
         Returns:
             MetaEvaluator: A new MetaEvaluator instance loaded from the JSON state.
-
-        Raises:
-            InvalidFileError: If state_file doesn't end with .json or if the JSON structure is invalid.
         """
-        # Validate state_filename ends with .json
-        if not state_filename.endswith(".json"):
-            raise InvalidFileError("state_filename must end with .json")
-
         # Resolve state file path
-        state_file_path = Path(project_dir) / state_filename
+        state_file_path = Path(project_dir) / cls.DEFAULT_STATE_FILENAME
 
         # Load JSON MetaEvaluatorState
         state = cls._load_json_state(str(state_file_path))
