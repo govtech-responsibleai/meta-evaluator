@@ -23,7 +23,6 @@ from .exceptions import (
     EvalTaskNotFoundError,
     InvalidYAMLStructureError,
     JudgeAlreadyExistsError,
-    JudgeExecutionError,
     JudgeNotFoundError,
     PromptFileNotFoundError,
     ResultsSaveError,
@@ -408,7 +407,6 @@ class JudgesMixin:
             dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
 
         Raises:
-            JudgeExecutionError: If judge execution fails.
             ResultsSaveError: If saving results fails.
 
         Example:
@@ -458,18 +456,31 @@ class JudgesMixin:
             judge = self.judge_registry[judge_id]
 
             # Run the evaluation
-            try:
-                self.logger.info(f"Running evaluation for judge '{judge_id}'...")
-                judge_results = judge.evaluate_eval_data(
-                    eval_data=self.data,
-                    run_id=f"{run_id}_{judge_id}",
-                )
-                results[judge_id] = judge_results
-                self.logger.info(
-                    f"Judge '{judge_id}' completed: {judge_results.succeeded_count}/{judge_results.total_count} successful evaluations"
-                )
-            except Exception as e:
-                raise JudgeExecutionError(judge_id, str(e))
+            self.logger.info(f"Running evaluation for judge '{judge_id}'...")
+            judge_results = judge.evaluate_eval_data(
+                eval_data=self.data,
+                run_id=f"{run_id}_{judge_id}",
+            )
+            results[judge_id] = judge_results
+
+            # Calculate success and non-success counts
+            non_success_count = (
+                judge_results.total_count - judge_results.succeeded_count
+            )
+            success_pct = (
+                (judge_results.succeeded_count / judge_results.total_count * 100)
+                if judge_results.total_count > 0
+                else 0
+            )
+            non_success_pct = (
+                (non_success_count / judge_results.total_count * 100)
+                if judge_results.total_count > 0
+                else 0
+            )
+
+            self.logger.info(
+                f"Judge '{judge_id}' completed: {judge_results.succeeded_count}/{judge_results.total_count} successful ({success_pct:.1f}%), {non_success_count} non-successful ({non_success_pct:.1f}%)"
+            )
 
             # Save results if requested
             if save_results:
@@ -561,25 +572,35 @@ class JudgesMixin:
 
             Returns:
                 tuple[str, JudgeResults]: Tuple containing the judge ID and its results.
-
-            Raises:
-                JudgeExecutionError: If the judge execution fails.
             """
             judge = self.judge_registry[judge_id]
 
             # Run the evaluation
-            try:
-                self.logger.info(f"Running async evaluation for judge '{judge_id}'...")
-                judge_results = await judge.evaluate_eval_data_async(
-                    eval_data=self.data,
-                    run_id=f"{run_id}_{judge_id}",
-                )
-                self.logger.info(
-                    f"Judge '{judge_id}' completed: {judge_results.succeeded_count}/{judge_results.total_count} successful evaluations"
-                )
-                return judge_id, judge_results
-            except Exception as e:
-                raise JudgeExecutionError(judge_id, str(e))
+            self.logger.info(f"Running async evaluation for judge '{judge_id}'...")
+            judge_results = await judge.evaluate_eval_data_async(
+                eval_data=self.data,
+                run_id=f"{run_id}_{judge_id}",
+            )
+
+            # Calculate success and non-success counts
+            non_success_count = (
+                judge_results.total_count - judge_results.succeeded_count
+            )
+            success_pct = (
+                (judge_results.succeeded_count / judge_results.total_count * 100)
+                if judge_results.total_count > 0
+                else 0
+            )
+            non_success_pct = (
+                (non_success_count / judge_results.total_count * 100)
+                if judge_results.total_count > 0
+                else 0
+            )
+
+            self.logger.info(
+                f"Judge '{judge_id}' completed: {judge_results.succeeded_count}/{judge_results.total_count} successful ({success_pct:.1f}%), {non_success_count} non-successful ({non_success_pct:.1f}%)"
+            )
+            return judge_id, judge_results
 
         # Execute all judges in parallel
         judge_tasks = [run_single_judge(judge_id) for judge_id in final_judges_to_run]

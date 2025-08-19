@@ -13,7 +13,6 @@ from meta_evaluator.meta_evaluator.exceptions import (
     EvalTaskNotFoundError,
     InvalidYAMLStructureError,
     JudgeAlreadyExistsError,
-    JudgeExecutionError,
     JudgeNotFoundError,
     PromptFileNotFoundError,
     ResultsSaveError,
@@ -469,18 +468,6 @@ class TestMetaEvaluatorJudges:
         judge1.evaluate_eval_data.assert_called_once()
         judge2.evaluate_eval_data.assert_called_once()
         judge3.evaluate_eval_data.assert_not_called()
-
-    def test_run_judges_execution_exception(self, meta_evaluator_with_judges_and_data):
-        """Test run_judges raises exception when judge execution fails."""
-        # Configure mock judge to raise exception
-        judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
-        judge1.evaluate_eval_data.side_effect = Exception("Judge execution failed")
-
-        # Run judge and expect JudgeExecutionError
-        with pytest.raises(JudgeExecutionError):
-            meta_evaluator_with_judges_and_data.run_judges(
-                judge_ids="judge1", save_results=False
-            )
 
     def test_run_judges_custom_run_id(self, meta_evaluator_with_judges_and_data):
         """Test running judges with custom run_id."""
@@ -982,21 +969,6 @@ class TestAsyncMetaEvaluatorJudges:
         assert results["judge1"] == mock_results
         mock_results.save_state.assert_called_once()
         judge1.evaluate_eval_data_async.assert_called_once()
-
-    async def test_run_judges_async_error_handling(
-        self, meta_evaluator_with_judges_and_data
-    ):
-        """Test error handling in async judge runs."""
-        # Get judge from fixture and mock its async evaluation method to raise exception
-        judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
-        judge1.evaluate_eval_data_async = AsyncMock(
-            side_effect=Exception("Evaluation failed")
-        )
-
-        with pytest.raises(JudgeExecutionError):
-            await meta_evaluator_with_judges_and_data.run_judges_async(
-                judge_ids="judge1"
-            )
 
     @pytest.mark.parametrize("results_format", ["json", "csv", "parquet"])
     async def test_run_judges_async_save_results_with_formats(

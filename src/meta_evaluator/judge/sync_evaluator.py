@@ -54,6 +54,7 @@ class SyncEvaluationMixin(ABC):
         """Evaluate a single row with fallback support.
 
         Tries methods in the fallback sequence until one succeeds or all fail.
+        If all methods fail, creates an error row instead of raising an exception.
 
         Args:
             row: Row data from EvalData
@@ -62,10 +63,10 @@ class SyncEvaluationMixin(ABC):
             task_class: The dynamically created Pydantic model for responses
             tag_configs: List of TagConfigs for XML parsing
             builder: The JudgeResultsBuilder instance
-
-        Raises:
-            UnsupportedFormatMethodError: If the answering method is not supported.
         """
+        assert eval_data.id_column is not None, (
+            f"EvalData {eval_data.name} has no ID column, but was expected to have one."
+        )
         fallback_sequence = self.eval_task.get_fallback_sequence()
         last_error = None
 
@@ -119,16 +120,31 @@ class SyncEvaluationMixin(ABC):
                 )
                 continue
 
-        # All methods failed, raise the last UnsupportedFormatMethodError
+        # All methods failed, create error row instead of raising exception
         if last_error:
-            raise last_error
+            self.logger.error(
+                f"All fallback methods failed for row {sample_example_id}. Last error: {last_error}"
+            )
+            builder.create_other_error_row(
+                sample_example_id=sample_example_id,
+                original_id=row[eval_data.id_column],
+                error=last_error,
+            )
         else:
             # This shouldn't happen, but just in case
             full_model_name = f"{self.llm_client}/{self.model}"
-            raise UnsupportedFormatMethodError(
+            unsupported_error = UnsupportedFormatMethodError(
                 method=self.eval_task.answering_method,
                 model=full_model_name,
                 suggested_methods=["structured", "instructor", "xml"],
+            )
+            self.logger.error(
+                f"No fallback methods available for row {sample_example_id}. Error: {unsupported_error}"
+            )
+            builder.create_other_error_row(
+                sample_example_id=sample_example_id,
+                original_id=row[eval_data.id_column],
+                error=unsupported_error,
             )
 
     def _evaluate_row_structured(
