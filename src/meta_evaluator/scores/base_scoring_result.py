@@ -12,6 +12,7 @@ from ..common.error_constants import (
     STATE_FILE_NOT_FOUND_MSG,
 )
 from ..results.exceptions import InvalidFileError
+from .enums import TaskAggregationMode
 
 
 class BaseScoringResult(BaseModel):
@@ -20,14 +21,25 @@ class BaseScoringResult(BaseModel):
     scorer_name: str = Field(
         ..., description="Name of the scorer that produced this result"
     )
-    task_name: str = Field(..., description="Name of the task that was scored")
+    task_name: str = Field(..., description="Name of the task(s) that was scored")
     judge_id: str = Field(..., description="ID of the judge that was scored")
-    score: float = Field(..., description="The computed score")
+    scores: Dict[str, Any] = Field(
+        ..., description="Dictionary of metric names to scores"
+    )
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata about the score"
     )
     timestamp: datetime = Field(
         default_factory=datetime.now, description="When this score was computed"
+    )
+    aggregation_mode: TaskAggregationMode = Field(
+        ..., description="How the tasks were aggregated for this result"
+    )
+    num_comparisons: int = Field(
+        ..., description="Number of judge-human pairs that were compared"
+    )
+    failed_comparisons: int = Field(
+        default=0, description="Number of comparisons that failed or were skipped"
     )
 
     def save_state(self, file_path: str) -> None:

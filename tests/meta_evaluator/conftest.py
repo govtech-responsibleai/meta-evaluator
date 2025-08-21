@@ -25,6 +25,14 @@ from meta_evaluator.results import (
     JudgeResults,
     JudgeResultsBuilder,
 )
+from meta_evaluator.scores import (
+    AccuracyScorer,
+    AltTestScorer,
+    BaseScoringResult,
+    CohensKappaScorer,
+    MetricConfig,
+)
+from meta_evaluator.scores.enums import TaskAggregationMode
 
 # ==== META EVALUATOR INSTANCE FIXTURES ====
 
@@ -558,3 +566,212 @@ def create_mock_human_metadata_file(
         json.dump(mock_metadata, f)
 
     return metadata_file
+
+
+# ==== SCORER CONFIGURATION FIXTURES ====
+
+
+@pytest.fixture
+def accuracy_scorer_config():
+    """Create AccuracyScorer with MetricConfig for testing.
+
+    Returns:
+        tuple: (scorer_instance, MetricConfig)
+    """
+    scorer = AccuracyScorer()
+    config = MetricConfig(
+        scorer=scorer, task_names=["task1"], aggregation_name="single"
+    )
+    return scorer, config
+
+
+@pytest.fixture
+def cohens_kappa_scorer_config():
+    """Create CohensKappaScorer with MetricConfig for testing.
+
+    Returns:
+        tuple: (scorer_instance, MetricConfig)
+    """
+    scorer = CohensKappaScorer()
+    config = MetricConfig(
+        scorer=scorer, task_names=["task1"], aggregation_name="single"
+    )
+    return scorer, config
+
+
+@pytest.fixture
+def alt_test_scorer_config():
+    """Create AltTestScorer with MetricConfig for testing.
+
+    Returns:
+        tuple: (scorer_instance, MetricConfig)
+    """
+    scorer = AltTestScorer()
+    scorer.min_instances_per_human = 1
+    scorer.min_humans_per_instance = 1
+    config = MetricConfig(
+        scorer=scorer, task_names=["task1"], aggregation_name="single"
+    )
+    return scorer, config
+
+
+@pytest.fixture
+def multi_aggregation_configs():
+    """Create same scorer with different aggregation modes for testing.
+
+    Returns:
+        dict: Dictionary mapping unique names to (config, expected_results) tuples
+    """
+    configs = {}
+
+    # Single task config
+    scorer1 = AccuracyScorer()
+    config1 = MetricConfig(
+        scorer=scorer1,
+        task_names=["task1"],
+        aggregation_name="single",
+    )
+    result1 = BaseScoringResult(
+        scorer_name="accuracy",
+        task_name="task1",
+        judge_id="judge_1",
+        scores={"accuracy": 0.8},
+        metadata={},
+        aggregation_mode=TaskAggregationMode.SINGLE,
+        num_comparisons=10,
+        failed_comparisons=0,
+    )
+    configs[config1.get_unique_name()] = (config1, [result1])
+
+    # Multi-task config
+    scorer2 = AccuracyScorer()
+    config2 = MetricConfig(
+        scorer=scorer2,
+        task_names=["task1", "task2"],
+        aggregation_name="multitask",
+    )
+    result2 = BaseScoringResult(
+        scorer_name="accuracy",
+        task_name="2_tasks_avg",
+        judge_id="judge_1",
+        scores={"accuracy": 0.85},
+        metadata={},
+        aggregation_mode=TaskAggregationMode.MULTITASK,
+        num_comparisons=20,
+        failed_comparisons=0,
+    )
+    configs[config2.get_unique_name()] = (config2, [result2])
+
+    # Multilabel config
+    scorer3 = AccuracyScorer()
+    config3 = MetricConfig(
+        scorer=scorer3,
+        task_names=["task1", "task2"],
+        aggregation_name="multilabel",
+    )
+    result3 = BaseScoringResult(
+        scorer_name="accuracy",
+        task_name="multilabel_2_tasks",
+        judge_id="judge_1",
+        scores={"accuracy": 0.9},
+        metadata={},
+        aggregation_mode=TaskAggregationMode.MULTILABEL,
+        num_comparisons=10,
+        failed_comparisons=0,
+    )
+    configs[config3.get_unique_name()] = (config3, [result3])
+
+    return configs
+
+
+@pytest.fixture
+def different_scorer_configs():
+    """Create different scorer configurations for testing.
+
+    Returns:
+        dict: Dictionary mapping unique names to (config, expected_results) tuples
+    """
+    configs = {}
+
+    # Accuracy scorer config
+    accuracy_scorer = AccuracyScorer()
+    accuracy_config = MetricConfig(
+        scorer=accuracy_scorer,
+        task_names=["task1"],
+        aggregation_name="single",
+    )
+    accuracy_results = [
+        BaseScoringResult(
+            scorer_name="accuracy",
+            task_name="task1",
+            judge_id="judge_1",
+            scores={"accuracy": 0.8},
+            metadata={},
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=10,
+            failed_comparisons=0,
+        ),
+        BaseScoringResult(
+            scorer_name="accuracy",
+            task_name="task1",
+            judge_id="judge_2",
+            scores={"accuracy": 0.9},
+            metadata={},
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=10,
+            failed_comparisons=0,
+        ),
+    ]
+    configs["accuracy_single"] = (accuracy_config, accuracy_results)
+
+    # Cohen's Kappa scorer config
+    kappa_scorer = CohensKappaScorer()
+    kappa_config = MetricConfig(
+        scorer=kappa_scorer,
+        task_names=["task1"],
+        aggregation_name="single",
+    )
+    kappa_results = [
+        BaseScoringResult(
+            scorer_name="cohens_kappa",
+            task_name="task1",
+            judge_id="judge_1",
+            scores={"kappa": 0.7},
+            metadata={},
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=10,
+            failed_comparisons=0,
+        )
+    ]
+    configs["cohens_kappa_single"] = (kappa_config, kappa_results)
+
+    # AltTest scorer config
+    alt_test_scorer = AltTestScorer()
+    alt_test_scorer.min_instances_per_human = 1
+    alt_test_scorer.min_humans_per_instance = 1
+    alt_test_config = MetricConfig(
+        scorer=alt_test_scorer,
+        task_names=["task1"],
+        aggregation_name="single",
+    )
+    alt_test_results = [
+        BaseScoringResult(
+            scorer_name="alt_test",
+            task_name="task1",
+            judge_id="judge_1",
+            scores={
+                "winning_rate": {"0.10": 0.0, "0.20": 0.3333333, "0.30": 0.6666667},
+                "advantage_probability": 0.6,
+            },
+            metadata={
+                "scoring_function": "accuracy",
+                "human_advantage_probabilities": {"human_1": (0.3, 0.7)},
+            },
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=10,
+            failed_comparisons=0,
+        )
+    ]
+    configs["alt_test_single"] = (alt_test_config, alt_test_results)
+
+    return configs

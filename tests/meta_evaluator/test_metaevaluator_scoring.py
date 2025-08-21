@@ -1,5 +1,6 @@
 """Tests for ScoringMixin data processing functionality."""
 
+import asyncio
 import os
 import shutil
 from datetime import datetime
@@ -11,11 +12,9 @@ import pytest
 
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.meta_evaluator.exceptions import (
-    EvalTaskNotFoundError,
-    IncompatibleTaskError,
-    InsufficientDataError,
     ScoringConfigError,
 )
+from meta_evaluator.meta_evaluator.scoring import ScoringMixin
 from meta_evaluator.results import (
     HumanAnnotationResults,
     HumanAnnotationResultsBuilder,
@@ -24,10 +23,16 @@ from meta_evaluator.results import (
 )
 from meta_evaluator.scores import (
     AccuracyScorer,
+    BaseScoringResult,
     MetricConfig,
     MetricsConfig,
 )
+from meta_evaluator.scores.enums import TaskAggregationMode
 from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
+from meta_evaluator.scores.metrics.agreement.iaa import CohensKappaScorer
+from meta_evaluator.scores.metrics.text_comparison.text_similarity import (
+    TextSimilarityScorer,
+)
 
 from .conftest import create_mock_human_metadata_file, create_mock_judge_state_file
 
@@ -37,228 +42,66 @@ from .conftest import create_mock_human_metadata_file, create_mock_judge_state_f
 class TestDataProcessing:
     """Test data processing methods in ScoringMixin."""
 
-    def test_extract_outcomes_for_task(self, mock_evaluator, judge_results_1):
-        """Test extracting outcomes for a specific task."""
-        result = mock_evaluator._extract_outcomes_for_task(judge_results_1, "task1")
-
-        expected = pl.DataFrame(
-            {"original_id": ["1", "2", "3", "4"], "task1": ["A", "B", "A", "C"]}
-        )
-
-        assert result.equals(expected)
-
-    def test_extract_outcomes_for_task_empty(self, mock_evaluator):
-        """Test extracting outcomes when no successful results."""
-        empty_results = Mock(spec=JudgeResults)
-        empty_results.get_successful_results.return_value = pl.DataFrame()
-
-        result = mock_evaluator._extract_outcomes_for_task(empty_results, "task1")
-
-        expected = pl.DataFrame({"original_id": [], "task1": []})
-        assert result.equals(expected)
-
-    def test_collect_all_outcomes_judge(self, mock_evaluator, judge_results_dict):
-        """Test collecting outcomes from judge results."""
-        task_names = ["task1"]
-
-        outcomes = mock_evaluator._collect_all_outcomes(
-            judge_results_dict, task_names, "judge_id"
-        )
-
-        assert len(outcomes) == 2  # Two judges
-        result_df = outcomes[0]
-
-        expected_columns = ["original_id", "task_value", "judge_id", "task_name"]
-        assert set(result_df.columns) == set(expected_columns)
-        assert result_df["judge_id"].to_list() == [
-            "judge_1",
-            "judge_1",
-            "judge_1",
-            "judge_1",
-        ]
-        assert result_df["task_name"].to_list() == ["task1", "task1", "task1", "task1"]
-
-    def test_collect_all_outcomes_human(self, mock_evaluator, human_results_dict):
-        """Test collecting outcomes from human results."""
-        task_names = ["task1"]
-
-        outcomes = mock_evaluator._collect_all_outcomes(
-            human_results_dict, task_names, "annotator_id"
-        )
-
-        assert len(outcomes) == 2  # Two separate runs for human_1 and human_2
-
-        # Check human_1 results
-        human_1_df = outcomes[0]
-        expected_columns = ["original_id", "task_value", "annotator_id", "task_name"]
-        assert set(human_1_df.columns) == set(expected_columns)
-        assert human_1_df["annotator_id"].to_list() == [
-            "human_1",
-            "human_1",
-            "human_1",
-            "human_1",
-        ]
-
-        # Check human_2 results
-        human_2_df = outcomes[1]
-        assert set(human_2_df.columns) == set(expected_columns)
-        assert human_2_df["annotator_id"].to_list() == [
-            "human_2",
-            "human_2",
-            "human_2",
-            "human_2",
-        ]
-
-    def test_find_common_ids(self, mock_evaluator):
-        """Test finding common IDs between judge and human results."""
-        consolidated_judge_df = pl.DataFrame({"original_id": ["1", "2", "3", "4"]})
-        consolidated_human_df = pl.DataFrame({"original_id": ["2", "3", "4", "5"]})
-
-        id_sets = mock_evaluator._find_common_ids(
-            consolidated_judge_df, consolidated_human_df
-        )
-
-        assert id_sets["common_ids"] == {"2", "3", "4"}
-        assert id_sets["judge_only_ids"] == {"1"}
-        assert id_sets["human_only_ids"] == {"5"}
-
-    def test_align_results_by_id(
-        self, mock_evaluator, judge_results_dict, human_results_dict
+    def test_filter_and_align_data(
+        self, mock_evaluator, judge_results_1, human_results_dict
     ):
-        """Test aligning judge and human results by ID."""
-        task_names = ["task1"]
-
-        consolidated_judge_df, consolidated_human_df = (
-            mock_evaluator._align_results_by_id(
-                judge_results_dict, human_results_dict, task_names
-            )
+        """Test filtering and aligning judge and human data."""
+        judge_df, human_df = mock_evaluator._filter_and_align_data(
+            judge_results_1, human_results_dict
         )
 
-        # All results should have the same original_ids
-        judge_ids = set(consolidated_judge_df["original_id"].to_list())
-        human_ids = set(consolidated_human_df["original_id"].to_list())
-        assert judge_ids == human_ids
-        assert judge_ids == {"1", "2", "3", "4"}
+        # Should have common IDs from both judge and human results
+        assert set(judge_df["original_id"].to_list()) == {"1", "2", "3", "4"}
+        assert set(human_df["original_id"].to_list()) == {"1", "2", "3", "4"}
+        # Human df should have human_id column
+        assert "human_id" in human_df.columns
+        assert "task1" in judge_df.columns
+        assert "task1" in human_df.columns
 
-    def test_align_results_by_id_no_common_ids(self, mock_evaluator):
-        """Test alignment when no common IDs exist."""
-        judge_results = Mock(spec=JudgeResults)
-        judge_results.judge_id = "judge_1"
-        judge_results.get_successful_results.return_value = pl.DataFrame(
-            {"original_id": ["1", "2"], "task1": ["A", "B"]}
+    def test_filter_and_align_data_empty(self, mock_evaluator):
+        """Test filtering when no successful results."""
+        # Create mock judge results with empty successful results
+        judge_result = Mock(spec=JudgeResults)
+        judge_result.get_successful_results.return_value = pl.DataFrame()
+
+        # Create mock human results
+        human_result = Mock(spec=HumanAnnotationResults)
+        human_result.annotator_id = "human_1"
+        human_result.get_successful_results.return_value = pl.DataFrame()
+
+        human_results = {"run_1": human_result}
+
+        judge_df, human_df = mock_evaluator._filter_and_align_data(
+            judge_result, human_results
         )
 
-        human_results = Mock(spec=HumanAnnotationResults)
-        human_results.annotator_id = "human_1"
-        human_results.get_successful_results.return_value = pl.DataFrame(
-            {"original_id": ["3", "4"], "task1": ["C", "D"]}
+        # Should return empty DataFrames
+        assert judge_df.is_empty()
+        assert human_df.is_empty()
+
+    def test_preprocess_task_data_single(self, mock_evaluator):
+        """Test preprocessing data for single task."""
+        judge_df = pl.DataFrame(
+            {"original_id": ["1", "2", "3"], "task1": ["A", "B", "A"]}
         )
 
-        judge_dict = {"run_1": judge_results}
-        human_dict = {"run_1": human_results}
-
-        with pytest.raises(
-            InsufficientDataError, match="No aligned judge-human data found"
-        ):
-            mock_evaluator._align_results_by_id(judge_dict, human_dict, ["task1"])
-
-    def test_empty_dataframes(self, mock_evaluator):
-        """Test handling of empty DataFrames."""
-        judge_results = Mock(spec=JudgeResults)
-        judge_results.judge_id = "judge_1"
-        judge_results.get_successful_results.return_value = pl.DataFrame(
-            {"original_id": [], "task1": []}
-        )
-
-        human_results = Mock(spec=HumanAnnotationResults)
-        human_results.annotator_id = "human_1"
-        human_results.get_successful_results.return_value = pl.DataFrame(
-            {"original_id": [], "task1": []}
-        )
-
-        judge_dict = {"run_1": judge_results}
-        human_dict = {"run_1": human_results}
-
-        with pytest.raises(InsufficientDataError, match="No judge outcomes found"):
-            mock_evaluator._align_results_by_id(judge_dict, human_dict, ["task1"])
-
-    def test_extract_task_schemas(self, mock_evaluator, judge_results_dict):
-        """Test extracting task schemas from judge results."""
-        task_names = ["task1", "task2", "safety"]
-
-        schemas = mock_evaluator._extract_task_schemas(judge_results_dict, task_names)
-
-        expected = {
-            "task1": ["A", "B", "C"],
-            "task2": None,
-            "safety": ["SAFE", "UNSAFE"],
-        }
-        assert schemas == expected
-
-    def test_validate_scorer_compatibility_valid(self, mock_evaluator):
-        """Test scorer compatibility validation - valid case."""
-        scorer = AccuracyScorer()
-        task_schemas = {"task1": ["A", "B", "C"]}  # Classification task
-
-        # Should not raise any exception
-        mock_evaluator._validate_scorer_compatibility(scorer, task_schemas)
-
-    def test_validate_scorer_compatibility_invalid(self, mock_evaluator):
-        """Test scorer compatibility validation - invalid case."""
-        scorer = AccuracyScorer()
-        task_schemas = {"task1": None}  # Free-form text task
-
-        with pytest.raises(IncompatibleTaskError, match="Incompatible task"):
-            mock_evaluator._validate_scorer_compatibility(scorer, task_schemas)
-
-    def test_extract_task_schemas_missing_task(
-        self, mock_evaluator, judge_results_dict
-    ):
-        """Test extracting task schemas when a task is not found."""
-        task_names = ["task1", "missing_task"]
-
-        with pytest.raises(
-            EvalTaskNotFoundError,
-            match="Task 'missing_task' not found in judge results schemas",
-        ):
-            mock_evaluator._extract_task_schemas(judge_results_dict, task_names)
-
-    def test_extract_outcomes_for_task_null_filtering(self, mock_evaluator):
-        """Test that _extract_outcomes_for_task filters out null/None values."""
-        # Create mock results with null values
-        judge_results = Mock(spec=JudgeResults)
-        judge_results.get_successful_results.return_value = pl.DataFrame(
-            {
-                "original_id": ["1", "2", "3", "4"],
-                "task1": ["A", None, "C", "D"],
-                "task2": ["text1", "text2", None, "text4"],
-            }
-        )
-
-        # Test task1 - should filter out row with None value
-        result = mock_evaluator._extract_outcomes_for_task(judge_results, "task1")
-        expected = pl.DataFrame(
-            {"original_id": ["1", "3", "4"], "task1": ["A", "C", "D"]}
-        )
-        assert result.equals(expected)
-
-        # Test task2 - should filter out row with None value
-        result = mock_evaluator._extract_outcomes_for_task(judge_results, "task2")
-        expected = pl.DataFrame(
-            {"original_id": ["1", "2", "4"], "task2": ["text1", "text2", "text4"]}
-        )
-        assert result.equals(expected)
-
-        # Test all null values - should return empty DataFrame
-        judge_results.get_successful_results.return_value = pl.DataFrame(
+        human_df = pl.DataFrame(
             {
                 "original_id": ["1", "2", "3"],
-                "task1": [None, None, None],
+                "human_id": ["human_1", "human_1", "human_1"],
+                "task1": ["A", "B", "A"],
             }
         )
-        result = mock_evaluator._extract_outcomes_for_task(judge_results, "task1")
-        expected = pl.DataFrame({"original_id": [], "task1": []})
-        assert result.equals(expected)
+
+        processed_judge, processed_human = mock_evaluator._preprocess_task_data(
+            judge_df, human_df, ["task1"], TaskAggregationMode.SINGLE
+        )
+
+        # Should rename task column to "label"
+        assert "label" in processed_judge.columns
+        assert "label" in processed_human.columns
+        assert processed_judge["label"].to_list() == ["A", "B", "A"]
+        assert processed_human["label"].to_list() == ["A", "B", "A"]
 
 
 class TestResultsLoading:
@@ -597,33 +440,429 @@ class TestResultsLoading:
 
 
 class TestScoring:
-    """Test the compare method in ScoringMixin."""
+    """Test the ScoringMixin methods."""
 
-    def test_compare_no_metrics_configured(self, mock_evaluator):
-        """Test comparison when no metrics are configured."""
+    def test_no_metrics_configured_raises_scoring_config_error(self, mock_evaluator):
+        """Test that no metric configs raises ScoringConfigError."""
         config = MetricsConfig(metrics=[])
 
         with pytest.raises(
             ScoringConfigError, match="No metrics configured for comparison"
         ):
-            mock_evaluator.compare(config)
+            asyncio.run(mock_evaluator.compare_async(config))
 
-    def test_compare_no_task_names_specified(self, mock_evaluator):
-        """Test comparison when no task names are specified for a metric."""
-        mock_scorer = AccuracyScorer()  # Use a real scorer
+    def test_no_task_names_raises_scoring_config_error(self, mock_evaluator):
+        """Test that no task names raises ScoringConfigError."""
+        scorer = AccuracyScorer()
         config = MetricsConfig(
-            metrics=[MetricConfig(scorer=mock_scorer, task_names=[])]
+            metrics=[
+                MetricConfig(scorer=scorer, task_names=[], aggregation_name="single")
+            ]
         )
 
         with pytest.raises(
             ScoringConfigError, match="No task names specified for metric 0"
         ):
-            mock_evaluator.compare(config)
+            asyncio.run(mock_evaluator.compare_async(config))
 
-    def test_compare_success(
+    @patch.object(ScoringMixin, "_process_single_judge_async")
+    def test_run_scoring_async_calls(
+        self, mock_process_judge, mock_evaluator, judge_results_dict, human_results_dict
+    ):
+        """Test _run_scoring_async calls _process_single_judge_async for number of judges times asynchronously."""
+        scorer = AccuracyScorer()
+        config = MetricConfig(
+            scorer=scorer,
+            task_names=["task1"],
+            aggregation_name="single",
+        )
+
+        # Mock the process_single_judge_async method
+        mock_result1 = BaseScoringResult(
+            scorer_name="accuracy",
+            task_name="task1",
+            judge_id="judge_1",
+            scores={"accuracy": 0.8},
+            metadata={},
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=10,
+            failed_comparisons=0,
+        )
+        mock_result2 = BaseScoringResult(
+            scorer_name="accuracy",
+            task_name="task1",
+            judge_id="judge_2",
+            scores={"accuracy": 0.7},
+            metadata={},
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=8,
+            failed_comparisons=0,
+        )
+
+        # Create async mock that returns different results for each judge
+        mock_process_judge.side_effect = [mock_result1, mock_result2]
+
+        # Run the method
+        result = asyncio.run(
+            mock_evaluator._run_scoring_async(
+                config, judge_results_dict, human_results_dict
+            )
+        )
+
+        # Verify _process_single_judge_async was called for each judge
+        assert mock_process_judge.call_count == 2
+
+        # Verify return structure
+        metric_config, scoring_results = result
+        assert metric_config == config
+        assert len(scoring_results) == 2
+        assert scoring_results[0].judge_id == "judge_1"
+        assert scoring_results[1].judge_id == "judge_2"
+
+    def test_filter_and_align_data(
+        self, mock_evaluator, judge_results_1, human_results_dict
+    ):
+        """Test _filter_and_align_data method."""
+        judge_df, human_df = mock_evaluator._filter_and_align_data(
+            judge_results_1, human_results_dict
+        )
+
+        # Should have common IDs from both judge and human results
+        assert set(judge_df["original_id"].to_list()) == {"1", "2", "3", "4"}
+        assert set(human_df["original_id"].to_list()) == {"1", "2", "3", "4"}
+        # Human df should have human_id column
+        assert "human_id" in human_df.columns
+        assert "task1" in judge_df.columns
+        assert "task1" in human_df.columns
+
+    def test_preprocess_task_data_single(self, mock_evaluator):
+        """Test _preprocess_task_data for TaskAggregationMode.SINGLE - right columns left."""
+        judge_df = pl.DataFrame(
+            {"original_id": ["1", "2", "3"], "task1": ["A", "B", "A"]}
+        )
+
+        human_df = pl.DataFrame(
+            {
+                "original_id": ["1", "2", "3"],
+                "human_id": ["human_1", "human_1", "human_1"],
+                "task1": ["A", "B", "A"],
+            }
+        )
+
+        processed_judge, processed_human = mock_evaluator._preprocess_task_data(
+            judge_df, human_df, ["task1"], TaskAggregationMode.SINGLE
+        )
+
+        # Should rename task column to "label"
+        assert "label" in processed_judge.columns
+        assert "label" in processed_human.columns
+        assert processed_judge["label"].to_list() == ["A", "B", "A"]
+        assert processed_human["label"].to_list() == ["A", "B", "A"]
+
+    def test_preprocess_task_data_multilabel(self, mock_evaluator):
+        """Test _preprocess_task_data for TaskAggregationMode.MULTILABEL aggregates the columns."""
+        judge_df = pl.DataFrame(
+            {"original_id": ["1", "2"], "task1": ["A", "B"], "task2": ["X", "Y"]}
+        )
+
+        human_df = pl.DataFrame(
+            {
+                "original_id": ["1", "2"],
+                "human_id": ["human_1", "human_1"],
+                "task1": ["A", "B"],
+                "task2": ["X", "Y"],
+            }
+        )
+
+        processed_judge, processed_human = mock_evaluator._preprocess_task_data(
+            judge_df, human_df, ["task1", "task2"], TaskAggregationMode.MULTILABEL
+        )
+
+        # Should have label column with aggregated values
+        assert "label" in processed_judge.columns
+        assert "label" in processed_human.columns
+        # Values should be lists of strings (check the actual list, not series)
+        judge_labels = processed_judge["label"].to_list()
+        human_labels = processed_human["label"].to_list()
+
+        assert all(isinstance(label, list) for label in judge_labels)
+        assert all(isinstance(label, list) for label in human_labels)
+
+        # Each list should contain the aggregated task values (order may vary)
+        assert len(judge_labels) == 2
+        assert len(human_labels) == 2
+        assert ["A", "X"] in judge_labels
+        assert ["B", "Y"] in judge_labels
+        assert ["A", "X"] in human_labels
+        assert ["B", "Y"] in human_labels
+
+    @pytest.mark.asyncio
+    async def test_process_single_judge_async_calls_multitask(
+        self, mock_evaluator, judge_results_1, human_results_dict
+    ):
+        """Test _process_single_judge_async calls compute_score_async for number of tasks times when multitask."""
+        # Use a real AccuracyScorer to avoid pydantic validation issues
+        scorer = AccuracyScorer()
+
+        config = MetricConfig(
+            scorer=scorer,
+            task_names=["task1", "task2"],
+            aggregation_name="multitask",
+        )
+
+        # Call the actual method
+        result = await mock_evaluator._process_single_judge_async(
+            config, judge_results_1, human_results_dict
+        )
+
+        # Result should be aggregated for multi-task
+        assert "2_tasks_avg" in result.task_name
+        assert result.scorer_name == "accuracy"
+        assert result.aggregation_mode == TaskAggregationMode.MULTITASK
+
+    @pytest.mark.asyncio
+    async def test_process_single_judge_async_calls_single(
+        self, mock_evaluator, judge_results_1, human_results_dict
+    ):
+        """Test _process_single_judge_async calls compute_score_async once when single/multilabel."""
+        # Use a real AccuracyScorer to avoid pydantic validation issues
+        scorer = AccuracyScorer()
+
+        config = MetricConfig(
+            scorer=scorer,
+            task_names=["task1"],
+            aggregation_name="single",
+        )
+
+        # Call the actual method
+        result = await mock_evaluator._process_single_judge_async(
+            config, judge_results_1, human_results_dict
+        )
+
+        # Result should be the direct result for single task
+        assert result.task_name == "task1"
+        assert result.scorer_name == "accuracy"
+
+    def test_save_all_scorer_results_different_scorers(
+        self, mock_evaluator, different_scorer_configs
+    ):
+        """Test _save_all_scorer_results with different scorers."""
+        # Set up mock evaluator paths
+        mock_evaluator.paths.scores = Path(mock_evaluator.paths.scores)
+
+        # Call the method
+        mock_evaluator._save_all_scorer_results(different_scorer_configs)
+
+        # Verify scorer directories were created and files saved
+        accuracy_dir = mock_evaluator.paths.scores / "accuracy"
+        kappa_dir = mock_evaluator.paths.scores / "cohens_kappa"
+        alt_test_dir = mock_evaluator.paths.scores / "alt_test"
+
+        assert accuracy_dir.exists()
+        assert kappa_dir.exists()
+        assert alt_test_dir.exists()
+
+        # Verify result files were saved
+        accuracy_files = list(accuracy_dir.glob("**/*_result.json"))
+        kappa_files = list(kappa_dir.glob("**/*_result.json"))
+        alt_test_files = list(alt_test_dir.glob("**/*_result.json"))
+
+        assert len(accuracy_files) == 2  # 2 judges
+        assert len(kappa_files) == 1  # 1 judge
+        assert len(alt_test_files) == 1  # 1 judge
+
+    def test_save_all_scorer_results_different_aggregation_modes(
+        self, mock_evaluator, multi_aggregation_configs
+    ):
+        """Test _save_all_scorer_results with same scorer but different aggregation modes."""
+        # Set up mock evaluator paths
+        mock_evaluator.paths.scores = Path(mock_evaluator.paths.scores)
+
+        # Call the method
+        mock_evaluator._save_all_scorer_results(multi_aggregation_configs)
+
+        # Verify accuracy directory was created
+        accuracy_dir = mock_evaluator.paths.scores / "accuracy"
+        assert accuracy_dir.exists()
+
+        # Verify 3 result files were saved (one for each aggregation mode)
+        result_files = list(accuracy_dir.glob("**/*_result.json"))
+        assert len(result_files) == 3
+
+    def test_aggregate_all_scorer_results_different_scorers(
+        self, mock_evaluator, different_scorer_configs
+    ):
+        """Test _aggregate_all_scorer_results with different scorers."""
+        # Set up mock evaluator paths
+        mock_evaluator.paths.scores = Path(mock_evaluator.paths.scores)
+
+        # Call the method
+        mock_evaluator._aggregate_all_scorer_results(different_scorer_configs)
+
+        # Verify scorer directories were created
+        accuracy_dir = mock_evaluator.paths.scores / "accuracy"
+        kappa_dir = mock_evaluator.paths.scores / "cohens_kappa"
+        alt_test_dir = mock_evaluator.paths.scores / "alt_test"
+
+        assert accuracy_dir.exists()
+        assert kappa_dir.exists()
+        assert alt_test_dir.exists()
+
+        # Verify plots were generated
+        accuracy_plots = list(accuracy_dir.glob("**/*.png"))
+        kappa_plots = list(kappa_dir.glob("**/*.png"))
+        alt_test_plots = list(alt_test_dir.glob("**/*.png"))
+
+        assert len(accuracy_plots) == 1  # 1 bar plot for accuracy
+        assert len(kappa_plots) == 1  # 1 bar plot for kappa
+        assert len(alt_test_plots) == 3  # 3 plots for alt_test
+
+    def test_aggregate_all_scorer_results_different_aggregation_modes(
+        self, mock_evaluator, multi_aggregation_configs
+    ):
+        """Test _aggregate_all_scorer_results with same scorer but different aggregation modes."""
+        # Set up mock evaluator paths
+        mock_evaluator.paths.scores = Path(mock_evaluator.paths.scores)
+
+        # Call the method
+        mock_evaluator._aggregate_all_scorer_results(multi_aggregation_configs)
+
+        # Verify accuracy directory was created
+        accuracy_dir = mock_evaluator.paths.scores / "accuracy"
+        assert accuracy_dir.exists()
+
+        # Verify 3 plots were generated (one for each aggregation mode)
+        plot_files = list(accuracy_dir.glob("**/*.png"))
+        assert len(plot_files) == 3
+
+    def test_get_first_non_null_value_returns_first_value(self, mock_evaluator):
+        """Test _get_first_non_null_value returns first value."""
+        # Test with simple values
+        series = pl.Series(["A", "B", "C"])
+        result = mock_evaluator._get_first_non_null_value(series)
+        assert result == "A"
+
+        # Test with null values
+        series_with_nulls = pl.Series([None, "B", "C"])
+        result = mock_evaluator._get_first_non_null_value(series_with_nulls)
+        assert result == "B"
+
+        # Test with all nulls
+        all_nulls = pl.Series([None, None, None])
+        result = mock_evaluator._get_first_non_null_value(all_nulls)
+        assert result is None
+
+    @pytest.mark.parametrize(
+        "scorer_class,scorer_name,task_names,aggregation_name",
+        [
+            # AccuracyScorer tests
+            (AccuracyScorer, "accuracy", ["task1"], "single"),
+            (
+                AccuracyScorer,
+                "accuracy",
+                ["task1", "safety"],
+                "multitask",
+            ),
+            (
+                AccuracyScorer,
+                "accuracy",
+                ["task1", "safety"],
+                "multilabel",
+            ),
+            # CohensKappaScorer tests
+            (CohensKappaScorer, "cohens_kappa", ["task1"], "single"),
+            (
+                CohensKappaScorer,
+                "cohens_kappa",
+                ["task1", "safety"],
+                "multitask",
+            ),
+            (
+                CohensKappaScorer,
+                "cohens_kappa",
+                ["task1", "safety"],
+                "multilabel",
+            ),
+            # AltTestScorer tests
+            (AltTestScorer, "alt_test", ["task1"], "single"),
+            (
+                AltTestScorer,
+                "alt_test",
+                ["task1", "safety"],
+                "multitask",
+            ),
+            (
+                AltTestScorer,
+                "alt_test",
+                ["task1", "safety"],
+                "multilabel",
+            ),
+            # TextSimilarityScorer tests
+            (TextSimilarityScorer, "text_similarity", ["task2"], "single"),
+            (
+                TextSimilarityScorer,
+                "text_similarity",
+                ["task2"],
+                "multitask",
+            ),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_process_single_judge_async_parametrized(
+        self,
+        mock_evaluator,
+        judge_results_dict,
+        human_results_dict,
+        scorer_class,
+        scorer_name,
+        task_names,
+        aggregation_name,
+    ):
+        """Test _process_single_judge_async with different combinations of metrics, scorers and aggregation modes."""
+        # Create real scorer instances
+        if scorer_class == AltTestScorer:
+            scorer = AltTestScorer()
+            scorer.min_instances_per_human = 1  # Set low threshold for testing
+            scorer.min_humans_per_instance = 1
+        else:
+            scorer = scorer_class()
+
+        # Create metric config
+        config = MetricConfig(
+            scorer=scorer, task_names=task_names, aggregation_name=aggregation_name
+        )
+
+        # Get first judge result for testing
+        judge_result = list(judge_results_dict.values())[0]
+
+        # Call the method
+        result = await mock_evaluator._process_single_judge_async(
+            config, judge_result, human_results_dict
+        )
+
+        # Verify result structure
+        assert result.scorer_name == scorer_name
+        assert result.judge_id == judge_result.judge_id
+
+        # Verify task name based on aggregation mode
+        if config.aggregation_mode == TaskAggregationMode.SINGLE:
+            assert result.task_name == task_names[0]
+        elif (
+            config.aggregation_mode == TaskAggregationMode.MULTITASK
+            and len(task_names) > 1
+        ):
+            assert "tasks_avg" in result.task_name
+        elif (
+            config.aggregation_mode == TaskAggregationMode.MULTILABEL
+            and len(task_names) > 1
+        ):
+            assert "multilabel" in result.task_name
+
+    @pytest.mark.asyncio
+    async def test_compare_async_success(
         self, mock_evaluator, judge_results_dict, human_results_dict
     ):
-        """Test successful comparison."""
+        """Test successful compare_async."""
         # Mock the load methods
         mock_evaluator.load_all_judge_results = Mock(return_value=judge_results_dict)
         mock_evaluator.load_all_human_results = Mock(return_value=human_results_dict)
@@ -633,108 +872,24 @@ class TestScoring:
 
         # Create config
         config = MetricsConfig(
-            metrics=[MetricConfig(scorer=scorer, task_names=["task1"])]
-        )
-
-        results = mock_evaluator.compare(config)
-
-        assert len(results) == 1
-        assert "accuracy" in results
-        # Should have 2 results: one for each judge
-        assert len(results["accuracy"]) == 2
-        # Check first result
-        result1 = results["accuracy"][0]
-        assert result1.scorer_name == "accuracy"
-        assert result1.task_name == "task1"
-        assert result1.judge_id in ["judge_1", "judge_2"]
-        assert isinstance(result1.score, float)
-        assert 0.0 <= result1.score <= 1.0
-        # Check second result
-        result2 = results["accuracy"][1]
-        assert result2.scorer_name == "accuracy"
-        assert result2.task_name == "task1"
-        assert result2.judge_id in ["judge_1", "judge_2"]
-        assert isinstance(result2.score, float)
-        assert 0.0 <= result2.score <= 1.0
-
-    def test_compare_no_judge_results(self, mock_evaluator):
-        """Test comparison when no judge results found."""
-        mock_evaluator.load_all_judge_results = Mock(return_value={})
-        mock_evaluator.load_all_human_results = Mock(return_value={"run_1": Mock()})
-
-        config = MetricsConfig(
-            metrics=[MetricConfig(scorer=AccuracyScorer(), task_names=["task1"])]
-        )
-
-        with pytest.raises(
-            InsufficientDataError, match="No judge results provided or found"
-        ):
-            mock_evaluator.compare(config)
-
-    def test_compare_no_human_results(self, mock_evaluator):
-        """Test comparison when no human results found."""
-        mock_evaluator.load_all_judge_results = Mock(return_value={"run_1": Mock()})
-        mock_evaluator.load_all_human_results = Mock(return_value={})
-
-        config = MetricsConfig(
-            metrics=[MetricConfig(scorer=AccuracyScorer(), task_names=["task1"])]
-        )
-
-        with pytest.raises(
-            InsufficientDataError, match="No human results provided or found"
-        ):
-            mock_evaluator.compare(config)
-
-    def test_aggregation_with_mixed_scorers(
-        self, judge_results_dict, human_results_dict, mock_evaluator
-    ):
-        """Test aggregation with scorers that both support aggregation."""
-        # Mock the load methods
-        mock_evaluator.load_all_judge_results = Mock(return_value=judge_results_dict)
-        mock_evaluator.load_all_human_results = Mock(return_value=human_results_dict)
-
-        # Use both AltTestScorer and AccuracyScorer (both support aggregation)
-        alt_test_scorer = AltTestScorer()
-        alt_test_scorer.min_instances_per_human = 1
-        alt_test_scorer.min_humans_per_instance = 1
-
-        accuracy_scorer = AccuracyScorer()
-
-        # Create config with multiple metrics
-        config = MetricsConfig(
             metrics=[
-                MetricConfig(scorer=alt_test_scorer, task_names=["safety"]),
-                MetricConfig(scorer=accuracy_scorer, task_names=["task1"]),
+                MetricConfig(
+                    scorer=scorer, task_names=["task1"], aggregation_name="single"
+                )
             ]
         )
 
-        results = mock_evaluator.compare(config)
+        # Run comparison
+        results = await mock_evaluator.compare_async(config)
 
-        # Verify results were generated for both scorers
-        assert "alt_test" in results
-        assert "accuracy" in results
-        # Should have 2 results each: one for each judge
-        assert len(results["alt_test"]) == 2
-        assert len(results["accuracy"]) == 2
+        # Verify results structure
+        assert len(results) == 1
+        unique_name = list(results.keys())[0]
+        metric_config, scoring_results = results[unique_name]
 
-        # Verify aggregation directory was created for AltTestScorer
-        alt_test_dir = Path(mock_evaluator.paths.scores) / "alt_test"
-        assert alt_test_dir.exists()
-
-        # Verify aggregation files were created (AltTestScorer creates 3 plots)
-        expected_plots = [
-            "aggregate_winning_rates.png",
-            "aggregate_advantage_probabilities.png",
-            "aggregate_human_vs_llm_advantage.png",
-        ]
-        for plot_name in expected_plots:
-            plot_path = alt_test_dir / plot_name
-            assert plot_path.exists(), f"Missing aggregate plot: {plot_name}"
-
-        # Verify aggregation directory was created for AccuracyScorer
-        accuracy_dir = Path(mock_evaluator.paths.scores) / "accuracy"
-        assert accuracy_dir.exists()
-
-        # Verify individual result files were saved for AccuracyScorer
-        result_files = list(accuracy_dir.glob("*_result.json"))
-        assert len(result_files) == 2  # One for each judge
+        # Should have results for each judge
+        assert len(scoring_results) == 2
+        for result in scoring_results:
+            assert result.scorer_name == "accuracy"
+            assert result.judge_id in ["judge_1", "judge_2"]
+            assert isinstance(result.scores.get("accuracy"), float)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run evaluation with judge/human loading and metric comparison."""
 
+import asyncio
 import logging
 import sys
 import time
@@ -109,15 +110,35 @@ def main():
     # Create metrics config
     config = MetricsConfig(
         metrics=[
-            MetricConfig(scorer=accuracy_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=alt_test_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=cohens_kappa_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=text_similarity_scorer, task_names=["explanation"]),
+            MetricConfig(
+                scorer=accuracy_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=alt_test_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=cohens_kappa_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=text_similarity_scorer,
+                task_names=["explanation"],
+                aggregation_name="single",
+            ),
         ]
     )
 
     # Run comparison and save results
-    evaluator.compare(config, judge_results=judge_results, human_results=human_results)
+    asyncio.run(
+        evaluator.compare_async(
+            config, judge_results=judge_results, human_results=human_results
+        )
+    )
 
 
 if __name__ == "__main__":

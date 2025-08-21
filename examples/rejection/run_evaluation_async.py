@@ -70,7 +70,7 @@ def rejection_data() -> EvalData:
 async def main():
     """Main function to run alt-test evaluation."""
     # Set load = False to initialise new MetaEvaluator instance
-    evaluator = MetaEvaluator(project_dir="project_dir_test", load=False)
+    evaluator = MetaEvaluator(project_dir="project_dir", load=True)
 
     # Add eval task and eval data
     eval_task = rejection_task()
@@ -113,15 +113,33 @@ async def main():
     # Create metrics config
     config = MetricsConfig(
         metrics=[
-            MetricConfig(scorer=accuracy_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=alt_test_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=cohens_kappa_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=text_similarity_scorer, task_names=["explanation"]),
+            MetricConfig(
+                scorer=accuracy_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=alt_test_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=cohens_kappa_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=text_similarity_scorer,
+                task_names=["explanation"],
+                aggregation_name="single",
+            ),
         ]
     )
 
     # Run comparison and save results
-    evaluator.compare(config, judge_results=judge_results, human_results=human_results)
+    await evaluator.compare_async(
+        config, judge_results=judge_results, human_results=human_results
+    )
 
 
 if __name__ == "__main__":
