@@ -17,10 +17,8 @@ from ..common.models import Prompt
 from ..data import EvalData
 from ..eval_task import EvalTask
 from ..judge import Judge
-from ..llm_client.enums import AsyncLLMClientEnum, LLMClientEnum
 from ..results import JudgeResults
 from .exceptions import (
-    ClientNotFoundError,
     EvalDataNotFoundError,
     EvalTaskNotFoundError,
     InvalidYAMLStructureError,
@@ -30,32 +28,6 @@ from .exceptions import (
     PromptFileNotFoundError,
     ResultsSaveError,
 )
-
-
-def _map_sync_to_async_enum(sync_enum: LLMClientEnum) -> AsyncLLMClientEnum:
-    """Map sync LLMClientEnum to corresponding AsyncLLMClientEnum.
-
-    Args:
-        sync_enum: The sync LLM client enum
-
-    Returns:
-        The corresponding async enum
-
-    Raises:
-        ValueError: If no async client exists for the sync enum
-    """
-    mapping = {
-        LLMClientEnum.OPENAI: AsyncLLMClientEnum.OPENAI,
-        LLMClientEnum.AZURE_OPENAI: AsyncLLMClientEnum.AZURE_OPENAI,
-    }
-
-    if sync_enum not in mapping:
-        available = list(mapping.keys())
-        raise ValueError(
-            f"No async client available for {sync_enum}. Available: {available}"
-        )
-
-    return mapping[sync_enum]
 
 
 class JudgeConfig(BaseModel):
@@ -90,7 +62,7 @@ class JudgesMixin:
 
     Judge Configuration Requirements:
         - id: Unique identifier for the judge
-        - llm_client: LLM client type (openai, azure_openai, etc.)
+        - llm_client: LLM client type (openai, azure, etc.)
         - model: Model name to use
         - prompt_file: Path to system prompt file
 
@@ -130,7 +102,7 @@ class JudgesMixin:
     def add_judge(
         self,
         judge_id: str,
-        llm_client_enum: LLMClientEnum,
+        llm_client: str,
         model: str,
         prompt: Prompt,
         override_existing: bool = False,
@@ -139,7 +111,7 @@ class JudgesMixin:
 
         Args:
             judge_id: Unique identifier for the judge.
-            llm_client_enum: The LLM client enum to use.
+            llm_client: The LLM client to use.
             model: The model name to use.
             prompt: The Prompt object containing the evaluation instructions.
             override_existing: Whether to override existing judge. Defaults to False.
@@ -157,7 +129,7 @@ class JudgesMixin:
         judge = Judge(
             id=judge_id,
             eval_task=self.eval_task,
-            llm_client_enum=llm_client_enum,
+            llm_client=llm_client,
             model=model,
             prompt=prompt,
         )
@@ -165,7 +137,7 @@ class JudgesMixin:
         self.judge_registry[judge_id] = judge
 
         self.logger.info(
-            f"Added judge '{judge_id}' using {llm_client_enum.value} client with model '{model}'"
+            f"Added judge '{judge_id}' using {llm_client} client with model '{model}'"
         )
 
     def get_judge(self, judge_id: str) -> Judge:
@@ -197,6 +169,7 @@ class JudgesMixin:
         self,
         yaml_file: str,
         override_existing: bool = False,
+        async_mode: bool = False,
     ) -> None:
         """Load judges from a YAML configuration file.
 
@@ -208,7 +181,7 @@ class JudgesMixin:
             model: gpt-4
             prompt_file: /absolute/path/to/toxicity_prompt.md
           - id: judge_id_2
-            llm_client: azure_openai
+            llm_client: azure
             model: gpt-4
             prompt_file: ./relative/path/to/relevance_prompt.txt
         ```
@@ -216,6 +189,8 @@ class JudgesMixin:
         Args:
             yaml_file: Absolute or relative path to the YAML configuration file.
             override_existing: Whether to override existing judges. Defaults to False.
+            async_mode: Whether to load judges for async operation. Defaults to False.
+                       When True, judges will be configured with async methods.
 
         Raises:
             FileNotFoundError: If the YAML file is not found.
@@ -253,7 +228,7 @@ class JudgesMixin:
         # Load each judge
         for judge_config in judges_config.judges:
             self._load_single_judge_from_config(
-                judge_config, override_existing, yaml_path
+                judge_config, override_existing, yaml_path, async_mode
             )
 
         self.logger.info(
@@ -265,6 +240,7 @@ class JudgesMixin:
         judge_config: JudgeConfig,
         override_existing: bool,
         yaml_path: Path,
+        async_mode: bool = False,
     ) -> None:
         """Load a single judge from YAML configuration.
 
@@ -272,26 +248,15 @@ class JudgesMixin:
             judge_config: The judge configuration from YAML.
             override_existing: Whether to override existing judges.
             yaml_path: Path to the YAML file (for resolving relative prompt paths).
-
-        Raises:
-            ValueError: If llm_client value is invalid.
+            async_mode: Whether to load judges for async operation.
         """
-        # Parse LLM client enum
-        try:
-            llm_client_enum = LLMClientEnum(judge_config.llm_client)
-        except ValueError:
-            valid_clients = [e.value for e in LLMClientEnum]
-            raise ValueError(
-                f"Invalid llm_client '{judge_config.llm_client}'. Valid options: {valid_clients}"
-            )
-
         # Load prompt file from absolute or relative path
         prompt = self._load_prompt_from_file(judge_config.prompt_file, yaml_path)
 
         # Use add_judge method to avoid duplication
         self.add_judge(
             judge_id=judge_config.id,
-            llm_client_enum=llm_client_enum,
+            llm_client=judge_config.llm_client,
             model=judge_config.model,
             prompt=prompt,
             override_existing=override_existing,
@@ -417,7 +382,6 @@ class JudgesMixin:
             dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
 
         Raises:
-            ClientNotFoundError: If required LLM client is not configured.
             JudgeExecutionError: If judge execution fails.
             ResultsSaveError: If saving results fails.
 
@@ -442,18 +406,11 @@ class JudgesMixin:
         for judge_id in judges_to_run:
             judge = self.judge_registry[judge_id]
 
-            # Get the appropriate LLM client for this judge
-            llm_client = getattr(self, "client_registry", {}).get(judge.llm_client_enum)
-            if llm_client is None:
-                client_method = self.get_method_for_client(judge.llm_client_enum)  # type: ignore
-                raise ClientNotFoundError(judge.llm_client_enum.value, client_method)
-
             # Run the evaluation
             try:
                 self.logger.info(f"Running evaluation for judge '{judge_id}'...")
                 judge_results = judge.evaluate_eval_data(
                     eval_data=self.data,
-                    llm_client=llm_client,
                     run_id=f"{run_id}_{judge_id}",
                 )
                 results[judge_id] = judge_results
@@ -526,30 +483,15 @@ class JudgesMixin:
                 tuple[str, JudgeResults]: Tuple containing the judge ID and its results.
 
             Raises:
-                ClientNotFoundError: If the LLM client is not configured.
                 JudgeExecutionError: If the judge execution fails.
             """
             judge = self.judge_registry[judge_id]
-
-            # Get the appropriate async LLM client for this judge
-            try:
-                async_enum = _map_sync_to_async_enum(judge.llm_client_enum)
-                llm_client = getattr(self, "async_client_registry", {}).get(async_enum)
-            except ValueError:
-                # No async client available for this sync client type
-                client_method = self.get_method_for_client(judge.llm_client_enum)  # type: ignore
-                raise ClientNotFoundError(judge.llm_client_enum.value, client_method)
-
-            if llm_client is None:
-                client_method = self.get_method_for_client(async_enum)  # type: ignore
-                raise ClientNotFoundError(async_enum.value, client_method)
 
             # Run the evaluation
             try:
                 self.logger.info(f"Running async evaluation for judge '{judge_id}'...")
                 judge_results = await judge.evaluate_eval_data_async(
                     eval_data=self.data,
-                    llm_client=llm_client,
                     run_id=f"{run_id}_{judge_id}",
                 )
                 self.logger.info(

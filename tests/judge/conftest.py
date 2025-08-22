@@ -9,11 +9,9 @@ from unittest.mock import Mock
 import pytest
 
 from meta_evaluator.common.models import Prompt
+from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.judge.judge import Judge
-from meta_evaluator.llm_client import LLMClient, LLMClientEnum
-from meta_evaluator.llm_client.async_client import AsyncLLMClient
-from meta_evaluator.llm_client.enums import AsyncLLMClientEnum
-from meta_evaluator.llm_client.models import (
+from meta_evaluator.judge.models import (
     LLMResponse,
     LLMUsage,
     Message,
@@ -51,7 +49,7 @@ def basic_judge(basic_eval_task, sentiment_judge_prompt) -> Judge:
     return Judge(
         id="test_judge_1",
         eval_task=basic_eval_task,
-        llm_client_enum=LLMClientEnum.OPENAI,
+        llm_client="openai",
         model="gpt-4",
         prompt=sentiment_judge_prompt,
     )
@@ -71,7 +69,7 @@ def xml_judge(xml_eval_task, sentiment_judge_prompt) -> Judge:
     return Judge(
         id="xml_judge_1",
         eval_task=xml_eval_task,
-        llm_client_enum=LLMClientEnum.OPENAI,
+        llm_client="openai",
         model="gpt-4",
         prompt=sentiment_judge_prompt,
     )
@@ -91,7 +89,7 @@ def multi_task_judge(multi_task_eval_task, sentiment_judge_prompt) -> Judge:
     return Judge(
         id="multi_task_judge",
         eval_task=multi_task_eval_task,
-        llm_client_enum=LLMClientEnum.OPENAI,
+        llm_client="openai",
         model="gpt-4",
         prompt=sentiment_judge_prompt,
     )
@@ -113,7 +111,7 @@ def base_judge_results_builder(single_task_schemas) -> JudgeResultsBuilder:
     return JudgeResultsBuilder(
         run_id="test_run_123",
         judge_id="test_judge_1",
-        llm_client_enum=LLMClientEnum.OPENAI,
+        llm_client="openai",
         model_used="gpt-4",
         task_schemas=single_task_schemas,
         expected_ids=["id1", "id2", "id3"],
@@ -131,7 +129,7 @@ def multi_task_judge_results_builder() -> JudgeResultsBuilder:
     return JudgeResultsBuilder(
         run_id="multi_task_run",
         judge_id="multi_judge",
-        llm_client_enum=LLMClientEnum.OPENAI,
+        llm_client="openai",
         model_used="gpt-4",
         task_schemas={
             "sentiment": ["positive", "negative", "neutral"],
@@ -152,7 +150,7 @@ def single_task_judge_results_builder() -> JudgeResultsBuilder:
     return JudgeResultsBuilder(
         run_id="single_task_run",
         judge_id="single_judge",
-        llm_client_enum=LLMClientEnum.ANTHROPIC,
+        llm_client="anthropic",
         model_used="claude-3",
         task_schemas={"sentiment": ["positive", "negative"]},
         expected_ids=["id1"],
@@ -185,7 +183,7 @@ def serialization_judge_results_builder(
     return JudgeResultsBuilder(
         run_id="run_001",
         judge_id="judge_001",
-        llm_client_enum=LLMClientEnum.OPENAI,
+        llm_client="openai",
         model_used="gpt-4",
         task_schemas=serialization_task_schemas,
         expected_ids=["id1", "id2", "id3", "id4"],
@@ -304,19 +302,7 @@ def sample_judge_results(base_judge_results_builder) -> JudgeResults:
     return builder.complete()
 
 
-# ==== MOCK FIXTURES ====
-
-
-@pytest.fixture
-def mock_llm_client() -> Mock:
-    """Provides a mock LLM client for testing.
-
-    Returns:
-        Mock: A mock LLM client configured for testing.
-    """
-    client = Mock(spec=LLMClient)
-    client.enum_value = LLMClientEnum.OPENAI
-    return client
+# ==== MOCK LITELLM FIXTURES ====
 
 
 @pytest.fixture
@@ -327,38 +313,149 @@ def mock_llm_response() -> LLMResponse:
         LLMResponse: A mock LLM response with structured output.
     """
     return LLMResponse(
-        provider=LLMClientEnum.OPENAI,
+        llm_client="openai",
         model="gpt-4",
         messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
         usage=LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
 
 
-# ==== ASYNC MOCK FIXTURES ====
+@pytest.fixture
+def mock_litellm_response():
+    """Create a mock litellm response.
+
+    Returns:
+        Mock: A mock litellm response.
+    """
+    mock_response = Mock()
+    mock_response.choices = [Mock()]
+    mock_response.choices[0].message.content = '{"sentiment": "positive"}'
+    mock_response.usage.prompt_tokens = 10
+    mock_response.usage.completion_tokens = 5
+    mock_response.usage.total_tokens = 15
+    return mock_response
 
 
 @pytest.fixture
-def mock_async_llm_client() -> Mock:
-    """Provides a mock async LLM client for testing.
+def mock_xml_litellm_response():
+    """Create a mock litellm response with XML content.
 
     Returns:
-        Mock: A mock async LLM client configured for testing.
+        Mock: A mock litellm response with XML content.
     """
-    client = Mock(spec=AsyncLLMClient)
-    client.enum_value = AsyncLLMClientEnum.OPENAI
-    return client
+    mock_response = Mock()
+    mock_response.choices = [Mock()]
+    mock_response.choices[0].message.content = "<sentiment>positive</sentiment>"
+    mock_response.usage.prompt_tokens = 10
+    mock_response.usage.completion_tokens = 5
+    mock_response.usage.total_tokens = 15
+    return mock_response
 
 
 @pytest.fixture
-def mock_async_llm_response() -> LLMResponse:
-    """Provides a mock LLM response for testing.
+def sync_test_builder(single_task_schemas) -> JudgeResultsBuilder:
+    """Create a builder for sync evaluation tests with matching basic_eval_data IDs.
+
+    Args:
+        single_task_schemas: Single task schemas from main conftest.
 
     Returns:
-        LLMResponse: A mock LLM response with structured output.
+        JudgeResultsBuilder: A builder instance for sync evaluation testing.
     """
-    return LLMResponse(
-        provider=AsyncLLMClientEnum.OPENAI,
+    return JudgeResultsBuilder(
+        run_id="sync_test_run",
+        judge_id="sync_test_judge",
+        llm_client="openai",
+        model_used="gpt-4",
+        task_schemas=single_task_schemas,
+        expected_ids=["1", "2", "3"],  # Match basic_eval_data IDs
+        is_sampled_run=False,
+    )
+
+
+@pytest.fixture
+def single_row_test_builder(single_task_schemas) -> JudgeResultsBuilder:
+    """Create a builder for single row sync evaluation tests.
+
+    Args:
+        single_task_schemas: Single task schemas from main conftest.
+
+    Returns:
+        JudgeResultsBuilder: A builder instance for single row testing.
+    """
+    return JudgeResultsBuilder(
+        run_id="single_row_test_run",
+        judge_id="single_row_test_judge",
+        llm_client="openai",
+        model_used="gpt-4",
+        task_schemas=single_task_schemas,
+        expected_ids=["1"],  # Single row test
+        is_sampled_run=False,
+    )
+
+
+# ==== FALLBACK FIXTURES ====
+
+
+@pytest.fixture
+def fallback_enabled_task():
+    """Create an EvalTask with fallback enabled.
+
+    Returns:
+        EvalTask: An EvalTask with fallback enabled.
+    """
+    return EvalTask(
+        task_schemas={"sentiment": ["positive", "negative", "neutral"]},
+        prompt_columns=["text"],
+        response_columns=["response"],
+        answering_method="structured",
+        structured_outputs_fallback=True,
+    )
+
+
+@pytest.fixture
+def fallback_disabled_task():
+    """Create an EvalTask with fallback disabled.
+
+    Returns:
+        EvalTask: An EvalTask with fallback disabled.
+    """
+    return EvalTask(
+        task_schemas={"sentiment": ["positive", "negative", "neutral"]},
+        prompt_columns=["text"],
+        response_columns=["response"],
+        answering_method="structured",
+        structured_outputs_fallback=False,
+    )
+
+
+@pytest.fixture
+def fallback_enabled_judge(fallback_enabled_task, sentiment_judge_prompt):
+    """Create a judge with fallback enabled.
+
+    Returns:
+        Judge: A judge with fallback enabled.
+    """
+    return Judge(
+        id="fallback_test_judge",
+        eval_task=fallback_enabled_task,
+        llm_client="openai",
         model="gpt-4",
-        messages=[Message(role=RoleEnum.ASSISTANT, content="positive")],
-        usage=LLMUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+        prompt=sentiment_judge_prompt,
+    )
+
+
+@pytest.fixture
+def fallback_disabled_judge(fallback_disabled_task, sentiment_judge_prompt):
+    """Create a judge with fallback disabled.
+
+    Returns:
+        Judge: A judge with fallback disabled.
+    """
+    return Judge(
+        id="no_fallback_test_judge",
+        eval_task=fallback_disabled_task,
+        llm_client="openai",
+        model="gpt-4",
+        prompt=sentiment_judge_prompt,
     )

@@ -13,7 +13,6 @@ from ..common.error_constants import (
     INVALID_JSON_STRUCTURE_MSG,
     STATE_FILE_NOT_FOUND_MSG,
 )
-from ..llm_client.enums import AsyncLLMClientEnum, LLMClientEnum
 from .base import (
     BaseEvaluationResults,
     BaseEvaluationResultsBuilder,
@@ -37,7 +36,7 @@ class JudgeResults(BaseEvaluationResults):
     judge_id: str = Field(
         ..., description="ID of the Judge configuration used for this run."
     )
-    llm_client_enum: LLMClientEnum | AsyncLLMClientEnum = Field(
+    llm_client: str = Field(
         ..., description="The LLM client provider used for this run."
     )
     model_used: str = Field(..., description="Name of the LLM model used for this run.")
@@ -119,7 +118,7 @@ class JudgeResults(BaseEvaluationResults):
             run_id=self.run_id,
             judge_id=self.judge_id,
             task_schemas=self.task_schemas,
-            llm_client_enum=self.llm_client_enum,
+            llm_client=self.llm_client,
             model_used=self.model_used,
             timestamp_local=self.timestamp_local,
             total_count=self.total_count,
@@ -154,7 +153,7 @@ class JudgeResults(BaseEvaluationResults):
             run_id=judge_state.run_id,
             judge_id=judge_state.judge_id,
             task_schemas=judge_state.task_schemas,
-            llm_client_enum=judge_state.llm_client_enum,
+            llm_client=judge_state.llm_client,
             model_used=judge_state.model_used,
             timestamp_local=judge_state.timestamp_local,
             total_count=judge_state.total_count,
@@ -272,7 +271,7 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         self,
         run_id: str,
         judge_id: str,
-        llm_client_enum: LLMClientEnum | AsyncLLMClientEnum,
+        llm_client: str,
         model_used: str,
         task_schemas: Dict[str, List[str] | None],
         expected_ids: List[str | int],
@@ -283,14 +282,14 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         Args:
             run_id: Unique identifier for this evaluation run.
             judge_id: ID of the judge configuration.
-            llm_client_enum: The LLM client provider used.
+            llm_client: The LLM client provider used.
             model_used: Name of the LLM model used.
             task_schemas: Dictionary mapping task names to their allowed outcome values.
             expected_ids: List of expected original IDs.
             is_sampled_run: True if input was sampled data.
         """
         super().__init__(run_id, judge_id, task_schemas, expected_ids, is_sampled_run)
-        self.llm_client_enum = llm_client_enum
+        self.llm_client = llm_client
         self.model_used = model_used
 
     def create_success_row(
@@ -592,7 +591,7 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
             run_id=self.run_id,
             judge_id=self.evaluator_id,
             task_schemas=self.task_schemas,
-            llm_client_enum=self.llm_client_enum,
+            llm_client=self.llm_client,
             model_used=self.model_used,
             timestamp_local=datetime.now(),
             total_count=self.total_count,

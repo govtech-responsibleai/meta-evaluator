@@ -1,0 +1,50 @@
+judges:
+  - id: openai_gpt_4_1_nano_judge
+    llm_client: openai
+    model: gpt-4.1-nano
+    prompt_file: ./prompt.md
+    
+  - id: azure_gpt_4o_mini_2024_07_18_judge
+    llm_client: azure
+    model: gpt-4o-mini-2024-07-18
+    prompt_file: ./prompt.md
+
+  - id: anthropic_claude_3_5_haiku_judge
+    llm_client: anthropic
+    model: claude-3-5-haiku-latest
+    prompt_file: ./prompt.md
+
+  - id: bedrock_claude_3_5_haiku_judge
+    llm_client: bedrock
+    model: anthropic.claude-3-haiku-20240307-v1:0
+    prompt_file: ./prompt.md
+
+  - id: gemini_2_5_flash_lite_judge
+    llm_client: vertex_ai
+    model: gemini-2.5-flash-lite
+    prompt_file: ./prompt.md
+
+  - id: together_gpt_oss_20b_judge
+    llm_client: huggingface/together
+    model: openai/gpt-oss-20b
+    prompt_file: ./prompt.md
+
+  - id: openrouter_qwen_2_5_72b_instruct_judge
+    llm_client: openrouter
+    model: qwen/qwen-2.5-72b-instruct
+    prompt_file: ./prompt.md
+
+  - id: xai_grok_3_mini_judge
+    llm_client: xai
+    model: grok-3-mini
+    prompt_file: ./prompt.md
+
+  - id: groq_llama_3_1_8b_instant_judge
+    llm_client: groq
+    model: llama-3.1-8b-instant
+    prompt_file: ./prompt.md
+
+  - id: fireworks_kimi_k2_instruct_judge
+    llm_client: fireworks_ai
+    model: kimi-k2-instruct
+    prompt_file: ./prompt.md

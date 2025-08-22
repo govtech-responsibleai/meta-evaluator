@@ -1,13 +1,16 @@
-"""Package meta_evaluator.llm_client.models contains data models used for interacting with large language model (LLM) clients.
+"""Data models for judge evaluation framework.
 
-The package contains models for representing messages, responses, and usage statistics of LLM clients.
+This module contains models for representing messages, responses, and usage statistics used by the Judge evaluation system.
 
-The package contains the following models:
-*   Message: Represents a message in a conversation with an LLM client.
-*   LLMResponse: Represents a response from an LLM client.
-*   LLMUsage: Represents the usage statistics of an LLM client.
+The module contains the following models:
+*   Message: Represents a message in a conversation with an LLM.
+*   LLMResponse: Represents a response from an LLM.
+*   LLMUsage: Represents the usage statistics of an LLM interaction.
+*   TagConfig: Configuration for XML tag parsing and validation.
+*   ParseError: Structured parsing error with context.
+*   ParseResult: Result of XML tag parsing with error reporting.
 
-The models are used to provide a unified interface for interacting with LLM clients from different providers, such as OpenAI, Anthropic, and Gemini. The models are also used to provide type safety and to enable auto-completion when interacting with LLM clients in Python.
+The models provide a unified interface for interacting with LLMs through litellm, supporting multiple providers such as OpenAI, Anthropic, and others. The models also provide type safety and enable auto-completion when working with LLM responses in Python.
 """
 
 import time
@@ -16,7 +19,7 @@ from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, model_validator
 
-from .enums import AsyncLLMClientEnum, ErrorType, LLMClientEnum, RoleEnum
+from .enums import ErrorType, RoleEnum
 
 _RESPONSE_ID_UUID_LENGTH = 12
 
@@ -106,7 +109,7 @@ class LLMResponse(BaseModel):
     Attributes:
         id (str): A unique identifier for the response. If not provided, it is auto-generated
             based on the current timestamp, provider, model, and a random number.
-        provider (LLMClientEnum): The provider of the LLM service (e.g., OpenAI, Azure).
+        llm_client (str): The provider of the LLM service (e.g., openai, azure).
         model (str): The specific model used for generating the response.
         messages (list[Message]): A list of messages representing the conversation, including
             both the prompt messages and the response from the LLM.
@@ -123,7 +126,7 @@ class LLMResponse(BaseModel):
     """
 
     id: str = ""
-    provider: LLMClientEnum | AsyncLLMClientEnum
+    llm_client: str
     model: str
     messages: list[Message]
     usage: LLMUsage
@@ -175,7 +178,7 @@ class LLMResponse(BaseModel):
         """
         if not self.id:
             timestamp = int(time.time())
-            self.id = f"{self.provider.value}_{self.model}_{timestamp}_{uuid.uuid4().hex[:_RESPONSE_ID_UUID_LENGTH]}"
+            self.id = f"{self.llm_client}_{self.model}_{timestamp}_{uuid.uuid4().hex[:_RESPONSE_ID_UUID_LENGTH]}"
 
 
 class TagConfig(BaseModel):

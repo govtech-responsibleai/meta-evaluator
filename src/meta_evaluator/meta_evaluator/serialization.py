@@ -1,6 +1,6 @@
 """Pydantic models for MetaEvaluator serialization."""
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -16,7 +16,5 @@ class MetaEvaluatorState(BaseModel):
     """
 
     version: str = "1.0"
-    client_registry: Dict[str, Dict[str, Any]]
-    async_client_registry: Dict[str, Dict[str, Any]] = {}
     data: Optional[DataMetadata] = None
     eval_task: Optional[EvalTaskState] = None

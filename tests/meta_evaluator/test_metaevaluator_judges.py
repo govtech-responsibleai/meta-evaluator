@@ -8,9 +8,7 @@ import polars as pl
 import pytest
 
 from meta_evaluator.common.models import Prompt
-from meta_evaluator.llm_client.enums import LLMClientEnum
 from meta_evaluator.meta_evaluator.exceptions import (
-    ClientNotFoundError,
     EvalDataNotFoundError,
     EvalTaskNotFoundError,
     InvalidYAMLStructureError,
@@ -73,7 +71,7 @@ class TestMetaEvaluatorJudges:
         """
         meta_evaluator.add_judge(
             judge_id=judge_id,
-            llm_client_enum=LLMClientEnum.OPENAI,
+            llm_client="openai",
             model=model,
             prompt=sample_prompt,
         )
@@ -90,7 +88,7 @@ class TestMetaEvaluatorJudges:
         # Verify judge was added
         assert judge_id in meta_evaluator_with_task.judge_registry
         assert judge.id == judge_id
-        assert judge.llm_client_enum == LLMClientEnum.OPENAI
+        assert judge.llm_client == "openai"
         assert judge.model == "gpt-4"
         assert judge.prompt == sample_prompt
 
@@ -101,7 +99,7 @@ class TestMetaEvaluatorJudges:
         ):
             meta_evaluator.add_judge(
                 judge_id="test_judge",
-                llm_client_enum=LLMClientEnum.OPENAI,
+                llm_client="openai",
                 model="gpt-4",
                 prompt=sample_prompt,
             )
@@ -128,7 +126,7 @@ class TestMetaEvaluatorJudges:
         new_prompt = Prompt(id="new_prompt", prompt="New prompt")
         meta_evaluator_with_task.add_judge(
             judge_id=judge_id,
-            llm_client_enum=LLMClientEnum.OPENAI,
+            llm_client="openai",
             model="gpt-3.5-turbo",
             prompt=new_prompt,
             override_existing=True,
@@ -198,7 +196,7 @@ class TestMetaEvaluatorJudges:
         assert "test_judge" in meta_evaluator_with_task.judge_registry
         judge = meta_evaluator_with_task.judge_registry["test_judge"]
         assert judge.id == "test_judge"
-        assert judge.llm_client_enum == LLMClientEnum.OPENAI
+        assert judge.llm_client == "openai"
         assert judge.model == "gpt-4"
         assert judge.prompt.prompt == "You are a helpful evaluator."
 
@@ -270,29 +268,6 @@ class TestMetaEvaluatorJudges:
         yaml_file.write_text(yaml_content)
 
         with pytest.raises(InvalidYAMLStructureError):
-            meta_evaluator_with_task.load_judges_from_yaml(str(yaml_file))
-
-    def test_load_judges_from_yaml_invalid_llm_client(
-        self, meta_evaluator_with_task, tmp_path
-    ):
-        """Test loading judges with invalid LLM client type."""
-        prompt_file = self.create_test_prompt_file(
-            tmp_path, "test_prompt.md", "Test prompt"
-        )
-
-        yaml_file = self.create_test_yaml_file(
-            tmp_path,
-            [
-                {
-                    "id": "test_judge",
-                    "llm_client": "invalid_client",
-                    "model": "gpt-4",
-                    "prompt_file": str(prompt_file),
-                }
-            ],
-        )
-
-        with pytest.raises(ValueError, match="Invalid llm_client"):
             meta_evaluator_with_task.load_judges_from_yaml(str(yaml_file))
 
     def test_load_judges_from_yaml_prompt_file_not_found(
@@ -425,16 +400,6 @@ class TestMetaEvaluatorJudges:
                 judge_ids=["judge1", "non_existent_judge", "another_missing"]
             )
 
-    def test_run_judges_llm_client_not_configured(
-        self, meta_evaluator_with_judges_and_data
-    ):
-        """Test run_judges raises exception when LLM client is not configured."""
-        # Clear the client registry to simulate unconfigured client
-        meta_evaluator_with_judges_and_data.client_registry = {}
-
-        with pytest.raises(ClientNotFoundError):
-            meta_evaluator_with_judges_and_data.run_judges()
-
     def test_run_judges_single_judge(self, meta_evaluator_with_judges_and_data):
         """Test running a single judge."""
         # Run single judge
@@ -479,7 +444,7 @@ class TestMetaEvaluatorJudges:
         """Test running some judges by list."""
         # Add a third mock judge
         mock_judge3 = Mock()
-        mock_judge3.llm_client_enum = LLMClientEnum.OPENAI
+        mock_judge3.llm_client = "openai"
         mock_judge3.evaluate_eval_data = Mock()
         meta_evaluator_with_judges_and_data.judge_registry["judge3"] = mock_judge3
 
@@ -595,7 +560,7 @@ class TestMetaEvaluatorJudges:
             succeeded_count=2,
             is_sampled_run=False,
             results_data=fake_evaluations,
-            llm_client_enum=LLMClientEnum.OPENAI,
+            llm_client="openai",
             model_used="gpt-4",
             skipped_count=0,
             partial_count=0,
@@ -707,18 +672,6 @@ class TestMetaEvaluatorJudges:
 @pytest.mark.asyncio
 class TestAsyncMetaEvaluatorJudges:
     """Test async judge functionality in MetaEvaluator."""
-
-    async def test_run_judges_async_llm_client_not_configured(
-        self, meta_evaluator_with_judges_and_data
-    ):
-        """Test error when async LLM client is not configured."""
-        # Clear the async client registry to simulate unconfigured client
-        meta_evaluator_with_judges_and_data.async_client_registry = {}
-
-        with pytest.raises(ClientNotFoundError):
-            await meta_evaluator_with_judges_and_data.run_judges_async(
-                judge_ids="judge1"
-            )
 
     async def test_run_judges_async_single_judge(
         self, meta_evaluator_with_judges_and_data
