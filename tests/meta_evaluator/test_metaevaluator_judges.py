@@ -887,7 +887,7 @@ class TestMetaEvaluatorJudges:
 class TestAsyncMetaEvaluatorJudges:
     """Test async judge functionality in MetaEvaluator."""
 
-    async def test_run_judges_async_single_judge(
+    async def test__run_judges_async_single_judge(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test running a single judge asynchronously."""
@@ -902,7 +902,7 @@ class TestAsyncMetaEvaluatorJudges:
         judge1.evaluate_eval_data_async = AsyncMock(return_value=mock_results)
 
         # Run single judge
-        results = await meta_evaluator_with_judges_and_data.run_judges_async(
+        results = await meta_evaluator_with_judges_and_data._run_judges_async(
             judge_ids="judge1", save_results=False
         )
 
@@ -914,7 +914,7 @@ class TestAsyncMetaEvaluatorJudges:
         # Verify the judge's async method was called
         judge1.evaluate_eval_data_async.assert_called_once()
 
-    async def test_run_judges_async_multiple_judges(
+    async def test__run_judges_async_multiple_judges(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test running multiple judges concurrently."""
@@ -935,7 +935,7 @@ class TestAsyncMetaEvaluatorJudges:
         judge1.evaluate_eval_data_async = AsyncMock(return_value=mock_results1)
         judge2.evaluate_eval_data_async = AsyncMock(return_value=mock_results2)
 
-        results = await meta_evaluator_with_judges_and_data.run_judges_async(
+        results = await meta_evaluator_with_judges_and_data._run_judges_async(
             judge_ids=["judge1", "judge2"]
         )
 
@@ -947,7 +947,7 @@ class TestAsyncMetaEvaluatorJudges:
         judge1.evaluate_eval_data_async.assert_called_once()
         judge2.evaluate_eval_data_async.assert_called_once()
 
-    async def test_run_judges_async_with_save_results(
+    async def test__run_judges_async_with_save_results(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test async execution with result saving."""
@@ -961,7 +961,7 @@ class TestAsyncMetaEvaluatorJudges:
         judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
         judge1.evaluate_eval_data_async = AsyncMock(return_value=mock_results)
 
-        results = await meta_evaluator_with_judges_and_data.run_judges_async(
+        results = await meta_evaluator_with_judges_and_data._run_judges_async(
             judge_ids="judge1", save_results=True
         )
 
@@ -971,7 +971,7 @@ class TestAsyncMetaEvaluatorJudges:
         judge1.evaluate_eval_data_async.assert_called_once()
 
     @pytest.mark.parametrize("results_format", ["json", "csv", "parquet"])
-    async def test_run_judges_async_save_results_with_formats(
+    async def test__run_judges_async_save_results_with_formats(
         self,
         meta_evaluator_with_judges_and_data,
         results_format,
@@ -990,7 +990,7 @@ class TestAsyncMetaEvaluatorJudges:
         )
 
         # Run judge with save_results=True and specific format
-        await meta_evaluator_with_judges_and_data.run_judges_async(
+        await meta_evaluator_with_judges_and_data._run_judges_async(
             judge_ids="judge1", save_results=True, results_format=results_format
         )
 
@@ -1019,7 +1019,7 @@ class TestAsyncMetaEvaluatorJudges:
         assert data_file.suffix == f".{results_format}"
         assert data_file.stat().st_size > 0  # File is not empty
 
-    async def test_run_judges_async_results_save_exception(
+    async def test__run_judges_async_results_save_exception(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test async run_judges raises exception when saving results fails."""
@@ -1033,11 +1033,11 @@ class TestAsyncMetaEvaluatorJudges:
 
         # Run judge and expect ResultsSaveError
         with pytest.raises(ResultsSaveError):
-            await meta_evaluator_with_judges_and_data.run_judges_async(
+            await meta_evaluator_with_judges_and_data._run_judges_async(
                 judge_ids="judge1", save_results=True
             )
 
-    async def test_run_judges_async_all_judges(
+    async def test__run_judges_async_all_judges(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test running all judges asynchronously (judge_ids=None)."""
@@ -1059,7 +1059,7 @@ class TestAsyncMetaEvaluatorJudges:
         judge2.evaluate_eval_data_async = AsyncMock(return_value=mock_results2)
 
         # Run all judges (judge_ids=None)
-        results = await meta_evaluator_with_judges_and_data.run_judges_async(
+        results = await meta_evaluator_with_judges_and_data._run_judges_async(
             judge_ids=None, save_results=False
         )
 
@@ -1074,30 +1074,30 @@ class TestAsyncMetaEvaluatorJudges:
         judge1.evaluate_eval_data_async.assert_called_once()
         judge2.evaluate_eval_data_async.assert_called_once()
 
-    async def test_run_judges_async_multiple_judges_not_found(
+    async def test__run_judges_async_multiple_judges_not_found(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test async run_judges raises exception when some specified judges don't exist."""
         with pytest.raises(JudgeNotFoundError):
-            await meta_evaluator_with_judges_and_data.run_judges_async(
+            await meta_evaluator_with_judges_and_data._run_judges_async(
                 judge_ids=["judge1", "non_existent_judge", "another_missing"]
             )
 
-    async def test_run_judges_async_no_eval_task(self, meta_evaluator):
+    async def test__run_judges_async_no_eval_task(self, meta_evaluator):
         """Test async run_judges raises exception when no eval_task is set."""
         with pytest.raises(
             EvalTaskNotFoundError, match="eval_task must be set before running judges"
         ):
-            await meta_evaluator.run_judges_async()
+            await meta_evaluator._run_judges_async()
 
-    async def test_run_judges_async_no_eval_data(self, meta_evaluator_with_task):
+    async def test__run_judges_async_no_eval_data(self, meta_evaluator_with_task):
         """Test async run_judges raises exception when no eval_data is set."""
         with pytest.raises(
             EvalDataNotFoundError, match="data must be set before running judges"
         ):
-            await meta_evaluator_with_task.run_judges_async()
+            await meta_evaluator_with_task._run_judges_async()
 
-    async def test_run_judges_async_skip_duplicates_true_does_not_call_evaluate(
+    async def test__run_judges_async_skip_duplicates_true_does_not_call_evaluate(
         self, meta_evaluator_with_judges_and_data, mock_judge_state_template
     ):
         """Test that async version with skip_duplicates=True doesn't call evaluate for duplicates."""
@@ -1127,7 +1127,7 @@ class TestAsyncMetaEvaluatorJudges:
             mock_load.return_value = mock_judge_results
 
             # Run async judges with skip_duplicates=True
-            results = await meta_evaluator_with_judges_and_data.run_judges_async(
+            results = await meta_evaluator_with_judges_and_data._run_judges_async(
                 skip_duplicates=True, save_results=False
             )
 
@@ -1142,7 +1142,7 @@ class TestAsyncMetaEvaluatorJudges:
             # Verify judge2.evaluate_eval_data_async WAS called
             judge2.evaluate_eval_data_async.assert_called_once()
 
-    async def test_run_judges_async_skip_duplicates_false_calls_evaluate(
+    async def test__run_judges_async_skip_duplicates_false_calls_evaluate(
         self, meta_evaluator_with_judges_and_data, mock_judge_state_template
     ):
         """Test that async version with skip_duplicates=False calls evaluate even for duplicates."""
@@ -1172,7 +1172,7 @@ class TestAsyncMetaEvaluatorJudges:
             mock_load.return_value = mock_judge_results
 
             # Run async judges with skip_duplicates=False (default)
-            results = await meta_evaluator_with_judges_and_data.run_judges_async(
+            results = await meta_evaluator_with_judges_and_data._run_judges_async(
                 skip_duplicates=False, save_results=False
             )
 
@@ -1184,3 +1184,35 @@ class TestAsyncMetaEvaluatorJudges:
             # Verify both judges' evaluate_eval_data_async were called
             judge1.evaluate_eval_data_async.assert_called_once()
             judge2.evaluate_eval_data_async.assert_called_once()
+
+    def test_run_judges_async_sync_wrapper(self, meta_evaluator_with_judges_and_data):
+        """Test that run_judges_async sync wrapper works without async/await."""
+        # Create mock results for judges
+        judge1_results = Mock(spec=JudgeResults)
+        judge1_results.judge_id = "judge1"
+        judge1_results.succeeded_count = 5
+        judge1_results.total_count = 5
+
+        judge2_results = Mock(spec=JudgeResults)
+        judge2_results.judge_id = "judge2"
+        judge2_results.succeeded_count = 3
+        judge2_results.total_count = 5
+
+        # Mock the judges to return results
+        judge1 = meta_evaluator_with_judges_and_data.get_judge("judge1")
+        judge2 = meta_evaluator_with_judges_and_data.get_judge("judge2")
+
+        judge1.evaluate_eval_data_async = AsyncMock(return_value=judge1_results)
+        judge2.evaluate_eval_data_async = AsyncMock(return_value=judge2_results)
+
+        # Call sync wrapper (no await needed)
+        results = meta_evaluator_with_judges_and_data.run_judges_async()
+
+        # Verify results structure
+        assert len(results) == 2
+        assert "judge1" in results
+        assert "judge2" in results
+
+        # Verify both judges' evaluate_eval_data_async were called
+        judge1.evaluate_eval_data_async.assert_called_once()
+        judge2.evaluate_eval_data_async.assert_called_once()

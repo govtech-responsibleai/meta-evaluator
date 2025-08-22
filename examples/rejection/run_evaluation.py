@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Run evaluation with judge/human loading and metric comparison."""
 
-import asyncio
 import logging
 import sys
 import time
@@ -69,7 +68,7 @@ def rejection_data() -> EvalData:
 
 def main():
     """Main function to run evaluation."""
-    evaluator = MetaEvaluator(project_dir="project_dir")
+    evaluator = MetaEvaluator(project_dir="project_dir", load=False)
 
     # Add eval task and eval data
     eval_task = rejection_task()
@@ -134,10 +133,8 @@ def main():
     )
 
     # Run comparison and save results
-    asyncio.run(
-        evaluator.compare_async(
-            config, judge_results=judge_results, human_results=human_results
-        )
+    evaluator.compare_async(
+        config, judge_results=judge_results, human_results=human_results
     )
 
 

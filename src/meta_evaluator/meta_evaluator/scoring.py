@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 import numpy as np
 import polars as pl
 
+from ..common.async_utils import sync_wrapper
 from ..data import EvalData
 from ..eval_task import EvalTask
 from ..results import HumanAnnotationResults, JudgeResults
@@ -661,7 +662,16 @@ class ScoringMixin:
                         f"Warning: Failed to run aggregation for {unique_name}: {e}"
                     )
 
-    async def compare_async(
+    @sync_wrapper
+    def compare_async(self, *args, **kwargs):
+        """Synchronous wrapper for compare_async that handles asyncio internally.
+
+        Returns:
+            Dict[str, Tuple[MetricConfig, List[BaseScoringResult]]]: Dictionary mapping unique names to (metric_config, results) tuples.
+        """
+        return self._compare_async(*args, **kwargs)
+
+    async def _compare_async(
         self,
         comparison_config: MetricsConfig,
         judge_results: Optional[Dict[str, JudgeResults]] = None,

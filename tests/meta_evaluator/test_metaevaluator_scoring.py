@@ -880,7 +880,47 @@ class TestScoring:
         )
 
         # Run comparison
-        results = await mock_evaluator.compare_async(config)
+        results = await mock_evaluator._compare_async(config)
+
+        # Verify results structure
+        assert len(results) == 1
+        unique_name = list(results.keys())[0]
+        metric_config, scoring_results = results[unique_name]
+
+        # Should have results for each judge
+        assert len(scoring_results) == 2
+        for result in scoring_results:
+            assert result.scorer_name == "accuracy"
+            assert result.judge_id in ["judge_1", "judge_2"]
+            assert isinstance(result.scores.get("accuracy"), float)
+
+    def test_compare_sync_wrapper(
+        self, tmp_path, judge_results_dict, human_results_dict
+    ):
+        """Test that compare_async wrapper works without async/await."""
+        # Use a real MetaEvaluator instance
+        from meta_evaluator.meta_evaluator import MetaEvaluator
+
+        evaluator = MetaEvaluator(project_dir=str(tmp_path / "test_project"))
+
+        # Mock the load methods
+        evaluator.load_all_judge_results = Mock(return_value=judge_results_dict)
+        evaluator.load_all_human_results = Mock(return_value=human_results_dict)
+
+        # Use a real scorer
+        scorer = AccuracyScorer()
+
+        # Create config
+        config = MetricsConfig(
+            metrics=[
+                MetricConfig(
+                    scorer=scorer, task_names=["task1"], aggregation_name="single"
+                )
+            ]
+        )
+
+        # Run comparison using sync wrapper (no await needed)
+        results = evaluator.compare_async(config)
 
         # Verify results structure
         assert len(results) == 1

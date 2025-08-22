@@ -13,6 +13,7 @@ from pydantic import BaseModel, ValidationError
 if TYPE_CHECKING:
     from .base import Paths
 
+from ..common.async_utils import sync_wrapper
 from ..common.models import Prompt
 from ..data import EvalData
 from ..eval_task import EvalTask
@@ -502,7 +503,16 @@ class JudgesMixin:
         )
         return results
 
-    async def run_judges_async(
+    @sync_wrapper
+    def run_judges_async(self, *args, **kwargs):
+        """Wrapper for _run_judges_async that handles asyncio internally.
+
+        Returns:
+            dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
+        """
+        return self._run_judges_async(*args, **kwargs)
+
+    async def _run_judges_async(
         self,
         judge_ids: Optional[Union[str, list[str]]] = None,
         run_id: Optional[str] = None,
