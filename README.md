@@ -2,18 +2,21 @@
 
 A comprehensive Python framework for evaluating LLM-as-a-Judge systems by comparing judge outputs with human annotations and calculating alignment metrics.
 
-
 ## Overview
 
 MetaEvaluator helps you assess LLM judges by:
-- Running multiple judges (e.g., OpenAI, Anthropic, Google, AWS, etc.) over the same dataset using **LiteLLM integration**
-- Collecting results from LLM judges and human annotators
-- Computing alignment metrics (Accuracy, Cohen's Kappa, Alt-Test, text similarity)
+- **Running multiple judges** (OpenAI, Anthropic, Google, AWS, etc.) over the same dataset using **LiteLLM integration**
+- **Collecting human annotations** through a built-in Streamlit interface
+- **Computing alignment metrics** (Accuracy, Cohen's Kappa, Alt-Test, text/semantic similarity)
+- **Generating comprehensive reports** with visualizations and statistical analysis
 
+## Quick Start
 
-### Example:
-Check out the full example: [`examples/rejection/run_evaluation.py`](examples/rejection/run_evaluation.py)  
-The steps below break down what’s happening in that script.
+See our [**Quickstart Guide**](docs/quickstart.md) for a complete walkthrough.
+
+### Basic Example:
+Check out the full example: [`examples/rejection/run_evaluation_async.py`](examples/rejection/run_evaluation_async.py)  
+The sections below provide an overview of the main components.
 
 
 ## Prerequisites
@@ -57,252 +60,137 @@ The steps below break down what’s happening in that script.
 - **Run type checking:** `uv run pyright`
 - **Run tests:** `uv run pytest --skip-integration`
 
-## Usage
+## Core Components
 
-Here's a complete example of how to set up and run an evaluation:
+MetaEvaluator provides a complete evaluation pipeline with these key components:
 
-### 1. Set up judges YAML file and prompts
-
-Examples: 
-- [examples/rejection/judges.yaml](examples/rejection/judges.yaml)
-- [examples/rejection/prompt.md](examples/rejection/prompt.md)
-
-### 2. Initialize logging
-
-```python
-import logging
-import sys
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(levelname)s:%(name)s:%(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("evaluation.log", mode="w", encoding="utf-8"),
-    ],
-)
-```
-
-### 3. Initialize task and data
-
-MetaEvaluator supports two evaluation modes:
-
-**Option 1: Evaluate LLM's Prompt + Response**
-- Use when you have both prompts and pre-generated responses to evaluate
-- Judges see both the original prompt and the response
-
-**Option 2: Generate Response to Single Column** 
-- Use when you want judges to generate responses to text in a single column
-- Set `prompt_columns=None` and judges will only see the content from `response_columns`
+### 1. Data Loading
+Load your evaluation datasets from CSV, JSON, or Parquet files:
 
 ```python
 from meta_evaluator.data import DataLoader
+
+data = DataLoader.load_csv(
+    name="evaluation_data",
+    file_path="data/samples.csv"
+)
+```
+
+### 2. Task Definition  
+Define what and how to evaluate using EvalTask:
+
+```python
 from meta_evaluator.eval_task import EvalTask
 
-# Option 1: Evaluate existing prompt + response pairs
-eval_task = EvalTask(
-        task_schemas={
-            "rejection": ["rejection", "not rejection"], # Classification
-            "explanation": None,  # Free-form text field
-        },
-        prompt_columns=["prompt"],     # Provide context from prompt column
-        response_columns=["llm_response"],  # Evaluate this response
-        answering_method="structured",
-    )
-
-# Option 2: Generate response to single text column
-# eval_task = EvalTask(
-#         task_schemas={
-#             "toxicity": ["toxic", "non-toxic"], 
-#         },
-#         prompt_columns=None,              # No prompt context
-#         response_columns=["text"],        # Judge responds to this text directly  
-#         answering_method="structured",
-#     )
-
-# Load evaluation data
-eval_data = DataLoader.load_csv(
-      name="eval_rejection",
-      file_path="data/test_data.csv",
-   )
-```
-
-### 4. Initialize MetaEvaluator and add task and data
-
-```python
-from meta_evaluator.meta_evaluator import MetaEvaluator
-
-# Initialize MetaEvaluator with project directory
-evaluator = MetaEvaluator(project_dir="project_dir")
-
-# Add evaluation task and data
-evaluator.add_eval_task(eval_task)
-evaluator.add_data(eval_data)
-```
-
-### 5. Load judges
-
-You can load judges from YAML file or add them manually:
-
-**Option A: Load from YAML file (Recommended)**
-```python
-evaluator.load_judges_from_yaml(yaml_file="judges.yaml")
-```
-
-**Option B: Add judges manually**
-```python
-from meta_evaluator.judge import Judge
-
-# Create and add judges manually
-judge = Judge(
-    id="custom_judge",
-    llm_client="openai",
-    model="gpt-4.1-mini",
-    prompt="Your evaluation prompt here..."
-)
-evaluator.add_judge(judge)
-```
-
-### 6. Run judges
-
-You can run judges synchronously or asynchronously.
-
-**Option A: Sync**
-```python
-evaluator.run_judges()
-```
-
-**Option B: Async**
-```python
-import asyncio
-
-async def run_evaluation():
-    await evaluator.run_judges_async()
-
-# Run the async function
-asyncio.run(run_evaluation())
-```
-
-### 7. Load results
-
-```python
-# Load judge results
-judge_results = evaluator.load_all_judge_results()
-
-# Load human annotation results (project should minimally contain 1 set of human annotation)
-human_results = evaluator.load_all_human_results()
-```
-
-### 8. Initialize metrics and run comparison
-
-```python
-from meta_evaluator.scores import MetricConfig, MetricsConfig
-from meta_evaluator.scores.metrics import (
-    AccuracyScorer,
-    AltTestScorer, 
-    CohensKappaScorer,
-    TextSimilarityScorer,
-)
-
-# Create scorers
-accuracy_scorer = AccuracyScorer()
-alt_test_scorer = AltTestScorer()
-cohens_kappa_scorer = CohensKappaScorer()
-text_similarity_scorer = TextSimilarityScorer()
-
-# Create metrics configuration
-config = MetricsConfig(
-    metrics=[
-        MetricConfig(scorer=accuracy_scorer, task_names=["rejection"]),
-        MetricConfig(scorer=alt_test_scorer, task_names=["rejection"]),
-        MetricConfig(scorer=cohens_kappa_scorer, task_names=["rejection"]),
-        MetricConfig(scorer=text_similarity_scorer, task_names=["explanation"]),
-    ]
-)
-
-# Run comparison and save results
-evaluator.compare(config, judge_results=judge_results, human_results=human_results)
-```
-
-
-## Human Annotation Platform
-
-MetaEvaluator includes a built-in Streamlit-based interface for collecting human ground truth annotations.
-
-### 1. Initialize task and data
-
-```python
-from meta_evaluator.data import DataLoader
-from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.meta_evaluator import MetaEvaluator
-
-# Define annotation task
-eval_task = EvalTask(
+task = EvalTask(
     task_schemas={
-        "rejection": ["rejection", "not rejection"],
-        "explanation": None,  # Optional explanation field
+        "rejection": ["rejection", "not rejection"],  # Classification
+        "explanation": None,  # Free-form text
     },
-    prompt_columns=["prompt"],
-    response_columns=["llm_response"], 
-    answering_method="structured",
-)
-
-# Load data for annotation
-eval_data = DataLoader.load_csv(
-    name="annotation_data",
-    file_path="data/annotation_dataset.csv",
+    prompt_columns=["prompt"],        # Context columns
+    response_columns=["llm_response"], # What to evaluate
+    answering_method="structured",    # JSON output parsing
+    structured_outputs_fallback=True  # Fallback support
 )
 ```
 
-### 2. Launch annotation interface
+### 3. Human Annotation Interface
+Collect human ground truth using the built-in Streamlit interface:
 
 ```python
-# Initialize evaluator
-evaluator = MetaEvaluator(project_dir="project_dir")
+evaluator = MetaEvaluator(project_dir="my_project", load=False)
+evaluator.add_eval_task(task)
+evaluator.add_data(data)
 
-# Add task and data
-evaluator.add_eval_task(eval_task)
-evaluator.add_data(eval_data)
-
-# Launch Streamlit interface
+# Launch annotation interface
 evaluator.launch_annotator(port=8501)
 ```
 
-### 3. Access and use interface
+### 4. Judge Configuration
+Configure multiple LLM judges using YAML:
 
-1. **Run script**: `uv run python metaevaluator_annotation_demo.py`
-2. **Open browser**: Navigate to `http://localhost:8501`
-3. **Annotate**: 
-   - Enter annotator name/ID
-   - Review prompts and responses  
-   - Select classifications or provide text
-   - Track progress and resume sessions
-
-## Annotation Data Management
-
-**Data Storage**: Annotations are automatically saved to:
-```
-project_dir/annotations/
-├── annotation_run_{timestamp}_{annotator_id}_data.json
-└── annotation_run_{timestamp}_{annotator_id}_metadata.json
+```yaml
+judges:
+  - id: gpt_4_judge
+    llm_client: openai
+    model: gpt-4o-mini
+    prompt_file: ./prompt.md # Filepath relative to YAML file
+    
+  - id: claude_judge
+    llm_client: anthropic
+    model: claude-3-5-haiku-latest
+    prompt_file: ./prompt.md # Filepath relative to YAML file
 ```
 
-**Loading Results**: Load human annotations for metrics comparison:
+### 5. Evaluation & Metrics
+Run judges and compute comprehensive alignment metrics:
+
 ```python
+# Load judges and run evaluation
+evaluator.load_judges_from_yaml("judges.yaml", async_mode=True)
+evaluator.run_judges_async(skip_duplicates=True)
+
+# Load results  
+judge_results = evaluator.load_all_judge_results()
 human_results = evaluator.load_all_human_results()
-evaluator.compare(config, judge_results=judge_results, human_results=human_results)
+
+# Configure metrics
+from meta_evaluator.scores import MetricConfig, MetricsConfig
+from meta_evaluator.scores.metrics import (
+    AccuracyScorer, CohensKappaScorer, SemanticSimilarityScorer
+)
+
+config = MetricsConfig(
+    metrics=[
+        MetricConfig(
+            scorer=AccuracyScorer(),
+            task_names=["rejection"],
+            aggregation_name="single"
+        ),
+        MetricConfig(
+            scorer=SemanticSimilarityScorer(),  # This metric requires OPENAI_API_KEY
+            task_names=["explanation"], 
+            aggregation_name="single"
+        ),
+    ]
+)
+
+# Run comparison
+evaluator.compare_async(config, judge_results, human_results)
 ```
 
-**Multi-annotator Support**: 
-- Unique sessions per annotator
-- Separate progress tracking
-- Inter-annotator agreement calculation
 
 ## Available Metrics
 
-MetaEvaluator supports various alignment metrics for evaluating judge performance. See [docs/metrics.md](docs/metrics.md) for detailed information about available metrics, usage examples, and selection guidelines.
+MetaEvaluator supports comprehensive alignment metrics for evaluating judge performance:
 
-## Project Structure
+### Classification Metrics
+- **Accuracy**: Basic classification accuracy between judge and human labels
+- **Cohen's Kappa**: Inter-rater agreement accounting for chance agreement  
+- **Alt-Test**: Statistical significance testing with leave-one-annotator-out methodology
+
+### Text Similarity Metrics  
+- **Text Similarity**: String-based similarity using sequence matching algorithms
+- **Semantic Similarity**: OpenAI embedding-based semantic similarity (requires API key)
+
+### Custom Metrics
+- **Custom Scorers**: Implement domain-specific metrics by extending `BaseScorer`
+
+See [Scoring Guide](docs/guides/scoring.md) for detailed usage examples and configuration options.
+
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- **[Quickstart Guide](docs/quickstart.md)** - Get started in 5 minutes
+- **[Data Loading](docs/guides/evaldata.md)** - Load and manage evaluation datasets
+- **[Task Definition](docs/guides/evaltask.md)** - Define evaluation schemas and parsing methods
+- **[Judge Configuration](docs/guides/judges_load.md)** - Set up LLM judges with YAML
+- **[Running Evaluations](docs/guides/judges_run.md)** - Execute judge evaluations
+- **[Scoring & Metrics](docs/guides/scoring.md)** - Compute alignment metrics
+- **[Human Annotations](docs/guides/annotation_guide/annotation.md)** - Collect human ground truth
+
+## Project Structure (automatically generated)
 
 ```
 project_dir/
@@ -320,9 +208,12 @@ project_dir/
 
 See the `examples/` directory for complete working examples:
 
-### Annotation Platform Examples
-- `examples/metaevaluator_annotation_demo.py` - Human annotation interface example
+### Rejection Detection Evaluation
+- **[`examples/rejection/run_evaluation_async.py`](examples/rejection/run_evaluation_async.py)** - Complete async evaluation with multiple metrics
+- **[`examples/rejection/data/sample_rejection.csv`](examples/rejection/data/sample_rejection.csv)** - Sample rejection detection dataset
+- **[`examples/rejection/judges.yaml`](examples/rejection/judges.yaml)** - Judge configuration example
+- **[`examples/rejection/prompt.md`](examples/rejection/prompt.md)** - Evaluation prompt template
 
-### Evaluation Examples  
-- `examples/rejection/run_evaluation.py` - Rejection detection evaluation
-- `examples/rejection/run_evaluation_async.py` - Rejection detection evaluation
+### RabakBench Evaluation (data not included)
+- **[`examples/rabakbench/run_evaluation_async.py`](examples/rabakbench/run_evaluation_async.py)** - Complete async evaluation with multiple metrics
+
