@@ -1,0 +1,1319 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for MetaEvaluator">
+      
+      
+        <meta name="author" content="GovTech AI Practice">
+      
+      
+      
+        <link rel="prev" href="../../quickstart/">
+      
+      
+        <link rel="next" href="../../guides/evaltask/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.17">
+    
+    
+      
+        <title>Setting up the annotation platform - MetaEvaluator Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.7e37652d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Lato";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#setting-up-the-annotation-platform" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="MetaEvaluator Docs" class="md-header__button md-logo" aria-label="MetaEvaluator Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            MetaEvaluator Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Setting up the annotation platform
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../quickstart/" class="md-tabs__link">
+          
+  
+  
+  Usage
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="MetaEvaluator Docs" class="md-nav__button md-logo" aria-label="MetaEvaluator Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    MetaEvaluator Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Usage
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Usage
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quickstart
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Annotation Guide
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            Annotation Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Setting up the annotation platform
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Setting up the annotation platform
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#quick-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick Setup
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#annotation-interface-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Annotation Interface Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#launch-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Launch Configuration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Launch Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#port-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Port Settings
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remote-access-with-ngrok" class="md-nav__link">
+    <span class="md-ellipsis">
+      Remote Access with ngrok
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the Interface
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using the Interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#starting-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Starting Annotation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#results-and-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      Results and Output
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Results and Output">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#file-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      File Structure
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#annotation-data-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Annotation Data Format
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loading-annotation-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading Annotation Results
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Issues
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Evaluation Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            Evaluation Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/evaltask/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Defining the evaluation task
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/evaldata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Loading the data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/judges_load/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Loading judges
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/judges_run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Running judges
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Judge/Annotation results
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Scoring and Metrics
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#quick-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick Setup
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#annotation-interface-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Annotation Interface Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#launch-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Launch Configuration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Launch Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#port-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Port Settings
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remote-access-with-ngrok" class="md-nav__link">
+    <span class="md-ellipsis">
+      Remote Access with ngrok
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the Interface
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using the Interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#starting-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Starting Annotation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#results-and-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      Results and Output
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Results and Output">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#file-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      File Structure
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#annotation-data-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Annotation Data Format
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loading-annotation-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading Annotation Results
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Issues
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="setting-up-the-annotation-platform">Setting up the Annotation Platform</h1>
+<p>Launch the Streamlit-based annotation interface to collect human evaluations for your dataset.</p>
+<h2 id="quick-setup">Quick Setup</h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Basic Annotation</label><label for="__tabbed_1_2">With ngrok (Remote Access)</label><label for="__tabbed_1_3">Complete Setup Example</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetaEvaluator</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Load existing project with data and task</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">evaluator</span> <span class="o">=</span> <span class="n">MetaEvaluator</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;my_project&quot;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> 
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Launch annotation interface</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">8501</span><span class="p">)</span> 
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetaEvaluator</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Load existing project with data and task</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">evaluator</span> <span class="o">=</span> <span class="n">MetaEvaluator</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;my_project&quot;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> 
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Enable internet access via ngrok tunnel</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">port</span><span class="o">=</span><span class="mi">8501</span><span class="p">,</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">use_ngrok</span><span class="o">=</span><span class="kc">True</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetaEvaluator</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.eval_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvalTask</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Initialize new project</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">evaluator</span> <span class="o">=</span> <span class="n">MetaEvaluator</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;annotation_project&quot;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Load your data</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">data</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="o">.</span><span class="n">load_csv</span><span class="p">(</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;evaluation_data&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;data/samples.csv&quot;</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="p">)</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1"># Define annotation task</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>        <span class="s2">&quot;quality&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;excellent&quot;</span><span class="p">,</span> <span class="s2">&quot;good&quot;</span><span class="p">,</span> <span class="s2">&quot;fair&quot;</span><span class="p">,</span> <span class="s2">&quot;poor&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relevant&quot;</span><span class="p">,</span> <span class="s2">&quot;partially_relevant&quot;</span><span class="p">,</span> <span class="s2">&quot;irrelevant&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span>  <span class="c1"># Free-form text field</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>    <span class="p">},</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prompt&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>    <span class="n">annotation_prompt</span><span class="o">=</span><span class="s2">&quot;Please evaluate the AI response quality and relevance.&quot;</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="p">)</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="c1"># Add to evaluator</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_eval_task</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="c1"># Save state and launch annotator</span>
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">save_state</span><span class="p">()</span>
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">8501</span><span class="p">)</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Dataset choice</p>
+<ul>
+<li>Use a small dataset (recommended: 20-50 rows of data)</li>
+<li>Current implementation doesn't support saving progress midway, so users must complete all annotations in one session.</li>
+</ul>
+</div>
+<h2 id="annotation-interface-features">Annotation Interface Features</h2>
+<p>The interface automatically presents all tasks from your <code>EvalTask</code> configuration in the UI:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>        <span class="s2">&quot;quality&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;excellent&quot;</span><span class="p">,</span> <span class="s2">&quot;good&quot;</span><span class="p">,</span> <span class="s2">&quot;fair&quot;</span><span class="p">,</span> <span class="s2">&quot;poor&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relevant&quot;</span><span class="p">,</span> <span class="s2">&quot;partially_relevant&quot;</span><span class="p">,</span> <span class="s2">&quot;irrelevant&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># Free-form text field</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="p">},</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prompt&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">annotation_prompt</span><span class="o">=</span><span class="s2">&quot;Please evaluate the AI response quality and relevance.&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p">)</span>
+</code></pre></div>
+<p><strong>Interface displays:</strong></p>
+<ul>
+<li>Required input for annotator name  </li>
+<li>Radio buttons for classification tasks (helpfulness, accuracy, safety)  </li>
+<li>Text area for free-form fields (explanation)  </li>
+<li>Progress tracking and navigation controls </li>
+</ul>
+<p><strong>Example of the platform:</strong></p>
+<figure>
+  <img alt="Simple Annotation Interface" src="../../assets/simple_annotation_interface.png" />
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The annotation platform is slated for usability, functionality, and visual updates in the near future!</p>
+</div>
+<h2 id="launch-configuration">Launch Configuration</h2>
+<h3 id="port-settings">Port Settings</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Default port (8501)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">()</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Custom port</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">)</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># System will find available port if specified port is occupied</span>
+</code></pre></div>
+<h3 id="remote-access-with-ngrok">Remote Access with ngrok</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Basic ngrok tunnel</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">port</span><span class="o">=</span><span class="mi">8501</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">use_ngrok</span><span class="o">=</span><span class="kc">True</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Advanced ngrok with traffic policy</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">port</span><span class="o">=</span><span class="mi">8501</span><span class="p">,</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">use_ngrok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="n">traffic_policy_file</span><span class="o">=</span><span class="s2">&quot;ngrok_policy.yaml&quot;</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">)</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">ngrok Setup</p>
+<ul>
+<li>Requires ngrok installed and authenticated</li>
+<li>Creates secure tunnel to your local annotation interface</li>
+<li>Useful for remote annotators or team collaboration</li>
+<li><strong>Traffic policy files</strong> allow advanced configuration including login authentication, IP restrictions, custom headers, and more. <br />
+    For examples and detailed configuration, see: <a href="https://ngrok.com/docs/traffic-policy/">ngrok Traffic Policy Documentation</a></li>
+</ul>
+</div>
+<h2 id="using-the-interface">Using the Interface</h2>
+<h3 id="starting-annotation">Starting Annotation</h3>
+<ol>
+<li><strong>Launch the interface</strong>: Load your data and task, and run <code>evaluator.launch_annotator()</code></li>
+<li><strong>Open browser</strong>: Navigate to <code>http://localhost:8501</code> </li>
+<li><strong>Enter annotator ID</strong>: Provide your name or identifier</li>
+<li><strong>Begin annotation</strong>: Start evaluating samples</li>
+</ol>
+<h3 id="best-practices">Best Practices</h3>
+<div class="admonition tip">
+<p class="admonition-title">Annotation Quality</p>
+<ul>
+<li><strong>Documentation</strong>: Provide clear <code>annotation_prompt</code> in your EvalTask for the interface</li>
+<li><strong>Multiple annotators</strong>: Have 2-3 people annotate the same data for reliability</li>
+<li><strong>Regular breaks</strong>: Avoid annotation fatigue with scheduled breaks</li>
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Session Management</p>
+<ul>
+<li>Each annotator should use a unique ID for tracking</li>
+<li>Administrator should coordinate annotation assignments to avoid duplication</li>
+<li>Don't close browser tabs abruptly to avoid losing progress</li>
+<li>Internet connection required for ngrok remote access</li>
+</ul>
+</div>
+<h2 id="results-and-output">Results and Output</h2>
+<h3 id="file-structure">File Structure</h3>
+<p>After annotation, results are saved to your project directory:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>my_project/
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>└── annotations/
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    ├── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_data.json
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    ├── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_metadata.json
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    ├── annotation_run_20250715_171156_617ba2da_person_2_Person 2_data.json
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    └── annotation_run_20250715_171156_617ba2da_person_2_Person 2_metadata.json
+</code></pre></div>
+<p><strong>File naming pattern:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>annotation_run_{timestamp}_{run_hash}_{annotator_id}_{display_name}_{data|metadata}.json
+</code></pre></div></p>
+<h3 id="annotation-data-format">Annotation Data Format</h3>
+<p>Each annotation run creates two files: a data file containing the actual annotations and a metadata file with run information.</p>
+<p><strong>Data file example (<code>*_data.json</code>):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">[</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">&quot;sample_example_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sample_1&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">&quot;original_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lg_auto_rt_successful_fn_en_60&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="nt">&quot;run_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;annotation_run_20250715_163632_09d6cc37&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nt">&quot;error_message&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="nt">&quot;error_details_json&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="nt">&quot;annotator_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;h1&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="nt">&quot;annotation_timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-07-15 16:37:52.163517&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="nt">&quot;hateful&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FALSE&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">    </span><span class="nt">&quot;insults&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FALSE&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">    </span><span class="nt">&quot;sexual&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FALSE&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">    </span><span class="nt">&quot;physical_violence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FALSE&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">    </span><span class="nt">&quot;self_harm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;self_harm&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">    </span><span class="nt">&quot;all_other_misconduct&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;all_other_misconduct&quot;</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="p">]</span>
+</code></pre></div></p>
+<p><strong>Metadata file example (<code>*_metadata.json</code>):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">&quot;run_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;annotation_run_20250715_163632_09d6cc37&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">&quot;task_schemas&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">&quot;hateful&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;FALSE&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;hateful&quot;</span><span class="p">],</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">&quot;insults&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;FALSE&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;insults&quot;</span><span class="p">],</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nt">&quot;sexual&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;FALSE&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sexual&quot;</span><span class="p">],</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nt">&quot;physical_violence&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;FALSE&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;physical_violence&quot;</span><span class="p">],</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="nt">&quot;self_harm&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;FALSE&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;self_harm&quot;</span><span class="p">],</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="nt">&quot;all_other_misconduct&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;FALSE&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;all_other_misconduct&quot;</span><span class="p">]</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">  </span><span class="nt">&quot;timestamp_local&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-07-15T16:49:46.684126&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">  </span><span class="nt">&quot;total_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">  </span><span class="nt">&quot;succeeded_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">  </span><span class="nt">&quot;is_sampled_run&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">  </span><span class="nt">&quot;data_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;annotation_run_20250715_163632_09d6cc37_h1_H1_data.json&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">  </span><span class="nt">&quot;data_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;json&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">  </span><span class="nt">&quot;annotator_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;h1&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">  </span><span class="nt">&quot;error_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="loading-annotation-results">Loading Annotation Results</h3>
+<p>After collection, load annotations for analysis:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Load all human annotation results</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">human_results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">load_all_human_results</span><span class="p">()</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loaded </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">human_results</span><span class="p">)</span><span class="si">}</span><span class="s2"> human annotation result sets&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="c1"># Access individual annotator results</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">human_results</span><span class="p">:</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Annotator: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">annotator_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Samples annotated: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">results_data</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:4"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><input id="__tabbed_2_4" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Port Already in Use</label><label for="__tabbed_2_2">Browser Doesn't Open</label><label for="__tabbed_2_3">ngrok Issues</label><label for="__tabbed_2_4">Lost Annotations</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Let system find available port</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">()</span>  <span class="c1"># Will auto-detect free port</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Or specify different port</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">)</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>Manually navigate to: http://localhost:8501
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>Check console output for exact URL and port
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Ensure ngrok is installed and authenticated</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>ngrok<span class="w"> </span>config<span class="w"> </span>check
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>ngrok<span class="w"> </span>authtoken<span class="w"> </span>YOUR_TOKEN
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="c1"># Check ngrok logs in console output</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Check annotations directory</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">paths</span><span class="o">.</span><span class="n">annotations</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Verify annotation files are present</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1"># Files are auto-saved on each submission</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.tabs", "content.last_updated"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.92b07e13.min.js"></script>
+      
+    
+  </body>
+</html>
