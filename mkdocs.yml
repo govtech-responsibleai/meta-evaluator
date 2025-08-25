@@ -1,0 +1,59 @@
+# Project Information
+site_name: MetaEvaluator Docs
+site_description: Documentation for MetaEvaluator
+site_author: GovTech AI Practice
+docs_dir: docs
+
+# Theme Configuration
+theme:
+  name: material
+  language: en
+  palette:
+    primary: white
+    accent: custom
+  features:
+    - navigation.expand 
+    - navigation.tabs
+    - content.last_updated  
+  font:
+    text: Lato
+
+# Markdown Extensions
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.blocks.caption
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - pymdownx.blocks.caption
+  - def_list
+  - pymdownx.tasklist:
+      custom_checkbox: true
+    
+# Navigation
+nav:
+  - Home: index.md
+  - Usage:
+    - Quickstart: quickstart.md
+    - Annotation Guide:
+      - Setting up the annotation platform: annotation_guide/annotation.md
+    - Evaluation Guides: 
+      - Defining the evaluation task: guides/evaltask.md
+      - Loading the data: guides/evaldata.md
+      - Loading judges: guides/judges_load.md
+      - Running judges: guides/judges_run.md
+      - Judge/Annotation results: guides/results.md
+      - Scoring and Metrics: guides/scoring.md
+
+# Plugins
+plugins:
+  - search
+
+extra_css:
+  - stylesheets/extra.css
