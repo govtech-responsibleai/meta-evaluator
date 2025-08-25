@@ -2,10 +2,15 @@
 
 from typing import List, Literal
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, model_validator
 
+from ..common.error_constants import (
+    INVALID_MULTILABEL_MULTITASK_AGGREGATION_MSG,
+    INVALID_SINGLE_AGGREGATION_MSG,
+)
 from .base_scorer import BaseScorer
 from .enums import TaskAggregationMode
+from .exceptions import InvalidAggregationModeError
 
 
 class MetricConfig(BaseModel):
@@ -14,6 +19,33 @@ class MetricConfig(BaseModel):
     scorer: BaseScorer
     task_names: List[str]
     aggregation_name: Literal["single", "multilabel", "multitask"]
+
+    @model_validator(mode="after")
+    def validate_aggregation_mode_constraints(self) -> "MetricConfig":
+        """Validate that aggregation mode matches task names count constraints.
+
+        - 'single' aggregation mode can only be used with exactly 1 task name
+        - 'multilabel' and 'multitask' aggregation modes can only be used with more than 1 task name
+
+        Returns:
+            MetricConfig: The validated instance.
+
+        Raises:
+            InvalidAggregationModeError: If aggregation mode doesn't match task names count.
+        """
+        task_count = len(self.task_names)
+
+        if self.aggregation_name == "single" and task_count != 1:
+            raise InvalidAggregationModeError(
+                f"{INVALID_SINGLE_AGGREGATION_MSG}, but got {task_count} task names: {self.task_names}"
+            )
+
+        if self.aggregation_name in ["multilabel", "multitask"] and task_count <= 1:
+            raise InvalidAggregationModeError(
+                f"{INVALID_MULTILABEL_MULTITASK_AGGREGATION_MSG}, but got {task_count} task names: {self.task_names}"
+            )
+
+        return self
 
     @computed_field
     @property
@@ -79,13 +111,6 @@ class MetricsConfig(BaseModel):
         aggregation_name: Literal["single", "multilabel", "multitask"],
     ) -> None:
         """Add a metric configuration."""
-        # Determine aggregation_name if not provided
-        if aggregation_name is None:
-            if len(task_names) == 1:
-                aggregation_name = "single"
-            else:
-                aggregation_name = "multitask"
-
         self.metrics.append(
             MetricConfig(
                 scorer=scorer,

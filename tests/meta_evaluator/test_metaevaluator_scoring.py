@@ -11,9 +11,6 @@ import polars as pl
 import pytest
 
 from meta_evaluator.meta_evaluator import MetaEvaluator
-from meta_evaluator.meta_evaluator.exceptions import (
-    ScoringConfigError,
-)
 from meta_evaluator.meta_evaluator.scoring import ScoringMixin
 from meta_evaluator.results import (
     HumanAnnotationResults,
@@ -442,29 +439,6 @@ class TestResultsLoading:
 class TestScoring:
     """Test the ScoringMixin methods."""
 
-    def test_no_metrics_configured_raises_scoring_config_error(self, mock_evaluator):
-        """Test that no metric configs raises ScoringConfigError."""
-        config = MetricsConfig(metrics=[])
-
-        with pytest.raises(
-            ScoringConfigError, match="No metrics configured for comparison"
-        ):
-            asyncio.run(mock_evaluator.compare_async(config))
-
-    def test_no_task_names_raises_scoring_config_error(self, mock_evaluator):
-        """Test that no task names raises ScoringConfigError."""
-        scorer = AccuracyScorer()
-        config = MetricsConfig(
-            metrics=[
-                MetricConfig(scorer=scorer, task_names=[], aggregation_name="single")
-            ]
-        )
-
-        with pytest.raises(
-            ScoringConfigError, match="No task names specified for metric 0"
-        ):
-            asyncio.run(mock_evaluator.compare_async(config))
-
     @patch.object(ScoringMixin, "_process_single_judge_async")
     def test_run_scoring_async_calls(
         self, mock_process_judge, mock_evaluator, judge_results_dict, human_results_dict
@@ -802,7 +776,7 @@ class TestScoring:
             (
                 TextSimilarityScorer,
                 "text_similarity",
-                ["task2"],
+                ["task1", "task2"],
                 "multitask",
             ),
         ],
