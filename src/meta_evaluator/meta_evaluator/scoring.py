@@ -1,19 +1,22 @@
 """Mixin for scoring and comparison functionality including results loading."""
 
+import asyncio
 import logging
-from typing import TYPE_CHECKING, Dict, List, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from .base import Paths
 
+import numpy as np
 import polars as pl
 
+from ..common.async_utils import sync_wrapper
 from ..data import EvalData
 from ..eval_task import EvalTask
 from ..results import HumanAnnotationResults, JudgeResults
-from ..scores import BaseScoringResult, MetricsConfig
+from ..scores import BaseScoringResult, MetricConfig, MetricsConfig
+from ..scores.enums import TaskAggregationMode
 from .exceptions import (
-    EvalTaskNotFoundError,
     IncompatibleTaskError,
     InsufficientDataError,
     ScoringConfigError,
@@ -27,20 +30,6 @@ class ScoringMixin:
     annotations using various scoring metrics. It handles loading both judge results
     and human annotation results, then computes alignment scores using different
     scoring implementations (accuracy, Cohen's kappa, text similarity, etc.).
-
-    The mixin manages the complete scoring workflow:
-    - Loading judge results from evaluation runs
-    - Loading human annotation results from annotation sessions
-    - Validating task compatibility between results and scorers
-    - Computing alignment scores between judge and human evaluations
-    - Aggregating and saving scoring results
-
-    Scoring Process:
-        1. Load judge and human results with task schema validation
-        2. Configure scoring metrics based on task types
-        3. Compute alignment scores for each judge-human pairing
-        4. Generate aggregate visualizations and reports
-        5. Save individual and aggregate scoring results
 
     Attributes:
         eval_task (Optional[EvalTask]): Inherited evaluation task configuration.
@@ -57,10 +46,15 @@ class ScoringMixin:
         >>> human_results = evaluator.load_all_human_results()
         >>>
         >>> # Configure and run scoring
-        >>> evaluator.configure_scoring_metrics([
-        ...     MetricConfig(metric_type="accuracy", task_names=["toxicity"])
-        ... ])
-        >>> evaluator.compute_scores(save_results=True)
+        >>> alt_test_scorer = AltTestScorer(multiplicative_epsilon=True)
+        >>> cohens_kappa_scorer = CohensKappaScorer()
+        >>> config = MetricsConfig(
+        >>>    metrics=[
+        >>>        MetricConfig(scorer=alt_test_scorer,task_names=["task_1", "task_2"], aggregation_name="multilabel"),
+        >>>        MetricConfig(scorer=cohens_kappa_scorer, task_names=["task_1"], aggregation_name="single"),
+        >>>    ]
+        >>> )
+        >>> await evaluator.compare_async(config, judge_results=judge_results, human_results=human_results)
     """
 
     # Type hints for attributes that will be provided by MetaEvaluator
@@ -82,10 +76,14 @@ class ScoringMixin:
         to load them as judge results. Files that fail to load are skipped with
         a warning logged.
 
+        When duplicate judge_ids are found, keeps the most recent run (highest run_id)
+        and logs a warning about the duplicates.
+
         Returns:
             Dict[str, JudgeResults]: Dictionary mapping run_ids to their loaded JudgeResults objects.
         """
         results = {}
+        judge_id_to_results = {}  # Track judge_id -> list of (run_id, JudgeResults) for duplicate detection
 
         # Find all state files in results directory
         if not self.paths.results.exists():  # type: ignore
@@ -100,15 +98,43 @@ class ScoringMixin:
             try:
                 # Load directly using absolute path from glob
                 judge_results = JudgeResults.load_state(str(state_file))
-                # Use run_id as key
-                key = judge_results.run_id
-                results[key] = judge_results
+                run_id = judge_results.run_id
+                judge_id = judge_results.judge_id
+
+                # Track for duplicate detection
+                if judge_id not in judge_id_to_results:
+                    judge_id_to_results[judge_id] = []
+                judge_id_to_results[judge_id].append((run_id, judge_results))
+
                 self.logger.info(f"Loaded judge results from {state_file.name}")
             except Exception as e:
                 self.logger.warning(
                     f"Failed to load judge results from {state_file.name}: {e}"
                 )
                 continue
+
+        # TODO: Handle duplicates according to requirements (e.g. take both, drop both, take earliest run, etc.)
+        # Current default: keep most recent run_id for each judge_id
+        # Without this, the last loaded judge results will overwrite the previous ones
+        for judge_id, judge_results_list in judge_id_to_results.items():
+            if len(judge_results_list) > 1:
+                # Sort by run_id (assuming higher run_id means more recent)
+                judge_results_list.sort(key=lambda x: x[0], reverse=True)
+                most_recent_run_id, most_recent_result = judge_results_list[0]
+
+                # Log warning about duplicates
+                duplicate_run_ids = [run_id for run_id, _ in judge_results_list[1:]]
+                self.logger.warning(
+                    f"Found duplicate results for judge_id '{judge_id}'. "
+                    f"Keeping most recent run_id '{most_recent_run_id}', "
+                    f"skipping: {duplicate_run_ids}"
+                )
+
+                results[most_recent_run_id] = most_recent_result
+            else:
+                # No duplicates, add the single result
+                run_id, judge_result = judge_results_list[0]
+                results[run_id] = judge_result
 
         return results
 
@@ -119,10 +145,14 @@ class ScoringMixin:
         to load them as human annotation results. Files that fail to load are skipped
         with a warning logged.
 
+        When duplicate annotator_ids are found, keeps the most recent run (highest run_id)
+        and logs a warning about the duplicates.
+
         Returns:
             Dict[str, HumanAnnotationResults]: Dictionary mapping run_ids to their loaded HumanAnnotationResults objects.
         """
         results = {}
+        annotator_id_to_results = {}  # Track annotator_id -> list of (run_id, HumanAnnotationResults) for duplicate detection
 
         # Find all metadata files in annotations directory
         if not self.paths.annotations.exists():  # type: ignore
@@ -136,9 +166,14 @@ class ScoringMixin:
         for metadata_file in metadata_files:
             try:
                 human_results = HumanAnnotationResults.load_state(str(metadata_file))
-                # Use run_id as key
-                key = human_results.run_id
-                results[key] = human_results
+                run_id = human_results.run_id
+                annotator_id = human_results.annotator_id
+
+                # Track for duplicate detection
+                if annotator_id not in annotator_id_to_results:
+                    annotator_id_to_results[annotator_id] = []
+                annotator_id_to_results[annotator_id].append((run_id, human_results))
+
                 self.logger.info(
                     f"Loaded human annotation results from {metadata_file.name}"
                 )
@@ -148,228 +183,508 @@ class ScoringMixin:
                 )
                 continue
 
+        # TODO: Handle duplicates according to requirements (e.g. take both, drop both, take earliest run, etc.)
+        # Current default: keep most recent run_id for each annotator_id
+        # Without this, the last loaded human results will overwrite the previous ones
+        for annotator_id, human_results_list in annotator_id_to_results.items():
+            if len(human_results_list) > 1:
+                # Sort by run_id (assuming higher run_id means more recent)
+                human_results_list.sort(key=lambda x: x[0], reverse=True)
+                most_recent_run_id, most_recent_result = human_results_list[0]
+
+                # Log warning about duplicates
+                duplicate_run_ids = [run_id for run_id, _ in human_results_list[1:]]
+                self.logger.warning(
+                    f"Found duplicate results for annotator_id '{annotator_id}'. "
+                    f"Keeping most recent run_id '{most_recent_run_id}', "
+                    f"skipping: {duplicate_run_ids}"
+                )
+
+                results[most_recent_run_id] = most_recent_result
+            else:
+                # No duplicates, add the single result
+                run_id, human_result = human_results_list[0]
+                results[run_id] = human_result
+
         return results
 
-    # ===== DATA PREPROCESSING METHODS FOR SCORER =====
+    ##############################
+    # DATA PREPROCESSING METHODS #
+    ##############################
 
-    def _extract_outcomes_for_task(
-        self, results: JudgeResults | HumanAnnotationResults, task_name: str
-    ) -> pl.DataFrame:
-        """Extract successful outcomes for a specific task from results, filtering out null values.
-
-        Returns:
-            pl.DataFrame: A DataFrame containing the successful outcomes for the task.
-        """
-        successful_data = results.get_successful_results()
-
-        if successful_data.is_empty():
-            return pl.DataFrame({"original_id": [], task_name: []})
-
-        # Select the columns and filter out null values for the task
-        task_data = successful_data.select(["original_id", task_name])
-
-        # Filter out rows where the task value is null
-        task_data = task_data.filter(pl.col(task_name).is_not_null())
-
-        return task_data
-
-    def _collect_all_outcomes(
+    def _filter_and_align_data(
         self,
-        results_dict: Mapping[str, Union[JudgeResults, HumanAnnotationResults]],
-        task_names: List[str],
-        id_column: str,  # "judge_id" or "annotator_id"
-    ) -> List[pl.DataFrame]:
-        """Collect outcomes from all results for all tasks.
-
-        Returns:
-            List[pl.DataFrame]: A list of DataFrames containing the outcomes for all tasks.
-        """
-        all_outcomes = []
-
-        for result in results_dict.values():
-            # Get the appropriate ID value based on result type
-            id_value = (
-                result.judge_id if id_column == "judge_id" else result.annotator_id  # type: ignore
-            )
-
-            # Extract outcomes for all tasks for this result
-            for task_name in task_names:
-                outcomes = self._extract_outcomes_for_task(result, task_name)
-                if not outcomes.is_empty():
-                    # Add metadata columns
-                    outcomes_with_metadata = outcomes.with_columns(
-                        [
-                            pl.lit(id_value).alias(id_column),
-                            pl.lit(task_name).alias("task_name"),
-                        ]
-                    ).rename({task_name: "task_value"})
-                    all_outcomes.append(outcomes_with_metadata)
-
-        return all_outcomes
-
-    def _find_common_ids(
-        self, consolidated_judge_df: pl.DataFrame, consolidated_human_df: pl.DataFrame
-    ) -> dict[str, set]:
-        """Find original_ids that exist in both judge and human results.
-
-        Returns:
-            set: A set of original_ids that exist in both judge and human results.
-        """
-        judge_ids = set(consolidated_judge_df["original_id"].unique())
-        human_ids = set(consolidated_human_df["original_id"].unique())
-        common_ids = judge_ids & human_ids  # Use set intersection operator
-        judge_only_ids = judge_ids - human_ids
-        human_only_ids = human_ids - judge_ids
-        return {
-            "common_ids": common_ids,
-            "judge_only_ids": judge_only_ids,
-            "human_only_ids": human_only_ids,
-        }
-
-    def _align_results_by_id(
-        self,
-        judge_results: Dict[str, JudgeResults],
+        judge_result: JudgeResults,
         human_results: Dict[str, HumanAnnotationResults],
-        task_names: List[str],
-    ) -> tuple:
-        """Align judge and human outcomes by original_id across all tasks.
-
-        Args:
-            judge_results: Dictionary mapping run_ids to judge evaluation results
-            human_results: Dictionary mapping run_ids to human annotation results
-            task_names: List of task names to align
+    ) -> Tuple[pl.DataFrame, pl.DataFrame]:
+        """Filter judge and human results for successful results and common IDs.
 
         Returns:
-            tuple: Tuple containing consolidated judge and human DataFrames
-
-        Raises:
-            InsufficientDataError: If no aligned judge-human data is found.
+            Tuple[pl.DataFrame, pl.DataFrame]: (judge_df, human_df) with success results and common IDs
         """
-        # Collect all outcomes from judge and human results
-        judge_outcomes = self._collect_all_outcomes(
-            judge_results, task_names, "judge_id"
-        )
-        human_outcomes = self._collect_all_outcomes(
-            human_results, task_names, "annotator_id"
-        )
+        # Get successful results only
+        judge_success_df = judge_result.get_successful_results()
 
-        if not judge_outcomes:
-            raise InsufficientDataError("No judge outcomes found")
+        # Combine all human successful results
+        human_success_dfs = []
+        for human_result in human_results.values():
+            human_df = human_result.get_successful_results()
+            if not human_df.is_empty():
+                human_df = human_df.with_columns(
+                    pl.lit(human_result.annotator_id).alias("human_id")
+                )
+                human_success_dfs.append(human_df)
 
-        if not human_outcomes:
-            raise InsufficientDataError("No human outcomes found")
+        if not human_success_dfs:
+            return pl.DataFrame(), pl.DataFrame()
 
-        # Combine all outcomes into single DataFrames
-        consolidated_judge_df = pl.concat(judge_outcomes)
-        consolidated_human_df = pl.concat(human_outcomes)
+        combined_human_df = pl.concat(human_success_dfs)
 
-        # Find common IDs and differences for sanity check
-        id_sets = self._find_common_ids(consolidated_judge_df, consolidated_human_df)
-        common_ids = id_sets["common_ids"]
-        judge_only_ids = id_sets["judge_only_ids"]
-        human_only_ids = id_sets["human_only_ids"]
-
-        # Log sanity check information
-        self.logger.info(f"Judge IDs not found in human: {len(judge_only_ids)}")
-        self.logger.info(f"Human IDs not found in judge: {len(human_only_ids)}")
-        self.logger.info(f"Common IDs for alignment: {len(common_ids)}")
+        # Find common IDs
+        judge_ids = set(judge_success_df["original_id"].unique())
+        human_ids = set(combined_human_df["original_id"].unique())
+        common_ids = judge_ids & human_ids
 
         if not common_ids:
-            raise InsufficientDataError("No aligned judge-human data found")
+            return pl.DataFrame(), pl.DataFrame()
 
-        consolidated_judge_df = consolidated_judge_df.filter(
+        # Filter to common IDs
+        filtered_judge_df = judge_success_df.filter(
             pl.col("original_id").is_in(list(common_ids))
         )
-        consolidated_human_df = consolidated_human_df.filter(
+        filtered_human_df = combined_human_df.filter(
             pl.col("original_id").is_in(list(common_ids))
         )
 
-        return consolidated_judge_df, consolidated_human_df
+        return filtered_judge_df, filtered_human_df
 
-    def _extract_task_schemas(
-        self, judge_results: Dict[str, JudgeResults], task_names: List[str]
-    ) -> dict:
-        """Extract task schemas from judge results.
+    def _preprocess_task_data(
+        self,
+        judge_df: pl.DataFrame,
+        human_df: pl.DataFrame,
+        task_names: List[str],
+        aggregation_mode: TaskAggregationMode,
+    ) -> Tuple[pl.DataFrame, pl.DataFrame]:
+        """Preprocess data based on aggregation mode.
+
+        This is used to determine the format of the task labels for the scorer.
+        There are 3 possible formats:
+        - TaskAggregationMode.SINGLE: Single task (Evaluate a single column only. e.g. "toxicity")
+        - TaskAggregationMode.MULTILABEL: Multilabel column (Evaluate multiple columns, but treat as a single multilabel. e.g. ["hateful", "insults", "self_harm])
+        - TaskAggregationMode.MULTITASK: Multiple task columns (Evaluate multiple columns, and calculate scores for each column, then take the average. e.g. ["toxicity_1", "toxicity_2"])
 
         Returns:
-            dict: A dictionary mapping task names to their schemas.
+            Tuple[pl.DataFrame, pl.DataFrame]: (judge_data, human_data) with columns (original_id, label) and (original_id, human_id, label)
+        """
+        if aggregation_mode == TaskAggregationMode.SINGLE:
+            # Select single task column
+            task_name = task_names[0]
+            judge_data = judge_df.select(["original_id", task_name]).rename(
+                {task_name: "label"}
+            )
+            human_data = human_df.select(["original_id", "human_id", task_name]).rename(
+                {task_name: "label"}
+            )
+
+        elif aggregation_mode == TaskAggregationMode.MULTILABEL:
+            # Create multilabel column
+            judge_data = self._create_multilabel_column(
+                judge_df, task_names, include_human_id=False
+            )
+            human_data = self._create_multilabel_column(
+                human_df, task_names, include_human_id=True
+            )
+
+        else:  # MULTITASK - keep task columns as-is, will be processed separately
+            judge_data = judge_df
+            human_data = human_df
+
+        return judge_data, human_data
+
+    def _create_multilabel_column(
+        self, df: pl.DataFrame, task_names: List[str], include_human_id: bool = False
+    ) -> pl.DataFrame:
+        """Combine task columns into a single multilabel colum for MULTILABEL aggregation mode.
+
+        Returns:
+            pl.DataFrame: DataFrame with aggregated label column.
+        """
+        group_cols = ["original_id"]
+        if include_human_id:
+            group_cols.append("human_id")
+
+        # Select task columns and melt to long format
+        task_df = df.select(
+            ["original_id"] + (["human_id"] if include_human_id else []) + task_names
+        )
+
+        # Melt task columns into rows
+        melted = task_df.melt(
+            id_vars=group_cols,
+            value_vars=task_names,
+            variable_name="task_name",
+            value_name="task_value",
+        )
+
+        # Group and combine task values into list
+        def convert_values_to_strings(values_list):
+            converted = []
+            for value in values_list:
+                if value is None:
+                    converted.append(None)
+                elif isinstance(value, list):
+                    converted.append(str(value))
+                else:
+                    converted.append(str(value))
+            return converted
+
+        multilabel_df = (
+            melted.group_by(group_cols)
+            .agg([pl.col("task_value").alias("label_list")])
+            .with_columns(
+                [
+                    pl.col("label_list")
+                    .map_elements(
+                        convert_values_to_strings, return_dtype=pl.List(pl.Utf8)
+                    )
+                    .alias("label")
+                ]
+            )
+            .drop("label_list")
+        )
+
+        return multilabel_df
+
+    def _average_multitask_results(
+        self, task_scoring_results: List[BaseScoringResult]
+    ) -> BaseScoringResult:
+        """Average multiple task results for MULTITASK aggregation mode.
+
+        Returns:
+            BaseScoringResult: Averaged result across all tasks.
 
         Raises:
-            EvalTaskNotFoundError: If a task is not found in the judge results schemas.
+            ValueError: If the results list is empty.
         """
-        first_judge_result = next(iter(judge_results.values()))
-        task_schemas = {}
-        for task_name in task_names:
-            if task_name not in first_judge_result.task_schemas:
-                raise EvalTaskNotFoundError(
-                    f"Task '{task_name}' not found in judge results schemas"
-                )
-            task_schemas[task_name] = first_judge_result.task_schemas.get(task_name)
-        return task_schemas
+        if not task_scoring_results:
+            raise ValueError("Cannot average empty results list")
 
-    def _validate_scorer_compatibility(self, scorer, task_schemas: dict) -> None:
-        """Validate that a scorer can handle all tasks.
+        first_result = task_scoring_results[0]
 
-        Raises:
-            IncompatibleTaskError: If a scorer cannot handle a task.
-        """
-        for task_name, task_schema in task_schemas.items():
-            if not scorer.can_score_task(task_schema):
-                raise IncompatibleTaskError(
-                    f"Scorer '{scorer.scorer_name}' cannot score task '{task_name}'"
-                )
+        # Average scores across tasks
+        averaged_scores = {}
+        for score_key in first_result.scores.keys():
+            if score_key == "winning_rate" and isinstance(
+                first_result.scores[score_key], dict
+            ):
+                # Special handling for alt-test WR dict
+                wr_values = {}
+                for eps in first_result.scores[score_key].keys():
+                    values = [
+                        result.scores[score_key][eps]
+                        for result in task_scoring_results
+                        if score_key in result.scores
+                    ]
+                    wr_values[eps] = float(np.nanmean(values))
+                averaged_scores[score_key] = wr_values
+            else:
+                # Simple averaging for other metrics
+                values = [
+                    result.scores[score_key]
+                    for result in task_scoring_results
+                    if score_key in result.scores
+                ]
+                averaged_scores[score_key] = float(np.nanmean(values))
 
-    # ===== SCORING AND COMPARISON METHODS =====
+        # Sum up comparisons
+        total_comparisons = sum(
+            result.num_comparisons for result in task_scoring_results
+        )
+        total_failed = sum(result.failed_comparisons for result in task_scoring_results)
 
-    def _run_scorer_aggregations(
-        self,
-        results: Dict[str, List[BaseScoringResult]],
-        comparison_config: MetricsConfig,
-    ) -> None:
-        """Run aggregation for scorers that support it.
+        return BaseScoringResult(
+            scorer_name=first_result.scorer_name,
+            task_name=f"{len(task_scoring_results)}_tasks_avg",
+            judge_id=first_result.judge_id,
+            scores=averaged_scores,
+            metadata={
+                "task_names": [result.task_name for result in task_scoring_results],
+                "scoring_method": "average_across_tasks",
+                "ground_truth_method": first_result.metadata.get(
+                    "ground_truth_method", ""
+                ),
+            },
+            aggregation_mode=TaskAggregationMode.MULTITASK,
+            num_comparisons=total_comparisons,
+            failed_comparisons=total_failed,
+        )
+
+    ##################################
+    # SCORING AND COMPARISON METHODS #
+    ##################################
+
+    def _get_first_non_null_value(self, label_column):
+        """Get first non-null sample value from label column for scorer compatibility validation.
 
         Args:
-            results: Dictionary mapping scorer names to lists of results
-            comparison_config: Configuration containing metrics and their scorers
+            label_column: Polars Series containing label values
+
+        Returns:
+            First non-null value from label column, or None if no non-null values
+        """
+        if label_column is None or len(label_column) == 0:
+            return None
+
+        sample_values = label_column.drop_nulls()
+        if len(sample_values) > 0:
+            # Get the first element and extract the actual Python value
+            first_value = sample_values.item(0)
+            self.logger.info(f"SAMPLE: {first_value} {type(first_value)}")
+
+            # For multilabel cases, first_value might be a list/series of labels
+            # In that case, we need to return the structure as-is for compatibility checking
+            if isinstance(first_value, (list, tuple)):
+                return first_value
+            elif hasattr(first_value, "to_list"):  # Polars Series
+                return first_value.to_list()
+            else:
+                return first_value
+        else:
+            return None
+
+    # Parallelize different unique scorer configurations
+    async def _run_scoring_async(
+        self,
+        metric_config: MetricConfig,
+        judge_results: Dict[str, JudgeResults],
+        human_results: Dict[str, HumanAnnotationResults],
+    ) -> Tuple[MetricConfig, List[BaseScoringResult]]:
+        """Run a single metric configuration with different judges asynchronously.
+
+        Args:
+            metric_config: Metric configuration to run
+            judge_results: Dictionary mapping judge IDs to JudgeResults objects
+            human_results: Dictionary mapping human IDs to HumanAnnotationResults objects
+
+        Returns:
+            Tuple[MetricConfig, List[BaseScoringResult]]: (metric_config, list of BaseScoringResult objects)
+        """
+        self.logger.info(
+            f"Processing metric: {metric_config.scorer.scorer_name} on tasks {metric_config.task_names}"
+        )
+
+        # Parallelize different judges within this scorer
+        judge_tasks = []
+        for judge_result in judge_results.values():
+            task = self._process_single_judge_async(
+                metric_config, judge_result, human_results
+            )
+            judge_tasks.append(task)
+
+        judge_scoring_results = await asyncio.gather(
+            *judge_tasks
+        )  # No return_exceptions=True
+
+        # All results are BaseScoringResult objects (some might be NaN)
+        return metric_config, judge_scoring_results
+
+    # Parallelize different judges within a scorer
+    async def _process_single_judge_async(
+        self,
+        metric_config: MetricConfig,
+        judge_result: JudgeResults,
+        human_results: Dict[str, HumanAnnotationResults],
+    ) -> BaseScoringResult:
+        """Process a single judge async with a single scorer configuration. Always returns BaseScoringResult.
+
+        Args:
+            metric_config: Metric configuration to run
+            judge_result: JudgeResults object
+            human_results: Dictionary mapping human IDs to HumanAnnotationResults objects
+
+        Returns:
+            BaseScoringResult: Scoring result for the judge
+
+        Raises:
+            IncompatibleTaskError: If the scorer cannot handle the task type.
+            InsufficientDataError: If there is insufficient data for scoring.
+        """
+        judge_id = judge_result.judge_id
+
+        try:
+            # Step 1: Filter and align data
+            judge_df, human_df = self._filter_and_align_data(
+                judge_result, human_results
+            )
+
+            if judge_df.is_empty() or human_df.is_empty():
+                raise InsufficientDataError(f"No aligned data for judge {judge_id}")
+
+            # Step 2: Process based on aggregation mode
+            if metric_config.aggregation_mode == TaskAggregationMode.MULTITASK:
+                # MULTITASK - process each task separately, then average.
+                task_scoring_results = []
+                for task_name in metric_config.task_names:
+                    task_judge_data, task_human_data = self._preprocess_task_data(
+                        judge_df, human_df, [task_name], TaskAggregationMode.SINGLE
+                    )
+
+                    if task_judge_data.is_empty():
+                        self.logger.warning(f"No data for task {task_name}, skipping")
+                        continue
+
+                    # Validate scorer compatibility
+                    sample_label = self._get_first_non_null_value(
+                        task_judge_data["label"]
+                    )
+                    if not metric_config.scorer.can_score_task(sample_label):
+                        raise IncompatibleTaskError(
+                            f"Scorer '{metric_config.scorer.scorer_name}' cannot score task '{task_name}' data format"
+                        )
+
+                    task_scoring_result = (
+                        await metric_config.scorer.compute_score_async(
+                            task_judge_data,
+                            task_human_data,
+                            task_name,
+                            judge_id,
+                            TaskAggregationMode.SINGLE,
+                        )
+                    )
+                    task_scoring_results.append(task_scoring_result)
+
+                if not task_scoring_results:
+                    raise InsufficientDataError(
+                        f"No valid task results for judge {judge_id}"
+                    )
+
+                # Average the task results
+                return self._average_multitask_results(task_scoring_results)
+
+            else:
+                # SINGLE or MULTILABEL - process once
+                processed_judge_data, processed_human_data = self._preprocess_task_data(
+                    judge_df,
+                    human_df,
+                    metric_config.task_names,
+                    metric_config.aggregation_mode,
+                )
+
+                # Validate scorer compatibility
+                sample_label = self._get_first_non_null_value(
+                    processed_judge_data["label"]
+                )
+                if not metric_config.scorer.can_score_task(sample_label):
+                    raise IncompatibleTaskError(
+                        f"Scorer '{metric_config.scorer.scorer_name}' cannot score the processed data format"
+                    )
+
+                # Set task name based on aggregation mode
+                if metric_config.aggregation_mode == TaskAggregationMode.SINGLE:
+                    display_task_name = metric_config.task_names[0]
+                else:  # MULTILABEL
+                    display_task_name = (
+                        f"multilabel_{len(metric_config.task_names)}_tasks"
+                    )
+
+                result = await metric_config.scorer.compute_score_async(
+                    processed_judge_data,
+                    processed_human_data,
+                    display_task_name,
+                    judge_id,
+                    metric_config.aggregation_mode,
+                )
+                return result
+
+        except Exception as e:
+            self.logger.error(f"Failed to process judge {judge_id}: {e}")
+            # Return NaN result instead of failing
+            return BaseScoringResult(
+                scorer_name=metric_config.scorer.scorer_name,
+                task_name="error",
+                judge_id=judge_id,
+                scores={},
+                metadata={"error": str(e)},
+                aggregation_mode=metric_config.aggregation_mode,
+                num_comparisons=0,
+                failed_comparisons=1,
+            )
+
+    def _save_all_scorer_results(
+        self,
+        results: Dict[str, Tuple[MetricConfig, List[BaseScoringResult]]],
+    ) -> None:
+        """Save individual results for each metric configuration.
+
+        Args:
+            results: Dictionary mapping unique metric names to (metric_config, results) tuples
         """
         scores_dir = str(self.paths.scores)
 
-        # Check each scorer type for aggregation capability
-        processed_scorers = set()
-        for metric_config in comparison_config.metrics:
+        # Save results for each unique metric configuration
+        for unique_name, (metric_config, scorer_results) in results.items():
             scorer = metric_config.scorer
-            scorer_name = scorer.scorer_name
 
-            # Skip if we already processed this scorer type
-            if scorer_name in processed_scorers:
-                continue
-
-            # Check if scorer has aggregation capability
-            scorer_results = results.get(scorer_name, [])
             if scorer_results:
                 self.logger.info(
-                    f"Running aggregation for {scorer_name} scorer with {len(scorer_results)} results"
+                    f"Saving {len(scorer_results)} results for {unique_name}"
                 )
                 try:
-                    scorer.aggregate_results(scorer_results, scores_dir)
+                    scorer.save_results(scorer_results, scores_dir, unique_name)
+                except Exception as e:
+                    self.logger.error(f"Failed to save results for {unique_name}: {e}")
+            else:
+                self.logger.warning(f"No results to save for {unique_name}")
+
+    def _aggregate_all_scorer_results(
+        self,
+        results: Dict[str, Tuple[MetricConfig, List[BaseScoringResult]]],
+    ) -> None:
+        """Run aggregation for each metric configuration.
+
+        Args:
+            results: Dictionary mapping unique metric names to (metric_config, results) tuples
+        """
+        scores_dir = str(self.paths.scores)
+
+        # Run aggregation for each metric configuration
+        for unique_name, (metric_config, scorer_results) in results.items():
+            scorer = metric_config.scorer
+
+            if scorer_results:
+                self.logger.info(
+                    f"Running aggregation for {unique_name} with {len(scorer_results)} results"
+                )
+                try:
+                    scorer.aggregate_results(scorer_results, scores_dir, unique_name)
                 except Exception as e:
                     self.logger.warning(
-                        f"Warning: Failed to run aggregation for {scorer_name}: {e}"
+                        f"Warning: Failed to run aggregation for {unique_name}: {e}"
                     )
-            else:
-                self.logger.warning(
-                    f"Scorer {scorer_name} does not support aggregation"
-                )
 
-            processed_scorers.add(scorer_name)
+    @sync_wrapper
+    def compare_async(self, *args, **kwargs):
+        """Synchronous wrapper for compare_async that handles asyncio internally.
 
-    def compare(
+        Returns:
+            Dict[str, Tuple[MetricConfig, List[BaseScoringResult]]]: Dictionary mapping unique names to (metric_config, results) tuples.
+        """
+        return self._compare_async(*args, **kwargs)
+
+    async def _compare_async(
         self,
         comparison_config: MetricsConfig,
         judge_results: Optional[Dict[str, JudgeResults]] = None,
         human_results: Optional[Dict[str, HumanAnnotationResults]] = None,
-    ) -> Dict[str, List[BaseScoringResult]]:
-        """Compare judge and human results using configured metrics.
+    ) -> Dict[str, Tuple[MetricConfig, List[BaseScoringResult]]]:
+        """Main method to compare judge and human results using configured metrics.
+
+        Handles:
+        - Validating comparison configuration
+        - Loading judge and human results
+        - Running scoring for each metric configuration
+        - Saving individual judge results
+        - Running aggregations for each metric configuration for all judges
 
         Args:
             comparison_config: Configuration specifying which metrics to run and on which tasks
@@ -379,7 +694,7 @@ class ScoringMixin:
                 If None, loads all human results from the project's annotations directory.
 
         Returns:
-            Dict[str, List[BaseScoringResult]]: Dictionary mapping scorer names to lists of results
+            Dict[str, Tuple[MetricConfig, List[BaseScoringResult]]]: Dictionary mapping unique names to (metric_config, results) tuples
 
         Raises:
             ScoringConfigError: If no metrics configured, no results found, or scoring fails
@@ -415,63 +730,43 @@ class ScoringMixin:
             f"Comparing {len(judge_results)} judge result sets with {len(human_results)} human result sets"
         )
 
-        results = {}  # Dict[str, List[BaseScoringResult]]
+        # Parallelize different scorers and judges
+        scorer_tasks = []
+        for metric_config in comparison_config.metrics:
+            task = self._run_scoring_async(metric_config, judge_results, human_results)
+            scorer_tasks.append(task)
 
-        # Process each metric configuration
-        for i, metric_config in enumerate(comparison_config.metrics, 1):
-            self.logger.info(
-                f"Processing metric {i}/{len(comparison_config.metrics)}: {metric_config.scorer.scorer_name} on tasks {metric_config.task_names}"
-            )
-            # Extract task schemas for this metric
-            task_schemas = self._extract_task_schemas(
-                judge_results, metric_config.task_names
-            )
+        scorer_results = await asyncio.gather(*scorer_tasks, return_exceptions=True)
 
-            # Validate scorer compatibility
-            self._validate_scorer_compatibility(metric_config.scorer, task_schemas)
+        # Combine results from all scorers with unique names
+        results = {}  # Dict[str, Tuple[MetricConfig, List[BaseScoringResult]]]
+        for scorer_result in scorer_results:
+            if isinstance(scorer_result, Exception):
+                self.logger.error(f"Scorer failed: {scorer_result}")
+                continue
 
-            # Align data for this metric's tasks
-            consolidated_judge_df, consolidated_human_df = self._align_results_by_id(
-                judge_results, human_results, metric_config.task_names
-            )
+            metric_config, scorer_results_list = scorer_result  # type: ignore
 
-            # Compute score for each judge
-            all_judges = consolidated_judge_df["judge_id"].unique().to_list()
-            self.logger.info(
-                f"Computing scores for {len(all_judges)} judges: {all_judges}"
-            )
+            # Create unique name to differentiate between scorer + task_names + aggregation_mode
+            unique_name = metric_config.get_unique_name()
 
-            for j, judge_id in enumerate(all_judges, 1):
-                self.logger.info(
-                    f"  Computing score for judge {j}/{len(all_judges)}: {judge_id}"
-                )
-                # Filter judge data for this specific judge
-                consolidated_judge_subset = consolidated_judge_df.filter(
-                    pl.col("judge_id") == judge_id
-                )
+            results[unique_name] = (metric_config, scorer_results_list)
 
-                # Compute the score for this judge
-                score_result = metric_config.scorer.compute_score(
-                    judge_id=judge_id,
-                    consolidated_judge_df=consolidated_judge_subset,
-                    consolidated_human_df=consolidated_human_df,
-                    task_names=metric_config.task_names,
-                    task_schemas=task_schemas,
-                )
-
-                # Group results by scorer name
-                scorer_name = metric_config.scorer.scorer_name
-                if scorer_name not in results:
-                    results[scorer_name] = []
-                results[scorer_name].append(score_result)
+        # Save individual results for each scorer
+        self.logger.info("Saving individual scoring results")
+        self._save_all_scorer_results(results)
 
         # Run scorer aggregations after all individual scoring is complete
         self.logger.info("Running scorer aggregations for comparison results")
-        self._run_scorer_aggregations(results, comparison_config)
+        self._aggregate_all_scorer_results(results)
 
-        total_results = sum(len(scorer_results) for scorer_results in results.values())
+        # Log total results and metric configurations
+        total_results = sum(
+            len(scorer_results_list) for _, scorer_results_list in results.values()
+        )
+        total_metric_configs = len(comparison_config.metrics)
         self.logger.info(
-            f"Comparison completed successfully. Generated {total_results} total scoring results across {len(results)} scorer types"
+            f"Async comparison completed successfully. Generated {total_results} total scoring results from {total_metric_configs} metric configurations"
         )
 
         return results

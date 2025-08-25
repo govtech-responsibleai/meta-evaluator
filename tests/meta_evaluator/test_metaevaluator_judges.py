@@ -13,12 +13,13 @@ from meta_evaluator.meta_evaluator.exceptions import (
     EvalTaskNotFoundError,
     InvalidYAMLStructureError,
     JudgeAlreadyExistsError,
-    JudgeExecutionError,
     JudgeNotFoundError,
     PromptFileNotFoundError,
     ResultsSaveError,
 )
 from meta_evaluator.results import JudgeResults
+
+from .conftest import create_mock_judge_state_file
 
 
 class TestMetaEvaluatorJudges:
@@ -115,7 +116,7 @@ class TestMetaEvaluatorJudges:
         with pytest.raises(JudgeAlreadyExistsError):
             self.add_test_judge(meta_evaluator_with_task, sample_prompt, judge_id)
 
-    def test_add_judge_override_existing(self, meta_evaluator_with_task, sample_prompt):
+    def test_add_judge_override(self, meta_evaluator_with_task, sample_prompt):
         """Test overriding existing judge."""
         judge_id = "test_judge"
 
@@ -129,7 +130,7 @@ class TestMetaEvaluatorJudges:
             llm_client="openai",
             model="gpt-3.5-turbo",
             prompt=new_prompt,
-            override_existing=True,
+            on_duplicate="overwrite",
         )
 
         # Verify override worked
@@ -329,7 +330,7 @@ class TestMetaEvaluatorJudges:
         assert judge1.prompt.prompt == "Prompt 1"
         assert judge2.prompt.prompt == "Prompt 2"
 
-    def test_load_judges_from_yaml_override_existing(
+    def test_load_judges_from_yaml_override(
         self, meta_evaluator_with_task, tmp_path, sample_prompt
     ):
         """Test overriding existing judge when loading from YAML."""
@@ -355,7 +356,7 @@ class TestMetaEvaluatorJudges:
 
         # Load with override
         meta_evaluator_with_task.load_judges_from_yaml(
-            str(yaml_file), override_existing=True
+            str(yaml_file), on_duplicate="overwrite"
         )
 
         # Verify judge was overridden
@@ -467,18 +468,6 @@ class TestMetaEvaluatorJudges:
         judge1.evaluate_eval_data.assert_called_once()
         judge2.evaluate_eval_data.assert_called_once()
         judge3.evaluate_eval_data.assert_not_called()
-
-    def test_run_judges_execution_exception(self, meta_evaluator_with_judges_and_data):
-        """Test run_judges raises exception when judge execution fails."""
-        # Configure mock judge to raise exception
-        judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
-        judge1.evaluate_eval_data.side_effect = Exception("Judge execution failed")
-
-        # Run judge and expect JudgeExecutionError
-        with pytest.raises(JudgeExecutionError):
-            meta_evaluator_with_judges_and_data.run_judges(
-                judge_ids="judge1", save_results=False
-            )
 
     def test_run_judges_custom_run_id(self, meta_evaluator_with_judges_and_data):
         """Test running judges with custom run_id."""
@@ -665,6 +654,231 @@ class TestMetaEvaluatorJudges:
                 judge_ids="judge1", save_results=True
             )
 
+    def test_run_judges_skip_duplicates_true_does_not_call_evaluate(
+        self, meta_evaluator_with_judges_and_data, mock_judge_state_template
+    ):
+        """Test that when skip_duplicates=True, evaluate_eval_data is not called for duplicate judge_id."""
+        # Create existing results for judge1
+        results_dir = meta_evaluator_with_judges_and_data.paths.results
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a mock state file for judge1
+        create_mock_judge_state_file(
+            results_dir, "judge1", "existing_run", mock_judge_state_template
+        )
+
+        # Mock JudgeResults.load_state to return a mock result
+        with patch("meta_evaluator.results.JudgeResults.load_state") as mock_load:
+            mock_judge_results = Mock()
+            mock_judge_results.judge_id = "judge1"
+            mock_load.return_value = mock_judge_results
+
+            # Run judges with skip_duplicates=True
+            results = meta_evaluator_with_judges_and_data.run_judges(
+                skip_duplicates=True, save_results=False
+            )
+
+            # Should only run judge2, not judge1
+            assert len(results) == 1
+            assert "judge2" in results
+            assert "judge1" not in results
+
+            # Verify judge1.evaluate_eval_data was NOT called
+            judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
+            judge1.evaluate_eval_data.assert_not_called()
+
+            # Verify judge2.evaluate_eval_data WAS called
+            judge2 = meta_evaluator_with_judges_and_data.judge_registry["judge2"]
+            judge2.evaluate_eval_data.assert_called_once()
+
+    def test_run_judges_skip_duplicates_false_calls_evaluate(
+        self, meta_evaluator_with_judges_and_data, mock_judge_state_template
+    ):
+        """Test that when skip_duplicates=False, evaluate_eval_data is called even for duplicate judge_id."""
+        # Create existing results for judge1
+        results_dir = meta_evaluator_with_judges_and_data.paths.results
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a mock state file for judge1
+        create_mock_judge_state_file(
+            results_dir, "judge1", "existing_run", mock_judge_state_template
+        )
+
+        # Mock JudgeResults.load_state to return a mock result
+        with patch("meta_evaluator.results.JudgeResults.load_state") as mock_load:
+            mock_judge_results = Mock()
+            mock_judge_results.judge_id = "judge1"
+            mock_load.return_value = mock_judge_results
+
+            # Run judges with skip_duplicates=False (default)
+            results = meta_evaluator_with_judges_and_data.run_judges(
+                skip_duplicates=False, save_results=False
+            )
+
+            # Should run both judges
+            assert len(results) == 2
+            assert "judge1" in results
+            assert "judge2" in results
+
+            # Verify both judges' evaluate_eval_data were called
+            judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
+            judge2 = meta_evaluator_with_judges_and_data.judge_registry["judge2"]
+            judge1.evaluate_eval_data.assert_called_once()
+            judge2.evaluate_eval_data.assert_called_once()
+
+    # === Judge Registry Serialization Tests ===
+
+    def test_load_judges_from_yaml_judge_registry_validation(
+        self, meta_evaluator_with_task, tmp_path
+    ):
+        """Test that load_judges_from_yaml correctly populates judge_registry."""
+        # Create test judges configuration
+        judges_config = [
+            {
+                "id": "test_judge_1",
+                "llm_client": "openai",
+                "model": "gpt-4",
+                "prompt_file": "prompt1.txt",
+            },
+            {
+                "id": "test_judge_2",
+                "llm_client": "anthropic",
+                "model": "claude-3",
+                "prompt_file": "prompt2.txt",
+            },
+        ]
+
+        # Create YAML file and prompt files
+        yaml_file = self.create_test_yaml_file(tmp_path, judges_config)
+        self.create_test_prompt_file(tmp_path, "prompt1.txt", "Evaluate prompt 1")
+        self.create_test_prompt_file(tmp_path, "prompt2.txt", "Evaluate prompt 2")
+
+        # Verify judge registry is initially empty
+        assert len(meta_evaluator_with_task.judge_registry) == 0
+
+        # Load judges from YAML
+        meta_evaluator_with_task.load_judges_from_yaml(str(yaml_file))
+
+        # Verify correct number of judges loaded
+        assert len(meta_evaluator_with_task.judge_registry) == 2
+
+        # Verify judges exist with correct IDs
+        assert "test_judge_1" in meta_evaluator_with_task.judge_registry
+        assert "test_judge_2" in meta_evaluator_with_task.judge_registry
+
+        # Verify judge objects are actual Judge instances
+        from meta_evaluator.judge import Judge
+
+        assert isinstance(
+            meta_evaluator_with_task.judge_registry["test_judge_1"], Judge
+        )
+        assert isinstance(
+            meta_evaluator_with_task.judge_registry["test_judge_2"], Judge
+        )
+
+        # Verify judge configuration
+        judge1 = meta_evaluator_with_task.judge_registry["test_judge_1"]
+        assert judge1.id == "test_judge_1"
+        assert judge1.llm_client == "openai"
+        assert judge1.model == "gpt-4"
+
+        judge2 = meta_evaluator_with_task.judge_registry["test_judge_2"]
+        assert judge2.id == "test_judge_2"
+        assert judge2.llm_client == "anthropic"
+        assert judge2.model == "claude-3"
+
+    # === EXISTING JUDGE RESULTS TESTS ===
+
+    def test_get_existing_judge_ids_with_results_directory(
+        self, meta_evaluator_with_judges_and_data, mock_judge_state_template
+    ):
+        """Test _get_existing_judge_ids returns correct number when results directory exists."""
+        # Create results directory with some judge result files
+        results_dir = meta_evaluator_with_judges_and_data.paths.results
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create mock state files
+        judge_configs = [
+            {"judge_id": "judge1", "run_id": "run_001"},
+            {"judge_id": "judge2", "run_id": "run_002"},
+            {"judge_id": "judge3", "run_id": "run_003"},
+        ]
+
+        for config in judge_configs:
+            create_mock_judge_state_file(
+                results_dir,
+                config["judge_id"],
+                config["run_id"],
+                mock_judge_state_template,
+            )
+
+        # Mock JudgeResults.load_state to return appropriate mock results
+        with patch("meta_evaluator.results.JudgeResults.load_state") as mock_load:
+
+            def mock_load_side_effect(file_path):
+                mock_result = Mock()
+                for config in judge_configs:
+                    if config["judge_id"] in str(file_path):
+                        mock_result.judge_id = config["judge_id"]
+                        break
+                return mock_result
+
+            mock_load.side_effect = mock_load_side_effect
+
+            # Get existing judge IDs
+            existing_ids = meta_evaluator_with_judges_and_data._get_existing_judge_ids()
+
+            # Should return all 3 judge IDs
+            assert len(existing_ids) == 3
+            assert "judge1" in existing_ids
+            assert "judge2" in existing_ids
+            assert "judge3" in existing_ids
+
+    def test_get_existing_judge_ids_no_results_directory(
+        self, meta_evaluator_with_judges_and_data
+    ):
+        """Test _get_existing_judge_ids returns 0 when results directory doesn't exist."""
+        # Ensure results directory doesn't exist
+        results_dir = meta_evaluator_with_judges_and_data.paths.results
+        if results_dir.exists():
+            import shutil
+
+            shutil.rmtree(results_dir)
+
+        # Get existing judge IDs
+        existing_ids = meta_evaluator_with_judges_and_data._get_existing_judge_ids()
+
+        # Should return empty set
+        assert len(existing_ids) == 0
+        assert existing_ids == set()
+
+    def test_run_judges_no_results_directory_runs_all(
+        self, meta_evaluator_with_judges_and_data
+    ):
+        """Test that run_judges runs all judges when results directory doesn't exist."""
+        # Ensure results directory doesn't exist
+        results_dir = meta_evaluator_with_judges_and_data.paths.results
+        if results_dir.exists():
+            import shutil
+
+            shutil.rmtree(results_dir)
+
+        # Run judges with skip_duplicates=False (default)
+        results = meta_evaluator_with_judges_and_data.run_judges(
+            skip_duplicates=False, save_results=False
+        )
+
+        # Should run both judges
+        assert len(results) == 2
+        assert "judge1" in results
+        assert "judge2" in results
+
+        # Verify both judges' evaluate_eval_data were called
+        judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
+        judge2 = meta_evaluator_with_judges_and_data.judge_registry["judge2"]
+        judge1.evaluate_eval_data.assert_called_once()
+        judge2.evaluate_eval_data.assert_called_once()
+
 
 # === ASYNC JUDGE TESTS ===
 
@@ -673,7 +887,7 @@ class TestMetaEvaluatorJudges:
 class TestAsyncMetaEvaluatorJudges:
     """Test async judge functionality in MetaEvaluator."""
 
-    async def test_run_judges_async_single_judge(
+    async def test__run_judges_async_single_judge(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test running a single judge asynchronously."""
@@ -688,7 +902,7 @@ class TestAsyncMetaEvaluatorJudges:
         judge1.evaluate_eval_data_async = AsyncMock(return_value=mock_results)
 
         # Run single judge
-        results = await meta_evaluator_with_judges_and_data.run_judges_async(
+        results = await meta_evaluator_with_judges_and_data._run_judges_async(
             judge_ids="judge1", save_results=False
         )
 
@@ -700,7 +914,7 @@ class TestAsyncMetaEvaluatorJudges:
         # Verify the judge's async method was called
         judge1.evaluate_eval_data_async.assert_called_once()
 
-    async def test_run_judges_async_multiple_judges(
+    async def test__run_judges_async_multiple_judges(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test running multiple judges concurrently."""
@@ -721,7 +935,7 @@ class TestAsyncMetaEvaluatorJudges:
         judge1.evaluate_eval_data_async = AsyncMock(return_value=mock_results1)
         judge2.evaluate_eval_data_async = AsyncMock(return_value=mock_results2)
 
-        results = await meta_evaluator_with_judges_and_data.run_judges_async(
+        results = await meta_evaluator_with_judges_and_data._run_judges_async(
             judge_ids=["judge1", "judge2"]
         )
 
@@ -733,7 +947,7 @@ class TestAsyncMetaEvaluatorJudges:
         judge1.evaluate_eval_data_async.assert_called_once()
         judge2.evaluate_eval_data_async.assert_called_once()
 
-    async def test_run_judges_async_with_save_results(
+    async def test__run_judges_async_with_save_results(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test async execution with result saving."""
@@ -747,7 +961,7 @@ class TestAsyncMetaEvaluatorJudges:
         judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
         judge1.evaluate_eval_data_async = AsyncMock(return_value=mock_results)
 
-        results = await meta_evaluator_with_judges_and_data.run_judges_async(
+        results = await meta_evaluator_with_judges_and_data._run_judges_async(
             judge_ids="judge1", save_results=True
         )
 
@@ -756,23 +970,8 @@ class TestAsyncMetaEvaluatorJudges:
         mock_results.save_state.assert_called_once()
         judge1.evaluate_eval_data_async.assert_called_once()
 
-    async def test_run_judges_async_error_handling(
-        self, meta_evaluator_with_judges_and_data
-    ):
-        """Test error handling in async judge runs."""
-        # Get judge from fixture and mock its async evaluation method to raise exception
-        judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
-        judge1.evaluate_eval_data_async = AsyncMock(
-            side_effect=Exception("Evaluation failed")
-        )
-
-        with pytest.raises(JudgeExecutionError):
-            await meta_evaluator_with_judges_and_data.run_judges_async(
-                judge_ids="judge1"
-            )
-
     @pytest.mark.parametrize("results_format", ["json", "csv", "parquet"])
-    async def test_run_judges_async_save_results_with_formats(
+    async def test__run_judges_async_save_results_with_formats(
         self,
         meta_evaluator_with_judges_and_data,
         results_format,
@@ -791,7 +990,7 @@ class TestAsyncMetaEvaluatorJudges:
         )
 
         # Run judge with save_results=True and specific format
-        await meta_evaluator_with_judges_and_data.run_judges_async(
+        await meta_evaluator_with_judges_and_data._run_judges_async(
             judge_ids="judge1", save_results=True, results_format=results_format
         )
 
@@ -820,7 +1019,7 @@ class TestAsyncMetaEvaluatorJudges:
         assert data_file.suffix == f".{results_format}"
         assert data_file.stat().st_size > 0  # File is not empty
 
-    async def test_run_judges_async_results_save_exception(
+    async def test__run_judges_async_results_save_exception(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test async run_judges raises exception when saving results fails."""
@@ -834,11 +1033,11 @@ class TestAsyncMetaEvaluatorJudges:
 
         # Run judge and expect ResultsSaveError
         with pytest.raises(ResultsSaveError):
-            await meta_evaluator_with_judges_and_data.run_judges_async(
+            await meta_evaluator_with_judges_and_data._run_judges_async(
                 judge_ids="judge1", save_results=True
             )
 
-    async def test_run_judges_async_all_judges(
+    async def test__run_judges_async_all_judges(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test running all judges asynchronously (judge_ids=None)."""
@@ -860,7 +1059,7 @@ class TestAsyncMetaEvaluatorJudges:
         judge2.evaluate_eval_data_async = AsyncMock(return_value=mock_results2)
 
         # Run all judges (judge_ids=None)
-        results = await meta_evaluator_with_judges_and_data.run_judges_async(
+        results = await meta_evaluator_with_judges_and_data._run_judges_async(
             judge_ids=None, save_results=False
         )
 
@@ -875,25 +1074,145 @@ class TestAsyncMetaEvaluatorJudges:
         judge1.evaluate_eval_data_async.assert_called_once()
         judge2.evaluate_eval_data_async.assert_called_once()
 
-    async def test_run_judges_async_multiple_judges_not_found(
+    async def test__run_judges_async_multiple_judges_not_found(
         self, meta_evaluator_with_judges_and_data
     ):
         """Test async run_judges raises exception when some specified judges don't exist."""
         with pytest.raises(JudgeNotFoundError):
-            await meta_evaluator_with_judges_and_data.run_judges_async(
+            await meta_evaluator_with_judges_and_data._run_judges_async(
                 judge_ids=["judge1", "non_existent_judge", "another_missing"]
             )
 
-    async def test_run_judges_async_no_eval_task(self, meta_evaluator):
+    async def test__run_judges_async_no_eval_task(self, meta_evaluator):
         """Test async run_judges raises exception when no eval_task is set."""
         with pytest.raises(
             EvalTaskNotFoundError, match="eval_task must be set before running judges"
         ):
-            await meta_evaluator.run_judges_async()
+            await meta_evaluator._run_judges_async()
 
-    async def test_run_judges_async_no_eval_data(self, meta_evaluator_with_task):
+    async def test__run_judges_async_no_eval_data(self, meta_evaluator_with_task):
         """Test async run_judges raises exception when no eval_data is set."""
         with pytest.raises(
             EvalDataNotFoundError, match="data must be set before running judges"
         ):
-            await meta_evaluator_with_task.run_judges_async()
+            await meta_evaluator_with_task._run_judges_async()
+
+    async def test__run_judges_async_skip_duplicates_true_does_not_call_evaluate(
+        self, meta_evaluator_with_judges_and_data, mock_judge_state_template
+    ):
+        """Test that async version with skip_duplicates=True doesn't call evaluate for duplicates."""
+        # Create existing results for judge1
+        results_dir = meta_evaluator_with_judges_and_data.paths.results
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a mock state file for judge1
+        create_mock_judge_state_file(
+            results_dir, "judge1", "existing_run", mock_judge_state_template
+        )
+
+        # Mock async evaluation methods
+        mock_result = Mock()
+        mock_result.succeeded_count = 5
+        mock_result.total_count = 10
+
+        judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
+        judge2 = meta_evaluator_with_judges_and_data.judge_registry["judge2"]
+        judge1.evaluate_eval_data_async = AsyncMock(return_value=mock_result)
+        judge2.evaluate_eval_data_async = AsyncMock(return_value=mock_result)
+
+        # Mock JudgeResults.load_state to return a mock result
+        with patch("meta_evaluator.results.JudgeResults.load_state") as mock_load:
+            mock_judge_results = Mock()
+            mock_judge_results.judge_id = "judge1"
+            mock_load.return_value = mock_judge_results
+
+            # Run async judges with skip_duplicates=True
+            results = await meta_evaluator_with_judges_and_data._run_judges_async(
+                skip_duplicates=True, save_results=False
+            )
+
+            # Should only run judge2, not judge1
+            assert len(results) == 1
+            assert "judge2" in results
+            assert "judge1" not in results
+
+            # Verify judge1.evaluate_eval_data_async was NOT called
+            judge1.evaluate_eval_data_async.assert_not_called()
+
+            # Verify judge2.evaluate_eval_data_async WAS called
+            judge2.evaluate_eval_data_async.assert_called_once()
+
+    async def test__run_judges_async_skip_duplicates_false_calls_evaluate(
+        self, meta_evaluator_with_judges_and_data, mock_judge_state_template
+    ):
+        """Test that async version with skip_duplicates=False calls evaluate even for duplicates."""
+        # Create existing results for judge1
+        results_dir = meta_evaluator_with_judges_and_data.paths.results
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a mock state file for judge1
+        create_mock_judge_state_file(
+            results_dir, "judge1", "existing_run", mock_judge_state_template
+        )
+
+        # Mock async evaluation methods
+        mock_result = Mock()
+        mock_result.succeeded_count = 5
+        mock_result.total_count = 10
+
+        judge1 = meta_evaluator_with_judges_and_data.judge_registry["judge1"]
+        judge2 = meta_evaluator_with_judges_and_data.judge_registry["judge2"]
+        judge1.evaluate_eval_data_async = AsyncMock(return_value=mock_result)
+        judge2.evaluate_eval_data_async = AsyncMock(return_value=mock_result)
+
+        # Mock JudgeResults.load_state to return a mock result
+        with patch("meta_evaluator.results.JudgeResults.load_state") as mock_load:
+            mock_judge_results = Mock()
+            mock_judge_results.judge_id = "judge1"
+            mock_load.return_value = mock_judge_results
+
+            # Run async judges with skip_duplicates=False (default)
+            results = await meta_evaluator_with_judges_and_data._run_judges_async(
+                skip_duplicates=False, save_results=False
+            )
+
+            # Should run both judges
+            assert len(results) == 2
+            assert "judge1" in results
+            assert "judge2" in results
+
+            # Verify both judges' evaluate_eval_data_async were called
+            judge1.evaluate_eval_data_async.assert_called_once()
+            judge2.evaluate_eval_data_async.assert_called_once()
+
+    def test_run_judges_async_sync_wrapper(self, meta_evaluator_with_judges_and_data):
+        """Test that run_judges_async sync wrapper works without async/await."""
+        # Create mock results for judges
+        judge1_results = Mock(spec=JudgeResults)
+        judge1_results.judge_id = "judge1"
+        judge1_results.succeeded_count = 5
+        judge1_results.total_count = 5
+
+        judge2_results = Mock(spec=JudgeResults)
+        judge2_results.judge_id = "judge2"
+        judge2_results.succeeded_count = 3
+        judge2_results.total_count = 5
+
+        # Mock the judges to return results
+        judge1 = meta_evaluator_with_judges_and_data.get_judge("judge1")
+        judge2 = meta_evaluator_with_judges_and_data.get_judge("judge2")
+
+        judge1.evaluate_eval_data_async = AsyncMock(return_value=judge1_results)
+        judge2.evaluate_eval_data_async = AsyncMock(return_value=judge2_results)
+
+        # Call sync wrapper (no await needed)
+        results = meta_evaluator_with_judges_and_data.run_judges_async()
+
+        # Verify results structure
+        assert len(results) == 2
+        assert "judge1" in results
+        assert "judge2" in results
+
+        # Verify both judges' evaluate_eval_data_async were called
+        judge1.evaluate_eval_data_async.assert_called_once()
+        judge2.evaluate_eval_data_async.assert_called_once()

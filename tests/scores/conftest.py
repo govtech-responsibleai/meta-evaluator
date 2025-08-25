@@ -13,6 +13,7 @@ from meta_evaluator.scores import (
     TextSimilarityScorer,
 )
 from meta_evaluator.scores.base_scoring_result import BaseScoringResult
+from meta_evaluator.scores.enums import TaskAggregationMode
 from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
 
 # ==== SCORER INSTANCE FIXTURES ====
@@ -448,15 +449,21 @@ def sample_accuracy_results():
             scorer_name="accuracy",
             task_name="sentiment",
             judge_id="judge_1",
-            score=0.85,
+            scores={"accuracy": 0.85},
             metadata={"accuracy_method": "exact_match", "total_samples": 100},
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=3,
+            failed_comparisons=0,
         ),
         BaseScoringResult(
             scorer_name="accuracy",
             task_name="sentiment",
             judge_id="judge_2",
-            score=0.78,
+            scores={"accuracy": 0.78},
             metadata={"accuracy_method": "exact_match", "total_samples": 100},
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=3,
+            failed_comparisons=0,
         ),
     ]
 
@@ -473,15 +480,21 @@ def sample_text_similarity_results():
             scorer_name="text_similarity",
             task_name="summary",
             judge_id="judge_1",
-            score=0.92,
+            scores={"similarity": 0.92},
             metadata={"similarity_method": "cosine", "total_comparisons": 50},
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=3,
+            failed_comparisons=0,
         ),
         BaseScoringResult(
             scorer_name="text_similarity",
             task_name="summary",
             judge_id="judge_2",
-            score=0.88,
+            scores={"similarity": 0.88},
             metadata={"similarity_method": "cosine", "total_comparisons": 50},
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=3,
+            failed_comparisons=0,
         ),
     ]
 
@@ -498,15 +511,21 @@ def sample_cohens_kappa_results():
             scorer_name="cohens_kappa",
             task_name="safety",
             judge_id="judge_1",
-            score=0.65,
+            scores={"kappa": 0.65},
             metadata={"agreement_level": "substantial", "total_annotations": 200},
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=3,
+            failed_comparisons=0,
         ),
         BaseScoringResult(
             scorer_name="cohens_kappa",
             task_name="safety",
             judge_id="judge_2",
-            score=0.72,
+            scores={"kappa": 0.72},
             metadata={"agreement_level": "substantial", "total_annotations": 200},
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=3,
+            failed_comparisons=0,
         ),
     ]
 
@@ -523,23 +542,35 @@ def sample_alt_test_results():
             scorer_name="alt_test",
             task_name="safety",
             judge_id="judge_1",
-            score=0.0025,
+            scores={
+                "winning_rate": {0.1: 0.0, 0.2: 0.33, 0.3: 0.67},
+                "advantage_probability": 0.75,
+            },
             metadata={
                 "advantage_probability": 0.75,
                 "scoring_function": "alttest_score",
                 "total_comparisons": 150,
             },
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=3,
+            failed_comparisons=0,
         ),
         BaseScoringResult(
             scorer_name="alt_test",
             task_name="safety",
             judge_id="judge_2",
-            score=0.0031,
+            scores={
+                "winning_rate": {0.1: 0.0, 0.2: 0.33, 0.3: 0.67},
+                "advantage_probability": 0.68,
+            },
             metadata={
                 "advantage_probability": 0.68,
                 "scoring_function": "alttest_score",
                 "total_comparisons": 150,
             },
+            aggregation_mode=TaskAggregationMode.SINGLE,
+            num_comparisons=3,
+            failed_comparisons=0,
         ),
     ]
 

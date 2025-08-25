@@ -1,5 +1,8 @@
 """Tests for custom scorer."""
 
+import asyncio
+from typing import List
+
 import polars as pl
 import pytest
 
@@ -7,6 +10,7 @@ from meta_evaluator.scores import (
     BaseScorer,
     BaseScoringResult,
 )
+from meta_evaluator.scores.enums import TaskAggregationMode
 
 
 class CustomScorer(BaseScorer):
@@ -16,52 +20,92 @@ class CustomScorer(BaseScorer):
         """Initialize custom scorer."""
         super().__init__(name)
 
-    def can_score_task(self, task_schema):
-        """This custom scorer can handle any task.
+    def can_score_task(self, sample_label: str | int | float | List[str | int | float]):
+        """This custom scorer can only handle single column text tasks.
 
         Returns:
             bool: True, since this custom scorer can handle any task.
         """
-        return True
+        if isinstance(sample_label, str):
+            return True
+        else:
+            return False
 
-    def compute_score(
+    async def compute_score_async(
         self,
-        judge_id,
-        consolidated_judge_df,
-        consolidated_human_df,
-        task_names,
-        task_schemas,
+        judge_data: pl.DataFrame,
+        human_data: pl.DataFrame,
+        task_name: str,
+        judge_id: str,
+        aggregation_mode,
     ):
-        """Simple custom scoring logic - return average of task counts.
+        """Simple custom scoring logic - count number of times judge has more letter "A"s than human, 0 otherwise.
 
         Returns:
             BaseScoringResult: A BaseScoringResult instance.
         """
-        judge_count = len(consolidated_judge_df)
-        human_count = len(consolidated_human_df)
+        # Join judge and human data on original_id (approach 1: join first)
+        comparison_df = judge_data.join(human_data, on="original_id", how="inner")
 
-        # Simple scoring: return normalized count ratio
-        if human_count == 0:
-            score = 0.0
+        # Simple scoring: return 1 if judge and human have the same text, 0 otherwise
+        if comparison_df.is_empty():
+            score = float("nan")
+            num_comparisons = 0
+            failed_comparisons = 1
         else:
-            score = min(judge_count / human_count, 1.0)
+            judge_wins = []
+            num_comparisons = 0
+            failed_comparisons = 0
 
-        task_display = (
-            task_names[0] if len(task_names) == 1 else f"{len(task_names)}_tasks_avg"
-        )
+            humans = comparison_df["human_id"].unique()
+            for human_id in humans:
+                try:
+                    comparison_subset = comparison_df.filter(
+                        pl.col("human_id") == human_id
+                    )
+                    judge_texts = comparison_subset["label"].to_list()
+                    human_texts = comparison_subset["label_right"].to_list()
+
+                    # Count number of times judge has more "A"s than human
+                    judge_more_A = 0
+                    human_more_A = 0
+                    for judge_text, human_text in zip(judge_texts, human_texts):
+                        judge_count = str(judge_text).count("A")
+                        human_count = str(human_text).count("A")
+                        if judge_count > human_count:
+                            judge_more_A += 1
+                        else:
+                            human_more_A += 1
+
+                    # If judge has more "A"s than human, count as a win
+                    if judge_more_A > human_more_A:
+                        judge_wins.append(1)
+                    else:
+                        judge_wins.append(0)
+
+                    num_comparisons += 1
+
+                except Exception as e:
+                    self.logger.error(f"Error computing score: {e}")
+                    failed_comparisons += 1
+                    continue
+
+            # Calculate win rate
+            score = sum(judge_wins) / len(judge_wins) if len(judge_wins) > 0 else 0.0
+
+            # Calculate number of comparisons and failed comparisons
+            num_comparisons = len(comparison_df)
+            failed_comparisons = 0
 
         return BaseScoringResult(
             scorer_name=self.scorer_name,
-            task_name=task_display,
+            task_name=task_name,
             judge_id=judge_id,
-            score=score,
-            metadata={
-                "judge_count": judge_count,
-                "human_count": human_count,
-                "task_names": task_names,
-                "task_schemas": task_schemas,
-                "scoring_method": "custom_count_ratio",
-            },
+            scores={"win_rate": score},
+            metadata={},
+            aggregation_mode=aggregation_mode,
+            num_comparisons=num_comparisons,
+            failed_comparisons=failed_comparisons,
         )
 
 
@@ -77,75 +121,48 @@ class TestCustomScorer:
         """
         return CustomScorer()
 
-    def test_custom_scorer_can_score_any_task(self, custom_scorer):
-        """Test that custom scorer can handle any task type."""
-        assert custom_scorer.can_score_task(["A", "B", "C"]) is True
-        assert custom_scorer.can_score_task(None) is True
-        assert custom_scorer.can_score_task([]) is True
+    def test_custom_scorer_can_only_score_text_tasks(self, custom_scorer):
+        """Test that custom scorer can only score text tasks."""
+        assert custom_scorer.can_score_task("A") is True
+        assert custom_scorer.can_score_task(None) is False
+        assert custom_scorer.can_score_task([]) is False
+        assert custom_scorer.can_score_task(["A", "B", "C"]) is False
+        assert custom_scorer.can_score_task(1) is False
+        assert custom_scorer.can_score_task(1.0) is False
 
     def test_custom_scorer_compute_score_single_task(self, custom_scorer):
         """Test custom scorer with single task."""
         judge_df = pl.DataFrame(
             {
                 "original_id": ["1", "2", "3"],
-                "judge_id": ["judge_1", "judge_1", "judge_1"],
-                "task_name": ["task1", "task1", "task1"],
-                "task1": ["A", "B", "C"],
+                "label": ["AAA", "AAB", "CCC"],
             }
         )
 
         human_df = pl.DataFrame(
             {
-                "original_id": ["1", "2", "3"],
-                "annotator_id": ["human_1", "human_1", "human_1"],
-                "task_name": ["task1", "task1", "task1"],
-                "task1": ["A", "B", "C"],
+                "original_id": ["1", "2", "3", "1", "2", "3"],
+                "human_id": [
+                    "human_1",
+                    "human_1",
+                    "human_1",
+                    "human_2",
+                    "human_2",
+                    "human_2",
+                ],
+                "label": ["AAA", "AAA", "AAA", "BBB", "BBB", "BBB"],
             }
         )
 
-        task_schemas = {"task1": ["A", "B", "C"]}
-        result = custom_scorer.compute_score(
-            "judge_1", judge_df, human_df, ["task1"], task_schemas
+        result = asyncio.run(
+            custom_scorer.compute_score_async(
+                judge_df, human_df, "task1", "judge_1", TaskAggregationMode.SINGLE
+            )
         )
 
         assert result.scorer_name == "custom_scorer"
         assert result.task_name == "task1"
         assert result.judge_id == "judge_1"
-        assert result.score == 1.0  # 3/3 = 1.0
-        assert result.metadata["judge_count"] == 3
-        assert result.metadata["human_count"] == 3
-        assert result.metadata["scoring_method"] == "custom_count_ratio"
-
-    def test_custom_scorer_compute_score_multi_task(self, custom_scorer):
-        """Test custom scorer with multiple tasks."""
-        judge_df = pl.DataFrame(
-            {
-                "original_id": ["1", "2", "1", "2"],
-                "judge_id": ["judge_1", "judge_1", "judge_1", "judge_1"],
-                "task_name": ["task1", "task1", "task2", "task2"],
-                "task1": ["A", "B", None, None],
-                "task2": [None, None, "hello", "world"],
-            }
-        )
-
-        human_df = pl.DataFrame(
-            {
-                "original_id": ["1", "2", "1", "2"],
-                "annotator_id": ["human_1", "human_1", "human_1", "human_1"],
-                "task_name": ["task1", "task1", "task2", "task2"],
-                "task1": ["A", "B", None, None],
-                "task2": [None, None, "hello", "world"],
-            }
-        )
-
-        task_schemas = {"task1": ["A", "B", "C"], "task2": None}
-        result = custom_scorer.compute_score(
-            "judge_1", judge_df, human_df, ["task1", "task2"], task_schemas
-        )
-
-        assert result.scorer_name == "custom_scorer"
-        assert result.task_name == "2_tasks_avg"
-        assert result.judge_id == "judge_1"
-        assert result.score == 1.0  # 4/4 = 1.0
-        assert result.metadata["judge_count"] == 4
-        assert result.metadata["human_count"] == 4
+        assert result.scores["win_rate"] == 0.5  # Won against human 1, lost to human 2
+        assert result.num_comparisons == 6
+        assert result.failed_comparisons == 0

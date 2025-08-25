@@ -47,7 +47,7 @@ def rejection_task() -> EvalTask:
         },
         prompt_columns=["prompt"],  # Column name of the prompt to evaluate
         response_columns=["llm_response"],  # Column name of the response to evaluate
-        answering_method="structured",
+        answering_method="structured",  # Output method for the judge
         structured_outputs_fallback=True,  # Enable fallback to other methods if structured is not supported
     )
     return task
@@ -68,7 +68,7 @@ def rejection_data() -> EvalData:
 
 def main():
     """Main function to run evaluation."""
-    evaluator = MetaEvaluator(project_dir="project_dir")
+    evaluator = MetaEvaluator(project_dir="project_dir", load=False)
 
     # Add eval task and eval data
     eval_task = rejection_task()
@@ -77,12 +77,19 @@ def main():
     evaluator.add_data(eval_data)
 
     # Add judges
-    evaluator.load_judges_from_yaml(yaml_file="judges.yaml")
+    evaluator.load_judges_from_yaml(
+        yaml_file="judges.yaml",
+        on_duplicate="skip",  # Skip if judge_id already exists. Set to "overwrite" to replace existing judge.
+    )
+    # Save state (task, data, judges)
+    evaluator.save_state(data_format="json")
 
     # Run judges
     print("Starting sync judge evaluation without batching...")
     start_time = time.time()
-    evaluator.run_judges()
+    evaluator.run_judges(
+        skip_duplicates=False  # Skip duplicates to avoid re-running judges
+    )
     end_time = time.time()
     print(f"Sync judge evaluation completed in {end_time - start_time:.2f} seconds")
 
@@ -102,15 +109,33 @@ def main():
     # Create metrics config
     config = MetricsConfig(
         metrics=[
-            MetricConfig(scorer=accuracy_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=alt_test_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=cohens_kappa_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=text_similarity_scorer, task_names=["explanation"]),
+            MetricConfig(
+                scorer=accuracy_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=alt_test_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=cohens_kappa_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=text_similarity_scorer,
+                task_names=["explanation"],
+                aggregation_name="single",
+            ),
         ]
     )
 
     # Run comparison and save results
-    evaluator.compare(config, judge_results=judge_results, human_results=human_results)
+    evaluator.compare_async(
+        config, judge_results=judge_results, human_results=human_results
+    )
 
 
 if __name__ == "__main__":

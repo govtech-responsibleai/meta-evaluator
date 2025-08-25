@@ -2,13 +2,14 @@
 
 import os
 from difflib import SequenceMatcher
-from typing import List, Optional
+from typing import List
 
 import numpy as np
 import polars as pl
 
 from meta_evaluator.scores.base_scorer import BaseScorer
 from meta_evaluator.scores.base_scoring_result import BaseScoringResult
+from meta_evaluator.scores.utils import generate_simple_bar_plot
 
 
 class TextSimilarityScorer(BaseScorer):
@@ -18,177 +19,131 @@ class TextSimilarityScorer(BaseScorer):
         """Initialize text similarity scorer."""
         super().__init__("text_similarity")
 
-    def can_score_task(self, task_schema: Optional[List[str]]) -> bool:
-        """Text similarity scorer only works with free-form text tasks.
-
-        Text similarity measures semantic similarity between text responses.
-        It requires free-form text content, not discrete categorical choices.
+    def can_score_task(
+        self, sample_label: str | int | float | List[str | int | float]
+    ) -> bool:
+        """Text similarity scorer works with string data or lists of strings.
 
         Args:
-            task_schema: List of allowed categorical outcomes, or None for free-form text tasks
+            sample_label: Sample of the actual label data to validate
 
         Returns:
-            bool: True if task_schema is None (free-form text task), False otherwise
+            bool: True if data contains string values (str or list of str)
         """
-        return task_schema is None
-
-    def compute_score(
-        self,
-        judge_id: str,
-        consolidated_judge_df: pl.DataFrame,
-        consolidated_human_df: pl.DataFrame,
-        task_names: List[str],
-        task_schemas: dict,
-    ) -> BaseScoringResult:
-        """Compute text similarity score for a single judge vs many humans.
-
-        Returns:
-            BaseScoringResult: A BaseScoringResult instance.
-        """
-        if len(task_names) == 1:
-            # Single task
-            task_name = task_names[0]
-            score = self._compute_single_judge_task_similarity(
-                consolidated_judge_df, consolidated_human_df, task_name
-            )
-            task_display = task_name
+        # Accept str or list of str
+        if isinstance(sample_label, str):
+            return True
+        elif isinstance(sample_label, list):
+            # Check if list contains str
+            if len(sample_label) > 0:
+                return isinstance(sample_label[0], str)
+            return True  # Empty list is acceptable
         else:
-            # Multi-task - average similarity across all tasks
-            score = self._compute_single_judge_multi_task_similarity(
-                consolidated_judge_df, consolidated_human_df, task_names
+            return False
+
+    async def compute_score_async(
+        self,
+        judge_data: pl.DataFrame,
+        human_data: pl.DataFrame,
+        task_name: str,
+        judge_id: str,
+        aggregation_mode,
+    ) -> BaseScoringResult:
+        """Compute text similarity score for a single judge vs many humans (async).
+
+        Args:
+            judge_data: DataFrame with judge outcomes (columns: original_id, label)
+            human_data: DataFrame with human outcomes (columns: original_id, human_id, label)
+            task_name: Name of the task(s) being scored
+            judge_id: ID of the judge being scored
+            aggregation_mode: How the tasks were aggregated for this result
+
+        Returns:
+            BaseScoringResult: The scoring result for this judge
+        """
+        # Join judge and human data on original_id (approach 1: join first)
+        comparison_df = judge_data.join(human_data, on="original_id", how="inner")
+
+        if comparison_df.is_empty():
+            similarity_score = float("nan")
+            num_comparisons = 0
+            failed_comparisons = 1
+        else:
+            # For each human, compute text similarity between judge and that human
+            human_similarities = []
+            humans = comparison_df["human_id"].unique()
+
+            for human_id in humans:
+                human_comparisons = comparison_df.filter(pl.col("human_id") == human_id)
+                judge_texts = human_comparisons["label"].to_list()
+                human_texts = human_comparisons["label_right"].to_list()  # From join
+
+                # Compute similarity for this judge-human pair
+                similarities = []
+                for judge_text, human_text in zip(judge_texts, human_texts):
+                    if judge_text is not None and human_text is not None:
+                        # Normalize texts and compute similarity
+                        text1 = str(judge_text).lower().strip()
+                        text2 = str(human_text).lower().strip()
+                        matcher = SequenceMatcher(None, text1, text2)
+                        similarity = matcher.ratio()
+                        similarities.append(similarity)
+
+                if similarities:
+                    human_similarities.append(float(np.mean(similarities)))
+
+            # Average across all humans
+            similarity_score = (
+                float(np.mean(human_similarities))
+                if human_similarities
+                else float("nan")
             )
-            task_display = f"{len(task_names)}_tasks_avg"
+            num_comparisons = len(comparison_df)
+            failed_comparisons = 0
 
         return BaseScoringResult(
             scorer_name=self.scorer_name,
-            task_name=task_display,
+            task_name=task_name,
             judge_id=judge_id,
-            score=score,
+            scores={"similarity": similarity_score},
             metadata={
-                "ground_truth_method": "average_similarity",
-                "task_names": task_names,
-                "task_schemas": task_schemas,
-                "scoring_method": (
-                    "single_task" if len(task_names) == 1 else "average_across_tasks"
-                ),
+                "ground_truth_method": "individual_human_comparison",
+                "scoring_method": "average_across_humans",
             },
+            aggregation_mode=aggregation_mode,
+            num_comparisons=num_comparisons,
+            failed_comparisons=failed_comparisons,
         )
-
-    def _compute_single_judge_task_similarity(
-        self,
-        consolidated_judge_df: pl.DataFrame,
-        consolidated_human_df: pl.DataFrame,
-        task_name: str,
-    ) -> float:
-        """Compute text similarity for a single judge on a single task.
-
-        Returns:
-            float: The text similarity score.
-        """
-        # Filter judge data
-        task_judge_df = (
-            consolidated_judge_df.filter(pl.col("task_name") == task_name)
-            .filter(pl.col("task_value").is_not_null())
-            .with_columns(pl.col("task_value").cast(pl.Utf8).alias("judge_text"))
-        )
-
-        # Filter human data
-        task_human_df = (
-            consolidated_human_df.filter(pl.col("task_name") == task_name)
-            .filter(pl.col("task_value").is_not_null())
-            .with_columns(pl.col("task_value").cast(pl.Utf8).alias("human_text"))
-        )
-
-        # Check if there are any valid predictions
-        if task_judge_df.is_empty() or task_human_df.is_empty():
-            return np.nan
-
-        # Group human texts by original_id for each judge prediction
-        judge_similarities = []
-
-        for judge_row in task_judge_df.iter_rows(named=True):
-            original_id = judge_row["original_id"]
-            judge_text = judge_row["judge_text"].lower().strip()
-
-            # Get all human texts for this original_id
-            human_texts = task_human_df.filter(pl.col("original_id") == original_id)[
-                "human_text"
-            ].to_list()
-
-            if not human_texts:
-                continue
-
-            # Compute average similarity with each human text
-            text_similarities = []
-            for human_text in human_texts:
-                human_text_clean = human_text.lower().strip()
-                similarity = self._compute_text_similarity(judge_text, human_text_clean)
-                text_similarities.append(similarity)
-            avg_similarity = float(np.mean(text_similarities))
-            judge_similarities.append(avg_similarity)
-
-        # Return average across all judge predictions
-        if judge_similarities:
-            return float(np.mean(judge_similarities))
-        else:
-            return np.nan
-
-    def _compute_single_judge_multi_task_similarity(
-        self,
-        consolidated_judge_df: pl.DataFrame,
-        consolidated_human_df: pl.DataFrame,
-        task_names: List[str],
-    ) -> float:
-        """Compute average text similarity across multiple tasks for a single judge.
-
-        Returns:
-            float: The average text similarity score.
-        """
-        task_similarities = []
-        for task_name in task_names:
-            task_similarity = self._compute_single_judge_task_similarity(
-                consolidated_judge_df, consolidated_human_df, task_name
-            )
-            task_similarities.append(task_similarity)
-
-        if task_similarities:
-            return float(np.mean(task_similarities))
-        else:
-            return np.nan
-
-    def _compute_text_similarity(self, text1: str, text2: str) -> float:
-        """Compute similarity between two text strings using SequenceMatcher.
-
-        Returns:
-            float: The similarity score.
-        """
-        # Normalize texts
-        text1 = text1.lower().strip()
-        text2 = text2.lower().strip()
-
-        # Use SequenceMatcher for similarity
-        matcher = SequenceMatcher(None, text1, text2)
-        return matcher.ratio()
 
     def aggregate_results(
-        self, results: List[BaseScoringResult], scores_dir: str
+        self, results: List[BaseScoringResult], scores_dir: str, unique_name: str = ""
     ) -> None:
         """Generate aggregate plots and save individual results for text similarity scorer.
 
         Args:
             results: List of text similarity scoring results
             scores_dir: Directory to save results and plots
+            unique_name: Unique identifier for this metric configuration
         """
         if not results:
             self.logger.info("No text similarity results to aggregate")
             return
 
-        # Create text_similarity directory for results and plots
-        text_similarity_dir = os.path.join(scores_dir, "text_similarity")
+        # Create text_similarity directory for results and plots, using unique_name to avoid overwrites
+        text_similarity_dir = os.path.join(scores_dir, self.scorer_name, unique_name)
         os.makedirs(text_similarity_dir, exist_ok=True)
 
-        # Save individual results
-        self.save_results(results, text_similarity_dir)
+        # Generate simple bar plot (placeholder for other plots)
+        generate_simple_bar_plot(
+            results=results,
+            score_key="similarity",
+            output_dir=text_similarity_dir,
+            plot_filename="text_similarity_scores.png",
+            title="Text Similarity Scores by Judge",
+            ylabel="Similarity Score",
+            unique_name=unique_name,
+            logger=self.logger,
+        )
 
         self.logger.info(
             f"Generated text similarity results for {len(results)} judge(s) in {text_similarity_dir}"

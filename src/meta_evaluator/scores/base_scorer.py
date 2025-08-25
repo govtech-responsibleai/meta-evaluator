@@ -3,11 +3,12 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Any, List
 
 import polars as pl
 
 from .base_scoring_result import BaseScoringResult
+from .enums import TaskAggregationMode
 
 
 class BaseScorer(ABC):
@@ -17,7 +18,7 @@ class BaseScorer(ABC):
     evaluations and human annotations. Scorers implement different metrics (accuracy,
     Cohen's kappa, etc.) and must implement methods to:
     1. Determine compatibility with task schemas via `can_score_task()`
-    2. Compute alignment scores between judge and human results via `compute_score()`
+    2. Compute alignment scores between judge and human results via `compute_score_async()`
     3. Optionally override post-processing methods for visualization and aggregation
 
     Attributes:
@@ -35,9 +36,9 @@ class BaseScorer(ABC):
         >>> class AccuracyScorer(BaseScorer):
         ...     def can_score_task(self, task_schema):
         ...         return task_schema is not None  # Only classification tasks
-        ...     def compute_score(self, judge_id, judge_df, human_df, task_names, task_schemas):
+        ...     def compute_score_async(self, judge_data, human_data, human_df, task_name, judge_id, aggregation_mode):
         ...         # Core scoring logic
-        ...         return AccuracyScoringResult(...)
+        ...         return AccuracyScoringResult(...) # TODO: Implement ScoringResult for each Scorer. Currently using BaseScoringResult.
         ...     def aggregate_results(self, results, scores_dir):
         ...         # Optional: generate accuracy plots
         ...         self._create_accuracy_plots(results, scores_dir)
@@ -53,38 +54,35 @@ class BaseScorer(ABC):
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     @abstractmethod
-    def can_score_task(self, task_schema: Optional[List[str]]) -> bool:
-        """Determine if this scorer is compatible with the given task type.
-
-        Task compatibility is determined by the task schema:
-        - task_schema=None: Free-form text task (no predefined categories)
-        - task_schema=[...]: Classification task with predefined categories
+    def can_score_task(self, sample_label: Any) -> bool:
+        """Determine if this scorer is compatible with the given data format.
 
         Args:
-            task_schema: List of allowed categorical outcomes, or None for free-form text tasks
+            sample_label: Sample of the actual data that will be scored.
+                        Can be a single value, list, or any data type.
 
         Returns:
-            bool: True if this scorer can compute meaningful metrics for this task type
+            bool: True if this scorer can compute meaningful metrics for this data type
         """
         pass
 
     @abstractmethod
-    def compute_score(
+    async def compute_score_async(
         self,
+        judge_data: pl.DataFrame,
+        human_data: pl.DataFrame,
+        task_name: str,
         judge_id: str,
-        consolidated_judge_df: pl.DataFrame,
-        consolidated_human_df: pl.DataFrame,
-        task_names: List[str],
-        task_schemas: dict,
+        aggregation_mode: TaskAggregationMode,
     ) -> BaseScoringResult:
-        """Compute the score for a single judge vs many humans.
+        """Compute the score for a single judge vs many humans (async).
 
         Args:
+            judge_data: DataFrame with judge outcomes (columns: original_id, label)
+            human_data: DataFrame with human outcomes (columns: original_id, human_id, label)
+            task_name: Name of the task(s) being scored
             judge_id: ID of the judge being scored
-            consolidated_judge_df: DataFrame with single judge outcomes (columns: original_id, judge_id, task_name, task_value)
-            consolidated_human_df: DataFrame with human outcomes (columns: original_id, annotator_id, task_name, task_value)
-            task_names: List of task names to score
-            task_schemas: Dictionary mapping task names to their schemas
+            aggregation_mode: How the tasks were aggregated for this result
 
         Returns:
             BaseScoringResult: The scoring result for this judge
@@ -92,31 +90,45 @@ class BaseScorer(ABC):
         pass
 
     def aggregate_results(
-        self, results: List[BaseScoringResult], scores_dir: str
+        self,
+        results: List[BaseScoringResult],
+        scores_dir: str,
+        unique_name: str = "",
     ) -> None:
         """Generate aggregate plots from scoring results.
 
         Args:
             results: List of scoring results
             scores_dir: Directory to save aggregate plots
+            unique_name: Optional unique identifier for this metric configuration
         """
         pass
 
-    def save_results(self, results: List[BaseScoringResult], output_dir: str) -> None:
+    def save_results(
+        self,
+        results: List[BaseScoringResult],
+        scores_dir: str,
+        unique_name: str = "",
+    ) -> None:
         """Save individual ScoringResult objects as JSON files.
 
         This method provides common functionality for saving scoring results
         to disk. Each result is saved as a separate JSON file with the naming
-        pattern: {judge_id}_{task_name}_result.json
+        pattern: {unique_name}_{judge_id}_result.json or {judge_id}_{task_name}_result.json
 
         Args:
             results: List of scoring results to save
-            output_dir: Directory where the result files will be saved
+            scores_dir: Directory where the scoring result files will be saved
+            unique_name: Unique identifier for this metric configuration
         """
+        # Create scorer-specific subdirectory
+        alt_test_dir = os.path.join(scores_dir, self.scorer_name, unique_name)
+        os.makedirs(alt_test_dir, exist_ok=True)
+
         for result in results:
-            # Create filename: judge_id_task_name_result.json
-            filename = f"{result.judge_id}_{result.task_name}_result.json"
-            file_path = os.path.join(output_dir, filename)
+            # Create filename with unique name: unique_name_judge_id_result.json
+            filename = f"{result.judge_id}_result.json"
+            file_path = os.path.join(alt_test_dir, filename)
 
             result.save_state(file_path)
             self.logger.info(f"Saved individual result to {file_path}")

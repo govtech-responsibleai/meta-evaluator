@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Run evaluation with judge/human loading and metric comparison."""
 
-import asyncio
 import logging
 import sys
-import time
 
 import dotenv
 
@@ -16,6 +14,7 @@ from meta_evaluator.scores.metrics import (
     AccuracyScorer,
     AltTestScorer,
     CohensKappaScorer,
+    SemanticSimilarityScorer,
     TextSimilarityScorer,
 )
 
@@ -48,7 +47,7 @@ def rejection_task() -> EvalTask:
         },
         prompt_columns=["prompt"],  # Column name of the prompt to evaluate
         response_columns=["llm_response"],  # Column name of the response to evaluate
-        answering_method="structured",
+        answering_method="structured",  # Output method for the judge
         structured_outputs_fallback=True,  # Enable fallback to other methods if structured is not supported
     )
     return task
@@ -67,25 +66,35 @@ def rejection_data() -> EvalData:
     return eval_data
 
 
-async def main():
+def main():
     """Main function to run alt-test evaluation."""
-    evaluator = MetaEvaluator(project_dir="project_dir")
+    # Set load = False to initialise new MetaEvaluator instance
+    evaluator = MetaEvaluator(project_dir="project_dir", load=True)
 
-    # Add eval task and eval data
-    eval_task = rejection_task()
-    eval_data = rejection_data()
-    evaluator.add_eval_task(eval_task)
-    evaluator.add_data(eval_data)
+    # # Add eval task and eval data
+    # eval_task = rejection_task()
+    # eval_data = rejection_data()
+    # evaluator.add_eval_task(eval_task)
+    # evaluator.add_data(eval_data)
 
-    # Add judges
-    evaluator.load_judges_from_yaml(yaml_file="judges.yaml", async_mode=True)
+    # # Add judges
+    # evaluator.load_judges_from_yaml(
+    #     yaml_file="judges.yaml",
+    #     on_duplicate="skip",  # Skip if judge_id already exists. Set to "overwrite" to replace existing judge.
+    #     async_mode=True,  # Run judges asynchronously
+    # )
 
-    # Run judges
-    print("Starting async judge evaluation with batching...")
-    start_time = time.time()
-    await evaluator.run_judges_async()
-    end_time = time.time()
-    print(f"Async judge evaluation completed in {end_time - start_time:.2f} seconds")
+    # # Save state (task, data, judges)
+    # evaluator.save_state(data_format="json")
+
+    # # Run judges
+    # print("Starting async judge evaluation with batching...")
+    # start_time = time.time()
+    # evaluator.run_judges_async(
+    #     skip_duplicates=True  # Skip duplicates to avoid re-running judges
+    # )
+    # end_time = time.time()
+    # print(f"Async judge evaluation completed in {end_time - start_time:.2f} seconds")
 
     # Load judge/human annotation results
     judge_results = evaluator.load_all_judge_results()
@@ -99,20 +108,44 @@ async def main():
     )
     cohens_kappa_scorer = CohensKappaScorer()
     text_similarity_scorer = TextSimilarityScorer()
+    semantic_similarity_scorer = SemanticSimilarityScorer()
 
     # Create metrics config
     config = MetricsConfig(
         metrics=[
-            MetricConfig(scorer=accuracy_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=alt_test_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=cohens_kappa_scorer, task_names=["rejection"]),
-            MetricConfig(scorer=text_similarity_scorer, task_names=["explanation"]),
+            MetricConfig(
+                scorer=accuracy_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=alt_test_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=cohens_kappa_scorer,
+                task_names=["rejection"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=text_similarity_scorer,
+                task_names=["explanation"],
+                aggregation_name="single",
+            ),
+            MetricConfig(
+                scorer=semantic_similarity_scorer,
+                task_names=["explanation"],
+                aggregation_name="single",
+            ),
         ]
     )
 
     # Run comparison and save results
-    evaluator.compare(config, judge_results=judge_results, human_results=human_results)
+    evaluator.compare_async(
+        config, judge_results=judge_results, human_results=human_results
+    )
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

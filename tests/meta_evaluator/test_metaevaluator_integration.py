@@ -127,7 +127,6 @@ class TestMetaEvaluatorIntegration:
         """
         # Save evaluator in its own project directory
         evaluator.save_state(
-            state_filename="test_state.json",
             include_data=True,
             include_task=True,
             data_format=data_format,
@@ -136,7 +135,6 @@ class TestMetaEvaluatorIntegration:
         # Load evaluator back from the same project directory
         return MetaEvaluator.load_state(
             project_dir=str(evaluator.project_dir),
-            state_filename="test_state.json",
             load_data=load_data,
             load_task=load_task,
         )
@@ -312,7 +310,6 @@ class TestMetaEvaluatorIntegration:
 
         # Save with parquet data format
         evaluator.save_state(
-            state_filename="test_state.json",
             include_data=True,
             data_format="parquet",
             include_task=True,
@@ -320,8 +317,8 @@ class TestMetaEvaluatorIntegration:
 
         # Verify files exist in the evaluator's project directory
         project_dir = evaluator.project_dir
-        assert (project_dir / "test_state.json").exists()
-        data_file = project_dir / "data" / "test_state_data.parquet"
+        assert (project_dir / "main_state.json").exists()
+        data_file = project_dir / "data" / "main_state_data.parquet"
         assert data_file.exists()
 
         # Verify data file is readable by polars directly
@@ -331,7 +328,6 @@ class TestMetaEvaluatorIntegration:
         # Verify MetaEvaluator can load it
         loaded = MetaEvaluator.load_state(
             project_dir=str(project_dir),
-            state_filename="test_state.json",
             load_data=True,
             load_task=True,
         )
@@ -388,7 +384,6 @@ class TestMetaEvaluatorIntegration:
 
         # Save state first
         evaluator.save_state(
-            state_filename="test_state.json",
             include_data=True,
             data_format="csv",
             include_task=True,
@@ -396,32 +391,30 @@ class TestMetaEvaluatorIntegration:
 
         # Delete the data file from the project directory
         project_dir = evaluator.project_dir
-        data_file = project_dir / "data" / "test_state_data.csv"
+        data_file = project_dir / "data" / "main_state_data.csv"
         data_file.unlink()
 
         # Should raise FileNotFoundError with clear message
         with pytest.raises(FileNotFoundError) as exc:
             MetaEvaluator.load_state(
                 project_dir=str(project_dir),
-                state_filename="test_state.json",
                 load_data=True,
                 load_task=True,
             )
 
-        assert "test_state_data.csv" in str(exc.value)
+        assert "main_state_data.csv" in str(exc.value)
 
     @pytest.mark.integration
     def test_corrupted_state_file_integration(self):
         """Test handling of corrupted JSON state files."""
         with tempfile.TemporaryDirectory() as tmp_dir:
-            state_file = Path(tmp_dir) / "corrupted.json"
+            state_file = Path(tmp_dir) / "main_state.json"
             # Write truncated/invalid JSON
             state_file.write_text('{"version": "1.0", "data":')
 
             with pytest.raises(InvalidFileError) as exc:
                 MetaEvaluator.load_state(
                     project_dir=tmp_dir,
-                    state_filename="corrupted.json",
                 )
 
             assert "Invalid JSON structure" in str(exc.value)
@@ -525,7 +518,6 @@ class TestMetaEvaluatorIntegration:
 
         # Save with custom filename
         evaluator.save_state(
-            state_filename="test_state.json",
             include_data=True,
             data_format="parquet",
             data_filename=custom_data_filename,
@@ -538,7 +530,7 @@ class TestMetaEvaluatorIntegration:
         assert custom_data_file.exists()
 
         # Verify state file references custom filename
-        state_file = project_dir / "test_state.json"
+        state_file = project_dir / "main_state.json"
         with open(state_file) as f:
             state_data = json.load(f)
         assert state_data["data"]["data_file"] == custom_data_filename
@@ -546,7 +538,6 @@ class TestMetaEvaluatorIntegration:
         # Verify loading works with custom filename
         loaded = MetaEvaluator.load_state(
             project_dir=str(project_dir),
-            state_filename="test_state.json",
             load_data=True,
         )
         assert loaded.data is not None

@@ -31,6 +31,7 @@ from .models import (
     ParseResult,
     TagConfig,
 )
+from .serialization import JudgeState
 from .sync_evaluator import SyncEvaluationMixin
 
 
@@ -50,11 +51,6 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
             in configurations, logs, and results. It must contain only alphanumeric
             characters and underscores to ensure compatibility with file paths
             and other system identifiers. This ID must be explicitly provided
-            and is never auto-generated.
-        eval_task (EvalTask): An instance of the EvalTask class
-            defining the criteria and desired outcomes for the evaluation. This
-            specifies *what* is being evaluated (e.g., toxicity, relevance) and
-            the possible labels or scores the Judge is expected to produce.
         llm_client (str): The LLM client to be used for this evaluation (e.g., openai, azure).
         model (str): The specific name of the LLM model to be used from the
             selected provider (e.g., "gpt-4", "claude-3-opus-20240229"). This
@@ -63,10 +59,15 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
             and structured output requirements (like XML tags or Pydantic models)
             that will be sent to the LLM. This dictates *how* the LLM should perform
             the evaluation based on the input data.
+            and is never auto-generated.
+        model_config (ConfigDict): Pydantic configuration dictionary.
+            - `frozen=True`: Makes the Judge instance immutable after creation,
+            ensuring its configuration remains constant throughout its lifecycle.
+        eval_task (EvalTask): An instance of the EvalTask class
+            defining the criteria and desired outcomes for the evaluation. This
+            specifies *what* is being evaluated (e.g., toxicity, relevance) and
+            the possible labels or scores the Judge is expected to produce.
 
-    model_config (ConfigDict): Pydantic configuration dictionary.
-        - `frozen=True`: Makes the Judge instance immutable after creation,
-          ensuring its configuration remains constant throughout its lifecycle.
 
     Validation:
         - The `id` attribute is validated to ensure it contains only alphanumeric
@@ -75,11 +76,11 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
     """
 
     id: str
-    model_config = ConfigDict(frozen=True)
-    eval_task: EvalTask
     llm_client: str
     model: str
     prompt: Prompt
+    model_config = ConfigDict(frozen=True)
+    eval_task: EvalTask
 
     @property
     def logger(self) -> logging.Logger:
@@ -559,3 +560,37 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
                 data[config.name] = valid_values
 
         return ParseResult(data=data, errors=errors)
+
+    def serialize(self) -> JudgeState:
+        """Serialize the Judge to metadata.
+
+        Returns:
+            JudgeState: Serialized state for Judge.
+        """
+        self.logger.info(f"Serializing Judge with id '{self.id}'")
+
+        return JudgeState(
+            id=self.id,
+            llm_client=self.llm_client,
+            model=self.model,
+            prompt=self.prompt,
+            eval_task=self.eval_task.serialize(),
+        )
+
+    @classmethod
+    def deserialize(cls, state: JudgeState) -> "Judge":
+        """Deserialize Judge from state.
+
+        Args:
+            state: Serialized state for Judge.
+
+        Returns:
+            Judge: Reconstructed Judge instance (frozen).
+        """
+        return cls(
+            id=state.id,
+            llm_client=state.llm_client,
+            model=state.model,
+            prompt=state.prompt,
+            eval_task=EvalTask.deserialize(state.eval_task),
+        )

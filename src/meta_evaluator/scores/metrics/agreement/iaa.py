@@ -1,7 +1,7 @@
 """Cohen's kappa scorer for inter-annotator agreement."""
 
 import os
-from typing import List, Optional
+from typing import List
 
 import numpy as np
 import polars as pl
@@ -9,6 +9,7 @@ from sklearn.metrics import cohen_kappa_score
 
 from meta_evaluator.scores.base_scorer import BaseScorer
 from meta_evaluator.scores.base_scoring_result import BaseScoringResult
+from meta_evaluator.scores.utils import generate_simple_bar_plot
 
 
 class CohensKappaScorer(BaseScorer):
@@ -18,206 +19,129 @@ class CohensKappaScorer(BaseScorer):
         """Initialize Cohen's kappa scorer."""
         super().__init__("cohens_kappa")
 
-    def can_score_task(self, task_schema: Optional[List[str]]) -> bool:
-        """Cohen's kappa only works with classification tasks (categorical data).
-
-        Cohen's kappa measures inter-annotator agreement for categorical variables.
-        It requires discrete categories to calculate agreement beyond chance.
+    def can_score_task(
+        self, sample_label: str | int | float | List[str | int | float]
+    ) -> bool:
+        """Cohen's kappa works with categorical data (int, str, or list of int/str).
 
         Args:
-            task_schema: List of allowed categorical outcomes, or None for free-form text tasks
+            sample_label: Sample of the actual label data to validate
 
         Returns:
-            bool: True if task_schema is not None (classification task), False otherwise
+            bool: True if data contains categorical values (int/str or lists of int/str)
         """
-        return task_schema is not None
-
-    def compute_score(
-        self,
-        judge_id: str,
-        consolidated_judge_df: pl.DataFrame,
-        consolidated_human_df: pl.DataFrame,
-        task_names: List[str],
-        task_schemas: dict,
-    ) -> BaseScoringResult:
-        """Compute Cohen's kappa for a single judge vs many humans.
-
-        Returns:
-            BaseScoringResult: A BaseScoringResult instance.
-        """
-        if len(task_names) == 1:
-            # Single task
-            task_name = task_names[0]
-            task_schema = task_schemas[task_name]
-            score = self._compute_single_judge_task_kappa(
-                consolidated_judge_df, consolidated_human_df, task_name, task_schema
-            )
-            task_display = task_name
+        # Accept int, str, or list of int/str (same as AccuracyScorer)
+        if isinstance(sample_label, (int, str)):
+            return True
+        elif isinstance(sample_label, list):
+            # Check if list contains int/str
+            if len(sample_label) > 0:
+                return isinstance(sample_label[0], (int, str))
+            return True  # Empty list is acceptable
         else:
-            # Multi-task - average kappa across all tasks
-            score = self._compute_single_judge_multi_task_kappa(
-                consolidated_judge_df, consolidated_human_df, task_names, task_schemas
-            )
-            task_display = f"{len(task_names)}_tasks_avg"
+            return False
+
+    async def compute_score_async(
+        self,
+        judge_data: pl.DataFrame,
+        human_data: pl.DataFrame,
+        task_name: str,
+        judge_id: str,
+        aggregation_mode,
+    ) -> BaseScoringResult:
+        """Compute Cohen's kappa score for a single judge vs many humans (async).
+
+        Args:
+            judge_data: DataFrame with judge outcomes (columns: original_id, label)
+            human_data: DataFrame with human outcomes (columns: original_id, human_id, label)
+            task_name: Name of the task(s) being scored
+            judge_id: ID of the judge being scored
+            aggregation_mode: How the tasks were aggregated for this result
+
+        Returns:
+            BaseScoringResult: The scoring result for this judge
+        """
+        # Join judge and human data on original_id
+        comparison_df = judge_data.join(human_data, on="original_id", how="inner")
+
+        if comparison_df.is_empty():
+            kappa_score = float("nan")
+            num_comparisons = 0
+            failed_comparisons = 1
+        else:
+            # For each human, compute Cohen's kappa between judge and that human
+            human_kappas = []
+            humans = comparison_df["human_id"].unique()
+
+            for human_id in humans:
+                human_comparisons = comparison_df.filter(pl.col("human_id") == human_id)
+                judge_labels = human_comparisons["label"].to_list()
+                human_labels = human_comparisons["label_right"].to_list()  # From join
+
+                # Filter out None values while maintaining alignment
+                valid_pairs = [
+                    (j, h)
+                    for j, h in zip(judge_labels, human_labels)
+                    if j is not None and h is not None
+                ]
+
+                if len(valid_pairs) >= 2:  # Cohen's kappa needs at least 2 samples
+                    j_labels, h_labels = zip(*valid_pairs)
+                    try:
+                        kappa = cohen_kappa_score(h_labels, j_labels)
+                        human_kappas.append(kappa)
+                    except ValueError:
+                        # Handle cases where labels are all the same (perfect agreement but undefined kappa)
+                        continue
+
+            # Average across all humans
+            kappa_score = float(np.mean(human_kappas)) if human_kappas else float("nan")
+            num_comparisons = len(comparison_df)
+            failed_comparisons = 0
 
         return BaseScoringResult(
             scorer_name=self.scorer_name,
-            task_name=task_display,
+            task_name=task_name,
             judge_id=judge_id,
-            score=score,
+            scores={"kappa": kappa_score},
             metadata={
-                "task_names": task_names,
-                "task_schemas": task_schemas,
-                "scoring_method": (
-                    "single_task" if len(task_names) == 1 else "average_across_tasks"
-                ),
+                "ground_truth_method": "individual_human_comparison",
+                "scoring_method": "average_across_humans",
             },
+            aggregation_mode=aggregation_mode,
+            num_comparisons=num_comparisons,
+            failed_comparisons=failed_comparisons,
         )
-
-    def _compute_single_judge_task_kappa(
-        self,
-        consolidated_judge_df: pl.DataFrame,
-        consolidated_human_df: pl.DataFrame,
-        task_name: str,
-        task_schema: Optional[List[str]],
-    ) -> float:
-        """Compute Cohen's kappa for a single judge on a single task.
-
-        Returns:
-            float: The Cohen's kappa score.
-        """
-        # Filter data for this specific task
-        task_judge_df = consolidated_judge_df.filter(pl.col("task_name") == task_name)
-        task_human_df = consolidated_human_df.filter(pl.col("task_name") == task_name)
-
-        if task_judge_df.is_empty() or task_human_df.is_empty():
-            return np.nan
-
-        # Cohen's kappa only works with classification tasks
-        return self._compute_classification_kappa(
-            task_judge_df, task_human_df, task_name
-        )
-
-    def _compute_single_judge_multi_task_kappa(
-        self,
-        consolidated_judge_df: pl.DataFrame,
-        consolidated_human_df: pl.DataFrame,
-        task_names: List[str],
-        task_schemas: dict,
-    ) -> float:
-        """Compute average Cohen's kappa across multiple tasks for a single judge.
-
-        Returns:
-            float: The average Cohen's kappa score.
-        """
-        task_kappas = []
-        for task_name in task_names:
-            task_schema = task_schemas[task_name]
-            task_kappa = self._compute_single_judge_task_kappa(
-                consolidated_judge_df, consolidated_human_df, task_name, task_schema
-            )
-            task_kappas.append(task_kappa)
-
-        if task_kappas:
-            return float(np.mean(task_kappas))
-        else:
-            return np.nan
-
-    def _compute_classification_kappa(
-        self,
-        consolidated_judge_df: pl.DataFrame,
-        consolidated_human_df: pl.DataFrame,
-        task_name: str,
-    ) -> float:
-        """Compute Cohen's kappa for classification tasks.
-
-        Returns:
-            float: The Cohen's kappa score.
-        """
-        # Sort both DataFrames by original_id to ensure proper alignment
-        judge_df_sorted = consolidated_judge_df.sort("original_id")
-        human_df_sorted = consolidated_human_df.sort("original_id")
-
-        # Handle multiple human annotators per original_id by using majority vote
-        # Group human annotations by original_id and compute majority vote
-        human_aggregated = (
-            human_df_sorted.group_by("original_id")
-            .agg(
-                [
-                    pl.col("task_value")
-                    .mode()
-                    .first()
-                    .alias("task_value")  # Mode (majority vote)
-                ]
-            )
-            .sort("original_id")
-        )
-
-        # Judge data should have one entry per original_id, but group just in case
-        judge_aggregated = (
-            judge_df_sorted.group_by("original_id")
-            .agg(
-                [
-                    pl.col("task_value").first().alias("task_value")  # Take first entry
-                ]
-            )
-            .sort("original_id")
-        )
-
-        # Find common original_ids between judge and human data
-        judge_ids = set(judge_aggregated["original_id"].to_list())
-        human_ids = set(human_aggregated["original_id"].to_list())
-        common_ids = judge_ids & human_ids
-
-        if len(common_ids) < 2:
-            return np.nan
-
-        # Filter to common IDs and ensure same order
-        judge_final = judge_aggregated.filter(
-            pl.col("original_id").is_in(list(common_ids))
-        ).sort("original_id")
-        human_final = human_aggregated.filter(
-            pl.col("original_id").is_in(list(common_ids))
-        ).sort("original_id")
-
-        # Extract labels
-        judge_labels = judge_final["task_value"].to_list()
-        human_labels = human_final["task_value"].to_list()
-
-        # Filter out None values while maintaining alignment
-        valid_pairs = [
-            (j, h)
-            for j, h in zip(judge_labels, human_labels)
-            if j is not None and h is not None
-        ]
-
-        if len(valid_pairs) < 2:
-            return np.nan
-
-        judge_labels, human_labels = zip(*valid_pairs)
-
-        # Compute Cohen's kappa
-        return cohen_kappa_score(human_labels, judge_labels)
 
     def aggregate_results(
-        self, results: List[BaseScoringResult], scores_dir: str
+        self, results: List[BaseScoringResult], scores_dir: str, unique_name: str = ""
     ) -> None:
         """Generate aggregate plots and save individual results for Cohen's kappa scorer.
 
         Args:
             results: List of Cohen's kappa scoring results
             scores_dir: Directory to save results and plots
+            unique_name: Optional unique identifier for this metric configuration
         """
         if not results:
             self.logger.info("No Cohen's kappa results to aggregate")
             return
 
-        # Create cohens_kappa directory for results and plots
-        cohens_kappa_dir = os.path.join(scores_dir, "cohens_kappa")
+        # Create cohens_kappa directory for results and plots, using unique_name to avoid overwrites
+        cohens_kappa_dir = os.path.join(scores_dir, self.scorer_name, unique_name)
         os.makedirs(cohens_kappa_dir, exist_ok=True)
 
-        # Save individual results
-        self.save_results(results, cohens_kappa_dir)
+        # Generate simple bar plot (placeholder for other plots)
+        generate_simple_bar_plot(
+            results=results,
+            score_key="kappa",
+            output_dir=cohens_kappa_dir,
+            plot_filename="cohens_kappa_scores.png",
+            title="Cohen's Kappa Scores by Judge",
+            ylabel="Cohen's Kappa Score",
+            unique_name=unique_name,
+            logger=self.logger,
+        )
 
         self.logger.info(
             f"Generated Cohen's kappa results for {len(results)} judge(s) in {cohens_kappa_dir}"

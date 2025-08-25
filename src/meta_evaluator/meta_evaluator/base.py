@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Literal, Optional, cast
+from typing import Dict, Literal, Optional, cast
 
 from pydantic import ValidationError
 
@@ -17,6 +17,7 @@ from ..data import EvalData, SampleEvalData
 from ..data.serialization import DataMetadata
 from ..eval_task import EvalTask
 from ..eval_task.serialization import EvalTaskState
+from ..judge.serialization import JudgeState
 from .exceptions import (
     DataAlreadyExistsError,
     DataFormatError,
@@ -24,13 +25,12 @@ from .exceptions import (
     EvalTaskAlreadyExistsError,
     EvalTaskNotFoundError,
     InvalidFileError,
+    ProjectDirectoryExistsError,
+    SavedStateNotFoundError,
 )
 from .judge import JudgesMixin
 from .scoring import ScoringMixin
 from .serialization import MetaEvaluatorState
-
-_OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY"
-_AZURE_OPENAI_API_KEY_ENV_VAR = "AZURE_OPENAI_API_KEY"
 
 
 class Paths:
@@ -74,27 +74,78 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
     - Supporting structured outputs, instructor, and XML-based evaluation methods
     """
 
-    def __init__(self, project_dir: Optional[str] = None):
-        """Initialize a new MetaEvaluator instance.
+    DEFAULT_STATE_FILENAME = "main_state.json"
 
-        Creates an empty evaluator with no clients, data, or evaluation tasks configured.
+    def __init__(self, project_dir: Optional[str] = None, load: bool = False):
+        """Initialize a MetaEvaluator instance.
 
         Args:
             project_dir: Directory for organizing all evaluation files. If provided, all file operations
                 will be organized within this directory structure. If None, creates 'my_project' directory in current working directory.
+            load: Whether to load an existing MetaEvaluator from saved state.
+                If True, checks for existing saved state in project_dir and loads it.
+                If False, creates a new MetaEvaluator instance.
+
+        Raises:
+            ProjectDirectoryExistsError: If load=False but project_dir already exists.
         """
         super().__init__()
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-        self.data: Optional[EvalData] = None
-        self.eval_task: Optional[EvalTask] = None
 
         # If no project directory is provided, create a default directory in the current working directory
         if project_dir is None:
             project_dir = "./my_project"
 
-        # Initialize project paths and create directory structure
+        # Initialize project paths
         self.paths = Paths(project_dir)
-        self.paths.ensure_directories()
+
+        if load:
+            # Check if saved state exists and load it
+            self._load_existing_state()
+        else:
+            # Check if MetaEvaluator state already exists and raise error if it does
+            state_file = self.paths.project / self.DEFAULT_STATE_FILENAME
+            if state_file.exists():
+                raise ProjectDirectoryExistsError(str(self.paths.project))
+
+            # Initialize empty state
+            self.data: Optional[EvalData] = None
+            self.eval_task: Optional[EvalTask] = None
+
+            # Create directory structure for new project
+            self.paths.ensure_directories()
+
+    def _load_existing_state(self) -> None:
+        """Load existing state from the project directory.
+
+        Raises:
+            SavedStateNotFoundError: If no saved state is found in the project directory.
+        """
+        state_file = self.paths.project / self.DEFAULT_STATE_FILENAME
+
+        if not state_file.exists():
+            raise SavedStateNotFoundError(str(self.paths.project))
+
+        try:
+            # Load the saved state using the existing load_state class method
+            loaded_evaluator = self.__class__.load_state(
+                project_dir=str(self.paths.project),
+                load_data=True,
+                load_task=True,
+            )
+
+            # Copy loaded state to this instance
+            self.data = loaded_evaluator.data
+            self.eval_task = loaded_evaluator.eval_task
+            self.judge_registry = loaded_evaluator.judge_registry
+
+            self.logger.info(
+                f"Loaded existing MetaEvaluator state from {self.paths.project}"
+            )
+
+        except InvalidFileError as e:
+            # If state file exists but is invalid, treat as no saved state
+            raise SavedStateNotFoundError(str(self.paths.project)) from e
 
     @property
     def project_dir(self) -> Path:
@@ -148,7 +199,6 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
     def save_state(
         self,
-        state_filename: str = "main_state.json",
         include_task: bool = True,
         include_data: bool = True,
         data_format: Optional[Literal["json", "csv", "parquet"]] = None,
@@ -162,28 +212,22 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         - Data metadata and optional data file serialization
 
         Files are saved within the project directory structure:
-        - State file: project_dir/{state_filename}
+        - State file: project_dir/{DEFAULT_STATE_FILENAME}
         - Data file: project_dir/data/{data_filename}
 
         Args:
-            state_filename: Filename for state JSON file. Defaults to 'main_state.json'.
             include_task: Whether to serialize EvalTask. Defaults to True.
             include_data: Whether to serialize EvalData. Defaults to True.
             data_format: Format for data file when include_data=True.
                 Must be specified if include_data=True.
             data_filename: Optional custom filename for data file. If None,
-                auto-generates using pattern {base_name}_data.{format}.
+                auto-generates using pattern main_data.{format}.
                 Must have extension matching data_format.
 
         Raises:
-            InvalidFileError: If state_filename doesn't end with .json
             DataFormatError: If include_data=True but data_format is None, or
                 if data_filename extension doesn't match data_format.
         """
-        # Validate state_filename ends with .json
-        if not state_filename.endswith(".json"):
-            raise InvalidFileError("state_filename must end with .json")
-
         # Validate data_format when include_data is True
         if include_data and data_format is None:
             raise DataFormatError(
@@ -200,7 +244,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
                 )
 
         # Extract base_name from state_filename
-        base_name = Path(state_filename).stem
+        base_name = Path(self.DEFAULT_STATE_FILENAME).stem
 
         # Generate or use provided data_filename if include_data
         final_data_filename = None
@@ -219,7 +263,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         self.paths.ensure_directories()
 
         # Resolve state file path within project directory
-        state_file_path = self.paths.project / state_filename
+        state_file_path = self.paths.project / self.DEFAULT_STATE_FILENAME
 
         # Ensure parent directories exist for state file (for nested paths)
         state_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -260,6 +304,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         return MetaEvaluatorState(
             data=self._serialize_data(include_data, data_format, data_filename),
             eval_task=self._serialize_eval_task(include_task),
+            judge_registry=self._serialize_judge_registry(),
         )
 
     def _serialize_data(
@@ -304,13 +349,25 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
         return serialized_state
 
+    def _serialize_judge_registry(self) -> Dict[str, JudgeState]:
+        """Serialize judge registry to JudgeState objects.
+
+        Returns:
+            Dictionary mapping judge IDs to their serialized JudgeState objects.
+        """
+        serialized_judges = {}
+        for judge_id, judge in self.judge_registry.items():
+            serialized_judges[judge_id] = judge.serialize()
+
+        self.logger.info(f"Serialized {len(serialized_judges)} judges from registry")
+        return serialized_judges
+
     # ===== DESERIALIZATION METHODS =====
 
     @classmethod
     def load_state(
         cls,
         project_dir: str,
-        state_filename: str = "main_state.json",
         load_data: bool = True,
         load_task: bool = True,
     ) -> "MetaEvaluator":
@@ -327,7 +384,6 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
         Args:
             project_dir: Project directory containing the evaluation files.
-            state_filename: Filename of the state JSON file. Defaults to 'main_state.json'.
             load_data: Whether to load the data file referenced in the state. Defaults to True.
                 When True, automatically finds and loads the data file that was saved with this state.
                 When False, skips data loading.
@@ -338,16 +394,9 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
         Returns:
             MetaEvaluator: A new MetaEvaluator instance loaded from the JSON state.
-
-        Raises:
-            InvalidFileError: If state_file doesn't end with .json or if the JSON structure is invalid.
         """
-        # Validate state_filename ends with .json
-        if not state_filename.endswith(".json"):
-            raise InvalidFileError("state_filename must end with .json")
-
         # Resolve state file path
-        state_file_path = Path(project_dir) / state_filename
+        state_file_path = Path(project_dir) / cls.DEFAULT_STATE_FILENAME
 
         # Load JSON MetaEvaluatorState
         state = cls._load_json_state(str(state_file_path))
@@ -402,8 +451,12 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         Returns:
             MetaEvaluator: A new MetaEvaluator instance.
         """
-        # Create new MetaEvaluator instance with project_dir
-        evaluator = cls(project_dir)
+        # Create new MetaEvaluator instance with project_dir (don't load=True to avoid recursive loading)
+        evaluator = cls.__new__(cls)
+        evaluator.logger = logging.getLogger(f"{__name__}.{cls.__name__}")
+        evaluator.paths = Paths(project_dir)
+        evaluator.data = None
+        evaluator.eval_task = None
 
         # Client reconstruction is no longer needed since judges handle their own LLM clients
 
@@ -414,6 +467,9 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         # Load task if requested and available
         if load_task and state.eval_task is not None:
             evaluator._reconstruct_task(state.eval_task)
+
+        # Load judge registry
+        evaluator._reconstruct_judge_registry(state.judge_registry)
 
         return evaluator
 
@@ -447,6 +503,26 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
         # Add to evaluator
         self.add_data(eval_data, overwrite=True)
+
+    def _reconstruct_judge_registry(
+        self, serialized_judges: Dict[str, JudgeState]
+    ) -> None:
+        """Reconstruct the judge registry from serialized judge states.
+
+        Args:
+            serialized_judges: Dictionary mapping judge IDs to their JudgeState objects.
+        """
+        from ..judge import Judge
+
+        self.judge_registry = {}
+        for judge_id, judge_state in serialized_judges.items():
+            judge = Judge.deserialize(judge_state)
+            self.judge_registry[judge_id] = judge
+
+        self.logger.info(f"Reconstructed {len(serialized_judges)} judges in registry")
+
+        # Validate the reconstructed judge registry
+        self.validate_judge_registry()
 
     def launch_annotator(
         self,

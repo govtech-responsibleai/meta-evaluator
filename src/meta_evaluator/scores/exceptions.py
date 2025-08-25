@@ -38,3 +38,15 @@ class AltTestInsufficientAnnotationsError(ScoringError):
             message: The error message.
         """
         super().__init__(message)
+
+
+class InvalidAggregationModeError(ScoringError):
+    """Exception raised for invalid aggregation mode configuration."""
+
+    def __init__(self, message: str):
+        """Initialize the exception.
+
+        Args:
+            message: The error message.
+        """
+        super().__init__(message)

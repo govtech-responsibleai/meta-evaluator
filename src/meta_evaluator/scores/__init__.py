@@ -6,6 +6,7 @@ from .metrics import (
     AccuracyScorer,
     AltTestScorer,
     CohensKappaScorer,
+    SemanticSimilarityScorer,
     TextSimilarityScorer,
 )
 from .metrics_config import MetricConfig, MetricsConfig
@@ -15,6 +16,7 @@ __all__ = [
     "BaseScoringResult",
     "AccuracyScorer",
     "TextSimilarityScorer",
+    "SemanticSimilarityScorer",
     "CohensKappaScorer",
     "AltTestScorer",
     "MetricsConfig",
