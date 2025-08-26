@@ -26,6 +26,14 @@ uv tool run ruff format .
 
 Always fix all errors from the ruff check
 
+
+## Type Checking
+
+Note: After every task, run type checking:
+```bash
+uv run pyright
+```
+
 ## Testing
 
 Always look for existing pytest fixtures in the corresponding conftest.py files before implementing new fixtures. 
@@ -47,23 +55,7 @@ Note: After every task, run tests with skip integration:
 ```bash
 uv run pytest -m "not integration"
 ```
-or
 
-```bash
-uv run pytest --skip-integration
-```
-
-## Type Checking
-
-To run type checking:
-```bash
-uv run pyright
-```
-
-Note: After every task, run type checking:
-```bash
-uv run pyright
-```
 
 ## Task Completion Workflow
 
@@ -71,8 +63,9 @@ At the end of every task, ensure that you run ruff check and ruff format, and en
 
 After every task, run in order:
 1. `uv run pyright`
-2. `uv run pytest --skip-integration`
+2. `uv run pytest -m "not integration"`
 
-## Additional Reminders
+## Additional Reminders (VERY IMPORTANT!)
 
-- you have to fix all warnings from ruff check everytime
+- If you have any questions or doubts about the instructions, ask me before you begin. 
+- Do NOT make any assumptions about what the user is asking. ALWAYS CLARIFY.
