@@ -14,7 +14,6 @@ from meta_evaluator.data.exceptions import (
     InvalidColumnNameError,
     InvalidInIDColumnError,
     InvalidNameError,
-    NullValuesInDataError,
 )
 
 
@@ -298,21 +297,6 @@ class TestEvalData:
         )
 
         assert eval_data.id_column == "custom_id"
-
-    def test_null_values_in_non_id_columns(self):
-        """Test null values in non-ID columns raise NullValuesInDataError."""
-        df_with_nulls = pl.DataFrame(
-            {
-                "input": ["test1", None],
-                "output": ["result1", "result2"],
-            }
-        )
-
-        with pytest.raises(NullValuesInDataError):
-            EvalData(
-                name="test",
-                data=df_with_nulls,
-            )
 
     def test_empty_strings_in_non_id_columns_warning(self, caplog):
         """Test empty strings in non-ID columns trigger warnings."""

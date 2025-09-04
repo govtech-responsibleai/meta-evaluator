@@ -14,6 +14,7 @@ from ..common.error_constants import (
     STATE_FILE_NOT_FOUND_MSG,
 )
 from ..data import EvalData, SampleEvalData
+from ..data.exceptions import NullValuesInDataError
 from ..data.serialization import DataMetadata
 from ..eval_task import EvalTask
 from ..eval_task.serialization import EvalTaskState
@@ -156,6 +157,48 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         """
         return self.paths.project
 
+    # ===== DATA VALIDATION METHODS =====
+
+    def _validate_task_columns(self, data: EvalData, task: EvalTask) -> None:
+        """Validate that task-specific columns don't contain null values.
+
+        This validates only the columns that are actually used by the evaluation task
+        (prompt_columns and response_columns), allowing metadata columns to contain nulls.
+
+        Args:
+            data: The EvalData object to validate.
+            task: The EvalTask containing column specifications.
+
+        Raises:
+            NullValuesInDataError: If any task-required columns contain null values.
+        """
+        # Collect all task-required columns
+        required_columns = []
+        if task.prompt_columns:
+            required_columns.extend(task.prompt_columns)
+        required_columns.extend(task.response_columns)
+
+        # Check for nulls in task-required columns only
+        null_issues = []
+        for col in required_columns:
+            if col in data.data.columns:
+                col_null_mask = data.data[col].is_null()
+                if col_null_mask.any():
+                    null_rows = (
+                        data.data.with_row_index("row_idx")
+                        .filter(col_null_mask)
+                        .select("row_idx")
+                        .to_series()
+                        .to_list()
+                    )
+                    coordinates = [(row, col) for row in null_rows]
+                    null_issues.append(
+                        f"Column '{col}' has null values at rows {null_rows} (coordinates: {coordinates})"
+                    )
+
+        if null_issues:
+            raise NullValuesInDataError(null_issues)
+
     # ===== DATA AND TASK MANAGEMENT METHODS =====
 
     def add_data(self, eval_data: EvalData, overwrite: bool = False) -> None:
@@ -170,6 +213,10 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         """
         if self.data is not None and not overwrite:
             raise DataAlreadyExistsError()
+
+        # If task already exists, validate that task-required columns don't have nulls
+        if self.eval_task is not None:
+            self._validate_task_columns(eval_data, self.eval_task)
 
         self.data = eval_data
         self.logger.info(
@@ -188,6 +235,10 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         """
         if self.eval_task is not None and not overwrite:
             raise EvalTaskAlreadyExistsError()
+
+        # If data already exists, validate that task-required columns don't have nulls
+        if self.data is not None:
+            self._validate_task_columns(self.data, eval_task)
 
         self.eval_task = eval_task
         task_names = list(eval_task.task_schemas.keys())

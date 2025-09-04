@@ -2,12 +2,17 @@
 
 import json
 import re
+import shutil
 from unittest.mock import patch
 
+import polars as pl
 import pytest
 
 from meta_evaluator.common.error_constants import INVALID_JSON_STRUCTURE_MSG
+from meta_evaluator.common.models import Prompt
 from meta_evaluator.data import EvalData, SampleEvalData
+from meta_evaluator.data.exceptions import NullValuesInDataError
+from meta_evaluator.judge import Judge
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.meta_evaluator.exceptions import (
     DataAlreadyExistsError,
@@ -74,6 +79,59 @@ class TestMetaEvaluatorBase:
         assert new_data == another_eval_data
         assert new_data != original_data
 
+    def test_add_data_validates_task_columns_when_task_exists(
+        self, meta_evaluator, basic_eval_task
+    ):
+        """Test that add_data validates task-required columns when task already exists."""
+        # Add task first
+        meta_evaluator.add_eval_task(basic_eval_task)
+
+        # Create data with nulls in task-required columns
+        df_with_nulls = pl.DataFrame(
+            {
+                "text": ["test1", "test2"],  # prompt column
+                "response": ["result1", None],  # response column with null
+                "metadata": [
+                    None,
+                    "meta2",
+                ],  # metadata column with null - should be allowed
+            }
+        )
+
+        eval_data = EvalData(name="test", data=df_with_nulls)
+
+        # Should raise NullValuesInDataError for task-required column
+        with pytest.raises(
+            NullValuesInDataError, match="Column 'response' has null values"
+        ):
+            meta_evaluator.add_data(eval_data)
+
+    def test_add_data_allows_nulls_in_metadata_columns_when_task_exists(
+        self, meta_evaluator, basic_eval_task
+    ):
+        """Test that add_data allows nulls in non-task columns when task already exists."""
+        # Add task first
+        meta_evaluator.add_eval_task(basic_eval_task)
+
+        # Create data with nulls only in metadata columns
+        df_with_metadata_nulls = pl.DataFrame(
+            {
+                "text": ["test1", "test2"],  # prompt column - no nulls
+                "response": ["result1", "result2"],  # response column - no nulls
+                "metadata": [
+                    None,
+                    "meta2",
+                ],  # metadata column with null - should be allowed
+                "extra_info": ["info1", None],  # another metadata column with null
+            }
+        )
+
+        eval_data = EvalData(name="test", data=df_with_metadata_nulls)
+
+        # Should succeed - nulls in metadata columns are allowed
+        meta_evaluator.add_data(eval_data)
+        assert meta_evaluator.data == eval_data
+
     # === add_eval_task() Method Tests ===
 
     def test_add_eval_task_first_time(self, meta_evaluator, basic_eval_task):
@@ -116,6 +174,55 @@ class TestMetaEvaluatorBase:
 
         assert new_task == another_basic_eval_task
         assert new_task != original_task
+
+    def test_add_eval_task_validates_task_columns_when_data_exists(
+        self, meta_evaluator, basic_eval_task
+    ):
+        """Test that add_eval_task validates task-required columns when data already exists."""
+        # Create data with nulls in columns that will be task-required
+        df_with_nulls = pl.DataFrame(
+            {
+                "text": ["test1", None],  # will be prompt column with null
+                "response": ["result1", "result2"],  # will be response column
+                "metadata": [
+                    None,
+                    "meta2",
+                ],  # metadata column with null - should be allowed
+            }
+        )
+
+        eval_data = EvalData(name="test", data=df_with_nulls)
+        meta_evaluator.add_data(eval_data)
+
+        # Should raise NullValuesInDataError when adding task that requires the null column
+        with pytest.raises(
+            NullValuesInDataError, match="Column 'text' has null values"
+        ):
+            meta_evaluator.add_eval_task(basic_eval_task)
+
+    def test_add_eval_task_allows_nulls_in_metadata_columns_when_data_exists(
+        self, meta_evaluator, basic_eval_task
+    ):
+        """Test that add_eval_task allows nulls in non-task columns when data already exists."""
+        # Create data with nulls only in metadata columns
+        df_with_metadata_nulls = pl.DataFrame(
+            {
+                "text": ["test1", "test2"],  # prompt column - no nulls
+                "response": ["result1", "result2"],  # response column - no nulls
+                "metadata": [
+                    None,
+                    "meta2",
+                ],  # metadata column with null - should be allowed
+                "extra_info": ["info1", None],  # another metadata column with null
+            }
+        )
+
+        eval_data = EvalData(name="test", data=df_with_metadata_nulls)
+        meta_evaluator.add_data(eval_data)
+
+        # Should succeed - nulls in metadata columns are allowed
+        meta_evaluator.add_eval_task(basic_eval_task)
+        assert meta_evaluator.eval_task == basic_eval_task
 
     def test_add_eval_task_no_prompt_columns(
         self, meta_evaluator, basic_eval_task_no_prompt
@@ -260,8 +367,6 @@ class TestMetaEvaluatorBase:
 
         # Remove data directory if it exists
         if data_dir.exists():
-            import shutil
-
             shutil.rmtree(data_dir)
 
         # Directory shouldn't exist initially
@@ -518,8 +623,6 @@ class TestMetaEvaluatorBase:
         meta_evaluator.add_eval_task(basic_eval_task)
 
         # Add judges to the evaluator
-        from meta_evaluator.common.models import Prompt
-
         prompt1 = Prompt(id="test_prompt_1", prompt="Evaluate sentiment")
         prompt2 = Prompt(id="test_prompt_2", prompt="Evaluate toxicity")
 
@@ -594,8 +697,6 @@ class TestMetaEvaluatorBase:
         original_evaluator.add_eval_task(basic_eval_task)
 
         # Add a judge for more complete testing
-        from meta_evaluator.common.models import Prompt
-
         prompt = Prompt(id="test_prompt", prompt="Evaluate this")
         original_evaluator.add_judge("test_judge", "openai", "gpt-4", prompt)
 
@@ -782,8 +883,6 @@ class TestMetaEvaluatorBase:
         original_evaluator.add_eval_task(basic_eval_task)
 
         # Add judges to the evaluator
-        from meta_evaluator.common.models import Prompt
-
         prompt1 = Prompt(id="test_prompt_1", prompt="Evaluate sentiment")
         prompt2 = Prompt(id="test_prompt_2", prompt="Evaluate toxicity")
 
@@ -804,8 +903,6 @@ class TestMetaEvaluatorBase:
         assert "judge_2" in loaded_evaluator.judge_registry
 
         # Verify judges are actual Judge instances
-        from meta_evaluator.judge import Judge
-
         assert isinstance(loaded_evaluator.judge_registry["judge_1"], Judge)
         assert isinstance(loaded_evaluator.judge_registry["judge_2"], Judge)
 
