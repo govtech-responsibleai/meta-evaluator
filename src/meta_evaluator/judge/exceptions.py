@@ -1,5 +1,9 @@
 """File for all Judge related exceptions."""
 
+from typing import Optional
+
+from pydantic import Field
+
 
 class JudgeError(Exception):
     """Base class for Judge exceptions."""
@@ -71,5 +75,59 @@ class UnsupportedFormatMethodError(JudgeError):
         message = (
             f"The '{method}' method is not supported for model '{model}'. "
             f"Please try one of these alternatives: {suggested_methods}"
+        )
+        super().__init__(message)
+
+
+class MissingTemplateVariablesError(JudgeError):
+    """Raised when the prompt template is missing required variable placeholders.
+
+    This exception is raised when a user's prompt.md file doesn't contain the required
+    template variables (in curly brackets) for the columns defined in their EvalTask.
+    The prompt must include placeholders like {column_name} for all prompt_columns
+    and response_columns defined in the evaluation task.
+
+    Attributes:
+        missing_variables: List of variable names that are missing from the template.
+        prompt_columns: List of prompt columns from the EvalTask.
+        response_columns: List of response columns from the EvalTask.
+        message: A descriptive error message with examples.
+
+    Example:
+        >>> # If prompt.md is missing {system} and {response} placeholders
+        MissingTemplateVariablesError: Your prompt template is missing required variables: ['system', 'response'].
+        Please add these placeholders to your prompt.md file. Example: "Evaluate this system: {system}. The response was: {response}"
+    """
+
+    def __init__(
+        self,
+        missing_variables: list[str],
+        prompt_columns: Optional[list[str]] = Field(default=None),
+        response_columns: Optional[list[str]] = Field(..., min_length=1),
+    ):
+        """Initialize the MissingTemplateVariablesError.
+
+        Args:
+            missing_variables: List of variable names missing from the template.
+            prompt_columns: List of prompt columns from the EvalTask.
+            response_columns: List of response columns from the EvalTask.
+        """
+        self.missing_variables = missing_variables
+        self.prompt_columns = prompt_columns or []
+        self.response_columns = response_columns or []
+
+        # Create example with the missing variables
+        example_parts = []
+        if self.prompt_columns:
+            example_parts.extend(["{" + col + "}" for col in self.prompt_columns])
+        if self.response_columns:
+            example_parts.extend(["{" + col + "}" for col in self.response_columns])
+
+        example_text = "Evaluate this content: " + " and ".join(example_parts)
+
+        message = (
+            f"Your prompt template is missing required variables: {missing_variables}. "
+            f"Please add these placeholders to your prompt.md file. "
+            f'Example: "{example_text}"'
         )
         super().__init__(message)

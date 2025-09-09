@@ -8,9 +8,8 @@ from pydantic import BaseModel
 
 from meta_evaluator.data import EvalData, SampleEvalData
 from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.judge.enums import RoleEnum
 from meta_evaluator.judge.judge import Judge
-from meta_evaluator.judge.models import Message, TagConfig
+from meta_evaluator.judge.models import TagConfig
 
 
 class SentimentResponseModel(BaseModel):
@@ -37,7 +36,7 @@ class TestJudgeAsyncEvaluation:
         )
 
     @pytest.fixture
-    def instructor_judge(self, instructor_eval_task, sentiment_judge_prompt):
+    def instructor_judge(self, instructor_eval_task, template_sentiment_judge_prompt):
         """Create an instructor judge for testing.
 
         Returns:
@@ -48,7 +47,7 @@ class TestJudgeAsyncEvaluation:
             eval_task=instructor_eval_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
     @pytest.fixture
@@ -69,7 +68,7 @@ class TestJudgeAsyncEvaluation:
         self,
         mock_supports,
         mock_acompletion,
-        basic_judge,
+        template_basic_judge,
         basic_eval_data,
         sample_row,
         mock_litellm_response,
@@ -79,10 +78,10 @@ class TestJudgeAsyncEvaluation:
         mock_supports.return_value = True
         mock_acompletion.return_value = mock_litellm_response
 
-        task_class = basic_judge.eval_task.create_task_class()
+        task_class = template_basic_judge.eval_task.create_task_class()
 
         # Test the method
-        await basic_judge._evaluate_row_structured_async(
+        await template_basic_judge._evaluate_row_structured_async(
             row=sample_row,
             eval_data=basic_eval_data,
             sample_example_id="test_1",
@@ -115,14 +114,11 @@ class TestJudgeAsyncEvaluation:
         mock_response = SentimentResponseModel(sentiment="positive")
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
-        # Create messages
+        # Create messages with template substitution
         system_message = instructor_judge._create_system_message(
-            include_xml_instructions=False
+            row=sample_row, include_xml_instructions=False
         )
-        user_content = instructor_judge._format_row_data(sample_row)
-
-        user_message = Message(role=RoleEnum.USER, content=user_content)
-        messages = [system_message, user_message]
+        messages = [system_message]
 
         task_class = instructor_judge.eval_task.create_task_class()
 
@@ -146,7 +142,7 @@ class TestJudgeAsyncEvaluation:
     async def test_async_xml_success(
         self,
         mock_acompletion,
-        xml_judge,
+        template_xml_judge,
         basic_eval_data,
         sample_row,
         single_row_test_builder,
@@ -163,7 +159,7 @@ class TestJudgeAsyncEvaluation:
             )
         ]
 
-        await xml_judge._evaluate_row_xml_async(
+        await template_xml_judge._evaluate_row_xml_async(
             row=sample_row,
             eval_data=basic_eval_data,
             sample_example_id="test_1",
@@ -183,7 +179,7 @@ class TestJudgeAsyncEvaluation:
         self,
         mock_supports,
         mock_acompletion,
-        basic_judge,
+        template_basic_judge,
         basic_eval_data,
         sample_row,
         single_row_test_builder,
@@ -192,10 +188,10 @@ class TestJudgeAsyncEvaluation:
         mock_supports.return_value = True
         mock_acompletion.side_effect = Exception("API Error")
 
-        task_class = basic_judge.eval_task.create_task_class()
+        task_class = template_basic_judge.eval_task.create_task_class()
 
         # Should handle the error gracefully and create an error row
-        await basic_judge._evaluate_row_structured_async(
+        await template_basic_judge._evaluate_row_structured_async(
             row=sample_row,
             eval_data=basic_eval_data,
             sample_example_id="test_1",
@@ -215,7 +211,7 @@ class TestJudgeAsyncEvaluation:
     async def test_unsupported_format_method_raises_error_async(
         self,
         mock_supports,
-        basic_judge,
+        template_basic_judge,
         basic_eval_data,
         sample_row,
         single_row_test_builder,
@@ -223,10 +219,10 @@ class TestJudgeAsyncEvaluation:
         """Test that unsupported format method raises UnsupportedFormatMethodError in async mode."""
         mock_supports.return_value = False  # Model doesn't support structured output
 
-        task_class = basic_judge.eval_task.create_task_class()
+        task_class = template_basic_judge.eval_task.create_task_class()
 
         # Should handle UnsupportedFormatMethodError and create error row
-        await basic_judge._evaluate_row_structured_async(
+        await template_basic_judge._evaluate_row_structured_async(
             row=sample_row,
             eval_data=basic_eval_data,
             sample_example_id="test_1",
@@ -252,7 +248,7 @@ class TestJudgeAsyncEvaluation:
         multi_task_eval_task,
         basic_eval_data,
         sample_row,
-        sentiment_judge_prompt,
+        template_sentiment_judge_prompt,
         single_row_test_builder,
     ):
         """Test async structured evaluation with partial success - some tasks missing."""
@@ -262,7 +258,7 @@ class TestJudgeAsyncEvaluation:
             eval_task=multi_task_eval_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         mock_supports.return_value = True
@@ -301,7 +297,7 @@ class TestJudgeAsyncEvaluation:
         multi_task_eval_task,
         basic_eval_data,
         sample_row,
-        sentiment_judge_prompt,
+        template_sentiment_judge_prompt,
         single_row_test_builder,
     ):
         """Test async instructor evaluation with partial success."""
@@ -321,7 +317,7 @@ class TestJudgeAsyncEvaluation:
             eval_task=instructor_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         # Mock instructor client
@@ -343,12 +339,9 @@ class TestJudgeAsyncEvaluation:
 
         # Create messages
         system_message = instructor_judge._create_system_message(
-            include_xml_instructions=False
+            row=sample_row, include_xml_instructions=False
         )
-        user_content = instructor_judge._format_row_data(sample_row)
-
-        user_message = Message(role=RoleEnum.USER, content=user_content)
-        messages = [system_message, user_message]
+        messages = [system_message]
 
         task_class = instructor_judge.eval_task.create_task_class()
 
@@ -373,7 +366,7 @@ class TestJudgeAsyncEvaluation:
         multi_task_eval_task,
         basic_eval_data,
         sample_row,
-        sentiment_judge_prompt,
+        template_sentiment_judge_prompt,
         single_row_test_builder,
     ):
         """Test async XML evaluation with partial success."""
@@ -393,7 +386,7 @@ class TestJudgeAsyncEvaluation:
             eval_task=xml_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         # Mock response with only sentiment tag, missing toxicity
@@ -436,7 +429,7 @@ class TestJudgeAsyncEvaluation:
 
     @pytest.mark.asyncio
     async def test_async_structured_with_skip_function(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test async structured evaluation with skip function."""
         # Create task with skip function that skips all rows
@@ -453,7 +446,7 @@ class TestJudgeAsyncEvaluation:
             eval_task=skip_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = await skip_judge.evaluate_eval_data_async(basic_eval_data, "test_run")
@@ -464,7 +457,7 @@ class TestJudgeAsyncEvaluation:
 
     @pytest.mark.asyncio
     async def test_async_instructor_with_skip_function(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test async instructor evaluation with skip function."""
         # Create instructor task with skip function
@@ -482,7 +475,7 @@ class TestJudgeAsyncEvaluation:
             eval_task=skip_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = await skip_judge.evaluate_eval_data_async(basic_eval_data, "test_run")
@@ -493,7 +486,7 @@ class TestJudgeAsyncEvaluation:
 
     @pytest.mark.asyncio
     async def test_async_xml_with_skip_function(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test async XML evaluation with skip function."""
         # Create XML task with skip function
@@ -510,7 +503,7 @@ class TestJudgeAsyncEvaluation:
             eval_task=skip_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = await skip_judge.evaluate_eval_data_async(basic_eval_data, "test_run")
@@ -523,7 +516,7 @@ class TestJudgeAsyncEvaluation:
 
     @pytest.mark.asyncio
     async def test_async_structured_with_sampled_eval_data(
-        self, sentiment_judge_prompt
+        self, template_sentiment_judge_prompt
     ):
         """Test async structured evaluation with SampleEvalData."""
         # Create SampleEvalData
@@ -555,7 +548,7 @@ class TestJudgeAsyncEvaluation:
             ),
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = await basic_judge.evaluate_eval_data_async(sampled_data, "test_run")
@@ -568,7 +561,7 @@ class TestJudgeAsyncEvaluation:
 
     @pytest.mark.asyncio
     async def test_async_invalid_client_triggers_llm_error(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test that invalid client names trigger LLM API errors in async mode (actual API call but fails early)."""
         from meta_evaluator.judge.judge import Judge
@@ -584,7 +577,7 @@ class TestJudgeAsyncEvaluation:
             ),
             llm_client="invalid_provider",  # This should trigger an error
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = await invalid_client_judge.evaluate_eval_data_async(
@@ -598,7 +591,7 @@ class TestJudgeAsyncEvaluation:
 
     @pytest.mark.asyncio
     async def test_async_invalid_model_triggers_llm_error(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test that invalid model names trigger LLM API errors in async mode (actual API call but fails early)."""
         from meta_evaluator.judge.judge import Judge
@@ -614,7 +607,7 @@ class TestJudgeAsyncEvaluation:
             ),
             llm_client="openai",
             model="invalid-model-name",  # This should trigger an error
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = await invalid_model_judge.evaluate_eval_data_async(
@@ -628,7 +621,7 @@ class TestJudgeAsyncEvaluation:
 
     @pytest.mark.asyncio
     async def test_async_invalid_client_instructor_triggers_llm_error(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test that invalid client with instructor method triggers LLM API errors in async mode."""
         from meta_evaluator.judge.judge import Judge
@@ -644,7 +637,7 @@ class TestJudgeAsyncEvaluation:
             ),
             llm_client="invalid_provider",  # This should trigger an error
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = await invalid_instructor_judge.evaluate_eval_data_async(
@@ -658,7 +651,7 @@ class TestJudgeAsyncEvaluation:
 
     @pytest.mark.asyncio
     async def test_async_invalid_model_xml_triggers_llm_error(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test that invalid model with XML method triggers LLM API errors in async mode."""
         from meta_evaluator.judge.judge import Judge
@@ -674,7 +667,7 @@ class TestJudgeAsyncEvaluation:
             ),
             llm_client="openai",
             model="invalid-xml-model",  # This should trigger an error
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = await invalid_xml_judge.evaluate_eval_data_async(
@@ -689,7 +682,9 @@ class TestJudgeAsyncEvaluation:
     # === EDGE CASE TESTS ===
 
     @pytest.mark.asyncio
-    async def test_async_empty_dataset_with_skip_all(self, sentiment_judge_prompt):
+    async def test_async_empty_dataset_with_skip_all(
+        self, template_sentiment_judge_prompt
+    ):
         """Test async evaluation with dataset where all rows are skipped (simulates empty dataset)."""
         # Create task that skips all rows
         skip_all_task = EvalTask(
@@ -705,7 +700,7 @@ class TestJudgeAsyncEvaluation:
             eval_task=skip_all_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         # Create minimal data (since empty DataFrames aren't allowed)
@@ -722,7 +717,7 @@ class TestJudgeAsyncEvaluation:
         assert result.succeeded_count == 0
         assert result.total_count == 1
 
-    def test_async_free_form_outputs(self, sentiment_judge_prompt):
+    def test_async_free_form_outputs(self, template_sentiment_judge_prompt):
         """Test async evaluation with free form outputs (mixed predefined and free form tasks)."""
         # Create task with mixed schemas (predefined and free form)
         free_form_task = EvalTask(
@@ -741,7 +736,7 @@ class TestJudgeAsyncEvaluation:
             eval_task=free_form_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         # Test task class creation works with mixed types
@@ -775,7 +770,7 @@ class TestJudgeAsyncEvaluation:
         mock_supports,
         mock_instructor,
         mock_acompletion,
-        sentiment_judge_prompt,
+        template_sentiment_judge_prompt,
         basic_eval_data,
         sample_row,
         single_row_test_builder,
@@ -797,7 +792,7 @@ class TestJudgeAsyncEvaluation:
             eval_task=fallback_task,
             llm_client="mock_client",
             model="mock_model",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         # 1. Mock supports_response_schema to raise UnsupportedFormatMethodError

@@ -83,13 +83,12 @@ class SyncEvaluationMixin(ABC):
                     )
                     return  # Success, exit early
                 elif method == "instructor":
-                    # Create messages for instructor method
+                    # Create system message with template substitution for instructor method
                     system_message = self._create_system_message(  # type: ignore
-                        include_xml_instructions=False
+                        row=row,
+                        include_xml_instructions=False,
                     )
-                    user_content = self._format_row_data(row)  # type: ignore
-                    user_message = Message(role=RoleEnum.USER, content=user_content)
-                    messages = [system_message, user_message]
+                    messages = [system_message]
 
                     self._evaluate_row_instructor(
                         row=row,
@@ -175,11 +174,11 @@ class SyncEvaluationMixin(ABC):
         )
 
         try:
-            # Create messages
-            system_message = self._create_system_message(include_xml_instructions=False)  # type: ignore
-            user_content = self._format_row_data(row)  # type: ignore
-            user_message = Message(role=RoleEnum.USER, content=user_content)
-            messages = [system_message, user_message]
+            # Create system message with template substitution
+            system_message = self._create_system_message(  # type: ignore
+                row=row, include_xml_instructions=False
+            )  # type: ignore
+            messages = [system_message]
 
             # Call LLM with structured response
             start_time = time.time()
@@ -400,11 +399,11 @@ class SyncEvaluationMixin(ABC):
         )
 
         try:
-            # Create messages with XML instructions
-            system_message = self._create_system_message(include_xml_instructions=True)  # type: ignore
-            user_content = self._format_row_data(row)  # type: ignore
-            user_message = Message(role=RoleEnum.USER, content=user_content)
-            messages = [system_message, user_message]
+            # Create system message with template substitution and XML instructions
+            system_message = self._create_system_message(  # type: ignore
+                row=row, include_xml_instructions=True
+            )  # type: ignore
+            messages = [system_message]
 
             start_time = time.time()
 
@@ -602,13 +601,11 @@ class SyncEvaluationMixin(ABC):
                         assert task_class is not None, (
                             "task_class was to be set previously"
                         )
-                        # Create messages
+                        # Create system message with template substitution
                         system_message = self._create_system_message(  # type: ignore
-                            include_xml_instructions=False
+                            row=row, include_xml_instructions=False
                         )
-                        user_content = self._format_row_data(row)  # type: ignore
-                        user_message = Message(role=RoleEnum.USER, content=user_content)
-                        messages = [system_message, user_message]
+                        messages = [system_message]
 
                         self._evaluate_row_instructor(
                             row=row,

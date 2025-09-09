@@ -63,30 +63,48 @@ prompt_columns=None                    # No context
 response_columns=["text_to_evaluate"]  # Direct evaluation
 ```
 
-**Examples with formatted prompts:**
+**Template Variable System:**
+
+MetaEvaluator uses a template-based system where your prompt.md files can include placeholders like `{column_name}` that get automatically replaced with actual data. The available variables correspond to your `prompt_columns` and `response_columns`.
 
 === "Scenario 1: Prompt + Response Evaluation"
 
-    CSV Data:
+    **CSV Data:**
     ```csv
     user_input,system_instruction,llm_output
     "What is 2+2?","Be helpful","The answer is 4"
     ```
 
-    Configuration:
+    **Configuration:**
     ```python
     prompt_columns=["user_input", "system_instruction"]
     response_columns=["llm_output"]
     ```
 
-    Formatted prompt given to Judge:
-    ```
-    The prompts to be evaluated are user_input, system_instruction.
-    user_input: What is 2+2?
-    system_instruction: Be helpful
+    **Example prompt.md:**
+    ```markdown
+    ## Instructions:
+    Evaluate the LLM response for helpfulness.
 
-    The responses to be evaluated are llm_output.
-    llm_output: The answer is 4
+    ## Context:
+    User Input: {user_input}
+    System Instruction: {system_instruction}
+
+    ## Response to Evaluate:
+    {llm_output}
+    ```
+
+    **Formatted prompt given to Judge:**
+    ```
+    ## Instructions:
+    Evaluate the LLM response for helpfulness.
+
+    ## Context:
+    User Input: What is 2+2?
+    System Instruction: Be helpful
+
+    ## Response to Evaluate:
+    The answer is 4
     ```
 
 === "Scenario 2: Response-Only Evaluation"
@@ -103,10 +121,22 @@ response_columns=["text_to_evaluate"]  # Direct evaluation
     response_columns=["text_to_evaluate"]
     ```
 
+    **Example prompt.md:**
+    ```markdown
+    ## Instructions:
+    Evaluate the quality of this summary.
+
+    ## Text to Evaluate:
+    {text_to_evaluate}
+    ```
+
     **Formatted prompt given to Judge:**
     ```
-    The texts to be evaluated are text_to_evaluate.
-    text_to_evaluate: This is a summary of the research paper findings.
+    ## Instructions:
+    Evaluate the quality of this summary.
+
+    ## Text to Evaluate:
+    This is a summary of the research paper findings.
     ```
 
 

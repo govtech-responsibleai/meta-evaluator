@@ -24,7 +24,7 @@ from meta_evaluator.results import JudgeResults, JudgeResultsBuilder
 
 @pytest.fixture
 def sentiment_judge_prompt() -> Prompt:
-    """Provides a sentiment-specific prompt for judge testing.
+    """Provides a sentiment-specific prompt for judge testing (without template variables).
 
     Returns:
         Prompt: A sentiment-specific prompt for judge testing.
@@ -32,6 +32,39 @@ def sentiment_judge_prompt() -> Prompt:
     return Prompt(
         id="sentiment_prompt",
         prompt="Evaluate the sentiment of the given text.",
+    )
+
+
+@pytest.fixture
+def template_sentiment_judge_prompt() -> Prompt:
+    """Provides a sentiment-specific prompt with template variables for judge testing.
+
+    Returns:
+        Prompt: A sentiment-specific prompt with template variables for judge testing.
+    """
+    return Prompt(
+        id="template_sentiment_prompt",
+        prompt="Evaluate the sentiment of this text: {text}. Consider the response: {response}",
+    )
+
+
+@pytest.fixture
+def template_basic_judge(basic_eval_task, template_sentiment_judge_prompt) -> Judge:
+    """Provides a basic judge with template variables for testing.
+
+    Args:
+        basic_eval_task: Basic evaluation task from main conftest.
+        template_sentiment_judge_prompt: Template-based sentiment prompt from this conftest.
+
+    Returns:
+        Judge: A basic judge with template variables for testing.
+    """
+    return Judge(
+        id="test_basic_template_judge",
+        eval_task=basic_eval_task,
+        llm_client="openai",
+        model="gpt-4",
+        prompt=template_sentiment_judge_prompt,
     )
 
 
@@ -72,6 +105,26 @@ def xml_judge(xml_eval_task, sentiment_judge_prompt) -> Judge:
         llm_client="openai",
         model="gpt-4",
         prompt=sentiment_judge_prompt,
+    )
+
+
+@pytest.fixture
+def template_xml_judge(xml_eval_task, template_sentiment_judge_prompt) -> Judge:
+    """Provides an XML-based judge with template variables for testing.
+
+    Args:
+        xml_eval_task: XML-based evaluation task from main conftest.
+        template_sentiment_judge_prompt: Template-based sentiment prompt.
+
+    Returns:
+        Judge: An XML-based judge with template variables.
+    """
+    return Judge(
+        id="template_xml_judge",
+        eval_task=xml_eval_task,
+        llm_client="openai",
+        model="gpt-4",
+        prompt=template_sentiment_judge_prompt,
     )
 
 
@@ -430,7 +483,7 @@ def fallback_disabled_task():
 
 
 @pytest.fixture
-def fallback_enabled_judge(fallback_enabled_task, sentiment_judge_prompt):
+def fallback_enabled_judge(fallback_enabled_task, template_sentiment_judge_prompt):
     """Create a judge with fallback enabled.
 
     Returns:
@@ -441,7 +494,7 @@ def fallback_enabled_judge(fallback_enabled_task, sentiment_judge_prompt):
         eval_task=fallback_enabled_task,
         llm_client="openai",
         model="gpt-4",
-        prompt=sentiment_judge_prompt,
+        prompt=template_sentiment_judge_prompt,
     )
 
 

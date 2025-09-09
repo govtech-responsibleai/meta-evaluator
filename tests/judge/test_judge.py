@@ -82,24 +82,36 @@ class TestJudge:
         assert "positive, negative, neutral" in instructions
         assert "toxic, non_toxic" in instructions
 
-    def test_create_system_message_without_xml(self, basic_judge):
-        """Test system message creation without XML instructions."""
-        message = basic_judge._create_system_message(include_xml_instructions=False)
+    def test_create_system_message_without_xml_no_row(self, basic_judge):
+        """Test system message creation without XML instructions and no row data."""
+        message = basic_judge._create_system_message(
+            row=None, include_xml_instructions=False
+        )
 
         assert message.role == RoleEnum.SYSTEM
         assert message.content == "Evaluate the sentiment of the given text."
         assert "<sentiment>" not in message.content
 
-    def test_create_system_message_with_xml(self, basic_judge):
-        """Test system message creation with XML instructions."""
-        message = basic_judge._create_system_message(include_xml_instructions=True)
+    def test_create_system_message_with_xml_no_row(self, basic_judge):
+        """Test system message creation with XML instructions and no row data."""
+        message = basic_judge._create_system_message(
+            row=None, include_xml_instructions=True
+        )
 
         assert message.role == RoleEnum.SYSTEM
         assert "Evaluate the sentiment of the given text." in message.content
         assert "<sentiment>" in message.content
 
-    def test_format_row_data_complete(self, sample_prompt):
-        """Test row data formatting with both input and output columns."""
+    def test_create_system_message_with_template_substitution(self, sample_prompt):
+        """Test system message creation with template variable substitution."""
+        from meta_evaluator.common.models import Prompt
+
+        # Create a prompt with template variables
+        template_prompt = Prompt(
+            id="template_test",
+            prompt="Evaluate the sentiment of this text: {text}. The response was: {response}",
+        )
+
         task = EvalTask(
             task_schemas={"sentiment": ["positive", "negative"]},
             prompt_columns=["text"],
@@ -111,29 +123,63 @@ class TestJudge:
             eval_task=task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sample_prompt,
+            prompt=template_prompt,
         )
 
         row = {"text": "Good movie", "response": "I liked it"}
-        formatted = judge._format_row_data(row)
+        message = judge._create_system_message(row=row, include_xml_instructions=False)
 
-        assert "The prompts to be evaluated are text" in formatted
-        assert "text: Good movie" in formatted
-        assert "The responses to be evaluated are response" in formatted
-        assert "response: I liked it" in formatted
+        assert message.role == RoleEnum.SYSTEM
+        assert (
+            "Evaluate the sentiment of this text: Good movie. The response was: I liked it"
+            in message.content
+        )
+        assert "{text}" not in message.content  # Variables should be substituted
+        assert "{response}" not in message.content
 
-    def test_format_row_data_both_input_output(self, basic_judge):
-        """Test row data formatting with both input and output columns."""
+    def test_template_variable_validation_missing_variables(self, sample_prompt):
+        """Test that missing template variables raise an error."""
+        from meta_evaluator.common.models import Prompt
+        from meta_evaluator.judge.exceptions import MissingTemplateVariablesError
+
+        # Create a prompt missing required template variables
+        incomplete_prompt = Prompt(
+            id="incomplete_test",
+            prompt="Evaluate the sentiment. Missing variables here!",
+        )
+
+        task = EvalTask(
+            task_schemas={"sentiment": ["positive", "negative"]},
+            prompt_columns=["text"],
+            response_columns=["response"],
+            answering_method="structured",
+        )
+        judge = Judge(
+            id="test_judge",
+            eval_task=task,
+            llm_client="openai",
+            model="gpt-4",
+            prompt=incomplete_prompt,
+        )
+
         row = {"text": "Good movie", "response": "I liked it"}
-        formatted = basic_judge._format_row_data(row)
 
-        assert "The prompts to be evaluated are text" in formatted
-        assert "text: Good movie" in formatted
-        assert "The responses to be evaluated are response" in formatted
-        assert "response: I liked it" in formatted
+        with pytest.raises(MissingTemplateVariablesError) as exc_info:
+            judge._create_system_message(row=row, include_xml_instructions=False)
 
-    def test_format_row_data_no_prompt_columns(self, sample_prompt):
-        """Test row data formatting when prompt_columns is None."""
+        error = exc_info.value
+        assert "text" in error.missing_variables
+        assert "response" in error.missing_variables
+
+    def test_template_variable_validation_only_response_columns(self, sample_prompt):
+        """Test template substitution when only response columns are defined."""
+        from meta_evaluator.common.models import Prompt
+
+        # Create a prompt with only response template variables
+        response_only_prompt = Prompt(
+            id="response_only_test", prompt="Evaluate this response: {response}"
+        )
+
         task = EvalTask(
             task_schemas={"sentiment": ["positive", "negative"]},
             prompt_columns=None,  # No prompt columns
@@ -145,18 +191,15 @@ class TestJudge:
             eval_task=task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sample_prompt,
+            prompt=response_only_prompt,
         )
 
         row = {"response": "bad movie"}
-        formatted = judge._format_row_data(row)
+        message = judge._create_system_message(row=row, include_xml_instructions=False)
 
-        # Should not contain any input column information
-        assert "The prompts to be evaluated are" not in formatted
-        assert "text:" not in formatted
-        # Should still contain output column information
-        assert "The texts to be evaluated are response" in formatted
-        assert "response: bad movie" in formatted
+        assert message.role == RoleEnum.SYSTEM
+        assert "Evaluate this response: bad movie" in message.content
+        assert "{response}" not in message.content  # Variable should be substituted
 
     # === STRUCTURED OUTPUTS FALLBACK TESTS ===
 

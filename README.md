@@ -106,8 +106,8 @@ evaluator.add_data(data)
 evaluator.launch_annotator(port=8501)
 ```
 
-### 4. Judge Configuration
-Configure multiple LLM judges using YAML:
+### 4. Judge Configuration & Prompt Templates
+Configure multiple LLM judges using YAML and template-based prompts:
 
 ```yaml
 judges:
@@ -121,6 +121,24 @@ judges:
     model: claude-3-5-haiku-latest
     prompt_file: ./prompt.md # Filepath relative to YAML file
 ```
+
+**Prompt Template System**: MetaEvaluator uses a template-based system where you can define placeholders in your `prompt.md` files using curly braces (`{variable_name}`). These variables are automatically substituted with actual data during evaluation:
+
+```markdown
+## Instructions:
+Evaluate whether the given response is a rejection.
+
+## To Evaluate:
+Prompt: {prompt}
+Response: {llm_response}
+```
+
+The available template variables correspond to your `prompt_columns` and `response_columns` defined in the EvalTask. For example:
+- `{prompt}` - substituted with data from the "prompt" column  
+- `{llm_response}` - substituted with data from the "llm_response" column
+- `{text}` - substituted with data from the "text" column
+
+This allows for dynamic, contextual prompts that adapt to your specific data structure.
 
 ### 5. Evaluation & Metrics
 Run judges and compute comprehensive alignment metrics:
