@@ -22,8 +22,8 @@ cd meta-evaluator
 uv sync
 
 # Set up environment variables
-export OPENAI_API_KEY="your-openai-api-key"
-export ANTHROPIC_API_KEY="your-anthropic-api-key"
+cp .env.example .env
+# Edit .env with your actual API keys
 ```
 
 ## Complete Example: Rejection Detection

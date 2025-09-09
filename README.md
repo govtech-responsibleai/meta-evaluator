@@ -39,13 +39,11 @@ The sections below provide an overview of the main components.
 
 3. **Set up environment variables:**
    ```bash
-   # For OpenAI models
-   export OPENAI_API_KEY="your-openai-api-key"
+   # Copy the example environment file
+   cp .env.example .env
    
-   # For Anthropic models  
-   export ANTHROPIC_API_KEY="your-anthropic-api-key"
-   
-   # Add other provider keys as needed
+   # Edit .env with your actual API keys
+   # See .env.example for all available provider options
    ```
 
 4. **(Optional) Set up dev tools:**
