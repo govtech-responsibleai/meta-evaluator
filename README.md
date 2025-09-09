@@ -26,25 +26,17 @@ The sections below provide an overview of the main components.
 
 ## Installation
 
-1. **Clone the repository:**
+1. **Install the package:**
    ```bash
-   git clone <repository-url>
-   cd meta-evaluator
+   pip install git+https://github.com/govtech-responsibleai/meta-evaluator#egg=meta-evaluator
    ```
 
-2. **Install dependencies:**
-   ```bash
-   uv sync
-   ```
-
-3. **Set up environment variables:**
-   ```bash
-   # Copy the example environment file
-   cp .env.example .env
+2. **Set up environment variables:**
+   You can either:
+   - Copy the [.env.example](https://github.com/govtech-responsibleai/meta-evaluator/blob/main/.env.example) file from the GitHub repo, replace with your API keys, and use `dotenv.load_dotenv()` in your script
+   - Set the environment variables directly in your shell
    
-   # Edit .env with your actual API keys
-   # See .env.example for all available provider options
-   ```
+   See [LiteLLM providers documentation](https://docs.litellm.ai/docs/providers) for all supported providers.
 
 4. **(Optional) Set up dev tools:**
    ```bash

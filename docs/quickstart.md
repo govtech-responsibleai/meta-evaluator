@@ -14,17 +14,15 @@ Get up and running with MetaEvaluator in 5 minutes! This guide walks you through
 ## Installation
 
 ```bash
-# Clone repository
-git clone <repository-url>
-cd meta-evaluator
-
-# Install dependencies
-uv sync
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your actual API keys
+# Install the package
+pip install git+https://github.com/govtech-responsibleai/meta-evaluator#egg=meta-evaluator
 ```
+
+**Set up environment variables:** You can either:
+- Copy the [.env.example](https://github.com/govtech-responsibleai/meta-evaluator/blob/main/.env.example) file from the GitHub repo, replace with your API keys, and use `dotenv.load_dotenv()` in your script
+- Set the environment variables directly in your shell
+
+See [LiteLLM providers documentation](https://docs.litellm.ai/docs/providers) for all supported providers.
 
 ## Complete Example: Rejection Detection
 
