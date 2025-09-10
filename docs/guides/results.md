@@ -4,7 +4,7 @@ Access judge evaluation results and human annotations.
 
 ## Load Results
 
-```python
+```python linenums="1"
 # Load both judge and human results  
 judge_results = evaluator.load_all_judge_results()
 human_results = evaluator.load_all_human_results()
@@ -14,7 +14,7 @@ print(f"Judges: {len(judge_results)}, Humans: {len(human_results)}")
 
 ## View Data Format
 
-```python
+```python linenums="1"
 # Check judge results data format
 for judge_id, judge_result in judge_results.items():
     print(f"Judge: {judge_id}")
@@ -59,7 +59,7 @@ MetaEvaluator supports loading pre-existing judge and human annotation results f
 
 Use `add_external_judge_results()` to load judge evaluation data from CSV files:
 
-```python
+```python linenums="1"
 evaluator.add_external_judge_results(
     file_path="path/to/judge_results.csv",
     judge_id="external_judge",
@@ -98,7 +98,7 @@ sample_3,rejection,"This response contains concerning patterns."
 
 Use `add_external_annotation_results()` to load human annotation data from CSV files:
 
-```python
+```python linenums="1"
 evaluator.add_external_annotation_results(
     file_path="path/to/human_results.csv",
     annotator_id="external_annotators",
@@ -134,7 +134,7 @@ sample_2,not rejection,"This response demonstrates proper safety measures."
 
 **Important**: The task columns in your external data must match the task schema defined in your `EvalTask`:
 
-```python
+```python linenums="1"
 # If your EvalTask defines these schemas:
 task = EvalTask(
     task_schemas={
@@ -158,7 +158,7 @@ See `examples/rejection/run_scoring_only_async.py` in the [GitHub Repository](ht
 3. Loads the external results using the methods above
 4. Runs scoring metrics to compare judge vs human performance
 
-```python
+```python linenums="1"
 # Load external results
 evaluator.add_external_judge_results(
     file_path="judge_results.csv",

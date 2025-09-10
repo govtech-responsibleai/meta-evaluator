@@ -6,7 +6,7 @@ Configure and use alignment metrics to compare judge evaluations with human anno
 
 === "Single Metric"
 
-    ```python
+    ```python linenums="1" hl_lines="11-20"
     from meta_evaluator import MetaEvaluator
     from meta_evaluator.scores import MetricConfig, MetricsConfig
     from meta_evaluator.scores.metrics import AccuracyScorer
@@ -34,9 +34,10 @@ Configure and use alignment metrics to compare judge evaluations with human anno
 
 === "Multiple Metrics"
 
-    ```python
+    ```python linenums="1" hl_lines="11-48"
     from meta_evaluator.scores.metrics import (
         AccuracyScorer,
+        AltTestScorer,
         CohensKappaScorer,
         TextSimilarityScorer,
     )
@@ -98,7 +99,7 @@ The `aggregation_name` parameter defines how tasks are processed and must be one
     
     Evaluate one classification task:
 
-    ```python
+    ```python linenums="1" hl_lines="6 7"
     # Single binary classification task
     config = MetricsConfig(
         metrics=[
@@ -120,7 +121,7 @@ The `aggregation_name` parameter defines how tasks are processed and must be one
     
     Apply the same scorer to multiple separate tasks:
 
-    ```python
+    ```python linenums="1" hl_lines="6 7"
     # Same scorer applied to each task separately
     config = MetricsConfig(
         metrics=[
@@ -143,7 +144,7 @@ The `aggregation_name` parameter defines how tasks are processed and must be one
     
     Treat multiple classification tasks as a single multi-label problem:
 
-    ```python
+    ```python linenums="1" hl_lines="8 9"
     # Multi-label classification (AltTestScorer only)
     alt_test_scorer = AltTestScorer()
 
@@ -166,7 +167,7 @@ The `aggregation_name` parameter defines how tasks are processed and must be one
 
 
 **Example with different scorers per task:**
-```python
+```python linenums="1" hl_lines="7 13 19"
 config = MetricsConfig(
     metrics=[
         # Accuracy for single classification tasks
@@ -195,7 +196,7 @@ config = MetricsConfig(
 
 === "Accuracy"
 
-    ```python
+    ```python linenums="1"
     from meta_evaluator.scores.metrics import AccuracyScorer
     
     accuracy_scorer = AccuracyScorer()
@@ -203,7 +204,7 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=accuracy_scorer,
         task_names=["classification_field"],
-        aggregation_name="accuracy_results",
+        aggregation_name="single",
     )
     ```
 
@@ -231,7 +232,7 @@ config = MetricsConfig(
 
 === "Cohen's Kappa"
 
-    ```python
+    ```python linenums="1"
     from meta_evaluator.scores.metrics import CohensKappaScorer
     
     kappa_scorer = CohensKappaScorer()
@@ -239,7 +240,7 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=kappa_scorer,
         task_names=["classification_field"],
-        aggregation_name="kappa_results",
+        aggregation_name="single",
     )
     ```
 
@@ -278,7 +279,7 @@ config = MetricsConfig(
 
 === "Alt-Test"
 
-    ```python
+    ```python linenums="1"
     from meta_evaluator.scores.metrics import AltTestScorer
     
     alt_test_scorer = AltTestScorer(multiplicative_epsilon=True) # Set multiplicative_epsilon=True to modify the original hypothesis.
@@ -286,7 +287,7 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=alt_test_scorer,
         task_names=["classification_field"],
-        aggregation_name="alt_test_results",
+        aggregation_name="single",
     )
     ```
 
@@ -338,7 +339,7 @@ config = MetricsConfig(
 
 === "Text Similarity"
 
-    ```python
+    ```python linenums="1"
     from meta_evaluator.scores.metrics import TextSimilarityScorer
     
     text_scorer = TextSimilarityScorer()
@@ -378,7 +379,7 @@ config = MetricsConfig(
 
 === "Semantic Similarity"
 
-    ```python
+    ```python linenums="1"
     from meta_evaluator.scores.metrics import SemanticSimilarityScorer
     
     semantic_scorer = SemanticSimilarityScorer()
@@ -435,7 +436,7 @@ You may implement your own evaluation metrics.
 
 Here is a concrete example of custom metric that **count how many times judge has more "A"s than human** in it's response.
 
-```python
+```python linenums="1"
 from meta_evaluator.scores.base_scorer import BaseScorer
 from meta_evaluator.scores.base_scoring_result import BaseScoringResult
 from meta_evaluator.scores.enums import TaskAggregationMode

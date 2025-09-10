@@ -43,7 +43,7 @@ Response: {response}
 
 ### Load Judges
 
-```python
+```python linenums="1"
 from meta_evaluator import MetaEvaluator
 
 evaluator = MetaEvaluator(project_dir="my_project")
@@ -202,7 +202,7 @@ MetaEvaluator uses a template system where you define placeholders using `{varia
 - `prompt_columns`: Data columns containing context/prompts
 - `response_columns`: Data columns containing responses to evaluate
 
-```python
+```python linenums="1"
 # If your EvalTask has:
 task_schemas = {
     "toxicity": ["toxic", "non_toxic"],
@@ -236,9 +236,9 @@ Model Response: {model_response}
 
 ## Arguments
 
-Control how judges are loaded and handle duplicates:
+Control how judges are loaded:
 
-```python
+```python linenums="1"
 evaluator.load_judges_from_yaml(
     yaml_file="judges.yaml",      # Path to YAML configuration file
     on_duplicate="skip",          # How to handle duplicate judge IDs
@@ -250,7 +250,7 @@ evaluator.load_judges_from_yaml(
 
 === "skip (Recommended)"
 
-    ```python
+    ```python linenums="1"
     on_duplicate="skip"
     ```
     
@@ -259,7 +259,7 @@ evaluator.load_judges_from_yaml(
 
 === "overwrite"
 
-    ```python
+    ```python linenums="1"
     on_duplicate="overwrite"
     ```
     
@@ -268,7 +268,7 @@ evaluator.load_judges_from_yaml(
 
 ### Control whether to run judges asynchronously (`async_mode`)
 
-```python
+```python linenums="1"
 # Enable async evaluation (recommended)
 async_mode=True   # Allows concurrent judge evaluation for faster processing
 

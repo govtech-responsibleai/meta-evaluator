@@ -41,7 +41,7 @@ prompt,llm_response
 ```
 
 ### Step 2: Collect Human annotations 
-```python
+```python linenums="1"
 from meta_evaluator.data import DataLoader, EvalData
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.meta_evaluator import MetaEvaluator
@@ -133,7 +133,7 @@ Response: {llm_response}
 
 Create `quickstart_evaluation.py`:
 
-```python
+```python linenums="1"
 #!/usr/bin/env python3
 """Quickstart example for MetaEvaluator."""
 

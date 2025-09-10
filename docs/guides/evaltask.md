@@ -13,7 +13,7 @@ EvalTask supports two main evaluation scenarios:
 
 === "Scenario 1: Judge LLM Responses (Prompt + Response)"
 
-    ```python
+    ```python linenums="1" hl_lines="10 11"
     from meta_evaluator.eval_task import EvalTask
 
     # Evaluate chatbot responses for safety and helpfulness
@@ -32,7 +32,7 @@ EvalTask supports two main evaluation scenarios:
 
 === "Scenario 2: Judge Text Content (Response Only)"
 
-    ```python
+    ```python linenums="1" hl_lines="8 9"
     # Evaluate text summaries for quality
     task = EvalTask(
         task_schemas={
@@ -53,7 +53,7 @@ EvalTask supports two main evaluation scenarios:
 
 Control which columns judges see during evaluation:
 
-```python
+```python linenums="1"
 # Scenario 1: Judge sees both prompt and response
 prompt_columns=["user_input", "system_instruction"]  # Context
 response_columns=["llm_output"]                      # What to evaluate
@@ -76,7 +76,7 @@ MetaEvaluator uses a template-based system where your prompt.md files can includ
     ```
 
     **Configuration:**
-    ```python
+    ```python linenums="1"
     prompt_columns=["user_input", "system_instruction"]
     response_columns=["llm_output"]
     ```
@@ -116,7 +116,7 @@ MetaEvaluator uses a template-based system where your prompt.md files can includ
     ```
 
     **Configuration:**
-    ```python
+    ```python linenums="1"
     prompt_columns=None
     response_columns=["text_to_evaluate"]
     ```
@@ -144,7 +144,7 @@ MetaEvaluator uses a template-based system where your prompt.md files can includ
 
 The `task_schemas` dictionary maps task names to their allowed outcomes:
 
-```python
+```python linenums="1"
 task_schemas = {
     # Classification tasks (predefined options)
     "toxicity": ["toxic", "non_toxic"],
@@ -170,7 +170,7 @@ task_schemas = {
 
 !!! tip "Add Free-form Tasks for Context and Explainability"
     Include explanation fields to understand judge reasoning:
-    ```python
+    ```python linenums="1"
     task_schemas = {
         "is_helpful": ["helpful", "not_helpful"],
         "explanation": None  # Why this classification?
@@ -183,7 +183,7 @@ Three parsing methods with different trade-offs:
 
 === "Structured (Recommended)"
 
-    ```python
+    ```python linenums="1"
     answering_method="structured"
     structured_outputs_fallback=True  # Fallback to other methods if unsupported
     ```
@@ -196,7 +196,7 @@ Three parsing methods with different trade-offs:
  
 === "Instructor"
 
-    ```python
+    ```python linenums="1"
     answering_method="instructor"
     structured_outputs_fallback=True  # Fallback to other methods if unsupported
     ```
@@ -209,7 +209,7 @@ Three parsing methods with different trade-offs:
 
 === "XML"
 
-    ```python
+    ```python linenums="1"
     answering_method="xml"
     structured_outputs_fallback=True  # Fallback to other methods if unsupported
     ```
@@ -226,7 +226,7 @@ Three parsing methods with different trade-offs:
 
 ### Skip Function to Filter Data Rows (`skip_function`)
 
-```python
+```python linenums="1"
 def skip_empty_responses(row):
     return len(row.get("llm_response", "").strip()) == 0
 
@@ -239,7 +239,7 @@ task = EvalTask(
 !!! warning "Skip Function Serialization"
     Currently, **skip functions are not saved** when EvalTask is serialized/deserialized. When loading a saved project:
     
-    ```python
+    ```python linenums="1"
     # Load existing project
     evaluator = MetaEvaluator(project_dir="my_project", load=True)
     
@@ -251,7 +251,7 @@ task = EvalTask(
 
 Customize the prompt shown to human annotators:
 
-```python
+```python linenums="1"
 task = EvalTask(
     # ... other config ...
     annotation_prompt="Please evaluate this response for toxicity and helpfulness. Consider both content and tone."
@@ -262,7 +262,7 @@ task = EvalTask(
 
 ===  "Content Moderation Pipeline"
 
-    ```python
+    ```python linenums="1"
     moderation_task = EvalTask(
         task_schemas={
             "toxicity": ["toxic", "borderline", "safe"],
@@ -280,7 +280,7 @@ task = EvalTask(
 
 === "Multi-turn Conversation Evaluation"
 
-    ```python
+    ```python linenums="1"
     conversation_task = EvalTask(
         task_schemas={
             "coherence": ["coherent", "somewhat_coherent", "incoherent"],
@@ -297,7 +297,7 @@ task = EvalTask(
 
 === "Research Paper Evaluation"
 
-    ```python
+    ```python linenums="1"
     research_task = EvalTask(
         task_schemas={
             "methodology_quality": ["excellent", "good", "fair", "poor"],

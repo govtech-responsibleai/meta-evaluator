@@ -6,7 +6,7 @@ Launch the Streamlit-based annotation interface to collect human evaluations for
 
 === "Basic Annotation"
 
-    ```python
+    ```python linenums="1" hl_lines="7"
     from meta_evaluator import MetaEvaluator
     
     # Load existing project with data and task
@@ -18,7 +18,7 @@ Launch the Streamlit-based annotation interface to collect human evaluations for
 
 === "With ngrok (Remote Access)"
 
-    ```python
+    ```python linenums="1" hl_lines="7 8 9 10"
     from meta_evaluator import MetaEvaluator
     
     # Load existing project with data and task
@@ -33,7 +33,7 @@ Launch the Streamlit-based annotation interface to collect human evaluations for
 
 === "Complete Setup Example"
 
-    ```python
+    ```python linenums="1" hl_lines="33"
     from meta_evaluator import MetaEvaluator
     from meta_evaluator.data import DataLoader
     from meta_evaluator.eval_task import EvalTask
@@ -77,7 +77,7 @@ Launch the Streamlit-based annotation interface to collect human evaluations for
 
 The interface automatically presents all tasks from your `EvalTask` configuration in the UI:
 
-```python
+```python linenums="1"
 task = EvalTask(
     task_schemas={
         "quality": ["excellent", "good", "fair", "poor"],
@@ -111,7 +111,7 @@ task = EvalTask(
 
 ### Port Settings
 
-```python
+```python linenums="1"
 # Default port (8501)
 evaluator.launch_annotator()
 
@@ -123,7 +123,7 @@ evaluator.launch_annotator(port=8080)
 
 ### Remote Access with ngrok
 
-```python
+```python linenums="1"
 # Basic ngrok tunnel
 evaluator.launch_annotator(
     port=8501,
@@ -241,7 +241,7 @@ Each annotation run creates two files: a data file containing the actual annotat
 
 After collection, load annotations for analysis:
 
-```python
+```python linenums="1"
 # Load all human annotation results
 human_results = evaluator.load_all_human_results()
 
