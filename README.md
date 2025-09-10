@@ -167,6 +167,48 @@ config = MetricsConfig(
 evaluator.compare_async(config, judge_results, human_results)
 ```
 
+## External Data Loading
+
+MetaEvaluator supports loading pre-existing judge and human annotation results for scoring-only workflows. This is useful when you:
+- Have results from previous evaluation runs
+- Want to compute metrics on externally generated judge/human data
+- Need to re-run scoring with different metrics without re-evaluating
+
+### Loading External Judge Results
+```python
+# Load external judge results from CSV
+evaluator.add_external_judge_results(
+    file_path="path/to/judge_results.csv",
+    judge_id="external_judge",
+    llm_client="openai",  
+    model_used="gpt-4",
+    run_id="external_run_1"
+)
+```
+
+**Required CSV columns for judge results:**
+- `original_id`: Unique identifier for each sample
+- Task columns matching your `EvalTask.task_schemas`
+
+System columns (`sample_example_id`, `run_id`, `judge_id`) are auto-generated from the function parameters.
+
+### Loading External Annotation Results
+```python
+# Load external human annotations from CSV
+evaluator.add_external_annotation_results(
+    file_path="path/to/human_results.csv",
+    annotator_id="external_annotators",
+    run_id="external_human_run_1"
+)
+```
+
+**Required CSV columns for human results:**
+- `original_id`: Unique identifier for each sample  
+- Task columns matching your `EvalTask.task_schemas`
+
+System columns (`sample_example_id`, `run_id`, `annotator_id`) are auto-generated from the function parameters.
+
+For detailed data format requirements and examples, see the [Results Guide](docs/guides/results.md#external-data-loading).
 
 ## Available Metrics
 
@@ -224,4 +266,7 @@ See the `examples/` directory for complete working examples:
 
 ### RabakBench Evaluation (data not included)
 - **[`examples/rabakbench/run_evaluation_async.py`](examples/rabakbench/run_evaluation_async.py)** - Complete async evaluation with multiple metrics
+
+### Scoring-Only Evaluation with External Results
+- **[`examples/rejection/run_scoring_only_async.py`](examples/rejection/run_scoring_only_async.py)** - Load external judge/human results and run scoring without re-evaluation
 

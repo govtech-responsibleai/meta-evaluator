@@ -326,4 +326,7 @@ Comparison metrics (when human data available):
 
 - **Accuracy**: How often judges match human labels  
 - **Cohen's Kappa**: Agreement accounting for chance  
-- **Detailed breakdowns**: Per-task and aggregate scores  
+- **Detailed breakdowns**: Per-task and aggregate scores
+
+!!! tip "External Data Loading"
+    Already have judge or human annotation results from previous runs or external sources? You can load them directly without re-running evaluations. See the [External Data Loading section in the Results Guide](guides/results.md#external-data-loading) for details on the required data formats and how to use `add_external_judge_results()` and `add_external_annotation_results()`.  

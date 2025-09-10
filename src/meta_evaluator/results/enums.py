@@ -19,6 +19,7 @@ class EvaluationStatusEnum(str, Enum):
     LLM_ERROR = "llm_error"
     PARSING_ERROR = "parsing_error"
     OTHER_ERROR = "other_error"
+    IMPORTED = "imported"
 
 
 class HumanAnnotationStatusEnum(str, Enum):
