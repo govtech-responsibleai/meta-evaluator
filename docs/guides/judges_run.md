@@ -6,7 +6,7 @@ Execute your configured LLM judges to evaluate your dataset.
 
 === "Async (Recommended)"
 
-    ```python
+    ```python linenums="1" hl_lines="6"
     from meta_evaluator import MetaEvaluator
     
     evaluator = MetaEvaluator(project_dir="my_project", load=True)
@@ -19,7 +19,7 @@ Execute your configured LLM judges to evaluate your dataset.
 
 === "Synchronous"
 
-    ```python
+    ```python linenums="1" hl_lines="6"
     from meta_evaluator import MetaEvaluator
     
     evaluator = MetaEvaluator(project_dir="my_project", load=True)
@@ -32,7 +32,7 @@ Execute your configured LLM judges to evaluate your dataset.
 
 === "Specific Judges"
 
-    ```python
+    ```python linenums="1" hl_lines="6 7"
     from meta_evaluator import MetaEvaluator
     
     evaluator = MetaEvaluator(project_dir="my_project", load=True)
@@ -48,7 +48,7 @@ Execute your configured LLM judges to evaluate your dataset.
 
 Control evaluation execution and results handling:
 
-```python
+```python linenums="1"
 evaluator.run_judges_async(
     judge_ids=None,              # Which judges to run
     run_id=None,                 # Custom run identifier
@@ -62,21 +62,21 @@ evaluator.run_judges_async(
 
 === "All Judges"
 
-    ```python
+    ```python linenums="1"
     # Run all loaded judges
     judge_ids=None
     ```
 
 === "Single Judge"
 
-    ```python  
+    ```python linenums="1"  
     # Run one specific judge
     judge_ids="gpt_4_judge"
     ```
 
 === "Multiple Judges"
 
-    ```python
+    ```python linenums="1"
     # Run selected judges
     judge_ids=["gpt_4_judge", "claude_judge", "gemini_judge"]
     ```
@@ -93,7 +93,7 @@ run_20250122_143022_a1b2c3d4
 
 Control whether results are saved to your project directory:
 
-```python
+```python linenums="1"
 # Save results to project directory (default)
 save_results=True   # Recommended for persistence
 
@@ -105,7 +105,7 @@ save_results=False  # For testing or temporary evaluation
 
 Specify output format for saved results:
 
-```python
+```python linenums="1"
 results_format="json"     # Default: JSON format
 results_format="csv"      # CSV format
 results_format="parquet"  # Parquet format (efficient for large datasets)
@@ -115,7 +115,7 @@ results_format="parquet"  # Parquet format (efficient for large datasets)
 
 Control re-evaluation of existing results:
 
-```python
+```python linenums="1"
 # Skip judges with existing results (default)
 skip_duplicates=True   # Faster, avoids re-evaluation, saves API costs
 
@@ -140,7 +140,7 @@ my_project/
 
 === "Async Evaluation (Recommended)"
 
-    ```python
+    ```python linenums="1"
     # Fast concurrent processing
     evaluator.run_judges_async()
     ```
@@ -150,7 +150,7 @@ my_project/
 
 === "Synchronous Evaluation"
 
-    ```python
+    ```python linenums="1"
     # Sequential processing
     evaluator.run_judges()
     ```

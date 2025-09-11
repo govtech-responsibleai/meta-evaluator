@@ -8,9 +8,8 @@ from pydantic import BaseModel
 
 from meta_evaluator.data import EvalData, SampleEvalData
 from meta_evaluator.eval_task import EvalTask
-from meta_evaluator.judge.enums import RoleEnum
 from meta_evaluator.judge.judge import Judge
-from meta_evaluator.judge.models import Message, TagConfig
+from meta_evaluator.judge.models import TagConfig
 
 
 class SentimentResponseModel(BaseModel):
@@ -37,7 +36,7 @@ class TestJudgeSyncEvaluation:
         )
 
     @pytest.fixture
-    def instructor_judge(self, instructor_eval_task, sentiment_judge_prompt):
+    def instructor_judge(self, instructor_eval_task, template_sentiment_judge_prompt):
         """Create an instructor judge for testing.
 
         Returns:
@@ -48,7 +47,7 @@ class TestJudgeSyncEvaluation:
             eval_task=instructor_eval_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
     @pytest.fixture
@@ -68,7 +67,7 @@ class TestJudgeSyncEvaluation:
         self,
         mock_supports,
         mock_completion,
-        basic_judge,
+        template_basic_judge,
         basic_eval_data,
         sample_row,
         mock_litellm_response,
@@ -78,10 +77,10 @@ class TestJudgeSyncEvaluation:
         mock_supports.return_value = True
         mock_completion.return_value = mock_litellm_response
 
-        task_class = basic_judge.eval_task.create_task_class()
+        task_class = template_basic_judge.eval_task.create_task_class()
 
         # Test the method
-        basic_judge._evaluate_row_structured(
+        template_basic_judge._evaluate_row_structured(
             row=sample_row,
             eval_data=basic_eval_data,
             sample_example_id="test_1",
@@ -113,14 +112,11 @@ class TestJudgeSyncEvaluation:
         mock_response = SentimentResponseModel(sentiment="positive")
         mock_client.chat.completions.create.return_value = mock_response
 
-        # Create messages
+        # Create messages with template substitution
         system_message = instructor_judge._create_system_message(
-            include_xml_instructions=False
+            row=sample_row, include_xml_instructions=False
         )
-        user_content = instructor_judge._format_row_data(sample_row)
-
-        user_message = Message(role=RoleEnum.USER, content=user_content)
-        messages = [system_message, user_message]
+        messages = [system_message]
 
         task_class = instructor_judge.eval_task.create_task_class()
 
@@ -143,7 +139,7 @@ class TestJudgeSyncEvaluation:
     def test_xml_success(
         self,
         mock_completion,
-        xml_judge,
+        template_xml_judge,
         basic_eval_data,
         sample_row,
         single_row_test_builder,
@@ -160,7 +156,7 @@ class TestJudgeSyncEvaluation:
             )
         ]
 
-        xml_judge._evaluate_row_xml(
+        template_xml_judge._evaluate_row_xml(
             row=sample_row,
             eval_data=basic_eval_data,
             sample_example_id="test_1",
@@ -179,7 +175,7 @@ class TestJudgeSyncEvaluation:
         self,
         mock_supports,
         mock_completion,
-        basic_judge,
+        template_basic_judge,
         basic_eval_data,
         sample_row,
         single_row_test_builder,
@@ -188,10 +184,10 @@ class TestJudgeSyncEvaluation:
         mock_supports.return_value = True
         mock_completion.side_effect = Exception("API Error")
 
-        task_class = basic_judge.eval_task.create_task_class()
+        task_class = template_basic_judge.eval_task.create_task_class()
 
         # Should handle the error gracefully and create an error row
-        basic_judge._evaluate_row_structured(
+        template_basic_judge._evaluate_row_structured(
             row=sample_row,
             eval_data=basic_eval_data,
             sample_example_id="test_1",
@@ -210,7 +206,7 @@ class TestJudgeSyncEvaluation:
     def test_unsupported_format_method_raises_error(
         self,
         mock_supports,
-        basic_judge,
+        template_basic_judge,
         basic_eval_data,
         sample_row,
         single_row_test_builder,
@@ -218,10 +214,10 @@ class TestJudgeSyncEvaluation:
         """Test that unsupported format method raises UnsupportedFormatMethodError."""
         mock_supports.return_value = False  # Model doesn't support structured output
 
-        task_class = basic_judge.eval_task.create_task_class()
+        task_class = template_basic_judge.eval_task.create_task_class()
 
         # Should handle UnsupportedFormatMethodError and create error row
-        basic_judge._evaluate_row_structured(
+        template_basic_judge._evaluate_row_structured(
             row=sample_row,
             eval_data=basic_eval_data,
             sample_example_id="test_1",
@@ -246,7 +242,7 @@ class TestJudgeSyncEvaluation:
         multi_task_eval_task,
         basic_eval_data,
         sample_row,
-        sentiment_judge_prompt,
+        template_sentiment_judge_prompt,
         single_row_test_builder,
     ):
         """Test structured evaluation with partial success - some tasks missing."""
@@ -256,7 +252,7 @@ class TestJudgeSyncEvaluation:
             eval_task=multi_task_eval_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         mock_supports.return_value = True
@@ -294,7 +290,7 @@ class TestJudgeSyncEvaluation:
         multi_task_eval_task,
         basic_eval_data,
         sample_row,
-        sentiment_judge_prompt,
+        template_sentiment_judge_prompt,
         single_row_test_builder,
     ):
         """Test instructor evaluation with partial success."""
@@ -314,7 +310,7 @@ class TestJudgeSyncEvaluation:
             eval_task=instructor_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         # Mock instructor client
@@ -336,11 +332,9 @@ class TestJudgeSyncEvaluation:
 
         # Create messages
         system_message = instructor_judge._create_system_message(
-            include_xml_instructions=False
+            row=sample_row, include_xml_instructions=False
         )
-        user_content = instructor_judge._format_row_data(sample_row)
-        user_message = Message(role=RoleEnum.USER, content=user_content)
-        messages = [system_message, user_message]
+        messages = [system_message]
 
         task_class = instructor_judge.eval_task.create_task_class()
 
@@ -364,7 +358,7 @@ class TestJudgeSyncEvaluation:
         multi_task_eval_task,
         basic_eval_data,
         sample_row,
-        sentiment_judge_prompt,
+        template_sentiment_judge_prompt,
         single_row_test_builder,
     ):
         """Test XML evaluation with partial success."""
@@ -384,7 +378,7 @@ class TestJudgeSyncEvaluation:
             eval_task=xml_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         # Mock response with only sentiment tag, missing toxicity
@@ -426,7 +420,7 @@ class TestJudgeSyncEvaluation:
     # === SKIP FUNCTION TESTS ===
 
     def test_structured_with_skip_function(
-        self, basic_eval_data, sentiment_judge_prompt, single_row_test_builder
+        self, basic_eval_data, template_sentiment_judge_prompt, single_row_test_builder
     ):
         """Test structured evaluation with skip function."""
         # Create task with skip function that skips all rows
@@ -443,7 +437,7 @@ class TestJudgeSyncEvaluation:
             eval_task=skip_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = skip_judge.evaluate_eval_data(basic_eval_data, "test_run")
@@ -453,7 +447,7 @@ class TestJudgeSyncEvaluation:
         assert result.succeeded_count == 0
 
     def test_instructor_with_skip_function(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test instructor evaluation with skip function."""
         # Create instructor task with skip function
@@ -471,7 +465,7 @@ class TestJudgeSyncEvaluation:
             eval_task=skip_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = skip_judge.evaluate_eval_data(basic_eval_data, "test_run")
@@ -480,7 +474,9 @@ class TestJudgeSyncEvaluation:
         assert result.skipped_count == 1
         assert result.total_count == 3
 
-    def test_xml_with_skip_function(self, basic_eval_data, sentiment_judge_prompt):
+    def test_xml_with_skip_function(
+        self, basic_eval_data, template_sentiment_judge_prompt
+    ):
         """Test XML evaluation with skip function."""
         # Create XML task with skip function
         skip_task = EvalTask(
@@ -496,7 +492,7 @@ class TestJudgeSyncEvaluation:
             eval_task=skip_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = skip_judge.evaluate_eval_data(basic_eval_data, "test_run")
@@ -508,7 +504,7 @@ class TestJudgeSyncEvaluation:
     # === SAMPLED EVAL DATA TESTS ===
 
     def test_structured_with_sampled_eval_data(
-        self, sentiment_judge_prompt, single_row_test_builder
+        self, template_sentiment_judge_prompt, single_row_test_builder
     ):
         """Test structured evaluation with SampleEvalData."""
         # Create SampleEvalData
@@ -540,7 +536,7 @@ class TestJudgeSyncEvaluation:
             ),
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = basic_judge.evaluate_eval_data(sampled_data, "test_run")
@@ -552,7 +548,7 @@ class TestJudgeSyncEvaluation:
     # === INVALID CLIENT AND MODEL TESTS ===
 
     def test_invalid_client_triggers_llm_error(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test that invalid client names trigger LLM API errors (actual API call but fails early)."""
         # Create judge with invalid client
@@ -566,7 +562,7 @@ class TestJudgeSyncEvaluation:
             ),
             llm_client="invalid_provider",  # This should trigger an error
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = invalid_client_judge.evaluate_eval_data(basic_eval_data, "test_run")
@@ -577,7 +573,7 @@ class TestJudgeSyncEvaluation:
         assert result.total_count == 3
 
     def test_invalid_model_triggers_llm_error(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test that invalid model names trigger LLM API errors (actual API call but fails early)."""
         # Create judge with invalid model
@@ -591,7 +587,7 @@ class TestJudgeSyncEvaluation:
             ),
             llm_client="openai",
             model="invalid-model-name",  # This should trigger an error
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = invalid_model_judge.evaluate_eval_data(basic_eval_data, "test_run")
@@ -602,7 +598,7 @@ class TestJudgeSyncEvaluation:
         assert result.total_count == 3
 
     def test_invalid_client_instructor_triggers_llm_error(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test that invalid client with instructor method triggers LLM API errors."""
         # Create instructor judge with invalid client
@@ -616,7 +612,7 @@ class TestJudgeSyncEvaluation:
             ),
             llm_client="invalid_provider",  # This should trigger an error
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = invalid_instructor_judge.evaluate_eval_data(
@@ -629,7 +625,7 @@ class TestJudgeSyncEvaluation:
         assert result.total_count == 3
 
     def test_invalid_model_xml_triggers_llm_error(
-        self, basic_eval_data, sentiment_judge_prompt
+        self, basic_eval_data, template_sentiment_judge_prompt
     ):
         """Test that invalid model with XML method triggers LLM API errors."""
         # Create XML judge with invalid model
@@ -643,7 +639,7 @@ class TestJudgeSyncEvaluation:
             ),
             llm_client="openai",
             model="invalid-xml-model",  # This should trigger an error
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         result = invalid_xml_judge.evaluate_eval_data(basic_eval_data, "test_run")
@@ -655,7 +651,7 @@ class TestJudgeSyncEvaluation:
 
     # === EDGE CASE TESTS ===
 
-    def test_empty_dataset_with_skip_all(self, sentiment_judge_prompt):
+    def test_empty_dataset_with_skip_all(self, template_sentiment_judge_prompt):
         """Test evaluation with dataset where all rows are skipped (simulates empty dataset)."""
         # Create task that skips all rows
         skip_all_task = EvalTask(
@@ -671,7 +667,7 @@ class TestJudgeSyncEvaluation:
             eval_task=skip_all_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         # Create minimal data (since empty DataFrames aren't allowed)
@@ -688,7 +684,7 @@ class TestJudgeSyncEvaluation:
         assert result.succeeded_count == 0
         assert result.total_count == 1
 
-    def test_free_form_outputs(self, sentiment_judge_prompt):
+    def test_free_form_outputs(self, template_sentiment_judge_prompt):
         """Test evaluation with free form outputs (mixed predefined and free form tasks)."""
         # Create task with mixed schemas (predefined and free form)
         free_form_task = EvalTask(
@@ -707,7 +703,7 @@ class TestJudgeSyncEvaluation:
             eval_task=free_form_task,
             llm_client="openai",
             model="gpt-4",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         # Test task class creation works with mixed types
@@ -740,7 +736,7 @@ class TestJudgeSyncEvaluation:
         mock_supports,
         mock_instructor,
         mock_completion,
-        sentiment_judge_prompt,
+        template_sentiment_judge_prompt,
         basic_eval_data,
         sample_row,
         single_row_test_builder,
@@ -762,7 +758,7 @@ class TestJudgeSyncEvaluation:
             eval_task=fallback_task,
             llm_client="mock_client",
             model="mock_model",
-            prompt=sentiment_judge_prompt,
+            prompt=template_sentiment_judge_prompt,
         )
 
         # 1. Mock supports_response_schema to raise UnsupportedFormatMethodError

@@ -6,11 +6,11 @@ Load your evaluation dataset using the DataLoader for multiple file formats. Eva
 
 === "CSV"
 
-    ```python
+    ```python linenums="1" hl_lines="3"
     from meta_evaluator.data import DataLoader
     
     data = DataLoader.load_csv(
-        id_column="example_id"  # Optional - auto-generated if not provided
+        id_column="example_id",  # Optional - auto-generated if not provided
         name="my_evaluation",
         file_path="my_data.csv",
     )
@@ -18,11 +18,11 @@ Load your evaluation dataset using the DataLoader for multiple file formats. Eva
 
 === "JSON"
 
-    ```python
+    ```python linenums="1" hl_lines="3"
     from meta_evaluator.data import DataLoader
     
     data = DataLoader.load_json(
-        id_column="example_id"
+        id_column="example_id",
         name="my_evaluation",
         file_path="my_data.json", 
     )
@@ -30,11 +30,11 @@ Load your evaluation dataset using the DataLoader for multiple file formats. Eva
 
 === "Parquet"
 
-    ```python
+    ```python linenums="1" hl_lines="3"
     from meta_evaluator.data import DataLoader
     
     data = DataLoader.load_parquet(
-        id_column="example_id"
+        id_column="example_id",
         name="my_evaluation", 
         file_path="my_data.parquet",
     )
@@ -42,7 +42,7 @@ Load your evaluation dataset using the DataLoader for multiple file formats. Eva
 
 === "DataFrame"
 
-    ```python
+    ```python linenums="1" hl_lines="9"
     import polars as pl
     from meta_evaluator.data import DataLoader
     
@@ -52,7 +52,7 @@ Load your evaluation dataset using the DataLoader for multiple file formats. Eva
     })
     
     data = DataLoader.load_from_dataframe(
-        id_column=None  # Auto-generate IDs
+        id_column=None,  # Auto-generate IDs
         name="my_evaluation",
         data=df,
     )
@@ -62,22 +62,19 @@ Load your evaluation dataset using the DataLoader for multiple file formats. Eva
 
 Your data must match the columns specified in your EvalTask:
 
-```python
+```python linenums="1"
 # If your EvalTask has:
 task = EvalTask(
     prompt_columns=["user_input"],
     response_columns=["llm_response"], 
     # ...
 )
-
 # Your CSV must contain these columns:
+# user_input,llm_response
+# "What is 2+2?","The answer is 4"
+# "Hello there","Hi! How can I help you?"
 ```
 
-```csv
-user_input,llm_response
-"What is 2+2?","The answer is 4"
-"Hello there","Hi! How can I help you?"
-```
 
 ## Arguments
 
@@ -85,17 +82,17 @@ user_input,llm_response
 
 The `id_column` uniquely identifies each example:
 
-```python
+```python linenums="1"
 # Option 1: Use existing ID column
 data = DataLoader.load_csv(
-    id_column="example_id"  # Must exist in your CSV
+    id_column="example_id",  # Must exist in your CSV
     name="eval",
     file_path="data.csv",
 )
 
 # Option 2: Auto-generate IDs (recommended for simple datasets)
 data = DataLoader.load_csv(
-    id_column=None  # Creates "id" column: ["id-1", "id-2", "id-3", ...]
+    id_column=None,  # Creates "id" column: ["id-1", "id-2", "id-3", ...]
     name="eval",
     file_path="data.csv", 
 )
@@ -105,7 +102,7 @@ data = DataLoader.load_csv(
 
 The `name` parameter provides a human-readable identifier for your dataset:
 
-```python
+```python linenums="1"
 data = DataLoader.load_csv(
     name="customer_feedback_evaluation",  # Descriptive name
     file_path="data.csv"
@@ -121,7 +118,7 @@ data = DataLoader.load_csv(
 
 The `file_path` specifies the location of your data file:
 
-```python
+```python linenums="1"
 # Relative paths (relative to current working directory)
 data = DataLoader.load_csv(
     name="eval",
@@ -140,7 +137,7 @@ data = DataLoader.load_csv(
 
 Create a representative sample that preserves data distribution. 
 
-```python
+```python linenums="1"
 # Sample 20% while preserving topic distribution
 sample_data = data.stratified_sample_by_columns(
     columns=["topic", "difficulty"], 

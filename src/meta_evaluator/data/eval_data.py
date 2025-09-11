@@ -23,7 +23,6 @@ from .exceptions import (
     InvalidInIDColumnError,
     InvalidNameError,
     NoDataLeftError,
-    NullValuesInDataError,
 )
 from .serialization import DataMetadata
 
@@ -271,7 +270,6 @@ class EvalData(BaseModel):
             InvalidInIDColumnError: If the ID column contains null or invalid values.
             DuplicateInIDColumnError: If the ID column contains duplicate values.
             RuntimeError: If the ID column is not set at this point or if there is a bug in the automatic id setting pipeline.
-            NullValuesInDataError: If any non-ID columns contain null values.
 
         """
         # Step 1: Ensure ID column is set
@@ -371,25 +369,8 @@ class EvalData(BaseModel):
         for col in non_id_columns:
             self.check_single_column_name(col)
 
-        # Check for nulls in all non-ID columns
-        null_issues = []
-        for col in non_id_columns:
-            col_null_mask = self.data[col].is_null()
-            if col_null_mask.any():
-                null_rows = (
-                    self.data.with_row_index("row_idx")
-                    .filter(col_null_mask)
-                    .select("row_idx")
-                    .to_series()
-                    .to_list()
-                )
-                coordinates = [(row, col) for row in null_rows]
-                null_issues.append(
-                    f"Column '{col}' has null values at rows {null_rows} (coordinates: {coordinates})"
-                )
-
-        if null_issues:
-            raise NullValuesInDataError(null_issues)
+        # Note: Null value checks for non-ID columns have been moved to MetaEvaluator
+        # to allow task-specific validation only on required columns
 
         # Check for empty/whitespace strings in non-ID columns (log only)
         string_columns = [

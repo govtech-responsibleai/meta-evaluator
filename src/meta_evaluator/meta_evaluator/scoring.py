@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple
 
 if TYPE_CHECKING:
     from .base import Paths
@@ -14,6 +16,11 @@ from ..common.async_utils import sync_wrapper
 from ..data import EvalData
 from ..eval_task import EvalTask
 from ..results import HumanAnnotationResults, JudgeResults
+from ..results.enums import EvaluationStatusEnum, HumanAnnotationStatusEnum
+from ..results.serialization import (
+    HumanAnnotationResultsSerializedState,
+    JudgeResultsSerializedState,
+)
 from ..scores import BaseScoringResult, MetricConfig, MetricsConfig
 from ..scores.enums import TaskAggregationMode
 from .exceptions import (
@@ -67,7 +74,9 @@ class ScoringMixin:
         """Initialize scoring mixin."""
         super().__init__(*args, **kwargs)
 
-    # ===== RESULTS LOADING METHODS =====
+    ##########################################################
+    # RESULTS LOADING METHODS
+    ##########################################################
 
     def load_all_judge_results(self) -> Dict[str, JudgeResults]:
         """Load all judge results from the project's results directory.
@@ -770,3 +779,334 @@ class ScoringMixin:
         )
 
         return results
+
+    ##########################################################
+    # EXTERNAL RESULTS LOADING METHODS
+    ##########################################################
+
+    def add_external_judge_results(
+        self,
+        file_path: str,
+        judge_id: str,
+        llm_client: str = "external",
+        model_used: str = "unknown",
+        run_id: Optional[str] = None,
+        data_format: Optional[Literal["json", "csv", "parquet"]] = None,
+        **metadata_kwargs,
+    ) -> None:
+        """Add judge results from external data source to the project.
+
+        By default assumes all results are successful. Provide specific counts
+        via metadata_kwargs if your data has failures (e.g. succeeded_count=80,
+        llm_error_count=5, etc.).
+
+        Args:
+            file_path: Path to data file containing results
+            judge_id: Unique identifier for the judge
+            llm_client: LLM provider used (defaults to "external")
+            model_used: Model name used (defaults to "unknown")
+            run_id: Unique run identifier (auto-generated if None)
+            data_format: Format of file (auto-detected from extension if None)
+            **metadata_kwargs: Additional metadata including status counts
+
+        Raises:
+            ValueError: If eval_task is not set or if file format cannot be detected/validated
+        """
+        # 1. Validate prerequisites
+        if self.eval_task is None:
+            raise ValueError("eval_task must be set before importing external results")
+
+        # 2. Load DataFrame from file
+        detected_format = self._extract_data_format(file_path, data_format)
+        df = EvalData.load_data(file_path, detected_format)
+
+        # 3. Validate and prepare results data (for JudgeResultRow schema)
+        actual_run_id = run_id or self._generate_run_id()
+        df = self._validate_judge_results_data(
+            df, judge_id, actual_run_id, **metadata_kwargs
+        )
+
+        # 4. Extract status counts from metadata_kwargs (default: all imported)
+        total_count = len(df)
+        status_counts = {
+            "succeeded_count": metadata_kwargs.get("succeeded_count", total_count),
+            "skipped_count": metadata_kwargs.get("skipped_count", 0),
+            "partial_count": metadata_kwargs.get("partial_count", 0),
+            "llm_error_count": metadata_kwargs.get("llm_error_count", 0),
+            "parsing_error_count": metadata_kwargs.get("parsing_error_count", 0),
+            "other_error_count": metadata_kwargs.get("other_error_count", 0),
+        }
+
+        # 5. Create serialized state
+        state = JudgeResultsSerializedState(
+            run_id=actual_run_id,
+            judge_id=judge_id,
+            task_schemas=self.eval_task.task_schemas,
+            llm_client=llm_client,
+            model_used=model_used,
+            timestamp_local=datetime.now(),
+            total_count=total_count,
+            **status_counts,
+            is_sampled_run=False,
+            data_file="",  # Not applicable for external
+            data_format=detected_format,
+            **{k: v for k, v in metadata_kwargs.items() if k not in status_counts},
+        )
+
+        # 6. Use existing deserialize method
+        judge_results = JudgeResults.deserialize(df, state)
+
+        # 7. Always save to project
+        save_path = (
+            self.paths.results
+            / f"{judge_results.run_id}_{judge_results.judge_id}_external_state.json"
+        )
+        self.paths.results.mkdir(exist_ok=True)
+        judge_results.save_state(str(save_path))
+
+        self.logger.info(f"Added external judge results for '{judge_id}' to project")
+
+    def add_external_annotation_results(
+        self,
+        file_path: str,
+        annotator_id: str,
+        run_id: Optional[str] = None,
+        data_format: Optional[Literal["json", "csv", "parquet"]] = None,
+        **metadata_kwargs,
+    ) -> None:
+        """Add human annotation results from external data source to the project.
+
+        By default assumes all results are successful. Provide specific counts
+        via metadata_kwargs if your data has failures (e.g. succeeded_count=80,
+        error_count=5).
+
+        Args:
+            file_path: Path to data file containing results
+            annotator_id: Unique identifier for the annotator
+            run_id: Unique run identifier (auto-generated if None)
+            data_format: Format of file (auto-detected from extension if None)
+            **metadata_kwargs: Additional metadata including status counts
+
+        Raises:
+            ValueError: If eval_task is not set or if file format cannot be detected/validated
+        """
+        # 1. Validate prerequisites
+        if self.eval_task is None:
+            raise ValueError("eval_task must be set before importing external results")
+
+        # 2. Load DataFrame from file
+        detected_format = self._extract_data_format(file_path, data_format)
+        df = EvalData.load_data(file_path, detected_format)
+
+        # 3. Validate and prepare results data (for HumanAnnotationResultRow schema)
+        actual_run_id = run_id or self._generate_run_id()
+        df = self._validate_annotation_results_data(
+            df, annotator_id, actual_run_id, **metadata_kwargs
+        )
+
+        # 4. Extract status counts from metadata_kwargs (default: all success)
+        total_count = len(df)
+        status_counts = {
+            "succeeded_count": metadata_kwargs.get("succeeded_count", total_count),
+            "error_count": metadata_kwargs.get("error_count", 0),
+        }
+
+        # 5. Create serialized state
+        state = HumanAnnotationResultsSerializedState(
+            run_id=actual_run_id,
+            annotator_id=annotator_id,
+            task_schemas=self.eval_task.task_schemas,
+            timestamp_local=datetime.now(),
+            total_count=total_count,
+            is_sampled_run=False,
+            data_file="",  # Not applicable for external
+            data_format=detected_format,
+            **status_counts,
+            **{k: v for k, v in metadata_kwargs.items() if k not in status_counts},
+        )
+
+        # 6. Use existing deserialize method
+        human_results = HumanAnnotationResults.deserialize(df, state)
+
+        # 7. Always save to project
+        save_path = (
+            self.paths.annotations
+            / f"{human_results.run_id}_{human_results.annotator_id}_external_metadata.json"
+        )
+        self.paths.annotations.mkdir(exist_ok=True)
+        human_results.save_state(str(save_path))
+
+        self.logger.info(
+            f"Added external human results for '{annotator_id}' to project"
+        )
+
+    # ===== HELPER METHODS FOR EXTERNAL RESULTS =====
+
+    def _extract_data_format(
+        self, file_path: str, data_format: Optional[str]
+    ) -> Literal["json", "csv", "parquet"]:
+        """Extract or validate data format for external files.
+
+        Args:
+            file_path: Path to the external file
+            data_format: Optional data format override
+
+        Returns:
+            The validated data format (json, csv, or parquet)
+
+        Raises:
+            ValueError: If format cannot be auto-detected or is unsupported
+        """
+        if data_format is None:
+            # Auto-detect from file extension
+            if file_path.endswith(".csv"):
+                return "csv"
+            elif file_path.endswith(".json"):
+                return "json"
+            elif file_path.endswith(".parquet"):
+                return "parquet"
+            else:
+                raise ValueError(
+                    f"Cannot auto-detect format for {file_path}. Specify data_format."
+                )
+        else:
+            # Validate provided format
+            if data_format not in ["json", "csv", "parquet"]:
+                raise ValueError(f"Unsupported format: {data_format}")
+            return data_format  # type: ignore
+
+    def _validate_judge_results_data(
+        self, df: pl.DataFrame, judge_id: str, run_id: str, **metadata_kwargs
+    ) -> pl.DataFrame:
+        """Validate and prepare results data for JudgeResultRow schema.
+
+        Args:
+            df: DataFrame to validate and prepare
+            judge_id: Judge identifier
+            run_id: Run identifier
+            **metadata_kwargs: Additional metadata
+
+        Returns:
+            pl.DataFrame: DataFrame with all required JudgeResultRow columns
+
+        Raises:
+            ValueError: If required columns are missing
+        """
+        # For external data import, users only need to provide original_id and task columns
+        # We auto-generate the system-required columns from function parameters
+        assert self.eval_task is not None  # Already validated in calling method
+        required_cols = [
+            "original_id",  # Only require original_id from user
+        ] + list(self.eval_task.task_schemas.keys())
+
+        missing_cols = set(required_cols) - set(df.columns)
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+
+        # Auto-generate system columns from function parameters
+        # sample_example_id: Originally was a per-run unique identifier (e.g. "sample_1", "sample_2")
+        # For imported external data, we simplify by setting it equal to original_id
+        if "sample_example_id" not in df.columns:
+            df = df.with_columns(pl.col("original_id").alias("sample_example_id"))
+
+        # run_id: Use the run_id parameter passed to add_external_judge_results()
+        if "run_id" not in df.columns:
+            df = df.with_columns(pl.lit(run_id).alias("run_id"))
+
+        # judge_id: Use the judge_id parameter passed to add_external_judge_results()
+        if "judge_id" not in df.columns:
+            df = df.with_columns(pl.lit(judge_id).alias("judge_id"))
+
+        # Add missing fields (status/error + LLM diagnostic fields) - all None for external data
+        # Set status to SUCCESS for all imported external data
+        if "status" not in df.columns:
+            df = df.with_columns(
+                pl.lit(EvaluationStatusEnum.SUCCESS.value).alias("status")
+            )
+
+        missing_fields = [
+            ("error_message", pl.String),
+            ("error_details_json", pl.String),
+            ("llm_raw_response_content", pl.String),
+            ("llm_prompt_tokens", pl.Int64),
+            ("llm_completion_tokens", pl.Int64),
+            ("llm_total_tokens", pl.Int64),
+            ("llm_call_duration_seconds", pl.Float64),
+        ]
+
+        for field_name, field_type in missing_fields:
+            if field_name not in df.columns:
+                df = df.with_columns(pl.lit(None, dtype=field_type).alias(field_name))
+
+        return df
+
+    def _validate_annotation_results_data(
+        self, df: pl.DataFrame, annotator_id: str, run_id: str, **metadata_kwargs
+    ) -> pl.DataFrame:
+        """Validate and prepare results data for HumanAnnotationResultRow schema.
+
+        Args:
+            df: DataFrame to validate and prepare
+            annotator_id: Annotator identifier
+            run_id: Run identifier
+            **metadata_kwargs: Additional metadata
+
+        Returns:
+            pl.DataFrame: DataFrame with all required HumanAnnotationResultRow columns
+
+        Raises:
+            ValueError: If required columns are missing
+        """
+        # For external data import, users only need to provide original_id and task columns
+        # We auto-generate the system-required columns from function parameters
+        assert self.eval_task is not None  # Already validated in calling method
+        required_cols = [
+            "original_id",  # Only require original_id from user
+        ] + list(self.eval_task.task_schemas.keys())
+
+        missing_cols = set(required_cols) - set(df.columns)
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+
+        # Auto-generate system columns from function parameters
+        # sample_example_id: Originally was a per-run unique identifier (e.g. "sample_1", "sample_2")
+        # For imported external data, we simplify by setting it equal to original_id
+        if "sample_example_id" not in df.columns:
+            df = df.with_columns(pl.col("original_id").alias("sample_example_id"))
+
+        # run_id: Use the run_id parameter passed to add_external_annotation_results()
+        if "run_id" not in df.columns:
+            df = df.with_columns(pl.lit(run_id).alias("run_id"))
+
+        # annotator_id: Use the annotator_id parameter passed to add_external_annotation_results()
+        if "annotator_id" not in df.columns:
+            df = df.with_columns(pl.lit(annotator_id).alias("annotator_id"))
+
+        # Add missing fields (status/error + annotation diagnostic) - all None for external data
+        # Set status to SUCCESS for all imported external data
+        if "status" not in df.columns:
+            df = df.with_columns(
+                pl.lit(HumanAnnotationStatusEnum.SUCCESS.value).alias("status")
+            )
+
+        missing_fields = [
+            ("error_message", pl.String),
+            ("error_details_json", pl.String),
+            ("annotation_timestamp", pl.Datetime),
+        ]
+
+        for field_name, field_type in missing_fields:
+            if field_name not in df.columns:
+                df = df.with_columns(pl.lit(None, dtype=field_type).alias(field_name))
+
+        return df
+
+    def _generate_run_id(self) -> str:
+        """Generate unique run ID for external results.
+
+        Returns:
+            A unique run ID string with timestamp and UUID
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        short_uuid = str(uuid.uuid4())[:8]
+        return f"external_{timestamp}_{short_uuid}"

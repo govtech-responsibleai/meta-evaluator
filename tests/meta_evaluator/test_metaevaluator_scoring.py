@@ -1,6 +1,7 @@
 """Tests for ScoringMixin data processing functionality."""
 
 import asyncio
+import json
 import os
 import shutil
 from datetime import datetime
@@ -76,19 +77,10 @@ class TestDataProcessing:
         assert judge_df.is_empty()
         assert human_df.is_empty()
 
-    def test_preprocess_task_data_single(self, mock_evaluator):
+    def test_preprocess_task_data_single(self, mock_evaluator, simple_task_data):
         """Test preprocessing data for single task."""
-        judge_df = pl.DataFrame(
-            {"original_id": ["1", "2", "3"], "task1": ["A", "B", "A"]}
-        )
-
-        human_df = pl.DataFrame(
-            {
-                "original_id": ["1", "2", "3"],
-                "human_id": ["human_1", "human_1", "human_1"],
-                "task1": ["A", "B", "A"],
-            }
-        )
+        judge_df = simple_task_data["judge"]
+        human_df = simple_task_data["human"]
 
         processed_judge, processed_human = mock_evaluator._preprocess_task_data(
             judge_df, human_df, ["task1"], TaskAggregationMode.SINGLE
@@ -436,6 +428,324 @@ class TestResultsLoading:
             assert "skipping: ['run_001']" in caplog.text
 
 
+class TestExternalResultsLoading:
+    """Test external judge and human results loading functionality."""
+
+    # ===== Judge Results =====
+
+    @pytest.mark.parametrize("data_format", ["json", "csv", "parquet"])
+    def test_judge_results_file_format_success(
+        self, evaluator_with_task, valid_judge_data, tmp_path, data_format
+    ):
+        """Test successfully loading judge results from different file formats."""
+        file_path = tmp_path / f"judge_results.{data_format}"
+
+        # Write data in specified format
+        if data_format == "json":
+            valid_judge_data.write_json(file_path)
+        elif data_format == "csv":
+            valid_judge_data.write_csv(file_path)
+        elif data_format == "parquet":
+            valid_judge_data.write_parquet(file_path)
+
+        judge_id = f"external_judge_{data_format}"
+
+        # Load external results
+        evaluator_with_task.add_external_judge_results(
+            file_path=str(file_path),
+            judge_id=judge_id,
+            llm_client="test_client",
+            model_used="test_model",
+        )
+
+        # Verify results were saved to project directory
+        results_dir = Path(evaluator_with_task.project_dir) / "results"
+        assert results_dir.exists()
+
+        # Check that state file was created
+        state_files = list(results_dir.glob(f"*_{judge_id}_external_state.json"))
+        assert len(state_files) == 1
+
+        # Verify we can load the results back
+        all_results = evaluator_with_task.load_all_judge_results()
+        assert len(all_results) == 1
+
+        # Verify data integrity
+        result = list(all_results.values())[0]
+        assert result.judge_id == judge_id
+        successful_results = result.get_successful_results()
+        assert len(successful_results) == 3
+        assert "sentiment" in successful_results.columns
+        assert "quality" in successful_results.columns
+
+    def test_add_external_judge_results_integration(
+        self, evaluator_with_task, valid_judge_data, tmp_path
+    ):
+        """Test that add_external_judge_results leads to successful load_all_judge_results() call."""
+        csv_path = tmp_path / "judge_results.csv"
+        valid_judge_data.write_csv(csv_path)
+
+        judge_id = "integration_test_judge"
+
+        # Add external results
+        evaluator_with_task.add_external_judge_results(
+            file_path=str(csv_path),
+            judge_id=judge_id,
+            llm_client="test_client",
+            model_used="test_model",
+        )
+
+        # Verify the file is found in project_dir
+        results_dir = Path(evaluator_with_task.project_dir) / "results"
+        state_files = list(results_dir.glob(f"*_{judge_id}_external_state.json"))
+        assert len(state_files) == 1
+
+        # Verify state file has correct structure
+        with open(state_files[0]) as f:
+            state_data = json.load(f)
+        assert state_data["judge_id"] == judge_id
+        assert state_data["llm_client"] == "test_client"
+        assert state_data["model_used"] == "test_model"
+
+        # Test successful load_all_judge_results() call
+        all_results = evaluator_with_task.load_all_judge_results()
+        assert len(all_results) == 1
+
+        result = list(all_results.values())[0]
+        assert result.judge_id == judge_id
+        assert result.llm_client == "test_client"
+        assert result.model_used == "test_model"
+        assert result.total_count == 3
+
+    @pytest.mark.parametrize(
+        "columns_to_remove,test_description",
+        [
+            (["original_id"], "missing original_id column"),
+            (["sentiment"], "missing task column"),
+            (["sentiment", "quality"], "missing multiple task columns"),
+            (
+                ["original_id", "sentiment"],
+                "missing multiple required columns",
+            ),
+        ],
+    )
+    def test_validate_judge_results_data_required_columns(
+        self,
+        evaluator_with_task,
+        valid_judge_data,
+        tmp_path,
+        columns_to_remove,
+        test_description,
+    ):
+        """Test that missing required columns throw appropriate errors."""
+        # Remove specified columns from valid data
+        invalid_data = valid_judge_data.drop(columns_to_remove)
+
+        csv_path = tmp_path / "invalid_judge_results.csv"
+        invalid_data.write_csv(csv_path)
+
+        with pytest.raises(ValueError, match="Missing required columns"):
+            evaluator_with_task.add_external_judge_results(
+                file_path=str(csv_path), judge_id="invalid_judge"
+            )
+
+    def test_validate_judge_results_data_missing_fields(
+        self, evaluator_with_task, valid_judge_data, tmp_path
+    ):
+        """Test that optional fields are auto-generated when missing from user CSV."""
+        # The simplified valid_judge_data already only has required fields
+        # Test that system fields are auto-generated properly
+        csv_path = tmp_path / "minimal_judge_results.csv"
+        valid_judge_data.write_csv(csv_path)
+
+        # Should not raise an error
+        evaluator_with_task.add_external_judge_results(
+            file_path=str(csv_path),
+            judge_id="minimal_judge",
+            llm_client="test_client",
+            model_used="test_model",
+        )
+
+        # Verify results were processed correctly
+        all_results = evaluator_with_task.load_all_judge_results()
+        result = list(all_results.values())[0]
+
+        # Check that DataFrame has all expected columns
+        results_df = result.results_data
+
+        # Status should be set to "success" for all external data
+        assert "status" in results_df.columns
+        assert (results_df["status"] == "success").all()
+
+        # Other optional fields should be filled with None
+        expected_none_columns = [
+            "error_message",
+            "error_details_json",
+            "llm_raw_response_content",
+            "llm_prompt_tokens",
+            "llm_completion_tokens",
+            "llm_total_tokens",
+            "llm_call_duration_seconds",
+        ]
+
+        for col in expected_none_columns:
+            assert col in results_df.columns
+            # Verify that the column contains only None values
+            assert results_df[col].is_null().all()
+
+    # ===== Human Results =====
+
+    @pytest.mark.parametrize("data_format", ["json", "csv", "parquet"])
+    def test_human_results_file_format_success(
+        self, evaluator_with_task, valid_human_data, tmp_path, data_format
+    ):
+        """Test successfully loading human results from different file formats."""
+        file_path = tmp_path / f"human_results.{data_format}"
+
+        # Write data in specified format
+        if data_format == "json":
+            valid_human_data.write_json(file_path)
+        elif data_format == "csv":
+            valid_human_data.write_csv(file_path)
+        elif data_format == "parquet":
+            valid_human_data.write_parquet(file_path)
+
+        annotator_id = f"external_annotator_{data_format}"
+
+        # Load external results
+        evaluator_with_task.add_external_annotation_results(
+            file_path=str(file_path),
+            annotator_id=annotator_id,
+        )
+
+        # Verify results were saved to project directory
+        annotations_dir = Path(evaluator_with_task.project_dir) / "annotations"
+        assert annotations_dir.exists()
+
+        # Check that metadata file was created
+        metadata_files = list(
+            annotations_dir.glob(f"*_{annotator_id}_external_metadata.json")
+        )
+        assert len(metadata_files) == 1
+
+        # Verify we can load the results back
+        all_results = evaluator_with_task.load_all_human_results()
+        assert len(all_results) == 1
+
+        # Verify data integrity
+        result = list(all_results.values())[0]
+        assert result.annotator_id == annotator_id
+        successful_results = result.get_successful_results()
+        assert len(successful_results) == 3
+        assert "sentiment" in successful_results.columns
+        assert "quality" in successful_results.columns
+
+    def test_add_external_annotation_results_integration(
+        self, evaluator_with_task, valid_human_data, tmp_path
+    ):
+        """Test that add_external_annotation_results leads to successful load_all_human_results() call."""
+        csv_path = tmp_path / "human_results.csv"
+        valid_human_data.write_csv(csv_path)
+
+        annotator_id = "integration_test_annotator"
+
+        # Add external results
+        evaluator_with_task.add_external_annotation_results(
+            file_path=str(csv_path),
+            annotator_id=annotator_id,
+        )
+
+        # Verify the file is found in project_dir
+        annotations_dir = Path(evaluator_with_task.project_dir) / "annotations"
+        metadata_files = list(
+            annotations_dir.glob(f"*_{annotator_id}_external_metadata.json")
+        )
+        assert len(metadata_files) == 1
+
+        # Verify metadata file has correct structure
+        with open(metadata_files[0]) as f:
+            metadata = json.load(f)
+        assert metadata["annotator_id"] == annotator_id
+
+        # Test successful load_all_human_results() call
+        all_results = evaluator_with_task.load_all_human_results()
+        assert len(all_results) == 1
+
+        result = list(all_results.values())[0]
+        assert result.annotator_id == annotator_id
+        assert result.total_count == 3
+
+    @pytest.mark.parametrize(
+        "columns_to_remove,test_description",
+        [
+            (["original_id"], "missing original_id column"),
+            (["sentiment"], "missing task column"),
+            (["sentiment", "quality"], "missing multiple task columns"),
+            (
+                ["original_id", "sentiment"],
+                "missing multiple required columns",
+            ),
+        ],
+    )
+    def test_validate_annotation_results_data_required_columns(
+        self,
+        evaluator_with_task,
+        valid_human_data,
+        tmp_path,
+        columns_to_remove,
+        test_description,
+    ):
+        """Test that missing required columns throw appropriate errors."""
+        # Remove specified columns from valid data
+        invalid_data = valid_human_data.drop(columns_to_remove)
+
+        csv_path = tmp_path / "invalid_human_results.csv"
+        invalid_data.write_csv(csv_path)
+
+        with pytest.raises(ValueError, match="Missing required columns"):
+            evaluator_with_task.add_external_annotation_results(
+                file_path=str(csv_path), annotator_id="invalid_annotator"
+            )
+
+    def test_validate_annotation_results_data_missing_fields(
+        self, evaluator_with_task, valid_human_data, tmp_path
+    ):
+        """Test that optional fields are auto-generated when missing from user CSV."""
+        # The simplified valid_human_data already only has required fields
+        # Test that system fields are auto-generated properly
+        csv_path = tmp_path / "minimal_human_results.csv"
+        valid_human_data.write_csv(csv_path)
+
+        # Should not raise an error
+        evaluator_with_task.add_external_annotation_results(
+            file_path=str(csv_path),
+            annotator_id="minimal_annotator",
+        )
+
+        # Verify results were processed correctly
+        all_results = evaluator_with_task.load_all_human_results()
+        result = list(all_results.values())[0]
+
+        # Check that DataFrame has all expected columns
+        results_df = result.results_data
+
+        # Status should be set to "success" for all external data
+        assert "status" in results_df.columns
+        assert (results_df["status"] == "success").all()
+
+        # Other optional fields should be filled with None
+        expected_none_columns = [
+            "error_message",
+            "error_details_json",
+            "annotation_timestamp",
+        ]
+
+        for col in expected_none_columns:
+            assert col in results_df.columns
+            # Verify that the column contains only None values
+            assert results_df[col].is_null().all()
+
+
 class TestScoring:
     """Test the ScoringMixin methods."""
 
@@ -509,44 +819,12 @@ class TestScoring:
         assert "task1" in judge_df.columns
         assert "task1" in human_df.columns
 
-    def test_preprocess_task_data_single(self, mock_evaluator):
-        """Test _preprocess_task_data for TaskAggregationMode.SINGLE - right columns left."""
-        judge_df = pl.DataFrame(
-            {"original_id": ["1", "2", "3"], "task1": ["A", "B", "A"]}
-        )
-
-        human_df = pl.DataFrame(
-            {
-                "original_id": ["1", "2", "3"],
-                "human_id": ["human_1", "human_1", "human_1"],
-                "task1": ["A", "B", "A"],
-            }
-        )
-
-        processed_judge, processed_human = mock_evaluator._preprocess_task_data(
-            judge_df, human_df, ["task1"], TaskAggregationMode.SINGLE
-        )
-
-        # Should rename task column to "label"
-        assert "label" in processed_judge.columns
-        assert "label" in processed_human.columns
-        assert processed_judge["label"].to_list() == ["A", "B", "A"]
-        assert processed_human["label"].to_list() == ["A", "B", "A"]
-
-    def test_preprocess_task_data_multilabel(self, mock_evaluator):
+    def test_preprocess_task_data_multilabel(
+        self, mock_evaluator, multilabel_task_data
+    ):
         """Test _preprocess_task_data for TaskAggregationMode.MULTILABEL aggregates the columns."""
-        judge_df = pl.DataFrame(
-            {"original_id": ["1", "2"], "task1": ["A", "B"], "task2": ["X", "Y"]}
-        )
-
-        human_df = pl.DataFrame(
-            {
-                "original_id": ["1", "2"],
-                "human_id": ["human_1", "human_1"],
-                "task1": ["A", "B"],
-                "task2": ["X", "Y"],
-            }
-        )
+        judge_df = multilabel_task_data["judge"]
+        human_df = multilabel_task_data["human"]
 
         processed_judge, processed_human = mock_evaluator._preprocess_task_data(
             judge_df, human_df, ["task1", "task2"], TaskAggregationMode.MULTILABEL

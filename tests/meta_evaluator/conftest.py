@@ -775,3 +775,124 @@ def different_scorer_configs():
     configs["alt_test_single"] = (alt_test_config, alt_test_results)
 
     return configs
+
+
+# ==== EXTERNAL RESULTS LOADING FIXTURES ====
+
+
+@pytest.fixture
+def evaluator_with_task(tmp_path):
+    """Create evaluator with task for external results testing.
+
+    Returns:
+        MetaEvaluator: Configured evaluator for external results testing.
+    """
+    from meta_evaluator.eval_task import EvalTask
+    from meta_evaluator.meta_evaluator import MetaEvaluator
+
+    # Create evaluator with tmp project dir
+    evaluator = MetaEvaluator(project_dir=str(tmp_path / "test_project"), load=False)
+
+    # Add eval task
+    task = EvalTask(
+        task_schemas={
+            "sentiment": ["positive", "negative", "neutral"],
+            "quality": ["high", "medium", "low"],
+        },
+        prompt_columns=["question"],
+        response_columns=["answer"],
+        answering_method="structured",
+    )
+    evaluator.add_eval_task(task)
+
+    return evaluator
+
+
+@pytest.fixture
+def valid_judge_data():
+    """Create valid judge results data for testing.
+
+    Now only requires user-provided columns as system columns are auto-generated.
+
+    Returns:
+        pl.DataFrame: Valid judge results data with only required user columns.
+    """
+    import polars as pl
+
+    return pl.DataFrame(
+        {
+            "original_id": [1, 2, 3],  # Only user-required column
+            "sentiment": ["positive", "negative", "neutral"],  # Task columns
+            "quality": ["high", "medium", "low"],  # Task columns
+        }
+    )
+
+
+@pytest.fixture
+def valid_human_data():
+    """Create valid human results data for testing.
+
+    Now only requires user-provided columns as system columns are auto-generated.
+
+    Returns:
+        pl.DataFrame: Valid human results data with only required user columns.
+    """
+    import polars as pl
+
+    return pl.DataFrame(
+        {
+            "original_id": [1, 2, 3],  # Only user-required column
+            "sentiment": ["positive", "negative", "neutral"],  # Task columns
+            "quality": ["high", "medium", "low"],  # Task columns
+        }
+    )
+
+
+# ==== SIMPLE DATA FIXTURES FOR UNIT TESTS ====
+
+
+@pytest.fixture
+def simple_task_data():
+    """Simple task data for unit tests (extracted from common patterns).
+
+    Returns:
+        dict: Dictionary with 'judge' and 'human' DataFrames for simple task testing.
+    """
+    import polars as pl
+
+    judge_df = pl.DataFrame({"original_id": ["1", "2", "3"], "task1": ["A", "B", "A"]})
+
+    human_df = pl.DataFrame(
+        {
+            "original_id": ["1", "2", "3"],
+            "human_id": ["human_1", "human_1", "human_1"],
+            "task1": ["A", "B", "A"],
+        }
+    )
+
+    return {"judge": judge_df, "human": human_df}
+
+
+@pytest.fixture
+def multilabel_task_data():
+    """Multilabel task data for unit tests.
+
+    Returns:
+        dict: Dictionary with 'judge' and 'human' DataFrames for multilabel task testing.
+    """
+    import polars as pl
+
+    judge_df = pl.DataFrame(
+        {"original_id": ["1", "2"], "task1": ["A", "B"], "task2": ["X", "Y"]}
+    )
+
+    human_df = pl.DataFrame(
+        {
+            "original_id": ["1", "2"],
+            "human_id": ["human_1", "human_1"],
+            "task1": ["A", "B"],
+            "task2": ["X", "Y"],
+        }
+    )
+
+    return {"judge": judge_df, "human": human_df}

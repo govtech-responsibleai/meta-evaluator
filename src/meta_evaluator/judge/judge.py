@@ -24,6 +24,7 @@ from ..eval_task import EvalTask
 from ..results import JudgeResultsBuilder
 from .async_evaluator import AsyncEvaluationMixin
 from .enums import ErrorType, RoleEnum
+from .exceptions import MissingTemplateVariablesError
 from .models import (
     LLMResponse,
     Message,
@@ -174,48 +175,87 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
         instructions += "For tasks with predefined values, you must choose exactly one value. For free form tasks, provide your response within the appropriate tags."
         return instructions
 
-    def _create_system_message(self, include_xml_instructions: bool = False) -> Message:
+    def _substitute_template_variables(self, template: str, row: dict[str, Any]) -> str:
+        """Substitute template variables in curly brackets with row data.
+
+        Args:
+            template: The template string containing {variable} placeholders.
+            row: Dictionary containing the row data for substitution.
+
+        Returns:
+            str: Template with variables substituted.
+        """
+        # Get all columns that should be available for substitution
+        available_columns = set()
+        if self.eval_task.prompt_columns:
+            available_columns.update(self.eval_task.prompt_columns)
+        if self.eval_task.response_columns:
+            available_columns.update(self.eval_task.response_columns)
+
+        # Perform substitution for available columns
+        substituted = template
+        for column in available_columns:
+            if column in row:
+                placeholder = "{" + column + "}"
+                substituted = substituted.replace(placeholder, str(row[column]))
+
+        return substituted
+
+    def _validate_template_variables(self, template: str) -> None:
+        """Validate that the template contains all required variable placeholders.
+
+        Args:
+            template: The template string to validate.
+
+        Raises:
+            MissingTemplateVariablesError: If required variables are missing from the template.
+        """
+        # Get all columns that should be available for substitution
+        required_columns = set()
+        if self.eval_task.prompt_columns:
+            required_columns.update(self.eval_task.prompt_columns)
+        if self.eval_task.response_columns:
+            required_columns.update(self.eval_task.response_columns)
+
+        # Find missing variables
+        missing_variables = []
+        for column in required_columns:
+            placeholder = "{" + column + "}"
+            if placeholder not in template:
+                missing_variables.append(column)
+
+        # Raise error if any variables are missing
+        if missing_variables:
+            raise MissingTemplateVariablesError(
+                missing_variables=missing_variables,
+                prompt_columns=self.eval_task.prompt_columns,
+                response_columns=self.eval_task.response_columns,
+            )
+
+    def _create_system_message(
+        self, row: dict[str, Any], include_xml_instructions: bool = False
+    ) -> Message:
         """Create the system message with evaluation instructions.
 
         Args:
             include_xml_instructions: Whether to include XML formatting instructions.
+            row: Optional row data for template variable substitution.
 
         Returns:
             Message: System message with evaluation context and instructions.
+
         """
         system_content = self.prompt.prompt
+
+        # Perform template variable substitution if row data is provided
+        if row is not None:
+            # Validate that all required template variables are present in the prompt
+            self._validate_template_variables(system_content)
+            system_content = self._substitute_template_variables(system_content, row)
+
         if include_xml_instructions:
             system_content += self._get_xml_instructions()
         return Message(role=RoleEnum.SYSTEM, content=system_content)
-
-    def _format_row_data(self, row: dict[str, Any]) -> str:
-        """Format row data for the user message.
-
-        Args:
-            row: Dictionary containing the row data from EvalData.
-
-        Returns:
-            str: Formatted string with input and output data.
-        """
-        content = ""
-        if self.eval_task.prompt_columns:
-            content += f"The prompts to be evaluated are {', '.join(self.eval_task.prompt_columns)}."
-            for column in self.eval_task.prompt_columns:
-                content += f"\n{column}: {row[column]}"
-
-        if self.eval_task.response_columns:
-            prompt_prefix = (
-                "The responses to be evaluated are"
-                if self.eval_task.prompt_columns
-                else "The texts to be evaluated are"
-            )
-            content += (
-                f"\n\n{prompt_prefix} {', '.join(self.eval_task.response_columns)}."
-            )
-            for column in self.eval_task.response_columns:
-                content += f"\n{column}: {row[column]}"
-
-        return content
 
     def _get_dicts_as_generator(
         self, eval_data: EvalData

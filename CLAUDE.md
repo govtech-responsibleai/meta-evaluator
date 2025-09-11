@@ -1,20 +1,18 @@
 # Claude Development Notes
 
-
 ## App Development Guide
 
 This is a Python application to develop a MetaEvaluator. 
 Given an evaluation task and dataset, the MetaEvaluator gathers results from LLM Judges and Human annotators, and calculates alignment metrics to measure the performance of different LLM-as-a-Judge.
 
-
 ## Logging 
-For each main class, initialise a logger object with the main class name, and utilise the same logger through the class methods. 
 
+For each main class, initialize a logger object with the main class name, and utilize the same logger through the class methods.
 
 ## Error Handling 
-Always use custom exceptions. Define an exceptions file in each main functionality group, and define all custom exceptions within the file. 
-Before implementing specific error messaging within each exception class, refer to the common utility (meta_evaluator.common.error_constants.py) and utilise existing error messages where applicable.
 
+Always use custom exceptions. Define an exceptions file in each main functionality group, and define all custom exceptions within the file. 
+Before implementing specific error messaging within each exception class, refer to the common utility (meta_evaluator.common.error_constants.py) and utilize existing error messages where applicable.
 
 ## Linting and Code Quality
 
@@ -24,15 +22,16 @@ uv tool run ruff check --preview --fix
 uv tool run ruff format .
 ```
 
-Always fix all errors from the ruff check
-
+Always fix all errors from the ruff check. If there are unfixable errors, document them and ask for guidance.
 
 ## Type Checking
 
-Note: After every task, run type checking:
+After every task, run type checking:
 ```bash
 uv run pyright
 ```
+
+If there are type errors that cannot be resolved, document them and ask for guidance before proceeding.
 
 ## Testing
 
@@ -51,19 +50,32 @@ uv run pytest -v
 uv run pytest -k "test_name"
 ```
 
-Note: After every task, run tests with skip integration:
+After every task, run tests excluding integration tests (integration tests require external services and are slower):
 ```bash
 uv run pytest -m "not integration"
 ```
 
-
 ## Task Completion Workflow
 
-At the end of every task, ensure that you run ruff check and ruff format, and ensure your last command is always ruff format
+At the end of every task, run in order:
 
-After every task, run in order:
-1. `uv run pyright`
-2. `uv run pytest -m "not integration"`
+1. **Linting and formatting:**
+   ```bash
+   uv tool run ruff check --preview --fix
+   uv tool run ruff format .
+   ```
+
+2. **Type checking:**
+   ```bash
+   uv run pyright
+   ```
+
+3. **Testing:**
+   ```bash
+   uv run pytest -m "not integration"
+   ```
+
+Ensure your last command is always `uv tool run ruff format .`
 
 ## Additional Reminders (VERY IMPORTANT!)
 

@@ -12,7 +12,6 @@ from meta_evaluator.data.exceptions import (
     EmptyDataFrameError,
     IdColumnExistsError,
     InvalidNameError,
-    NullValuesInDataError,
 )
 
 
@@ -191,19 +190,22 @@ id1,test2,result2"""
                 id_column="custom_id",
             )
 
-    def test_load_csv_null_values_in_data_error(self, tmp_path):
-        """Test that EvalData data integrity validation errors bubble up."""
+    def test_load_csv_null_values_in_data_now_allowed(self, tmp_path):
+        """Test that null values in data columns are now allowed (validation moved to MetaEvaluator)."""
         csv_content = """input,output
 test1,result1
 ,result2"""
         csv_file = tmp_path / "null_data.csv"
         csv_file.write_text(csv_content)
 
-        with pytest.raises(NullValuesInDataError):
-            DataLoader.load_csv(
-                name="test",
-                file_path=str(csv_file),
-            )
+        # Should not raise an error - null validation moved to MetaEvaluator
+        eval_data = DataLoader.load_csv(
+            name="test",
+            file_path=str(csv_file),
+        )
+
+        assert eval_data is not None
+        assert eval_data.name == "test"
 
     # === EDGE CASE TESTS ===
 

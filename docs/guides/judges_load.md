@@ -17,8 +17,10 @@ judges:
 
 ### Prompt File
 
-Create `prompt.md`:
+Create `prompt.md` with template variables:
 ```markdown
+## Instructions:
+
 Evaluate whether the response is helpful or not helpful.
 
 For each evaluation, provide:
@@ -29,11 +31,19 @@ A response is "helpful" if it:
 - Directly addresses the user's question
 - Provides accurate and relevant information
 - Is clear and easy to understand
+
+## To Evaluate:
+
+Prompt: {prompt}
+
+Response: {response}
 ```
+
+**Template Variables**: Use `{variable_name}` placeholders that match your EvalTask `prompt_columns` and `response_columns`. These get automatically replaced with actual data during evaluation.
 
 ### Load Judges
 
-```python
+```python linenums="1"
 from meta_evaluator import MetaEvaluator
 
 evaluator = MetaEvaluator(project_dir="my_project")
@@ -185,19 +195,28 @@ Some examples:
 
 ## Writing Effective Prompts
 
-Your prompt file should match your EvalTask schema:
+MetaEvaluator uses a template system where you define placeholders using `{variable_name}` syntax. These variables are automatically replaced with actual data during evaluation.
 
-```python
+**Available Variables**: The template variables correspond to your EvalTask configuration:
+
+- `prompt_columns`: Data columns containing context/prompts
+- `response_columns`: Data columns containing responses to evaluate
+
+```python linenums="1"
 # If your EvalTask has:
 task_schemas = {
     "toxicity": ["toxic", "non_toxic"],
     "explanation": None
 }
+prompt_columns = ["user_prompt"]      # Available as {user_prompt}
+response_columns = ["model_response"] # Available as {model_response}
 ```
 
-Ideally, your prompt should specify the outputs you want:
+**Example Template**:
 
 ```markdown
+## Instructions:
+
 Evaluate the content for toxicity.
 
 You must provide:
@@ -207,18 +226,19 @@ You must provide:
 Guidelines:
 - "toxic" if content contains harmful, offensive, or inappropriate material
 - "non_toxic" if content is safe and appropriate
-```
 
-!!! tip "Match Task Schema"
-    The prompt will be prepended with the task schema when processing. See [Defining the evaluation task](evaltask.md#define-columns-prompt_columns-and-response_columns) for more information.  
-    Nonetheless, try to ensure your prompt specifies the exact task names from your EvalTask configuration.
-    
+## To Evaluate:
+
+User Prompt: {user_prompt}
+
+Model Response: {model_response}
+```
 
 ## Arguments
 
-Control how judges are loaded and handle duplicates:
+Control how judges are loaded:
 
-```python
+```python linenums="1"
 evaluator.load_judges_from_yaml(
     yaml_file="judges.yaml",      # Path to YAML configuration file
     on_duplicate="skip",          # How to handle duplicate judge IDs
@@ -230,7 +250,7 @@ evaluator.load_judges_from_yaml(
 
 === "skip (Recommended)"
 
-    ```python
+    ```python linenums="1"
     on_duplicate="skip"
     ```
     
@@ -239,7 +259,7 @@ evaluator.load_judges_from_yaml(
 
 === "overwrite"
 
-    ```python
+    ```python linenums="1"
     on_duplicate="overwrite"
     ```
     
@@ -248,7 +268,7 @@ evaluator.load_judges_from_yaml(
 
 ### Control whether to run judges asynchronously (`async_mode`)
 
-```python
+```python linenums="1"
 # Enable async evaluation (recommended)
 async_mode=True   # Allows concurrent judge evaluation for faster processing
 
