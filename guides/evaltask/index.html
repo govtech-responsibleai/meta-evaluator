@@ -206,7 +206,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../quickstart/" class="md-tabs__link">
+        <a href="../../tutorial/" class="md-tabs__link">
           
   
   
@@ -326,12 +326,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../quickstart/" class="md-nav__link">
+      <a href="../../tutorial/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Quickstart
+    Tutorial
     
   </span>
   
@@ -623,7 +623,7 @@
   
   
   <span class="md-ellipsis">
-    Loading the data
+    Loading the evaluation data
     
   </span>
   
@@ -679,6 +679,57 @@
   
 
               
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Scoring Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            Scoring Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
             
               
                 
@@ -882,98 +933,162 @@
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Scenario 1: Judge LLM Responses (Prompt + Response)</label><label for="__tabbed_1_2">Scenario 2: Judge Text Content (Response Only)</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.eval_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvalTask</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Evaluate chatbot responses for safety and helpfulness</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;safety&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;safe&quot;</span><span class="p">,</span> <span class="s2">&quot;unsafe&quot;</span><span class="p">],</span>           <span class="c1"># Classification task</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="s2">&quot;helpfulness&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;helpful&quot;</span><span class="p">,</span> <span class="s2">&quot;not_helpful&quot;</span><span class="p">],</span> <span class="c1"># Classification task  </span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span>                     <span class="c1"># Free-form text</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="p">},</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;user_prompt&quot;</span><span class="p">],</span>     <span class="c1"># Original prompt to the LLM</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chatbot_response&quot;</span><span class="p">],</span> <span class="c1"># LLM response to evaluate</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>      <span class="c1"># Use JSON output parsing</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span>   <span class="c1"># Fallback to XML if needed</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">)</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-0-10">10</a></span>
+<span class="normal"><a href="#__codelineno-0-11">11</a></span>
+<span class="normal"><a href="#__codelineno-0-12">12</a></span>
+<span class="normal"><a href="#__codelineno-0-13">13</a></span>
+<span class="normal"><a href="#__codelineno-0-14">14</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.eval_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvalTask</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="c1"># Evaluate chatbot responses for safety and helpfulness</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a>        <span class="s2">&quot;safety&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;safe&quot;</span><span class="p">,</span> <span class="s2">&quot;unsafe&quot;</span><span class="p">],</span>           <span class="c1"># Classification task</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a>        <span class="s2">&quot;helpfulness&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;helpful&quot;</span><span class="p">,</span> <span class="s2">&quot;not_helpful&quot;</span><span class="p">],</span> <span class="c1"># Classification task  </span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a>        <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span>                     <span class="c1"># Free-form text</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a>    <span class="p">},</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="hll">    <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;user_prompt&quot;</span><span class="p">],</span>     <span class="c1"># Original prompt to the LLM</span>
+</span></span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="hll">    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chatbot_response&quot;</span><span class="p">],</span> <span class="c1"># LLM response to evaluate</span>
+</span></span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>      <span class="c1"># Use JSON output parsing</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13"></a>    <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span>   <span class="c1"># Fallback to XML if needed</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Evaluate text summaries for quality</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;accurate&quot;</span><span class="p">,</span> <span class="s2">&quot;inaccurate&quot;</span><span class="p">],</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="s2">&quot;coherence&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;coherent&quot;</span><span class="p">,</span> <span class="s2">&quot;incoherent&quot;</span><span class="p">],</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="s2">&quot;summary&quot;</span><span class="p">:</span> <span class="kc">None</span>  <span class="c1"># Free-form numeric or text score</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="p">},</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>               <span class="c1"># No prompt context needed</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;summary_text&quot;</span><span class="p">],</span> <span class="c1"># Just evaluate the summary</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="p">)</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-1-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-1-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-1-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-1-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-1-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-1-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-1-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-1-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-1-10">10</a></span>
+<span class="normal"><a href="#__codelineno-1-11">11</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="c1"># Evaluate text summaries for quality</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4"></a>        <span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;accurate&quot;</span><span class="p">,</span> <span class="s2">&quot;inaccurate&quot;</span><span class="p">],</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5"></a>        <span class="s2">&quot;coherence&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;coherent&quot;</span><span class="p">,</span> <span class="s2">&quot;incoherent&quot;</span><span class="p">],</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6"></a>        <span class="s2">&quot;summary&quot;</span><span class="p">:</span> <span class="kc">None</span>  <span class="c1"># Free-form numeric or text score</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7"></a>    <span class="p">},</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8"></a><span class="hll">    <span class="n">prompt_columns</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>               <span class="c1"># No prompt context needed</span>
+</span></span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9"></a><span class="hll">    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;summary_text&quot;</span><span class="p">],</span> <span class="c1"># Just evaluate the summary</span>
+</span></span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11"></a><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
 </div>
 </div>
 </div>
 <h2 id="arguments">Arguments</h2>
 <h3 id="define-columns-prompt_columns-and-response_columns">Define columns (<code>prompt_columns</code> and <code>response_columns</code>)</h3>
 <p>Control which columns judges see during evaluation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Scenario 1: Judge sees both prompt and response</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;user_input&quot;</span><span class="p">,</span> <span class="s2">&quot;system_instruction&quot;</span><span class="p">]</span>  <span class="c1"># Context</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;llm_output&quot;</span><span class="p">]</span>                      <span class="c1"># What to evaluate</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Scenario 2: Judge sees only the content to evaluate</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">prompt_columns</span><span class="o">=</span><span class="kc">None</span>                    <span class="c1"># No context</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;text_to_evaluate&quot;</span><span class="p">]</span>  <span class="c1"># Direct evaluation</span>
-</code></pre></div>
-<p><strong>Examples with formatted prompts:</strong></p>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-2-1">1</a></span>
+<span class="normal"><a href="#__codelineno-2-2">2</a></span>
+<span class="normal"><a href="#__codelineno-2-3">3</a></span>
+<span class="normal"><a href="#__codelineno-2-4">4</a></span>
+<span class="normal"><a href="#__codelineno-2-5">5</a></span>
+<span class="normal"><a href="#__codelineno-2-6">6</a></span>
+<span class="normal"><a href="#__codelineno-2-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="c1"># Scenario 1: Judge sees both prompt and response</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a><span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;user_input&quot;</span><span class="p">,</span> <span class="s2">&quot;system_instruction&quot;</span><span class="p">]</span>  <span class="c1"># Context</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;llm_output&quot;</span><span class="p">]</span>                      <span class="c1"># What to evaluate</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4"></a>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5"></a><span class="c1"># Scenario 2: Judge sees only the content to evaluate</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6"></a><span class="n">prompt_columns</span><span class="o">=</span><span class="kc">None</span>                    <span class="c1"># No context</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7"></a><span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;text_to_evaluate&quot;</span><span class="p">]</span>  <span class="c1"># Direct evaluation</span>
+</span></code></pre></div></td></tr></table></div>
+<p><strong>Template Variable System:</strong></p>
+<p>MetaEvaluator uses a template-based system where your prompt.md files can include placeholders like <code>{column_name}</code> that get automatically replaced with actual data. The available variables correspond to your <code>prompt_columns</code> and <code>response_columns</code>.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Scenario 1: Prompt + Response Evaluation</label><label for="__tabbed_2_2">Scenario 2: Response-Only Evaluation</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<p>CSV Data:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>user_input,system_instruction,llm_output
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>&quot;What is 2+2?&quot;,&quot;Be helpful&quot;,&quot;The answer is 4&quot;
-</code></pre></div></p>
-<p>Configuration:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;user_input&quot;</span><span class="p">,</span> <span class="s2">&quot;system_instruction&quot;</span><span class="p">]</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;llm_output&quot;</span><span class="p">]</span>
-</code></pre></div></p>
-<p>Formatted prompt given to Judge:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>The prompts to be evaluated are user_input, system_instruction.
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>user_input: What is 2+2?
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>system_instruction: Be helpful
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>The responses to be evaluated are llm_output.
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>llm_output: The answer is 4
-</code></pre></div></p>
+<p><strong>CSV Data:</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>user_input,system_instruction,llm_output
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>&quot;What is 2+2?&quot;,&quot;Be helpful&quot;,&quot;The answer is 4&quot;
+</span></code></pre></div></p>
+<p><strong>Configuration:</strong>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-4-1">1</a></span>
+<span class="normal"><a href="#__codelineno-4-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;user_input&quot;</span><span class="p">,</span> <span class="s2">&quot;system_instruction&quot;</span><span class="p">]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2"></a><span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;llm_output&quot;</span><span class="p">]</span>
+</span></code></pre></div></td></tr></table></div></p>
+<p><strong>Example prompt.md:</strong>
+<div class="language-markdown highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="gu">## Instructions:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>Evaluate the LLM response for helpfulness.
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="gu">## Context:</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>User Input: {user_input}
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>System Instruction: {system_instruction}
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="gu">## Response to Evaluate:</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>{llm_output}
+</span></code></pre></div></p>
+<p><strong>Formatted prompt given to Judge:</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>## Instructions:
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>Evaluate the LLM response for helpfulness.
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>## Context:
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>User Input: What is 2+2?
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>System Instruction: Be helpful
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>## Response to Evaluate:
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>The answer is 4
+</span></code></pre></div></p>
 </div>
 <div class="tabbed-block">
 <p><strong>CSV Data:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>text_to_evaluate
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>&quot;This is a summary of the research paper findings.&quot;
-</code></pre></div></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>text_to_evaluate
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>&quot;This is a summary of the research paper findings.&quot;
+</span></code></pre></div></p>
 <p><strong>Configuration:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">prompt_columns</span><span class="o">=</span><span class="kc">None</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;text_to_evaluate&quot;</span><span class="p">]</span>
-</code></pre></div></p>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-8-1">1</a></span>
+<span class="normal"><a href="#__codelineno-8-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><span class="n">prompt_columns</span><span class="o">=</span><span class="kc">None</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2"></a><span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;text_to_evaluate&quot;</span><span class="p">]</span>
+</span></code></pre></div></td></tr></table></div></p>
+<p><strong>Example prompt.md:</strong>
+<div class="language-markdown highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="gu">## Instructions:</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>Evaluate the quality of this summary.
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="gu">## Text to Evaluate:</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>{text_to_evaluate}
+</span></code></pre></div></p>
 <p><strong>Formatted prompt given to Judge:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>The texts to be evaluated are text_to_evaluate.
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>text_to_evaluate: This is a summary of the research paper findings.
-</code></pre></div></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>## Instructions:
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>Evaluate the quality of this summary.
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>## Text to Evaluate:
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>This is a summary of the research paper findings.
+</span></code></pre></div></p>
 </div>
 </div>
 </div>
 <h3 id="task-schemas-task_schemas">Task Schemas (<code>task_schemas</code>)</h3>
 <p>The <code>task_schemas</code> dictionary maps task names to their allowed outcomes:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">task_schemas</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="c1"># Classification tasks (predefined options)</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="s2">&quot;toxicity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;toxic&quot;</span><span class="p">,</span> <span class="s2">&quot;non_toxic&quot;</span><span class="p">],</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relevant&quot;</span><span class="p">,</span> <span class="s2">&quot;irrelevant&quot;</span><span class="p">,</span> <span class="s2">&quot;partially_relevant&quot;</span><span class="p">],</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="c1"># Free-form tasks (open-ended responses)</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="s2">&quot;how_confident&quot;</span><span class="p">:</span> <span class="kc">None</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="p">}</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-11-1">1</a></span>
+<span class="normal"><a href="#__codelineno-11-2">2</a></span>
+<span class="normal"><a href="#__codelineno-11-3">3</a></span>
+<span class="normal"><a href="#__codelineno-11-4">4</a></span>
+<span class="normal"><a href="#__codelineno-11-5">5</a></span>
+<span class="normal"><a href="#__codelineno-11-6">6</a></span>
+<span class="normal"><a href="#__codelineno-11-7">7</a></span>
+<span class="normal"><a href="#__codelineno-11-8">8</a></span>
+<span class="normal"><a href="#__codelineno-11-9">9</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a><span class="n">task_schemas</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2"></a>    <span class="c1"># Classification tasks (predefined options)</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3"></a>    <span class="s2">&quot;toxicity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;toxic&quot;</span><span class="p">,</span> <span class="s2">&quot;non_toxic&quot;</span><span class="p">],</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4"></a>    <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relevant&quot;</span><span class="p">,</span> <span class="s2">&quot;irrelevant&quot;</span><span class="p">,</span> <span class="s2">&quot;partially_relevant&quot;</span><span class="p">],</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5"></a>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6"></a>    <span class="c1"># Free-form tasks (open-ended responses)</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7"></a>    <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8"></a>    <span class="s2">&quot;how_confident&quot;</span><span class="p">:</span> <span class="kc">None</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9"></a><span class="p">}</span>
+</span></code></pre></div></td></tr></table></div>
 <p><strong>Classification Tasks</strong>: Use a list of strings for predefined outcomes  </p>
 <ul>
 <li>Minimum 2 outcomes required  </li>
@@ -988,38 +1103,44 @@
 <div class="admonition tip">
 <p class="admonition-title">Add Free-form Tasks for Context and Explainability</p>
 <p>Include explanation fields to understand judge reasoning:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">task_schemas</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="s2">&quot;is_helpful&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;helpful&quot;</span><span class="p">,</span> <span class="s2">&quot;not_helpful&quot;</span><span class="p">],</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span>  <span class="c1"># Why this classification?</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="p">}</span>
-</code></pre></div></p>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-12-1">1</a></span>
+<span class="normal"><a href="#__codelineno-12-2">2</a></span>
+<span class="normal"><a href="#__codelineno-12-3">3</a></span>
+<span class="normal"><a href="#__codelineno-12-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a><span class="n">task_schemas</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2"></a>    <span class="s2">&quot;is_helpful&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;helpful&quot;</span><span class="p">,</span> <span class="s2">&quot;not_helpful&quot;</span><span class="p">],</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3"></a>    <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span>  <span class="c1"># Why this classification?</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4"></a><span class="p">}</span>
+</span></code></pre></div></td></tr></table></div></p>
 </div>
 <h3 id="answer-parsing-methods-answering_method">Answer Parsing Methods (<code>answering_method</code>)</h3>
 <p>Three parsing methods with different trade-offs:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="3:3"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Structured (Recommended)</label><label for="__tabbed_3_2">Instructor</label><label for="__tabbed_3_3">XML</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># Fallback to other methods if unsupported</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-13-1">1</a></span>
+<span class="normal"><a href="#__codelineno-13-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a><span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2"></a><span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># Fallback to other methods if unsupported</span>
+</span></code></pre></div></td></tr></table></div>
 <p><strong>Pros</strong>: Most reliable, cleanest parsing, best model support<br />
 <strong>Cons</strong>: Newer feature, not supported by all models<br />
 <strong>Best for</strong>: Production use with modern models</p>
 <p><strong>Fallback sequence</strong> (when <code>structured_outputs_fallback=True</code>): structured → instructor → xml</p>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;instructor&quot;</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># Fallback to other methods if unsupported</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-14-1">1</a></span>
+<span class="normal"><a href="#__codelineno-14-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1"></a><span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;instructor&quot;</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2"></a><span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># Fallback to other methods if unsupported</span>
+</span></code></pre></div></td></tr></table></div>
 <p><strong>Pros</strong>: Good compatibility, structured validation<br />
 <strong>Cons</strong>: Additional dependency, model-specific implementation<br />
 <strong>Best for</strong>: When you need structured outputs with older models</p>
 <p><strong>Fallback sequence</strong> (when <code>structured_outputs_fallback=True</code>): instructor → structured → xml</p>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;xml&quot;</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># Fallback to other methods if unsupported</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-15-1">1</a></span>
+<span class="normal"><a href="#__codelineno-15-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1"></a><span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;xml&quot;</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2"></a><span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># Fallback to other methods if unsupported</span>
+</span></code></pre></div></td></tr></table></div>
 <p><strong>Pros</strong>: Universal compatibility, works with any model<br />
 <strong>Cons</strong>: More prone to parsing errors, verbose output<br />
 <strong>Best for</strong>: Maximum compatibility, legacy models</p>
@@ -1032,80 +1153,128 @@
 <p>Always enable fallback to maximise Judge completion.</p>
 </div>
 <h3 id="skip-function-to-filter-data-rows-skip_function">Skip Function to Filter Data Rows (<code>skip_function</code>)</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">skip_empty_responses</span><span class="p">(</span><span class="n">row</span><span class="p">):</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;llm_response&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="c1"># ... other config ...</span>
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="n">skip_function</span><span class="o">=</span><span class="n">skip_empty_responses</span>
-<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="p">)</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-16-1">1</a></span>
+<span class="normal"><a href="#__codelineno-16-2">2</a></span>
+<span class="normal"><a href="#__codelineno-16-3">3</a></span>
+<span class="normal"><a href="#__codelineno-16-4">4</a></span>
+<span class="normal"><a href="#__codelineno-16-5">5</a></span>
+<span class="normal"><a href="#__codelineno-16-6">6</a></span>
+<span class="normal"><a href="#__codelineno-16-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">skip_empty_responses</span><span class="p">(</span><span class="n">row</span><span class="p">):</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2"></a>    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;llm_response&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3"></a>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5"></a>    <span class="c1"># ... other config ...</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6"></a>    <span class="n">skip_function</span><span class="o">=</span><span class="n">skip_empty_responses</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7"></a><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
 <div class="admonition warning">
 <p class="admonition-title">Skip Function Serialization</p>
 <p>Currently, <strong>skip functions are not saved</strong> when EvalTask is serialized/deserialized. When loading a saved project:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Load existing project</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">evaluator</span> <span class="o">=</span> <span class="n">MetaEvaluator</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;my_project&quot;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># Skip function resets to default. You must reassign it after loading:</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">eval_task</span><span class="o">.</span><span class="n">skip_function</span> <span class="o">=</span> <span class="n">skip_empty_responses</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-17-1">1</a></span>
+<span class="normal"><a href="#__codelineno-17-2">2</a></span>
+<span class="normal"><a href="#__codelineno-17-3">3</a></span>
+<span class="normal"><a href="#__codelineno-17-4">4</a></span>
+<span class="normal"><a href="#__codelineno-17-5">5</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1"></a><span class="c1"># Load existing project</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2"></a><span class="n">evaluator</span> <span class="o">=</span> <span class="n">MetaEvaluator</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;my_project&quot;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3"></a>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4"></a><span class="c1"># Skip function resets to default. You must reassign it after loading:</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">eval_task</span><span class="o">.</span><span class="n">skip_function</span> <span class="o">=</span> <span class="n">skip_empty_responses</span>
+</span></code></pre></div></td></tr></table></div>
 </div>
 <h3 id="annotation-prompt-for-human-interface-annotation_prompt">Annotation Prompt for Human Interface (<code>annotation_prompt</code>)</h3>
 <p>Customize the prompt shown to human annotators:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="c1"># ... other config ...</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="n">annotation_prompt</span><span class="o">=</span><span class="s2">&quot;Please evaluate this response for toxicity and helpfulness. Consider both content and tone.&quot;</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="p">)</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-18-1">1</a></span>
+<span class="normal"><a href="#__codelineno-18-2">2</a></span>
+<span class="normal"><a href="#__codelineno-18-3">3</a></span>
+<span class="normal"><a href="#__codelineno-18-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2"></a>    <span class="c1"># ... other config ...</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3"></a>    <span class="n">annotation_prompt</span><span class="o">=</span><span class="s2">&quot;Please evaluate this response for toxicity and helpfulness. Consider both content and tone.&quot;</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4"></a><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
 <h2 id="real-world-examples">Real-World Examples</h2>
 <div class="tabbed-set tabbed-alternate" data-tabs="4:3"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Content Moderation Pipeline</label><label for="__tabbed_4_2">Multi-turn Conversation Evaluation</label><label for="__tabbed_4_3">Research Paper Evaluation</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">moderation_task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>        <span class="s2">&quot;toxicity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;toxic&quot;</span><span class="p">,</span> <span class="s2">&quot;borderline&quot;</span><span class="p">,</span> <span class="s2">&quot;safe&quot;</span><span class="p">],</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>        <span class="s2">&quot;harassment&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;harassment&quot;</span><span class="p">,</span> <span class="s2">&quot;no_harassment&quot;</span><span class="p">],</span> 
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>        <span class="s2">&quot;violence&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;violent&quot;</span><span class="p">,</span> <span class="s2">&quot;non_violent&quot;</span><span class="p">],</span>
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>        <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span>
-<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="p">},</span>
-<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;user_message&quot;</span><span class="p">],</span>      <span class="c1"># Original user input</span>
-<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;content_to_check&quot;</span><span class="p">],</span> <span class="c1"># Content that might violate policy</span>
-<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>
-<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>    <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    <span class="n">annotation_prompt</span><span class="o">=</span><span class="s2">&quot;Evaluate this content for policy violations.&quot;</span>
-<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="p">)</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-19-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-19-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-19-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-19-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-19-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-19-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-19-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-19-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-19-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-19-10">10</a></span>
+<span class="normal"><a href="#__codelineno-19-11">11</a></span>
+<span class="normal"><a href="#__codelineno-19-12">12</a></span>
+<span class="normal"><a href="#__codelineno-19-13">13</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1"></a><span class="n">moderation_task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3"></a>        <span class="s2">&quot;toxicity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;toxic&quot;</span><span class="p">,</span> <span class="s2">&quot;borderline&quot;</span><span class="p">,</span> <span class="s2">&quot;safe&quot;</span><span class="p">],</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4"></a>        <span class="s2">&quot;harassment&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;harassment&quot;</span><span class="p">,</span> <span class="s2">&quot;no_harassment&quot;</span><span class="p">],</span> 
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5"></a>        <span class="s2">&quot;violence&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;violent&quot;</span><span class="p">,</span> <span class="s2">&quot;non_violent&quot;</span><span class="p">],</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6"></a>        <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7"></a>    <span class="p">},</span>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;user_message&quot;</span><span class="p">],</span>      <span class="c1"># Original user input</span>
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;content_to_check&quot;</span><span class="p">],</span> <span class="c1"># Content that might violate policy</span>
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11"></a>    <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12"></a>    <span class="n">annotation_prompt</span><span class="o">=</span><span class="s2">&quot;Evaluate this content for policy violations.&quot;</span>
+</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13"></a><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">conversation_task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>        <span class="s2">&quot;coherence&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;coherent&quot;</span><span class="p">,</span> <span class="s2">&quot;somewhat_coherent&quot;</span><span class="p">,</span> <span class="s2">&quot;incoherent&quot;</span><span class="p">],</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>        <span class="s2">&quot;helpfulness&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;very_helpful&quot;</span><span class="p">,</span> <span class="s2">&quot;helpful&quot;</span><span class="p">,</span> <span class="s2">&quot;not_helpful&quot;</span><span class="p">],</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>        <span class="s2">&quot;factuality&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;factual&quot;</span><span class="p">,</span> <span class="s2">&quot;mostly_factual&quot;</span><span class="p">,</span> <span class="s2">&quot;inaccurate&quot;</span><span class="p">],</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>        <span class="s2">&quot;improvement_suggestions&quot;</span><span class="p">:</span> <span class="kc">None</span>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    <span class="p">},</span>
-<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;conversation_history&quot;</span><span class="p">,</span> <span class="s2">&quot;user_query&quot;</span><span class="p">],</span>
-<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;assistant_response&quot;</span><span class="p">],</span>
-<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>
-<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>    <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span>
-<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="p">)</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-20-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-20-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-20-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-20-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-20-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-20-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-20-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-20-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-20-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-20-10">10</a></span>
+<span class="normal"><a href="#__codelineno-20-11">11</a></span>
+<span class="normal"><a href="#__codelineno-20-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1"></a><span class="n">conversation_task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3"></a>        <span class="s2">&quot;coherence&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;coherent&quot;</span><span class="p">,</span> <span class="s2">&quot;somewhat_coherent&quot;</span><span class="p">,</span> <span class="s2">&quot;incoherent&quot;</span><span class="p">],</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4"></a>        <span class="s2">&quot;helpfulness&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;very_helpful&quot;</span><span class="p">,</span> <span class="s2">&quot;helpful&quot;</span><span class="p">,</span> <span class="s2">&quot;not_helpful&quot;</span><span class="p">],</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5"></a>        <span class="s2">&quot;factuality&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;factual&quot;</span><span class="p">,</span> <span class="s2">&quot;mostly_factual&quot;</span><span class="p">,</span> <span class="s2">&quot;inaccurate&quot;</span><span class="p">],</span>
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6"></a>        <span class="s2">&quot;improvement_suggestions&quot;</span><span class="p">:</span> <span class="kc">None</span>
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7"></a>    <span class="p">},</span>
+</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;conversation_history&quot;</span><span class="p">,</span> <span class="s2">&quot;user_query&quot;</span><span class="p">],</span>
+</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;assistant_response&quot;</span><span class="p">],</span>
+</span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>
+</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11"></a>    <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span>
+</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12"></a><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">research_task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>        <span class="s2">&quot;methodology_quality&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;excellent&quot;</span><span class="p">,</span> <span class="s2">&quot;good&quot;</span><span class="p">,</span> <span class="s2">&quot;fair&quot;</span><span class="p">,</span> <span class="s2">&quot;poor&quot;</span><span class="p">],</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>        <span class="s2">&quot;novelty&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;highly_novel&quot;</span><span class="p">,</span> <span class="s2">&quot;somewhat_novel&quot;</span><span class="p">,</span> <span class="s2">&quot;incremental&quot;</span><span class="p">,</span> <span class="s2">&quot;not_novel&quot;</span><span class="p">],</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>        <span class="s2">&quot;clarity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;very_clear&quot;</span><span class="p">,</span> <span class="s2">&quot;clear&quot;</span><span class="p">,</span> <span class="s2">&quot;unclear&quot;</span><span class="p">,</span> <span class="s2">&quot;very_unclear&quot;</span><span class="p">],</span>
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>        <span class="s2">&quot;detailed_feedback&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="p">},</span>
-<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># No prompt needed</span>
-<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;paper_abstract&quot;</span><span class="p">,</span> <span class="s2">&quot;methodology_section&quot;</span><span class="p">],</span>
-<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>
-<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>    <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>    <span class="n">annotation_prompt</span><span class="o">=</span><span class="s2">&quot;Please evaluate this research paper on methodology, novelty, and clarity. Provide detailed feedback.&quot;</span>
-<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="p">)</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-21-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-21-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-21-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-21-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-21-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-21-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-21-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-21-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-21-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-21-10">10</a></span>
+<span class="normal"><a href="#__codelineno-21-11">11</a></span>
+<span class="normal"><a href="#__codelineno-21-12">12</a></span>
+<span class="normal"><a href="#__codelineno-21-13">13</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1"></a><span class="n">research_task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3"></a>        <span class="s2">&quot;methodology_quality&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;excellent&quot;</span><span class="p">,</span> <span class="s2">&quot;good&quot;</span><span class="p">,</span> <span class="s2">&quot;fair&quot;</span><span class="p">,</span> <span class="s2">&quot;poor&quot;</span><span class="p">],</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4"></a>        <span class="s2">&quot;novelty&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;highly_novel&quot;</span><span class="p">,</span> <span class="s2">&quot;somewhat_novel&quot;</span><span class="p">,</span> <span class="s2">&quot;incremental&quot;</span><span class="p">,</span> <span class="s2">&quot;not_novel&quot;</span><span class="p">],</span>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5"></a>        <span class="s2">&quot;clarity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;very_clear&quot;</span><span class="p">,</span> <span class="s2">&quot;clear&quot;</span><span class="p">,</span> <span class="s2">&quot;unclear&quot;</span><span class="p">,</span> <span class="s2">&quot;very_unclear&quot;</span><span class="p">],</span>
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6"></a>        <span class="s2">&quot;detailed_feedback&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7"></a>    <span class="p">},</span>
+</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># No prompt needed</span>
+</span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;paper_abstract&quot;</span><span class="p">,</span> <span class="s2">&quot;methodology_section&quot;</span><span class="p">],</span>
+</span><span id="__span-21-10"><a id="__codelineno-21-10" name="__codelineno-21-10"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>
+</span><span id="__span-21-11"><a id="__codelineno-21-11" name="__codelineno-21-11"></a>    <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-21-12"><a id="__codelineno-21-12" name="__codelineno-21-12"></a>    <span class="n">annotation_prompt</span><span class="o">=</span><span class="s2">&quot;Please evaluate this research paper on methodology, novelty, and clarity. Provide detailed feedback.&quot;</span>
+</span><span id="__span-21-13"><a id="__codelineno-21-13" name="__codelineno-21-13"></a><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
 </div>
 </div>
 </div>
@@ -1157,7 +1326,7 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.tabs", "content.last_updated"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.tabs", "content.last_updated", "content.code.copy"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.92b07e13.min.js"></script>

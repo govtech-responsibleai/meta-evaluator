@@ -206,7 +206,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../quickstart/" class="md-tabs__link">
+        <a href="../../tutorial/" class="md-tabs__link">
           
   
   
@@ -326,12 +326,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../quickstart/" class="md-nav__link">
+      <a href="../../tutorial/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Quickstart
+    Tutorial
     
   </span>
   
@@ -420,8 +420,6 @@
                 
   
   
-    
-  
   
   
     
@@ -432,11 +430,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
         
           
           <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
@@ -452,7 +452,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2_3">
             <span class="md-nav__icon md-icon"></span>
             Evaluation Guides
@@ -494,7 +494,7 @@
   
   
   <span class="md-ellipsis">
-    Loading the data
+    Loading the evaluation data
     
   </span>
   
@@ -550,6 +550,57 @@
   
 
               
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Scoring Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            Scoring Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
             
               
                 
@@ -608,11 +659,62 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#load-results" class="md-nav__link">
+  <a href="#internal-data-loading" class="md-nav__link">
     <span class="md-ellipsis">
-      Load Results
+      Internal Data Loading
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-data-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      External Data Loading
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="External Data Loading">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#importing-external-judge-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Importing External Judge Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#importing-external-annotation-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Importing External Annotation Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-schema-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Schema Requirements
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Complete Example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -708,11 +810,62 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#load-results" class="md-nav__link">
+  <a href="#internal-data-loading" class="md-nav__link">
     <span class="md-ellipsis">
-      Load Results
+      Internal Data Loading
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-data-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      External Data Loading
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="External Data Loading">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#importing-external-judge-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Importing External Judge Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#importing-external-annotation-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Importing External Annotation Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-schema-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Schema Requirements
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Complete Example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -751,46 +904,215 @@
 
 
 <h1 id="loading-results">Loading Results</h1>
-<p>Access judge evaluation results and human annotations.</p>
-<h2 id="load-results">Load Results</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Load both judge and human results  </span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">judge_results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">load_all_judge_results</span><span class="p">()</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">human_results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">load_all_human_results</span><span class="p">()</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Judges: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">judge_results</span><span class="p">)</span><span class="si">}</span><span class="s2">, Humans: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">human_results</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div>
+<h2 id="internal-data-loading">Internal Data Loading</h2>
+<p>If you used MetaEvaluator to generate judge and human annotation results, congratulations! Your data has been formatted and is ready to use for scoring.  </p>
+<p>Load your saved results with:</p>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span>
+<span class="normal"><a href="#__codelineno-0-2">2</a></span>
+<span class="normal"><a href="#__codelineno-0-3">3</a></span>
+<span class="normal"><a href="#__codelineno-0-4">4</a></span>
+<span class="normal"><a href="#__codelineno-0-5">5</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="c1"># Load both judge and human results  </span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="n">judge_results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">load_all_judge_results</span><span class="p">()</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="n">human_results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">load_all_human_results</span><span class="p">()</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Judges: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">judge_results</span><span class="p">)</span><span class="si">}</span><span class="s2">, Humans: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">human_results</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+<h2 id="external-data-loading">External Data Loading</h2>
+<p>MetaEvaluator supports loading pre-existing judge and human annotation results from external sources. This enables scoring-only workflows where you can compute alignment metrics on existing data without re-running evaluations.</p>
+<h3 id="importing-external-judge-results">Importing External Judge Results</h3>
+<p>Use <code>add_external_judge_results()</code> to load judge evaluation data from CSV files:</p>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1">1</a></span>
+<span class="normal"><a href="#__codelineno-1-2">2</a></span>
+<span class="normal"><a href="#__codelineno-1-3">3</a></span>
+<span class="normal"><a href="#__codelineno-1-4">4</a></span>
+<span class="normal"><a href="#__codelineno-1-5">5</a></span>
+<span class="normal"><a href="#__codelineno-1-6">6</a></span>
+<span class="normal"><a href="#__codelineno-1-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_external_judge_results</span><span class="p">(</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2"></a>    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;path/to/judge_results.csv&quot;</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3"></a>    <span class="n">judge_id</span><span class="o">=</span><span class="s2">&quot;external_judge&quot;</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4"></a>    <span class="n">llm_client</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5"></a>    <span class="n">model_used</span><span class="o">=</span><span class="s2">&quot;gpt-4&quot;</span><span class="p">,</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6"></a>    <span class="n">run_id</span><span class="o">=</span><span class="s2">&quot;external_run_1&quot;</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7"></a><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+<p><strong>Arguments:</strong></p>
+<ul>
+<li><code>file_path</code>: Path to the CSV file containing judge results</li>
+<li><code>judge_id</code>: Unique identifier for this judge</li>
+<li><code>llm_client</code>: The LLM provider used (e.g., "openai", "anthropic"). See <a href="https://docs.litellm.ai/docs/providers">LiteLLM providers</a> for supported options</li>
+<li><code>model_used</code>: The specific model name used for evaluation (e.g., "gpt-4", "claude-3-sonnet")</li>
+<li><code>run_id</code>: Unique identifier for this evaluation run (optional, will be auto-generated if not provided)</li>
+</ul>
+<p><strong>Required Judge Data Format:</strong></p>
+<p>Your CSV file must contain these columns:</p>
+<ul>
+<li><code>original_id</code>: Original identifier from your evaluation data</li>
+<li><strong>Task columns</strong>: One column for each task defined in your <code>EvalTask.task_schemas</code></li>
+</ul>
+<p>System columns (<code>sample_example_id</code>, <code>run_id</code>, <code>judge_id</code>) are auto-generated from the function parameters.</p>
+<p>Example judge results CSV:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>original_id,rejection,explanation
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>sample_1,rejection,&quot;This response shows harmful content detection.&quot;
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>sample_2,not rejection,&quot;This response demonstrates proper safety measures.&quot;
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>sample_3,rejection,&quot;This response contains concerning patterns.&quot;
+</span></code></pre></div></p>
+<h3 id="importing-external-annotation-results">Importing External Annotation Results</h3>
+<p>Use <code>add_external_annotation_results()</code> to load human annotation data from CSV files:</p>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-3-1">1</a></span>
+<span class="normal"><a href="#__codelineno-3-2">2</a></span>
+<span class="normal"><a href="#__codelineno-3-3">3</a></span>
+<span class="normal"><a href="#__codelineno-3-4">4</a></span>
+<span class="normal"><a href="#__codelineno-3-5">5</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_external_annotation_results</span><span class="p">(</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2"></a>    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;path/to/human_results.csv&quot;</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3"></a>    <span class="n">annotator_id</span><span class="o">=</span><span class="s2">&quot;external_annotators&quot;</span><span class="p">,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4"></a>    <span class="n">run_id</span><span class="o">=</span><span class="s2">&quot;external_human_run_1&quot;</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5"></a><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+<p><strong>Arguments:</strong></p>
+<ul>
+<li><code>file_path</code>: Path to the CSV file containing human annotation results</li>
+<li><code>annotator_id</code>: Unique identifier for the annotator(s)</li>
+<li><code>run_id</code>: Unique identifier for this annotation run (optional, will be auto-generated if not provided)</li>
+</ul>
+<p><strong>Required Human Data Format:</strong></p>
+<p>Your CSV file must contain these columns:</p>
+<ul>
+<li><code>original_id</code>: Original identifier from your evaluation data</li>
+<li><strong>Task columns</strong>: One column for each task defined in your <code>EvalTask.task_schemas</code></li>
+</ul>
+<p>System columns (<code>sample_example_id</code>, <code>run_id</code>, <code>annotator_id</code>) are auto-generated from the function parameters.</p>
+<p>Example human results CSV:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>original_id,rejection,explanation
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>sample_1,rejection,&quot;This content appears problematic based on safety guidelines.&quot;
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>sample_1,rejection,&quot;This response demonstrates concerning patterns.&quot;
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>sample_2,not rejection,&quot;This content appears acceptable based on safety guidelines.&quot;
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>sample_2,not rejection,&quot;This response demonstrates proper safety measures.&quot;
+</span></code></pre></div></p>
+<h3 id="data-schema-requirements">Data Schema Requirements</h3>
+<p><strong>Important</strong>: The task columns in your external data must match the task schema defined in your <code>EvalTask</code>:</p>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-5-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-5-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-5-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-5-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-5-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-5-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-5-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-5-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-5-10">10</a></span>
+<span class="normal"><a href="#__codelineno-5-11">11</a></span>
+<span class="normal"><a href="#__codelineno-5-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><span class="c1"># If your EvalTask defines these schemas:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4"></a>        <span class="s2">&quot;rejection&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">,</span> <span class="s2">&quot;not rejection&quot;</span><span class="p">],</span>  <span class="c1"># Classification task</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5"></a>        <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># Free-form text task</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6"></a>    <span class="p">},</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7"></a>    <span class="c1"># ... other parameters</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8"></a><span class="p">)</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9"></a>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10"></a><span class="c1"># Then your CSV files must have columns named:</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11"></a><span class="c1"># - &quot;rejection&quot; (with values like &quot;rejection&quot; or &quot;not rejection&quot;)  </span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12"></a><span class="c1"># - &quot;explanation&quot; (with free-form text values)</span>
+</span></code></pre></div></td></tr></table></div>
+<h3 id="complete-example">Complete Example</h3>
+<p>See <code>examples/rejection/run_scoring_only_async.py</code> in the <a href="https://github.com/govtech-responsibleai/meta-evaluator">GitHub Repository</a> for a complete example that:</p>
+<ol>
+<li>Loads original evaluation data</li>
+<li>Creates mock external judge and human results</li>
+<li>Loads the external results using the methods above</li>
+<li>Runs scoring metrics to compare judge vs human performance</li>
+</ol>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-6-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-6-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-6-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-6-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-6-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-6-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-6-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-6-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-6-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-6-10">10</a></span>
+<span class="normal"><a href="#__codelineno-6-11">11</a></span>
+<span class="normal"><a href="#__codelineno-6-12">12</a></span>
+<span class="normal"><a href="#__codelineno-6-13">13</a></span>
+<span class="normal"><a href="#__codelineno-6-14">14</a></span>
+<span class="normal"><a href="#__codelineno-6-15">15</a></span>
+<span class="normal"><a href="#__codelineno-6-16">16</a></span>
+<span class="normal"><a href="#__codelineno-6-17">17</a></span>
+<span class="normal"><a href="#__codelineno-6-18">18</a></span>
+<span class="normal"><a href="#__codelineno-6-19">19</a></span>
+<span class="normal"><a href="#__codelineno-6-20">20</a></span>
+<span class="normal"><a href="#__codelineno-6-21">21</a></span>
+<span class="normal"><a href="#__codelineno-6-22">22</a></span>
+<span class="normal"><a href="#__codelineno-6-23">23</a></span>
+<span class="normal"><a href="#__codelineno-6-24">24</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><span class="c1"># Load external results</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_external_judge_results</span><span class="p">(</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3"></a>    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;judge_results.csv&quot;</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4"></a>    <span class="n">judge_id</span><span class="o">=</span><span class="s2">&quot;rejection_judge&quot;</span><span class="p">,</span> 
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5"></a>    <span class="n">llm_client</span><span class="o">=</span><span class="s2">&quot;mock_client&quot;</span><span class="p">,</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6"></a>    <span class="n">model_used</span><span class="o">=</span><span class="s2">&quot;mock_model&quot;</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7"></a>    <span class="n">run_id</span><span class="o">=</span><span class="s2">&quot;judge_run_1&quot;</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8"></a><span class="p">)</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9"></a>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_external_annotation_results</span><span class="p">(</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11"></a>    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;human_results.csv&quot;</span><span class="p">,</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12"></a>    <span class="n">annotator_id</span><span class="o">=</span><span class="s2">&quot;human_annotators&quot;</span><span class="p">,</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13"></a>    <span class="n">run_id</span><span class="o">=</span><span class="s2">&quot;human_run_1&quot;</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14"></a><span class="p">)</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15"></a>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16"></a><span class="c1"># Load and run scoring</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17"></a><span class="n">judge_results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">load_all_judge_results</span><span class="p">()</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18"></a><span class="n">human_results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">load_all_human_results</span><span class="p">()</span>
+</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19"></a>
+</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20"></a><span class="n">results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">compare_async</span><span class="p">(</span>
+</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21"></a>    <span class="n">comparison_config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+</span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22"></a>    <span class="n">judge_results</span><span class="o">=</span><span class="n">judge_results</span><span class="p">,</span>
+</span><span id="__span-6-23"><a id="__codelineno-6-23" name="__codelineno-6-23"></a>    <span class="n">human_results</span><span class="o">=</span><span class="n">human_results</span>
+</span><span id="__span-6-24"><a id="__codelineno-6-24" name="__codelineno-6-24"></a><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+<p>This approach allows you to leverage MetaEvaluator's scoring capabilities on any existing judge/human evaluation data, making it easy to compute alignment metrics without needing to re-run evaluations.</p>
 <h2 id="view-data-format">View Data Format</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Check judge results data format</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">for</span> <span class="n">judge_id</span><span class="p">,</span> <span class="n">judge_result</span> <span class="ow">in</span> <span class="n">judge_results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Judge: </span><span class="si">{</span><span class="n">judge_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">judge_result</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>  <span class="c1"># Shows the Polars DataFrame</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">break</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Check human results data format  </span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">for</span> <span class="n">human_id</span><span class="p">,</span> <span class="n">human_result</span> <span class="ow">in</span> <span class="n">human_results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Human: </span><span class="si">{</span><span class="n">human_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">human_result</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>  <span class="c1"># Shows the Polars DataFrame</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="k">break</span>
-</code></pre></div>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-7-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-7-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-7-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-7-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-7-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-7-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-7-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-7-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-7-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-7-10">10</a></span>
+<span class="normal"><a href="#__codelineno-7-11">11</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a><span class="c1"># Check judge results data format</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2"></a><span class="k">for</span> <span class="n">judge_id</span><span class="p">,</span> <span class="n">judge_result</span> <span class="ow">in</span> <span class="n">judge_results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Judge: </span><span class="si">{</span><span class="n">judge_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">judge_result</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>  <span class="c1"># Shows the Polars DataFrame</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5"></a>    <span class="k">break</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6"></a>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7"></a><span class="c1"># Check human results data format  </span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8"></a><span class="k">for</span> <span class="n">human_id</span><span class="p">,</span> <span class="n">human_result</span> <span class="ow">in</span> <span class="n">human_results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Human: </span><span class="si">{</span><span class="n">human_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">human_result</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>  <span class="c1"># Shows the Polars DataFrame</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11"></a>    <span class="k">break</span>
+</span></code></pre></div></td></tr></table></div>
 <h2 id="result-files">Result Files</h2>
 <p>Results are stored in your project directory:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>my_project/
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── main_state.json             # Project configuration
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>├── data/
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>│   └── main_state_data.json    # Your evaluation data
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>├── results/                    # Judge evaluation results
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>│   ├── run_20250815_110504_15c89e71_anthropic_claude_3_5_haiku_judge_20250815_110521_results.json
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>│   ├── run_20250815_110504_15c89e71_anthropic_claude_3_5_haiku_judge_20250815_110521_state.json
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>│   └── run_20250815_110504_15c89e71_openai_gpt_4_1_nano_judge_20250815_110521_results.json
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>├── annotations/                # Human annotation results  
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>│   ├── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_data.json
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>│   └── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_metadata.json
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>└── scores/                     # Computed alignment metrics (after comparison)
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    ├── accuracy/
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    ├── cohens_kappa/
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    ├── alt_test/
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    └── text_similarity/
-</code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>my_project/
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>├── main_state.json             # Project configuration
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>├── data/
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>│   └── main_state_data.json    # Your evaluation data
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>├── results/                    # Judge evaluation results
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>│   ├── run_20250815_110504_15c89e71_anthropic_claude_3_5_haiku_judge_20250815_110521_results.json
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>│   ├── run_20250815_110504_15c89e71_anthropic_claude_3_5_haiku_judge_20250815_110521_state.json
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>│   └── run_20250815_110504_15c89e71_openai_gpt_4_1_nano_judge_20250815_110521_results.json
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>├── annotations/                # Human annotation results  
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>│   ├── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_data.json
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>│   └── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_metadata.json
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>└── scores/                     # Computed alignment metrics (after comparison)
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    ├── accuracy/
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    ├── cohens_kappa/
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    ├── alt_test/
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    └── text_similarity/
+</span></code></pre></div>
 
 
 
@@ -839,7 +1161,7 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.tabs", "content.last_updated"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.tabs", "content.last_updated", "content.code.copy"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.92b07e13.min.js"></script>
