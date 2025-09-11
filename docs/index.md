@@ -39,4 +39,4 @@ Given an evaluation task and dataset, MetaEvaluator:
 
 
 
-Ready to start evaluating your LLM judges? Head to the [Quickstart Guide](quickstart.md)!
+Ready to start evaluating your LLM judges? Head to the [Tutorial](tutorial.md)!

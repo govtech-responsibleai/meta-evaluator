@@ -1,12 +1,7 @@
-# Quickstart Guide
+# Tutorial
 
-Get up and running with MetaEvaluator in 5 minutes! This guide walks you through a complete example evaluating how well LLM judges detect response rejections.
+This guide walks you through a complete example evaluating how well LLM judges detect response rejections.
 
-## Prerequisites
-
-- Python 3.13+
-- [uv](https://docs.astral.sh/uv/) package manager
-- At least one LLM provider API key (OpenAI, Anthropic, etc.)
 
 !!! note "Future Developments"
     The repository is still a work in progress. A Python package release is planned in the near future.
@@ -14,11 +9,12 @@ Get up and running with MetaEvaluator in 5 minutes! This guide walks you through
 ## Installation
 
 ```bash
-# Install the package
+# Requires Python 3.13+
 pip install git+https://github.com/govtech-responsibleai/meta-evaluator#egg=meta-evaluator
 ```
 
 **Set up environment variables:** You can either:
+
 - Copy the [.env.example](https://github.com/govtech-responsibleai/meta-evaluator/blob/main/.env.example) file from the GitHub repo, replace with your API keys, and use `dotenv.load_dotenv()` in your script
 - Set the environment variables directly in your shell
 

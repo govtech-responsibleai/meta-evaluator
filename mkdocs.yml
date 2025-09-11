@@ -43,14 +43,15 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Usage:
-    - Quickstart: quickstart.md
+    - Tutorial: tutorial.md
     - Annotation Guide:
       - Setting up the annotation platform: annotation_guide/annotation.md
     - Evaluation Guides: 
       - Defining the evaluation task: guides/evaltask.md
-      - Loading the data: guides/evaldata.md
+      - Loading the evaluation data: guides/evaldata.md
       - Loading judges: guides/judges_load.md
       - Running judges: guides/judges_run.md
+    - Scoring Guides:
       - Judge/Annotation results: guides/results.md
       - Scoring and Metrics: guides/scoring.md
 

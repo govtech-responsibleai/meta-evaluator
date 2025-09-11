@@ -1,8 +1,10 @@
 # Loading Results
 
-Access judge evaluation results and human annotations.
+## Internal Data Loading
 
-## Load Results
+If you used MetaEvaluator to generate judge and human annotation results, congratulations! Your data has been formatted and is ready to use for scoring.  
+  
+Load your saved results with:
 
 ```python linenums="1"
 # Load both judge and human results  
@@ -12,50 +14,12 @@ human_results = evaluator.load_all_human_results()
 print(f"Judges: {len(judge_results)}, Humans: {len(human_results)}")
 ```
 
-## View Data Format
-
-```python linenums="1"
-# Check judge results data format
-for judge_id, judge_result in judge_results.items():
-    print(f"Judge: {judge_id}")
-    print(judge_result.data)  # Shows the Polars DataFrame
-    break
-
-# Check human results data format  
-for human_id, human_result in human_results.items():
-    print(f"Human: {human_id}")
-    print(human_result.data)  # Shows the Polars DataFrame
-    break
-```
-
-## Result Files
-
-Results are stored in your project directory:
-
-```
-my_project/
-├── main_state.json             # Project configuration
-├── data/
-│   └── main_state_data.json    # Your evaluation data
-├── results/                    # Judge evaluation results
-│   ├── run_20250815_110504_15c89e71_anthropic_claude_3_5_haiku_judge_20250815_110521_results.json
-│   ├── run_20250815_110504_15c89e71_anthropic_claude_3_5_haiku_judge_20250815_110521_state.json
-│   └── run_20250815_110504_15c89e71_openai_gpt_4_1_nano_judge_20250815_110521_results.json
-├── annotations/                # Human annotation results  
-│   ├── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_data.json
-│   └── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_metadata.json
-└── scores/                     # Computed alignment metrics (after comparison)
-    ├── accuracy/
-    ├── cohens_kappa/
-    ├── alt_test/
-    └── text_similarity/
-```
 
 ## External Data Loading
 
 MetaEvaluator supports loading pre-existing judge and human annotation results from external sources. This enables scoring-only workflows where you can compute alignment metrics on existing data without re-running evaluations.
 
-### Loading External Judge Results
+### Importing External Judge Results
 
 Use `add_external_judge_results()` to load judge evaluation data from CSV files:
 
@@ -94,7 +58,7 @@ sample_2,not rejection,"This response demonstrates proper safety measures."
 sample_3,rejection,"This response contains concerning patterns."
 ```
 
-### Loading External Annotation Results
+### Importing External Annotation Results
 
 Use `add_external_annotation_results()` to load human annotation data from CSV files:
 
@@ -186,3 +150,42 @@ results = evaluator.compare_async(
 ```
 
 This approach allows you to leverage MetaEvaluator's scoring capabilities on any existing judge/human evaluation data, making it easy to compute alignment metrics without needing to re-run evaluations.
+
+## View Data Format
+
+```python linenums="1"
+# Check judge results data format
+for judge_id, judge_result in judge_results.items():
+    print(f"Judge: {judge_id}")
+    print(judge_result.data)  # Shows the Polars DataFrame
+    break
+
+# Check human results data format  
+for human_id, human_result in human_results.items():
+    print(f"Human: {human_id}")
+    print(human_result.data)  # Shows the Polars DataFrame
+    break
+```
+
+## Result Files
+
+Results are stored in your project directory:
+
+```
+my_project/
+├── main_state.json             # Project configuration
+├── data/
+│   └── main_state_data.json    # Your evaluation data
+├── results/                    # Judge evaluation results
+│   ├── run_20250815_110504_15c89e71_anthropic_claude_3_5_haiku_judge_20250815_110521_results.json
+│   ├── run_20250815_110504_15c89e71_anthropic_claude_3_5_haiku_judge_20250815_110521_state.json
+│   └── run_20250815_110504_15c89e71_openai_gpt_4_1_nano_judge_20250815_110521_results.json
+├── annotations/                # Human annotation results  
+│   ├── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_data.json
+│   └── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_metadata.json
+└── scores/                     # Computed alignment metrics (after comparison)
+    ├── accuracy/
+    ├── cohens_kappa/
+    ├── alt_test/
+    └── text_similarity/
+```
