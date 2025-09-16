@@ -43,7 +43,15 @@ Start by creating a MetaEvaluator instance:
 ```python
 from meta_evaluator import MetaEvaluator
 
+# Create new project (default: load=False)
 evaluator = MetaEvaluator(project_dir="my_project")
+
+# Parameters:
+# load=False: Create new project (default)
+# load=True: Load existing project - ensure directory contains saved state
+#
+# Note: When load=False, make sure directory doesn't contain data from a different project,
+# or it may mess up the evaluations
 ```
 
 ### 2. Load Data

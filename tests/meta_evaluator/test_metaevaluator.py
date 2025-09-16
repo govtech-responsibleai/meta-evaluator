@@ -1,6 +1,7 @@
 """Test suite for the MetaEvaluator base functionality."""
 
 import json
+import logging
 import re
 import shutil
 from unittest.mock import patch
@@ -724,61 +725,6 @@ class TestMetaEvaluatorBase:
         assert "test_judge" in loaded_evaluator.judge_registry
         assert loaded_evaluator.judge_registry["test_judge"].id == "test_judge"
 
-    def test_load_true_without_saved_state(self, tmp_path):
-        """Test load=True when directory does not exist."""
-        project_dir = tmp_path / "nonexistent_project"
-
-        # Verify directory doesn't exist
-        assert not project_dir.exists()
-
-        # Attempt to load from nonexistent directory
-        with pytest.raises(SavedStateNotFoundError, match="No saved state found"):
-            MetaEvaluator(str(project_dir), load=True)
-
-    def test_load_false_with_existing_directory(self, tmp_path):
-        """Test load=False when directory already exists."""
-        project_dir = tmp_path / "existing_project"
-        project_dir.mkdir()  # Create directory
-
-        # Attempt to create new MetaEvaluator in existing directory
-        with pytest.raises(ProjectDirectoryExistsError, match="already exists"):
-            MetaEvaluator(str(project_dir), load=False)
-
-    def test_load_false_with_new_directory(self, tmp_path):
-        """Test load=False when directory doesn't exist (creates new MetaEvaluator)."""
-        project_dir = tmp_path / "new_project"
-
-        # Verify directory doesn't exist initially
-        assert not project_dir.exists()
-
-        # Create new MetaEvaluator
-        evaluator = MetaEvaluator(str(project_dir), load=False)
-
-        # Verify directory was created and evaluator is in initial state
-        assert project_dir.exists()
-        assert evaluator.data is None
-        assert evaluator.eval_task is None
-        assert evaluator.judge_registry == {}
-
-        # Verify subdirectories were created
-        assert (project_dir / "data").exists()
-        assert (project_dir / "results").exists()
-        assert (project_dir / "annotations").exists()
-        assert (project_dir / "scores").exists()
-
-    def test_load_true_with_invalid_state_file(self, tmp_path):
-        """Test load=True when directory contains invalid state file."""
-        project_dir = tmp_path / "invalid_state_project"
-        project_dir.mkdir()
-
-        # Create invalid state file
-        state_file = project_dir / "main_state.json"
-        state_file.write_text("{ invalid json content }")
-
-        # Attempt to load from directory with invalid state
-        with pytest.raises(SavedStateNotFoundError, match="No saved state found"):
-            MetaEvaluator(str(project_dir), load=True)
-
     def test_load_state_with_eval_data_json_format(
         self, tmp_path, sample_eval_data, basic_eval_task
     ):
@@ -1100,3 +1046,129 @@ class TestMetaEvaluatorAnnotator:
         mock_launcher.launch.assert_called_once_with(
             use_ngrok=False, traffic_policy_file=None
         )
+
+
+class TestMetaEvaluatorDirectoryValidation:
+    """Test suite for comprehensive directory/state validation logic."""
+
+    def test_directory_exists_state_exists_load_true(
+        self, tmp_path, sample_eval_data, basic_eval_task
+    ):
+        """Test: directory exists, state exists, load=True -> loads successfully."""
+        project_dir = tmp_path / "test_project"
+
+        # Create MetaEvaluator and save state first
+        evaluator1 = MetaEvaluator(str(project_dir), load=False)
+        evaluator1.add_data(sample_eval_data)
+        evaluator1.add_eval_task(basic_eval_task)
+        evaluator1.save_state(data_format="json")
+
+        # Now test loading from existing state
+        evaluator2 = MetaEvaluator(str(project_dir), load=True)
+
+        # Verify state was loaded correctly
+        assert evaluator2.data is not None
+        assert evaluator2.eval_task is not None
+
+    def test_directory_exists_state_exists_load_false(
+        self, tmp_path, sample_eval_data, basic_eval_task
+    ):
+        """Test: directory exists, state exists, load=False -> raises ProjectDirectoryExistsError."""
+        project_dir = tmp_path / "test_project"
+
+        # Create MetaEvaluator and save state first
+        evaluator1 = MetaEvaluator(str(project_dir), load=False)
+        evaluator1.add_data(sample_eval_data)
+        evaluator1.add_eval_task(basic_eval_task)
+        evaluator1.save_state(data_format="json")
+
+        # Now test creating new MetaEvaluator when state exists
+        with pytest.raises(
+            ProjectDirectoryExistsError, match="State exists at .* and load=False"
+        ):
+            MetaEvaluator(str(project_dir), load=False)
+
+    def test_directory_exists_state_not_exist_load_true(self, tmp_path):
+        """Test: directory exists, state not exist, load=True -> raises SavedStateNotFoundError."""
+        project_dir = tmp_path / "test_project"
+        project_dir.mkdir()  # Create empty directory
+
+        with pytest.raises(
+            SavedStateNotFoundError, match="State does not exist .* but load=True"
+        ):
+            MetaEvaluator(str(project_dir), load=True)
+
+    def test_directory_exists_state_not_exist_load_false_directory_fully_empty(
+        self, tmp_path, caplog
+    ):
+        """Test: directory exists, state not exist, load=False, directory fully empty -> logs info."""
+        project_dir = tmp_path / "test_project"
+        project_dir.mkdir()  # Create empty directory
+
+        with caplog.at_level(logging.INFO):
+            evaluator = MetaEvaluator(str(project_dir), load=False)
+
+        # Verify info message was logged and new instance created
+        assert "Empty directory found" in caplog.text
+        assert "Continuing to create new MetaEvaluator instance" in caplog.text
+        assert evaluator.data is None
+        assert evaluator.eval_task is None
+
+    def test_directory_exists_state_not_exist_load_false_directory_not_empty(
+        self, tmp_path, caplog
+    ):
+        """Test: directory exists, state not exist, load=False, directory not empty -> logs warning."""
+        project_dir = tmp_path / "test_project"
+        project_dir.mkdir()
+        (project_dir / "some_file.txt").write_text(
+            "content"
+        )  # Make directory non-empty
+
+        with caplog.at_level(logging.WARNING):
+            evaluator = MetaEvaluator(str(project_dir), load=False)
+
+        # Verify warning message was logged and new instance created
+        assert "directory is not empty but state does not exist" in caplog.text
+        assert "EXISTING and UNKNOWN" in caplog.text
+        assert "Proceed with caution" in caplog.text
+        assert evaluator.data is None
+        assert evaluator.eval_task is None
+
+    def test_directory_not_exists_load_true(self, tmp_path, caplog):
+        """Test: directory not exists, load=True -> logs warning and creates new."""
+        project_dir = tmp_path / "nonexistent_project"
+
+        # Verify directory doesn't exist
+        assert not project_dir.exists()
+
+        with caplog.at_level(logging.WARNING):
+            evaluator = MetaEvaluator(str(project_dir), load=True)
+
+        # Verify warning was logged and new instance created
+        assert "Directory does not exist" in caplog.text
+        assert "but load set to True" in caplog.text
+        assert evaluator.data is None
+        assert evaluator.eval_task is None
+        assert project_dir.exists()
+
+    def test_directory_not_exists_load_false(self, tmp_path):
+        """Test: directory not exists, load=False -> creates new instance."""
+        project_dir = tmp_path / "new_project"
+
+        # Verify directory doesn't exist initially
+        assert not project_dir.exists()
+
+        # Create new MetaEvaluator
+        evaluator = MetaEvaluator(str(project_dir), load=False)
+
+        # Verify directory was created and evaluator is in initial state
+        assert project_dir.exists()
+        assert evaluator.data is None
+        assert evaluator.eval_task is None
+        assert evaluator.judge_registry == {}
+
+        # Verify subdirectories were created
+        assert (project_dir / "data").exists()
+        assert (project_dir / "results").exists()
+        assert (project_dir / "annotations").exists()
+        assert (project_dir / "scores").exists()

@@ -64,6 +64,7 @@ def load_sample_data():
     )
 
 # Step 1: Initialize MetaEvaluator
+# load=False: Create new project (ensure directory is empty or doesn't exist)
 evaluator = MetaEvaluator(project_dir="quickstart_project", load=False)
 
 # Step 2: Add evaluation task and data
@@ -194,6 +195,7 @@ def main():
     """Run the complete evaluation workflow."""
     
     # Step 1: Initialize MetaEvaluator
+    # load=False: Create new project (ensure directory is empty or doesn't exist)
     evaluator = MetaEvaluator(project_dir="quickstart_project", load=False)
     
     # Step 2: Add evaluation task and data
