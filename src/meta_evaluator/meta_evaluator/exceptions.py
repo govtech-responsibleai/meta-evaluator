@@ -322,26 +322,22 @@ class ScoringConfigError(MetaEvaluatorScoringError):
 class SavedStateNotFoundError(MetaEvaluatorConfigurationError):
     """Error raised when attempting to load but no saved state is found."""
 
-    def __init__(self, project_dir: str):
-        """Initialize with project directory.
+    def __init__(self, message: str):
+        """Initialize with custom error message.
 
         Args:
-            project_dir: The directory where state was expected to be found.
+            message: The specific error message describing the state issue.
         """
-        super().__init__(
-            f"No saved state found in '{project_dir}'. Set load=False to create a new MetaEvaluator."
-        )
+        super().__init__(message)
 
 
 class ProjectDirectoryExistsError(MetaEvaluatorConfigurationError):
-    """Error raised when creating a new project but directory already exists."""
+    """Error raised when state exists but load=False."""
 
-    def __init__(self, project_dir: str):
-        """Initialize with project directory.
+    def __init__(self, message: str):
+        """Initialize with custom error message.
 
         Args:
-            project_dir: The directory that already exists.
+            message: The specific error message describing the directory/state conflict.
         """
-        super().__init__(
-            f"Project directory '{project_dir}' already exists. Choose a different directory name or set load=True to load existing state."
-        )
+        super().__init__(message)

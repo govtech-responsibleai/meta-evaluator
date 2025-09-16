@@ -60,6 +60,38 @@ class Paths:
         ]:
             path.mkdir(parents=True, exist_ok=True)
 
+    def directory_exists(self) -> bool:
+        """Check if project directory exists.
+
+        Returns:
+            bool: True if project directory exists, False otherwise.
+        """
+        return self.project.exists()
+
+    def state_exists(self) -> bool:
+        """Check if state file exists.
+
+        Returns:
+            bool: True if state file exists, False otherwise.
+        """
+        state_file = self.project / MetaEvaluator.DEFAULT_STATE_FILENAME
+        return state_file.exists()
+
+    def directory_fully_empty(self) -> bool:
+        """Check if directory and all subdirectories are empty.
+
+        Returns:
+            bool: True if directory is empty or doesn't exist, False if it contains any files.
+        """
+        if not self.project.exists():
+            return True
+
+        # Check if any files exist in project directory or subdirectories
+        for item in self.project.rglob("*"):
+            if item.is_file():
+                return False
+        return True
+
 
 class MetaEvaluator(JudgesMixin, ScoringMixin):
     """Main class for managing evaluation workflows with LLMs, data, and evaluation tasks.
@@ -80,15 +112,21 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
     def __init__(self, project_dir: Optional[str] = None, load: bool = False):
         """Initialize a MetaEvaluator instance.
 
+        Implements comprehensive directory and state validation logic:
+        - If directory exists and state exists: load if load=True, error if load=False
+        - If directory exists but no state: create new if directory empty, warn if not empty
+        - If directory doesn't exist: warn if load=True, then create new instance
+
         Args:
             project_dir: Directory for organizing all evaluation files. If provided, all file operations
                 will be organized within this directory structure. If None, creates 'my_project' directory in current working directory.
             load: Whether to load an existing MetaEvaluator from saved state.
-                If True, checks for existing saved state in project_dir and loads it.
+                If True, attempts to load existing state from project_dir.
                 If False, creates a new MetaEvaluator instance.
 
         Raises:
-            ProjectDirectoryExistsError: If load=False but project_dir already exists.
+            ProjectDirectoryExistsError: If state exists at project_dir and load=False.
+            SavedStateNotFoundError: If state does not exist in project_dir but load=True.
         """
         super().__init__()
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -100,33 +138,61 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         # Initialize project paths
         self.paths = Paths(project_dir)
 
-        if load:
-            # Check if saved state exists and load it
-            self._load_existing_state()
+        # Implement comprehensive directory/state validation logic
+        if self.paths.directory_exists():
+            if self.paths.state_exists():
+                if load:
+                    # Load MetaEvaluator from state
+                    self._load_existing_state()
+                    return
+                else:
+                    # Error: State exists but load=False
+                    raise ProjectDirectoryExistsError(
+                        f"State exists at {self.paths.project} and load=False! "
+                        f"Set load=True or create a new project directory."
+                    )
+            else:
+                if load:
+                    # Error: No state but load=True
+                    raise SavedStateNotFoundError(
+                        f"State does not exist in {self.paths.project} but load=True! "
+                        f"Set load=False or check the project directory path."
+                    )
+                else:
+                    # Create new instance, but check if directory is empty
+                    if self.paths.directory_fully_empty():
+                        self.logger.info(
+                            f"Empty directory found at {self.paths.project}. Continuing to create new MetaEvaluator instance."
+                        )
+                    else:
+                        self.logger.warning(
+                            f"{self.paths.project} directory is not empty but state does not exist. "
+                            f"Creating a new MetaEvaluator instance. Directory may still contain EXISTING and UNKNOWN "
+                            f"judge/annotation results and scores. Proceed with caution."
+                        )
         else:
-            # Check if MetaEvaluator state already exists and raise error if it does
-            state_file = self.paths.project / self.DEFAULT_STATE_FILENAME
-            if state_file.exists():
-                raise ProjectDirectoryExistsError(str(self.paths.project))
+            if load:
+                # Warning: Directory doesn't exist but load=True
+                self.logger.warning(
+                    f"Directory does not exist at {self.paths.project} but load set to True. "
+                    f"Creating a new MetaEvaluator instance."
+                )
 
-            # Initialize empty state
-            self.data: Optional[EvalData] = None
-            self.eval_task: Optional[EvalTask] = None
+        # Create new MetaEvaluator instance
+        self.data: Optional[EvalData] = None
+        self.eval_task: Optional[EvalTask] = None
 
-            # Create directory structure for new project
-            self.paths.ensure_directories()
+        # Create directory structure for new project
+        self.paths.ensure_directories()
 
     def _load_existing_state(self) -> None:
         """Load existing state from the project directory.
 
+        Note: State existence is already validated in __init__ before calling this method.
+
         Raises:
-            SavedStateNotFoundError: If no saved state is found in the project directory.
+            SavedStateNotFoundError: If state file exists but is invalid/corrupted.
         """
-        state_file = self.paths.project / self.DEFAULT_STATE_FILENAME
-
-        if not state_file.exists():
-            raise SavedStateNotFoundError(str(self.paths.project))
-
         try:
             # Load the saved state using the existing load_state class method
             loaded_evaluator = self.__class__.load_state(
