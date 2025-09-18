@@ -1075,7 +1075,6 @@ class TestScoring:
         if scorer_class == AltTestScorer:
             scorer = AltTestScorer()
             scorer.min_instances_per_human = 1  # Set low threshold for testing
-            scorer.min_humans_per_instance = 1
         else:
             scorer = scorer_class()
 
@@ -1145,6 +1144,62 @@ class TestScoring:
             assert result.scorer_name == "accuracy"
             assert result.judge_id in ["judge_1", "judge_2"]
             assert isinstance(result.scores.get("accuracy"), float)
+
+
+@pytest.mark.parametrize(
+    "scorer_class,num_humans",
+    [
+        (CohensKappaScorer, 1),  # Requires 2, test with 1
+        (AltTestScorer, 2),  # Requires 3, test with 2
+        # Note: We skip testing scorers that only need 1 human annotator (AccuracyScorer,
+        # TextSimilarityScorer, SemanticSimilarityScorer) because when testing with 0 humans,
+        # they hit the "No aligned data" error before the min_human_annotators validation
+    ],
+)
+def test_min_human_annotators_validation_failure(
+    mock_evaluator, scorer_class, num_humans
+):
+    """Test that scorers fail when insufficient human annotators are provided."""
+    # Create scorer instance
+    scorer = scorer_class()
+
+    # Create metric config
+    metric_config = MetricConfig(
+        scorer=scorer, task_names=["task1"], aggregation_name="single"
+    )
+
+    # Create mock data with specified number of humans
+    judge_result = Mock(spec=JudgeResults)
+    judge_result.judge_id = "test_judge"
+
+    # Setup mock data - always create judge data
+    judge_df = pl.DataFrame({"original_id": ["1", "2"], "task1": ["A", "B"]})
+    judge_result.get_successful_results.return_value = judge_df
+
+    human_results = {}
+    for i in range(num_humans):
+        human_result = Mock(spec=HumanAnnotationResults)
+        human_result.annotator_id = f"human_{i + 1}"
+        human_result.get_successful_results.return_value = pl.DataFrame(
+            {
+                "original_id": ["1", "2"],
+                "human_id": [f"human_{i + 1}", f"human_{i + 1}"],
+                "task1": ["A", "B"],
+            }
+        )
+        human_results[f"run_{i + 1}"] = human_result
+
+    # Should return BaseScoringResult with error indicators when insufficient humans
+    result = asyncio.run(
+        mock_evaluator._process_single_judge_async(
+            metric_config, judge_result, human_results
+        )
+    )
+
+    # Verify the result indicates failure due to insufficient human annotators
+    assert result.task_name == "error"
+    assert result.failed_comparisons == 1
+    assert result.num_comparisons == 0
 
     def test_compare_sync_wrapper(
         self, tmp_path, judge_results_dict, human_results_dict

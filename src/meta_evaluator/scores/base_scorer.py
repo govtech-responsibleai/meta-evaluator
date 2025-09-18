@@ -19,11 +19,15 @@ class BaseScorer(ABC):
     Cohen's kappa, etc.) and must implement methods to:
     1. Determine compatibility with task schemas via `can_score_task()`
     2. Compute alignment scores between judge and human results via `compute_score_async()`
-    3. Optionally override post-processing methods for visualization and aggregation
+    3. Define minimum human annotator requirements via `min_human_annotators`
+    4. Optionally override post-processing methods for visualization and aggregation
 
     Attributes:
         scorer_name (str): Name identifier for this scorer instance.
         logger (logging.Logger): Logger instance for this scorer.
+
+    Properties:
+        min_human_annotators: Minimum number of human annotators required for this scorer.
 
     Methods:
         can_score_task: Determine if scorer is compatible with given task schema.
@@ -34,6 +38,9 @@ class BaseScorer(ABC):
 
     Examples:
         >>> class AccuracyScorer(BaseScorer):
+        ...     @property
+        ...     def min_human_annotators(self) -> int:
+        ...         return 1  # Accuracy works with just 1 human
         ...     def can_score_task(self, task_schema):
         ...         return task_schema is not None  # Only classification tasks
         ...     def compute_score_async(self, judge_data, human_data, human_df, task_name, judge_id, aggregation_mode):
@@ -52,6 +59,16 @@ class BaseScorer(ABC):
         """
         self.scorer_name = scorer_name
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+
+    @property
+    @abstractmethod
+    def min_human_annotators(self) -> int:
+        """Minimum number of human annotators required for this scorer.
+
+        Returns:
+            int: Minimum number of human annotators needed for meaningful results
+        """
+        pass
 
     @abstractmethod
     def can_score_task(self, sample_label: Any) -> bool:

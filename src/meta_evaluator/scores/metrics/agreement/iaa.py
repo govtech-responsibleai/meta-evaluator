@@ -19,6 +19,15 @@ class CohensKappaScorer(BaseScorer):
         """Initialize Cohen's kappa scorer."""
         super().__init__("cohens_kappa")
 
+    @property
+    def min_human_annotators(self) -> int:
+        """Minimum number of human annotators required for Cohen's kappa.
+
+        Returns:
+            int: 2 human annotators minimum for inter-annotator agreement
+        """
+        return 2
+
     def can_score_task(
         self, sample_label: str | int | float | List[str | int | float]
     ) -> bool:

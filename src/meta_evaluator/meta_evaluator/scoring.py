@@ -529,7 +529,17 @@ class ScoringMixin:
             if judge_df.is_empty() or human_df.is_empty():
                 raise InsufficientDataError(f"No aligned data for judge {judge_id}")
 
-            # Step 2: Process based on aggregation mode
+            # Step 2: Validate minimum human annotators
+            num_humans = len(human_df["human_id"].unique())
+            min_required = metric_config.scorer.min_human_annotators
+
+            if num_humans < min_required:
+                raise InsufficientDataError(
+                    f"Scorer '{metric_config.scorer.scorer_name}' requires at least {min_required} "
+                    f"human annotators, but only {num_humans} found for judge {judge_id}"
+                )
+
+            # Step 3: Process based on aggregation mode
             if metric_config.aggregation_mode == TaskAggregationMode.MULTITASK:
                 # MULTITASK - process each task separately, then average.
                 task_scoring_results = []

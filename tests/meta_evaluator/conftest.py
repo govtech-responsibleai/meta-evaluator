@@ -348,23 +348,38 @@ def human_results_2():
 
 
 @pytest.fixture
-def human_results_dict(human_results_1, human_results_2):
+def human_results_3():
+    """Create third human results for scoring comparisons (needed for AltTestScorer).
+
+    Returns:
+        Mock: A mock human results object.
+    """
+    human_results = Mock(spec=HumanAnnotationResults)
+    human_results.annotator_id = "human_3"
+    human_results.run_id = "run_3"
+    human_results.get_successful_results.return_value = pl.DataFrame(
+        {
+            "original_id": ["1", "2", "3", "4"],
+            "task1": ["A", "B", "A", "B"],
+            "task2": ["text1", "text2_modified", "text3", "text4"],
+            "safety": ["SAFE", "UNSAFE", "SAFE", "UNSAFE"],
+        }
+    )
+    return human_results
+
+
+@pytest.fixture
+def human_results_dict(human_results_1, human_results_2, human_results_3):
     """Create a dictionary of human results for scoring comparison tests.
 
     Returns:
         dict: A dictionary of human results.
     """
-    return {"run_1": human_results_1, "run_2": human_results_2}
-
-
-@pytest.fixture
-def human_results(human_results_dict):
-    """Human results dictionary for tests that expect multiple humans.
-
-    Returns:
-        dict: A dictionary of human results.
-    """
-    return human_results_dict
+    return {
+        "run_1": human_results_1,
+        "run_2": human_results_2,
+        "run_3": human_results_3,
+    }
 
 
 @pytest.fixture
@@ -608,7 +623,6 @@ def alt_test_scorer_config():
     """
     scorer = AltTestScorer()
     scorer.min_instances_per_human = 1
-    scorer.min_humans_per_instance = 1
     config = MetricConfig(
         scorer=scorer, task_names=["task1"], aggregation_name="single"
     )
@@ -748,7 +762,6 @@ def different_scorer_configs():
     # AltTest scorer config
     alt_test_scorer = AltTestScorer()
     alt_test_scorer.min_instances_per_human = 1
-    alt_test_scorer.min_humans_per_instance = 1
     alt_test_config = MetricConfig(
         scorer=alt_test_scorer,
         task_names=["task1"],
