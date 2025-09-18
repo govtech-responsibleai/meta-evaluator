@@ -23,7 +23,7 @@ Configure and use alignment metrics to compare judge evaluations with human anno
             MetricConfig(
                 scorer=AccuracyScorer(),
                 task_names=["rejection"],
-                aggregation_name="single", # One of 'single', 'multilabel', or 'multitask'
+                task_strategy="single", # One of 'single', 'multilabel', or 'multitask'
             ),
         ]
     )
@@ -57,12 +57,12 @@ Configure and use alignment metrics to compare judge evaluations with human anno
                     "self_harm",
                     "all_other_misconduct",
                 ],
-                aggregation_name="multilabel", 
+                task_strategy="multilabel", 
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
                 task_names=["hateful"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
@@ -74,12 +74,12 @@ Configure and use alignment metrics to compare judge evaluations with human anno
                     "self_harm",
                     "all_other_misconduct",
                 ],
-                aggregation_name="multitask",
+                task_strategy="multitask",
             ),
             MetricConfig(
                 scorer=text_similarity_scorer,
                 task_names=["explanation"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
         ]
     )
@@ -87,9 +87,9 @@ Configure and use alignment metrics to compare judge evaluations with human anno
     evaluator.compare_async(config, judge_results, human_results)
     ```
 
-## Task Configuration Types (`aggregation_name`)
+## Task Configuration Types (`task_strategy`)
 
-The `aggregation_name` parameter defines how tasks are processed and must be one of: `"single"`, `"multitask"`, or `"multilabel"`.
+The `task_strategy` parameter defines how tasks are processed and must be one of: `"single"`, `"multitask"`, or `"multilabel"`.
 
 !!! important "Task Count Requirements"
     - **`"single"`**: Use only when `task_names` contains **exactly 1 task**
@@ -106,7 +106,7 @@ The `aggregation_name` parameter defines how tasks are processed and must be one
             MetricConfig(
                 scorer=AccuracyScorer(),
                 task_names=["rejection"],  # Single task name
-                aggregation_name="single",  # Required: "single" for single task
+                task_strategy="single",  # Required: "single" for single task
             ),
         ]
     )
@@ -128,7 +128,7 @@ The `aggregation_name` parameter defines how tasks are processed and must be one
             MetricConfig(
                 scorer=AccuracyScorer(),
                 task_names=["helpful", "harmless", "honest"],  # Multiple tasks
-                aggregation_name="multitask",  # Required: "multitask" for multiple separate tasks
+                task_strategy="multitask",  # Required: "multitask" for multiple separate tasks
             ),
         ]
     )
@@ -153,7 +153,7 @@ The `aggregation_name` parameter defines how tasks are processed and must be one
             MetricConfig(
                 scorer=alt_test_scorer,
                 task_names=["hateful", "violent", "sexual"],  # Combined as multi-label
-                aggregation_name="multilabel",  # Required: "multilabel" for combined tasks
+                task_strategy="multilabel",  # Required: "multilabel" for combined tasks
             ),
         ]
     )
@@ -174,19 +174,19 @@ config = MetricsConfig(
         MetricConfig(
             scorer=AccuracyScorer(),
             task_names=["helpful"],
-            aggregation_name="single",
+            task_strategy="single",
         ),
         # Accuracy for multitask classification tasks
         MetricConfig(
             scorer=AccuracyScorer(),
             task_names=["helpful", "harmless", "honest"],
-            aggregation_name="multitask",
+            task_strategy="multitask",
         ),
         # Text similarity for text tasks, all tasks combined into one multilabel
         MetricConfig(
             scorer=TextSimilarityScorer(),
             task_names=["explanation", "reasoning"],
-            aggregation_name="multilabel",
+            task_strategy="multilabel",
         ),
     ]
 )
@@ -204,7 +204,7 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=accuracy_scorer,
         task_names=["classification_field"],
-        aggregation_name="single",
+        task_strategy="single",
     )
     ```
 
@@ -218,7 +218,7 @@ config = MetricsConfig(
     {
       "judge_id": "gpt_4_judge",
       "scorer_name": "accuracy",
-      "aggregation_name": "single",
+      "task_strategy": "single",
       "task_name": "rejection",
       "score": 0.87,
       "total_instances": 100,
@@ -240,7 +240,7 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=kappa_scorer,
         task_names=["classification_field"],
-        aggregation_name="single",
+        task_strategy="single",
     )
     ```
 
@@ -264,7 +264,7 @@ config = MetricsConfig(
     {
       "judge_id": "claude_judge",
       "scorer_name": "cohens_kappa", 
-      "aggregation_name": "single",
+      "task_strategy": "single",
       "task_name": "rejection",
       "score": 0.72,
       "interpretation": "substantial",
@@ -287,7 +287,7 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=alt_test_scorer,
         task_names=["classification_field"],
-        aggregation_name="single",
+        task_strategy="single",
     )
     ```
 
@@ -308,7 +308,7 @@ config = MetricsConfig(
     {
       "judge_id": "anthropic_claude_3_5_haiku_judge",
       "scorer_name": "alt_test",
-      "aggregation_name": "multilabel", 
+      "task_strategy": "multilabel", 
       "task_name": "rejection",
       "scores": {
         "winning_rate": {
@@ -347,7 +347,7 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=text_scorer,
         task_names=["explanation", "reasoning"],
-        aggregation_name="single",
+        task_strategy="single",
     )
     ```
 
@@ -365,7 +365,7 @@ config = MetricsConfig(
     {
       "judge_id": "gpt_4_judge",
       "scorer_name": "text_similarity",
-      "aggregation_name": "single", 
+      "task_strategy": "single", 
       "task_name": "explanation",
       "score": 0.76,
       "metadata": {
@@ -387,7 +387,7 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=semantic_scorer,
         task_names=["explanation"],
-        aggregation_name="single",
+        task_strategy="single",
     )
     ```
 
@@ -411,7 +411,7 @@ config = MetricsConfig(
     {
       "judge_id": "claude_judge",
       "scorer_name": "semantic_similarity",
-      "aggregation_name": "single", 
+      "task_strategy": "single", 
       "task_name": "explanation",
       "score": 0.84,
       "metadata": {
@@ -573,7 +573,7 @@ custom_scorer = MyCustomScorer()
 config = MetricConfig(
     scorer=custom_scorer,
     task_names=["text"],
-    aggregation_name="single",
+    task_strategy="single",
 )
 ```
 

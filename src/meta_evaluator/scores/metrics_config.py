@@ -18,29 +18,32 @@ class MetricConfig(BaseModel):
 
     scorer: BaseScorer
     task_names: List[str]
-    aggregation_name: Literal["single", "multilabel", "multitask"]
+    task_strategy: Literal["single", "multilabel", "multitask"]
+    annotator_aggregation: Literal["individual_average", "majority_vote"] = (
+        "individual_average"
+    )
 
     @model_validator(mode="after")
-    def validate_aggregation_mode_constraints(self) -> "MetricConfig":
-        """Validate that aggregation mode matches task names count constraints.
+    def validate_task_strategy_constraints(self) -> "MetricConfig":
+        """Validate that task strategy matches task names count constraints.
 
-        - 'single' aggregation mode can only be used with exactly 1 task name
-        - 'multilabel' and 'multitask' aggregation modes can only be used with more than 1 task name
+        - 'single' task strategy can only be used with exactly 1 task name
+        - 'multilabel' and 'multitask' task strategies can only be used with more than 1 task name
 
         Returns:
             MetricConfig: The validated instance.
 
         Raises:
-            InvalidAggregationModeError: If aggregation mode doesn't match task names count.
+            InvalidAggregationModeError: If task strategy doesn't match task names count.
         """
         task_count = len(self.task_names)
 
-        if self.aggregation_name == "single" and task_count != 1:
+        if self.task_strategy == "single" and task_count != 1:
             raise InvalidAggregationModeError(
                 f"{INVALID_SINGLE_AGGREGATION_MSG}, but got {task_count} task names: {self.task_names}"
             )
 
-        if self.aggregation_name in ["multilabel", "multitask"] and task_count <= 1:
+        if self.task_strategy in ["multilabel", "multitask"] and task_count <= 1:
             raise InvalidAggregationModeError(
                 f"{INVALID_MULTILABEL_MULTITASK_AGGREGATION_MSG}, but got {task_count} task names: {self.task_names}"
             )
@@ -50,19 +53,19 @@ class MetricConfig(BaseModel):
     @computed_field
     @property
     def aggregation_mode(self) -> TaskAggregationMode:
-        """Compute aggregation_mode from aggregation_name.
+        """Compute aggregation_mode from task_strategy.
 
         Raises:
-            ValueError: If aggregation_name is not recognized.
+            ValueError: If task_strategy is not recognized.
         """
-        if self.aggregation_name == "single":
+        if self.task_strategy == "single":
             return TaskAggregationMode.SINGLE
-        elif self.aggregation_name == "multilabel":
+        elif self.task_strategy == "multilabel":
             return TaskAggregationMode.MULTILABEL
-        elif self.aggregation_name == "multitask":
+        elif self.task_strategy == "multitask":
             return TaskAggregationMode.MULTITASK
         else:
-            raise ValueError(f"Invalid aggregation name: {self.aggregation_name}")
+            raise ValueError(f"Invalid task strategy: {self.task_strategy}")
 
     class Config:
         """Pydantic configuration for MetricConfig."""
@@ -108,13 +111,17 @@ class MetricsConfig(BaseModel):
         self,
         scorer: "BaseScorer",
         task_names: List[str],
-        aggregation_name: Literal["single", "multilabel", "multitask"],
+        task_strategy: Literal["single", "multilabel", "multitask"],
+        annotator_aggregation: Literal[
+            "individual_average", "majority_vote"
+        ] = "individual_average",
     ) -> None:
         """Add a metric configuration."""
         self.metrics.append(
             MetricConfig(
                 scorer=scorer,
                 task_names=task_names,
-                aggregation_name=aggregation_name,
+                task_strategy=task_strategy,
+                annotator_aggregation=annotator_aggregation,
             )
         )

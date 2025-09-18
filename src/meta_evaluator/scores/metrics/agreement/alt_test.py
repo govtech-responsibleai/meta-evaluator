@@ -90,6 +90,7 @@ class AltTestScorer(BaseScorer):
         task_name: str,
         judge_id: str,
         aggregation_mode,
+        annotator_aggregation: str = "individual_average",
     ) -> BaseScoringResult:
         """Compute Alt-Test score for a single judge vs many humans (async).
 
@@ -99,10 +100,17 @@ class AltTestScorer(BaseScorer):
             task_name: Name of the task(s) being scored
             judge_id: ID of the judge being scored
             aggregation_mode: How the tasks were aggregated for this result
+            annotator_aggregation: How to aggregate multiple human annotators
 
         Returns:
             BaseScoringResult: The scoring result for this judge
         """
+        # Check annotator aggregation strategy and warn if majority_vote is used
+        if annotator_aggregation == "majority_vote":
+            self.logger.warning(
+                "AltTestScorer does not support majority_vote aggregation. Using individual_average instead."
+            )
+
         # Join judge and human data on original_id
         comparison_df = judge_data.join(human_data, on="original_id", how="inner")
 

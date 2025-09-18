@@ -47,6 +47,7 @@ class CustomScorer(BaseScorer):
         task_name: str,
         judge_id: str,
         aggregation_mode,
+        annotator_aggregation: str = "individual_average",
     ):
         """Simple custom scoring logic - count number of times judge has more letter "A"s than human, 0 otherwise.
 

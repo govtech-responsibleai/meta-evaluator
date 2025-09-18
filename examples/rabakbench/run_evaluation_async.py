@@ -116,7 +116,7 @@ def main():
                     "self_harm",
                     "all_other_misconduct",
                 ],
-                aggregation_name="multilabel",
+                task_strategy="multilabel",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
@@ -128,12 +128,12 @@ def main():
                     "self_harm",
                     "all_other_misconduct",
                 ],
-                aggregation_name="multitask",
+                task_strategy="multitask",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
                 task_names=["hateful"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
         ]
     )

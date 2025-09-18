@@ -758,7 +758,7 @@ class TestScoring:
         config = MetricConfig(
             scorer=scorer,
             task_names=["task1"],
-            aggregation_name="single",
+            task_strategy="single",
         )
 
         # Mock the process_single_judge_async method
@@ -859,7 +859,7 @@ class TestScoring:
         config = MetricConfig(
             scorer=scorer,
             task_names=["task1", "task2"],
-            aggregation_name="multitask",
+            task_strategy="multitask",
         )
 
         # Call the actual method
@@ -883,7 +883,7 @@ class TestScoring:
         config = MetricConfig(
             scorer=scorer,
             task_names=["task1"],
-            aggregation_name="single",
+            task_strategy="single",
         )
 
         # Call the actual method
@@ -1005,7 +1005,7 @@ class TestScoring:
         assert result is None
 
     @pytest.mark.parametrize(
-        "scorer_class,scorer_name,task_names,aggregation_name",
+        "scorer_class,scorer_name,task_names,task_strategy",
         [
             # AccuracyScorer tests
             (AccuracyScorer, "accuracy", ["task1"], "single"),
@@ -1068,7 +1068,7 @@ class TestScoring:
         scorer_class,
         scorer_name,
         task_names,
-        aggregation_name,
+        task_strategy,
     ):
         """Test _process_single_judge_async with different combinations of metrics, scorers and aggregation modes."""
         # Create real scorer instances
@@ -1080,7 +1080,7 @@ class TestScoring:
 
         # Create metric config
         config = MetricConfig(
-            scorer=scorer, task_names=task_names, aggregation_name=aggregation_name
+            scorer=scorer, task_names=task_names, task_strategy=task_strategy
         )
 
         # Get first judge result for testing
@@ -1125,7 +1125,7 @@ class TestScoring:
         config = MetricsConfig(
             metrics=[
                 MetricConfig(
-                    scorer=scorer, task_names=["task1"], aggregation_name="single"
+                    scorer=scorer, task_names=["task1"], task_strategy="single"
                 )
             ]
         )
@@ -1165,7 +1165,7 @@ def test_min_human_annotators_validation_failure(
 
     # Create metric config
     metric_config = MetricConfig(
-        scorer=scorer, task_names=["task1"], aggregation_name="single"
+        scorer=scorer, task_names=["task1"], task_strategy="single"
     )
 
     # Create mock data with specified number of humans
@@ -1221,7 +1221,7 @@ def test_min_human_annotators_validation_failure(
         config = MetricsConfig(
             metrics=[
                 MetricConfig(
-                    scorer=scorer, task_names=["task1"], aggregation_name="single"
+                    scorer=scorer, task_names=["task1"], task_strategy="single"
                 )
             ]
         )

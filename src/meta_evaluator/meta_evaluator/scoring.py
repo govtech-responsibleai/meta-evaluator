@@ -57,8 +57,8 @@ class ScoringMixin:
         >>> cohens_kappa_scorer = CohensKappaScorer()
         >>> config = MetricsConfig(
         >>>    metrics=[
-        >>>        MetricConfig(scorer=alt_test_scorer,task_names=["task_1", "task_2"], aggregation_name="multilabel"),
-        >>>        MetricConfig(scorer=cohens_kappa_scorer, task_names=["task_1"], aggregation_name="single"),
+        >>>        MetricConfig(scorer=alt_test_scorer,task_names=["task_1", "task_2"], task_strategy="multilabel"),
+        >>>        MetricConfig(scorer=cohens_kappa_scorer, task_names=["task_1"], task_strategy="single"),
         >>>    ]
         >>> )
         >>> await evaluator.compare_async(config, judge_results=judge_results, human_results=human_results)
@@ -568,6 +568,7 @@ class ScoringMixin:
                             task_name,
                             judge_id,
                             TaskAggregationMode.SINGLE,
+                            metric_config.annotator_aggregation,
                         )
                     )
                     task_scoring_results.append(task_scoring_result)
@@ -612,6 +613,7 @@ class ScoringMixin:
                     display_task_name,
                     judge_id,
                     metric_config.aggregation_mode,
+                    metric_config.annotator_aggregation,
                 )
                 return result
 

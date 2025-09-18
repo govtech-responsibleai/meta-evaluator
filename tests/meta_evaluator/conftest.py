@@ -594,9 +594,7 @@ def accuracy_scorer_config():
         tuple: (scorer_instance, MetricConfig)
     """
     scorer = AccuracyScorer()
-    config = MetricConfig(
-        scorer=scorer, task_names=["task1"], aggregation_name="single"
-    )
+    config = MetricConfig(scorer=scorer, task_names=["task1"], task_strategy="single")
     return scorer, config
 
 
@@ -608,9 +606,7 @@ def cohens_kappa_scorer_config():
         tuple: (scorer_instance, MetricConfig)
     """
     scorer = CohensKappaScorer()
-    config = MetricConfig(
-        scorer=scorer, task_names=["task1"], aggregation_name="single"
-    )
+    config = MetricConfig(scorer=scorer, task_names=["task1"], task_strategy="single")
     return scorer, config
 
 
@@ -623,9 +619,7 @@ def alt_test_scorer_config():
     """
     scorer = AltTestScorer()
     scorer.min_instances_per_human = 1
-    config = MetricConfig(
-        scorer=scorer, task_names=["task1"], aggregation_name="single"
-    )
+    config = MetricConfig(scorer=scorer, task_names=["task1"], task_strategy="single")
     return scorer, config
 
 
@@ -643,7 +637,7 @@ def multi_aggregation_configs():
     config1 = MetricConfig(
         scorer=scorer1,
         task_names=["task1"],
-        aggregation_name="single",
+        task_strategy="single",
     )
     result1 = BaseScoringResult(
         scorer_name="accuracy",
@@ -662,7 +656,7 @@ def multi_aggregation_configs():
     config2 = MetricConfig(
         scorer=scorer2,
         task_names=["task1", "task2"],
-        aggregation_name="multitask",
+        task_strategy="multitask",
     )
     result2 = BaseScoringResult(
         scorer_name="accuracy",
@@ -681,7 +675,7 @@ def multi_aggregation_configs():
     config3 = MetricConfig(
         scorer=scorer3,
         task_names=["task1", "task2"],
-        aggregation_name="multilabel",
+        task_strategy="multilabel",
     )
     result3 = BaseScoringResult(
         scorer_name="accuracy",
@@ -712,7 +706,7 @@ def different_scorer_configs():
     accuracy_config = MetricConfig(
         scorer=accuracy_scorer,
         task_names=["task1"],
-        aggregation_name="single",
+        task_strategy="single",
     )
     accuracy_results = [
         BaseScoringResult(
@@ -743,7 +737,7 @@ def different_scorer_configs():
     kappa_config = MetricConfig(
         scorer=kappa_scorer,
         task_names=["task1"],
-        aggregation_name="single",
+        task_strategy="single",
     )
     kappa_results = [
         BaseScoringResult(
@@ -765,7 +759,7 @@ def different_scorer_configs():
     alt_test_config = MetricConfig(
         scorer=alt_test_scorer,
         task_names=["task1"],
-        aggregation_name="single",
+        task_strategy="single",
     )
     alt_test_results = [
         BaseScoringResult(

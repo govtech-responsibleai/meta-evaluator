@@ -235,28 +235,28 @@ def main():
             MetricConfig(
                 scorer=accuracy_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
             MetricConfig(
                 scorer=alt_test_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
             # Free-form text metrics
             MetricConfig(
                 scorer=text_similarity_scorer,
                 task_names=["explanation"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
             MetricConfig(
                 scorer=semantic_similarity_scorer,
                 task_names=["explanation"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
         ]
     )

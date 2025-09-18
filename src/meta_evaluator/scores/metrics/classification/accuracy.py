@@ -56,6 +56,7 @@ class AccuracyScorer(BaseScorer):
         task_name: str,
         judge_id: str,
         aggregation_mode,
+        annotator_aggregation: str = "individual_average",
     ) -> BaseScoringResult:
         """Compute accuracy score for a single judge vs many humans (async).
 
@@ -65,6 +66,7 @@ class AccuracyScorer(BaseScorer):
             task_name: Name of the task(s) being scored
             judge_id: ID of the judge being scored
             aggregation_mode: How the tasks were aggregated for this result
+            annotator_aggregation: How to aggregate multiple human annotators
 
         Returns:
             BaseScoringResult: The scoring result for this judge
