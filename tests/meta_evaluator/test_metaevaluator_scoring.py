@@ -1130,8 +1130,9 @@ class TestScoring:
             ]
         )
 
-        # Run comparison
-        results = await mock_evaluator._compare_async(config)
+        # Set metrics config and run comparison
+        mock_evaluator.metrics_config = config
+        results = await mock_evaluator._compare_async()
 
         # Verify results structure
         assert len(results) == 1
@@ -1226,8 +1227,9 @@ def test_min_human_annotators_validation_failure(
             ]
         )
 
-        # Run comparison using sync wrapper (no await needed)
-        results = evaluator.compare_async(config)
+        # Add metrics configuration and run comparison using sync wrapper (no await needed)
+        evaluator.add_metrics_config(config)
+        results = evaluator.compare_async()
 
         # Verify results structure
         assert len(results) == 1

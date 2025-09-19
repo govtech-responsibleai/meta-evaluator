@@ -22,9 +22,11 @@ from meta_evaluator.meta_evaluator.exceptions import (
     EvalTaskAlreadyExistsError,
     EvalTaskNotFoundError,
     InvalidFileError,
+    MetricsConfigAlreadyExistsError,
     ProjectDirectoryExistsError,
     SavedStateNotFoundError,
 )
+from meta_evaluator.scores import AccuracyScorer, MetricConfig, MetricsConfig
 
 
 @pytest.mark.integration
@@ -37,6 +39,7 @@ class TestMetaEvaluatorBase:
         """Test that MetaEvaluator initializes with proper initial state."""
         assert meta_evaluator.data is None
         assert meta_evaluator.eval_task is None
+        assert meta_evaluator.metrics_config is None
         assert meta_evaluator.judge_registry == {}
 
     # === add_data() Method Tests ===
@@ -248,6 +251,67 @@ class TestMetaEvaluatorBase:
         assert meta_evaluator.eval_task == basic_eval_task_empty_prompt
         assert meta_evaluator.eval_task.prompt_columns == []
         assert meta_evaluator.eval_task.response_columns == ["response"]
+
+    # === add_metrics_config() Method Tests ===
+
+    def test_add_metrics_config_first_time(self, meta_evaluator):
+        """Test adding metrics configuration when no metrics config exists."""
+        assert meta_evaluator.metrics_config is None
+
+        # Create a sample metrics config
+        accuracy_scorer = AccuracyScorer()
+        metrics_config = MetricsConfig(
+            metrics=[
+                MetricConfig(
+                    scorer=accuracy_scorer,
+                    task_names=["sentiment"],
+                    task_strategy="single",
+                )
+            ]
+        )
+
+        meta_evaluator.add_metrics_config(metrics_config)
+
+        assert meta_evaluator.metrics_config == metrics_config
+
+    def test_add_metrics_config_already_exists_no_overwrite(self, meta_evaluator):
+        """Test MetricsConfigAlreadyExistsError when metrics config exists and overwrite is False (default)."""
+        # Create first metrics config
+        accuracy_scorer = AccuracyScorer()
+        first_config = MetricsConfig(
+            metrics=[
+                MetricConfig(
+                    scorer=accuracy_scorer,
+                    task_names=["sentiment"],
+                    task_strategy="single",
+                )
+            ]
+        )
+
+        # Add metrics config first time
+        meta_evaluator.add_metrics_config(first_config)
+        assert meta_evaluator.metrics_config == first_config
+
+        # Create second metrics config
+        second_config = MetricsConfig(
+            metrics=[
+                MetricConfig(
+                    scorer=accuracy_scorer,
+                    task_names=["safety"],
+                    task_strategy="single",
+                )
+            ]
+        )
+
+        # Try to add again without overwrite
+        with pytest.raises(
+            MetricsConfigAlreadyExistsError,
+            match="Metrics configuration already exists",
+        ):
+            meta_evaluator.add_metrics_config(second_config)
+
+        # Verify original metrics config is unchanged
+        assert meta_evaluator.metrics_config == first_config
 
     # === save_state() Method Tests ===
 

@@ -29,8 +29,9 @@ Configure and use alignment metrics to compare judge evaluations with human anno
         ]
     )
     
-    # Run comparison
-    evaluator.compare_async(config, judge_results, human_results)
+    # Add metrics configuration and run comparison
+    evaluator.add_metrics_config(config)
+    evaluator.compare_async(judge_results, human_results)
     ```
 
 === "Multiple Metrics"
@@ -88,8 +89,10 @@ Configure and use alignment metrics to compare judge evaluations with human anno
             ),
         ]
     )
-    
-    evaluator.compare_async(config, judge_results, human_results)
+
+    # Add metrics configuration and run comparison
+    evaluator.add_metrics_config(config)
+    evaluator.compare_async(judge_results, human_results)
     ```
 ## Available Scorers
 

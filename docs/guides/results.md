@@ -142,8 +142,8 @@ evaluator.add_external_annotation_results(
 judge_results = evaluator.load_all_judge_results()
 human_results = evaluator.load_all_human_results()
 
+evaluator.add_metrics_config(config)
 results = evaluator.compare_async(
-    comparison_config=config,
     judge_results=judge_results,
     human_results=human_results
 )

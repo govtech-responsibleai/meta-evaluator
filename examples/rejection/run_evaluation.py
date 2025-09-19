@@ -132,10 +132,9 @@ def main():
         ]
     )
 
-    # Run comparison and save results
-    evaluator.compare_async(
-        config, judge_results=judge_results, human_results=human_results
-    )
+    # Add metrics configuration and run comparison
+    evaluator.add_metrics_config(config)
+    evaluator.compare_async(judge_results=judge_results, human_results=human_results)
 
 
 if __name__ == "__main__":

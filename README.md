@@ -161,8 +161,9 @@ config = MetricsConfig(
     ]
 )
 
-# Run comparison
-evaluator.compare_async(config, judge_results, human_results)
+# Add metrics configuration and run comparison
+evaluator.add_metrics_config(config)
+evaluator.compare_async(judge_results, human_results)
 ```
 
 ## External Data Loading

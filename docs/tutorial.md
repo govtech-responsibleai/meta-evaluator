@@ -266,11 +266,11 @@ def main():
         ]
     )
     
-    # Step 8: Compare results (requires human annotations)
+    # Step 8: Add metrics configuration and compare results (requires human annotations)
     # See "Adding Human Annotations" section below for how to collect human data
+    evaluator.add_metrics_config(config)
     evaluator.compare_async(
-        config, 
-        judge_results=judge_results, 
+        judge_results=judge_results,
         human_results=human_results
     )
 
@@ -331,5 +331,36 @@ Comparison metrics (when human data available):
 - **Cohen's Kappa**: Agreement accounting for chance  
 - **Detailed breakdowns**: Per-task and aggregate scores
 
+## What save_state Saves and Doesn't Save
+
+When you call `evaluator.save_state()`, MetaEvaluator persists your project configuration for later use. Here's what gets saved and what doesn't:
+
+### ✅ Saved by save_state
+- **Evaluation task configuration**: Task schemas, columns, prompts, answering methods
+- **Data metadata and files**: Your evaluation dataset and its configuration
+- **Judge configurations**: Registered judges and their settings
+- **Project structure**: Directory organization and paths
+
+### ❌ NOT saved by save_state
+- **Metrics configurations**: MetricsConfig objects (not supported yet)
+- **Judge evaluation results**: Saved separately in `results/` directory
+- **Human annotation results**: Saved separately in `annotations/` directory
+- **Computed scores**: Saved separately in `scores/` directory
+
+### 🔄 After Loading a Project
+When you load a saved project, you must re-add your metrics configuration:
+
+```python
+# Load existing project
+evaluator = MetaEvaluator(project_dir="my_project", load=True)
+
+# Add metrics configuration
+config = MetricsConfig(metrics=[...])
+evaluator.add_metrics_config(config)
+
+# Now you can run comparisons
+evaluator.compare_async(judge_results, human_results)
+```
+
 !!! tip "External Data Loading"
-    Already have judge or human annotation results from previous runs or external sources? You can load them directly without re-running evaluations. See the [External Data Loading section in the Results Guide](guides/results.md#external-data-loading) for details on the required data formats and how to use `add_external_judge_results()` and `add_external_annotation_results()`.  
+    Already have judge or human annotation results from previous runs or external sources? You can load them directly without re-running evaluations. See the [External Data Loading section in the Results Guide](guides/results.md#external-data-loading) for details on the required data formats and how to use `add_external_judge_results()` and `add_external_annotation_results()`.

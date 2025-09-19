@@ -266,9 +266,9 @@ def main():
         human_results = evaluator.load_all_human_results()
 
         print("\n=== Running Scoring ===")
-        # Run comparison and get results
+        # Add metrics configuration and run comparison
+        evaluator.add_metrics_config(config)
         results = evaluator.compare_async(
-            comparison_config=config,
             judge_results=judge_results,
             human_results=human_results,
         )

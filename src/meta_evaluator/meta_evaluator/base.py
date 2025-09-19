@@ -3,7 +3,10 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Literal, Optional, cast
+from typing import TYPE_CHECKING, Dict, Literal, Optional, cast
+
+if TYPE_CHECKING:
+    from ..scores import MetricsConfig
 
 from pydantic import ValidationError
 
@@ -26,6 +29,7 @@ from .exceptions import (
     EvalTaskAlreadyExistsError,
     EvalTaskNotFoundError,
     InvalidFileError,
+    MetricsConfigAlreadyExistsError,
     ProjectDirectoryExistsError,
     SavedStateNotFoundError,
 )
@@ -181,6 +185,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         # Create new MetaEvaluator instance
         self.data: Optional[EvalData] = None
         self.eval_task: Optional[EvalTask] = None
+        self.metrics_config: Optional["MetricsConfig"] = None
 
         # Create directory structure for new project
         self.paths.ensure_directories()
@@ -204,6 +209,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
             # Copy loaded state to this instance
             self.data = loaded_evaluator.data
             self.eval_task = loaded_evaluator.eval_task
+            self.metrics_config = loaded_evaluator.metrics_config
             self.judge_registry = loaded_evaluator.judge_registry
 
             self.logger.info(
@@ -310,6 +316,26 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         task_names = list(eval_task.task_schemas.keys())
         self.logger.info(
             f"Added evaluation task with {len(task_names)} task(s): {', '.join(task_names)}"
+        )
+
+    def add_metrics_config(
+        self, metrics_config: "MetricsConfig", overwrite: bool = False
+    ) -> None:
+        """Add metrics configuration to the evaluator.
+
+        Args:
+            metrics_config: The MetricsConfig object to add to the evaluator.
+            overwrite: Whether to overwrite existing metrics configuration. Defaults to False.
+
+        Raises:
+            MetricsConfigAlreadyExistsError: If metrics configuration already exists and overwrite is False.
+        """
+        if self.metrics_config is not None and not overwrite:
+            raise MetricsConfigAlreadyExistsError()
+
+        self.metrics_config = metrics_config
+        self.logger.info(
+            f"Added metrics configuration with {len(metrics_config.metrics)} metric(s)"
         )
 
     # ===== SERIALIZATION METHODS =====
@@ -574,6 +600,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         evaluator.paths = Paths(project_dir)
         evaluator.data = None
         evaluator.eval_task = None
+        evaluator.metrics_config = None
 
         # Client reconstruction is no longer needed since judges handle their own LLM clients
 
