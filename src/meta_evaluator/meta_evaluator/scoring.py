@@ -6,12 +6,11 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple
 
-if TYPE_CHECKING:
-    from ..scores import MetricsConfig
-    from .base import Paths
-
 import numpy as np
 import polars as pl
+
+if TYPE_CHECKING:
+    from .base import Paths
 
 from ..common.async_utils import sync_wrapper
 from ..data import EvalData
@@ -22,7 +21,7 @@ from ..results.serialization import (
     HumanAnnotationResultsSerializedState,
     JudgeResultsSerializedState,
 )
-from ..scores import BaseScoringResult, MetricConfig
+from ..scores import BaseScoringResult, MetricConfig, MetricsConfig
 from ..scores.enums import TaskAggregationMode
 from .exceptions import (
     IncompatibleTaskError,
@@ -69,7 +68,7 @@ class ScoringMixin:
     # Type hints for attributes that will be provided by MetaEvaluator
     eval_task: Optional[EvalTask]
     data: Optional[EvalData]
-    metrics_config: Optional["MetricsConfig"]
+    metrics_config: Optional[MetricsConfig]
     paths: "Paths"
     logger: logging.Logger
 

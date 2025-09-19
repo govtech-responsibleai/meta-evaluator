@@ -43,15 +43,8 @@ Start by creating a MetaEvaluator instance:
 ```python
 from meta_evaluator import MetaEvaluator
 
-# Create new project (default: load=False)
+# Create new project
 evaluator = MetaEvaluator(project_dir="my_project")
-
-# Parameters:
-# load=False: Create new project (default)
-# load=True: Load existing project - ensure directory contains saved state
-#
-# Note: When load=False, make sure directory doesn't contain data from a different project,
-# or it may mess up the evaluations
 ```
 
 ### 2. Load Data
@@ -162,8 +155,13 @@ config = MetricsConfig(
 )
 
 # Add metrics configuration and run comparison
-evaluator.add_metrics_config(config)
+evaluator.add_metrics_config(config)  # Creates evaluator.score_report automatically
 evaluator.compare_async(judge_results, human_results)
+
+# Generate summary report
+evaluator.score_report.save("score_report.html", format="html")  # Save HTML report
+evaluator.score_report.save("score_report.csv", format="csv")    # Save CSV report
+evaluator.score_report.print()  # Print to console
 ```
 
 ## External Data Loading
@@ -240,13 +238,13 @@ Comprehensive documentation is available in the `docs/` directory:
 ```
 project_dir/
 ├── data/                    # Serialized evaluation data
-├── results/                 # Judge evaluation results  
+├── results/                 # Judge evaluation results
 ├── annotations/             # Human annotation data
 └── scores/                  # Computed alignment metrics
-    ├── accuracy/
-    ├── cohens_kappa/
-    ├── alt_test/
-    └── text_similarity/
+    ├── accuracy/            # Detailed accuracy results
+    ├── cohens_kappa/        # Detailed kappa results
+    ├── alt_test/           # Detailed alt-test results
+    └── text_similarity/     # Detailed similarity results
 ```
 
 ## Examples

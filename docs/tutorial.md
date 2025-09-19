@@ -3,14 +3,11 @@
 This guide walks you through a complete example evaluating how well LLM judges detect response rejections.
 
 
-!!! note "Future Developments"
-    The repository is still a work in progress. A Python package release is planned in the near future.
-
 ## Installation
 
 ```bash
 # Requires Python 3.13+
-pip install git+https://github.com/govtech-responsibleai/meta-evaluator#egg=meta-evaluator
+pip install git+https://github.com/govtech-responsibleai/meta-evaluator.git
 ```
 
 **Set up environment variables:** You can either:
@@ -268,11 +265,16 @@ def main():
     
     # Step 8: Add metrics configuration and compare results (requires human annotations)
     # See "Adding Human Annotations" section below for how to collect human data
-    evaluator.add_metrics_config(config)
+    evaluator.add_metrics_config(config)  # Creates evaluator.score_report automatically
     evaluator.compare_async(
         judge_results=judge_results,
         human_results=human_results
     )
+
+    # Step 9: Generate summary report
+    evaluator.score_report.save("score_report.html", format="html")  # Save HTML report
+    evaluator.score_report.save("score_report.csv", format="csv")    # Save CSV report
+    evaluator.score_report.print()  # Print to console
 
 
 if __name__ == "__main__":
@@ -312,6 +314,8 @@ quickstart_project/
 │   └── run_20250815_110504_15c89e71_claude_judge_20250815_110521_results.json
 ├── annotations/                # Human annotation results (when added)
 └── scores/                     # Computed metrics (after comparison with human data)
+    ├── score_report.html    # Summary HTML report
+    ├── score_report.csv     # Summary CSV report
     ├── accuracy/
     ├── cohens_kappa/
     └── text_similarity/

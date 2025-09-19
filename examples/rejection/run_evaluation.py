@@ -136,6 +136,11 @@ def main():
     evaluator.add_metrics_config(config)
     evaluator.compare_async(judge_results=judge_results, human_results=human_results)
 
+    # Generate score report
+    evaluator.score_report.save("score_report.html", format="html")
+    evaluator.score_report.save("score_report.csv", format="csv")
+    evaluator.score_report.print()  # Print to console
+
 
 if __name__ == "__main__":
     main()

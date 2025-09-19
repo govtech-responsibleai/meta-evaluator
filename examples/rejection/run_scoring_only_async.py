@@ -288,6 +288,11 @@ def main():
 
         print(f"\nResults saved in: {evaluator.paths.scores}")
 
+        # Generate score report
+        evaluator.score_report.save("score_report.html", format="html")
+        evaluator.score_report.save("score_report.csv", format="csv")
+        evaluator.score_report.print()  # Print to console
+
     except Exception as e:
         print(f"Error: {str(e)}")
         import traceback

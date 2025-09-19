@@ -3,10 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Literal, Optional, cast
-
-if TYPE_CHECKING:
-    from ..scores import MetricsConfig
+from typing import Dict, Literal, Optional, cast
 
 from pydantic import ValidationError
 
@@ -22,6 +19,8 @@ from ..data.serialization import DataMetadata
 from ..eval_task import EvalTask
 from ..eval_task.serialization import EvalTaskState
 from ..judge.serialization import JudgeState
+from ..scores import MetricsConfig
+from ..scores_reporting.score_report import ScoreReport
 from .exceptions import (
     DataAlreadyExistsError,
     DataFormatError,
@@ -185,7 +184,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         # Create new MetaEvaluator instance
         self.data: Optional[EvalData] = None
         self.eval_task: Optional[EvalTask] = None
-        self.metrics_config: Optional["MetricsConfig"] = None
+        self.metrics_config: Optional[MetricsConfig] = None
 
         # Create directory structure for new project
         self.paths.ensure_directories()
@@ -319,7 +318,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         )
 
     def add_metrics_config(
-        self, metrics_config: "MetricsConfig", overwrite: bool = False
+        self, metrics_config: MetricsConfig, overwrite: bool = False
     ) -> None:
         """Add metrics configuration to the evaluator.
 
@@ -334,6 +333,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
             raise MetricsConfigAlreadyExistsError()
 
         self.metrics_config = metrics_config
+        self.score_report = ScoreReport(self.paths.scores, metrics_config)
         self.logger.info(
             f"Added metrics configuration with {len(metrics_config.metrics)} metric(s)"
         )

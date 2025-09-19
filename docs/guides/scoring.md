@@ -668,7 +668,9 @@ config = MetricConfig(
 
 ## Results Output
 
-Scores are saved to your project directory:
+### Individual Metric Results
+
+Detailed scores and charts are saved to individual metric directories in your project:
 
 ```
 my_project/
@@ -697,5 +699,46 @@ my_project/
             └── claude_judge_result.json
 ```
 
-!!! note
-    This will be upgraded with a better reporting system in the future. Stay tuned!
+### Summary Reports
+
+You can generate summary reports that aggregate all metrics across all judges in a single view.
+
+```python linenums="1"
+# After running evaluations and scoring and configuring metric configs
+evaluator.add_metrics_config(config)
+evaluator.compare_async(judge_results, human_results)
+
+# Save to files
+evaluator.score_report.save("score_report.html", format="html")  # Interactive HTML with highlighting
+evaluator.score_report.save("score_report.csv", format="csv")    # CSV for analysis
+
+# Print to console
+evaluator.score_report.print()
+```
+
+Summary reports are saved to the scores directory:
+
+```
+my_project/
+└── scores/
+    ├── score_report.html    # Interactive HTML table with best score highlighting
+    ├── score_report.csv     # CSV format for analysis/Excel
+    ├── accuracy/            # Detailed accuracy results...
+    ├── cohens_kappa/        # Detailed kappa results...
+    ├── alt_test/            # Detailed alt-test results...
+    └── text_similarity/     # Detailed similarity results...
+```
+
+**Console Output:**
+```
+Score Report:
+┌─────────┬─────────────────────┬─────────────────────┬─────────────────────┬─────────────────────┐
+│ judge_id ┆ accuracy_1tasks_22e ┆ alt_test_1tasks_22e ┆ alt_test_1tasks_22e ┆ text_similarity_1ta │
+│ ---     ┆ 76eaf_single        ┆ 76eaf_single_winni… ┆ 76eaf_single_advant ┆ sks_74d0861_single  │
+│ str     ┆ ---                 ┆ ---                 ┆ ---                 ┆ ---                 │
+│         ┆ f64                 ┆ f64                 ┆ f64                 ┆ f64                 │
+╞═════════╪═════════════════════╪═════════════════════╪═════════════════════╪═════════════════════╡
+│ judge1  ┆ 0.87               ┆ 0.6                 ┆ 0.75                ┆ 0.85                │
+│ judge2  ┆ 0.82               ┆ 0.4                 ┆ 0.65                ┆ 0.78                │
+└─────────┴─────────────────────┴─────────────────────┴─────────────────────┴─────────────────────┘
+```
