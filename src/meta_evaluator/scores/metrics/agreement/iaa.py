@@ -72,6 +72,12 @@ class CohensKappaScorer(BaseScorer):
         Returns:
             BaseScoringResult: The scoring result for this judge
         """
+        # Check annotator aggregation strategy and warn if majority_vote is used
+        if annotator_aggregation == "majority_vote":
+            self.logger.warning(
+                "CohensKappaScorer does not support majority_vote aggregation. Using individual_average instead."
+            )
+
         # Join judge and human data on original_id
         comparison_df = judge_data.join(human_data, on="original_id", how="inner")
 

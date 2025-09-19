@@ -24,6 +24,7 @@ Configure and use alignment metrics to compare judge evaluations with human anno
                 scorer=AccuracyScorer(),
                 task_names=["rejection"],
                 task_strategy="single", # One of 'single', 'multilabel', or 'multitask'
+                annotator_aggregation="individual_average",  # Default
             ),
         ]
     )
@@ -57,12 +58,14 @@ Configure and use alignment metrics to compare judge evaluations with human anno
                     "self_harm",
                     "all_other_misconduct",
                 ],
-                task_strategy="multilabel", 
+                task_strategy="multilabel",
+                annotator_aggregation="individual_average",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
                 task_names=["hateful"],
                 task_strategy="single",
+                annotator_aggregation="individual_average",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
@@ -75,123 +78,19 @@ Configure and use alignment metrics to compare judge evaluations with human anno
                     "all_other_misconduct",
                 ],
                 task_strategy="multitask",
+                annotator_aggregation="individual_average",
             ),
             MetricConfig(
                 scorer=text_similarity_scorer,
                 task_names=["explanation"],
                 task_strategy="single",
+                annotator_aggregation="majority_vote",  # Example using majority vote
             ),
         ]
     )
     
     evaluator.compare_async(config, judge_results, human_results)
     ```
-
-## Task Configuration Types (`task_strategy`)
-
-The `task_strategy` parameter defines how tasks are processed and must be one of: `"single"`, `"multitask"`, or `"multilabel"`.
-
-!!! important "Task Count Requirements"
-    - **`"single"`**: Use only when `task_names` contains **exactly 1 task**
-    - **`"multitask"`** and **`"multilabel"`**: Use only when `task_names` contains **2 or more tasks**
-
-=== "Single Label (Single Task)"
-    
-    Evaluate one classification task:
-
-    ```python linenums="1" hl_lines="6 7"
-    # Single binary classification task
-    config = MetricsConfig(
-        metrics=[
-            MetricConfig(
-                scorer=AccuracyScorer(),
-                task_names=["rejection"],  # Single task name
-                task_strategy="single",  # Required: "single" for single task
-            ),
-        ]
-    )
-    ```
-
-    !!! note "Single Task Behavior"
-        - Single score for the specified task
-        - **Required**: Exactly 1 task in `task_names` list
-        - Use this when evaluating one task independently
-
-=== "Multi-Task (Multiple Single Labels)"
-    
-    Apply the same scorer to multiple separate tasks:
-
-    ```python linenums="1" hl_lines="6 7"
-    # Same scorer applied to each task separately
-    config = MetricsConfig(
-        metrics=[
-            MetricConfig(
-                scorer=AccuracyScorer(),
-                task_names=["helpful", "harmless", "honest"],  # Multiple tasks
-                task_strategy="multitask",  # Required: "multitask" for multiple separate tasks
-            ),
-        ]
-    )
-    ```
-
-    !!! note "Multi-Task Behavior"
-        - **Required**: 2 or more tasks in `task_names` list
-        - **Same scorer applied to each task individually**
-        - **Result**: Aggregated score across all tasks
-        - For different scorers on different tasks, create separate `MetricConfig` entries
-
-=== "Multi-Label (Combined Classification)"
-    
-    Treat multiple classification tasks as a single multi-label problem:
-
-    ```python linenums="1" hl_lines="8 9"
-    # Multi-label classification (AltTestScorer only)
-    alt_test_scorer = AltTestScorer()
-
-    config = MetricsConfig(
-        metrics=[
-            MetricConfig(
-                scorer=alt_test_scorer,
-                task_names=["hateful", "violent", "sexual"],  # Combined as multi-label
-                task_strategy="multilabel",  # Required: "multilabel" for combined tasks
-            ),
-        ]
-    )
-    ```
-
-
-    !!! note "Multi-label Behavior"
-        - **Required**: 2 or more tasks in `task_names` list
-        - Each instance can have multiple labels: `["hateful", "violent"]`, and these will be passed as 1 input into the Scorer.
-        - Calculation of metric depends on the Scorer. For instance AltTestScorer uses Jaccard similarity for comparison, and AccuracyScorer uses exact match.
-
-
-**Example with different scorers per task:**
-```python linenums="1" hl_lines="7 13 19"
-config = MetricsConfig(
-    metrics=[
-        # Accuracy for single classification tasks
-        MetricConfig(
-            scorer=AccuracyScorer(),
-            task_names=["helpful"],
-            task_strategy="single",
-        ),
-        # Accuracy for multitask classification tasks
-        MetricConfig(
-            scorer=AccuracyScorer(),
-            task_names=["helpful", "harmless", "honest"],
-            task_strategy="multitask",
-        ),
-        # Text similarity for text tasks, all tasks combined into one multilabel
-        MetricConfig(
-            scorer=TextSimilarityScorer(),
-            task_names=["explanation", "reasoning"],
-            task_strategy="multilabel",
-        ),
-    ]
-)
-```
-    
 ## Available Scorers
 
 === "Accuracy"
@@ -205,6 +104,7 @@ config = MetricsConfig(
         scorer=accuracy_scorer,
         task_names=["classification_field"],
         task_strategy="single",
+        annotator_aggregation="individual_average",
     )
     ```
 
@@ -241,6 +141,7 @@ config = MetricsConfig(
         scorer=kappa_scorer,
         task_names=["classification_field"],
         task_strategy="single",
+        annotator_aggregation="individual_average",
     )
     ```
 
@@ -288,6 +189,7 @@ config = MetricsConfig(
         scorer=alt_test_scorer,
         task_names=["classification_field"],
         task_strategy="single",
+        annotator_aggregation="individual_average",
     )
     ```
 
@@ -346,8 +248,9 @@ config = MetricsConfig(
     
     config = MetricConfig(
         scorer=text_scorer,
-        task_names=["explanation", "reasoning"],
+        task_names=["explanation"],
         task_strategy="single",
+        annotator_aggregation="majority_vote",  # Example using majority vote
     )
     ```
 
@@ -388,6 +291,7 @@ config = MetricsConfig(
         scorer=semantic_scorer,
         task_names=["explanation"],
         task_strategy="single",
+        annotator_aggregation="individual_average",
     )
     ```
 
@@ -429,6 +333,172 @@ config = MetricsConfig(
     - **Cohen's Kappa**: -1 to 1 (higher is better, accounts for chance) 
     - **Text/Semantic Similarity**: 0-1 (higher is better, semantic similarity)
     - **Alt-Test**: Winning rates across epsilon values, advantage probabilities (0-1)
+
+
+## Task Configuration Types (`task_strategy`)
+
+The `task_strategy` parameter defines how tasks are processed and must be one of: `"single"`, `"multitask"`, or `"multilabel"`.
+
+!!! important "Task Count Requirements"
+    - **`"single"`**: Use only when `task_names` contains **exactly 1 task**
+    - **`"multitask"`** and **`"multilabel"`**: Use only when `task_names` contains **2 or more tasks**
+
+=== "Single Label (Single Task)"
+    
+    Evaluate one classification task:
+
+    ```python linenums="1" hl_lines="6 7"
+    # Single binary classification task
+    config = MetricsConfig(
+        metrics=[
+            MetricConfig(
+                scorer=AccuracyScorer(),
+                task_names=["rejection"],  # Single task name
+                task_strategy="single",  # Required: "single" for single task
+                annotator_aggregation="individual_average",
+            ),
+        ]
+    )
+    ```
+
+    !!! note "Single Task Behavior"
+        - Single score for the specified task
+        - **Required**: Exactly 1 task in `task_names` list
+        - Use this when evaluating one task independently
+
+=== "Multi-Task (Multiple Single Labels)"
+    
+    Apply the same scorer to multiple separate tasks:
+
+    ```python linenums="1" hl_lines="6 7"
+    # Same scorer applied to each task separately
+    config = MetricsConfig(
+        metrics=[
+            MetricConfig(
+                scorer=AccuracyScorer(),
+                task_names=["helpful", "harmless", "honest"],  # Multiple tasks
+                task_strategy="multitask",  # Required: "multitask" for multiple separate tasks
+                annotator_aggregation="majority_vote",  # Example using majority vote
+            ),
+        ]
+    )
+    ```
+
+    !!! note "Multi-Task Behavior"
+        - **Required**: 2 or more tasks in `task_names` list
+        - **Same scorer applied to each task individually**
+        - **Result**: Aggregated score across all tasks
+        - For different scorers on different tasks, create separate `MetricConfig` entries
+
+=== "Multi-Label (Combined Classification)"
+    
+    Treat multiple classification tasks as a single multi-label problem:
+
+    ```python linenums="1" hl_lines="8 9"
+    # Multi-label classification (AltTestScorer only)
+    alt_test_scorer = AltTestScorer()
+
+    config = MetricsConfig(
+        metrics=[
+            MetricConfig(
+                scorer=alt_test_scorer,
+                task_names=["hateful", "violent", "sexual"],  # Combined as multi-label
+                task_strategy="multilabel",  # Required: "multilabel" for combined tasks
+                annotator_aggregation="individual_average",
+            ),
+        ]
+    )
+    ```
+
+
+    !!! note "Multi-label Behavior"
+        - **Required**: 2 or more tasks in `task_names` list
+        - Each instance can have multiple labels: `["hateful", "violent"]`, and these will be passed as 1 input into the Scorer.
+        - Calculation of metric depends on the Scorer. For instance AltTestScorer uses Jaccard similarity for comparison, and AccuracyScorer uses exact match.
+
+
+**Example with different scorers per task:**
+```python linenums="1" hl_lines="7 13 19"
+config = MetricsConfig(
+    metrics=[
+        # Accuracy for single classification tasks
+        MetricConfig(
+            scorer=AccuracyScorer(),
+            task_names=["helpful"],
+            task_strategy="single",
+            annotator_aggregation="majority_vote",
+        ),
+        # Accuracy for multitask classification tasks
+        MetricConfig(
+            scorer=AccuracyScorer(),
+            task_names=["helpful", "harmless", "honest"],
+            task_strategy="multitask",
+            annotator_aggregation="individual_average",
+        ),
+        # Text similarity for text tasks, all tasks combined into one multilabel
+        MetricConfig(
+            scorer=TextSimilarityScorer(),
+            task_names=["explanation", "reasoning"],
+            task_strategy="multilabel",
+            annotator_aggregation="majority_vote",
+        ),
+    ]
+)
+```
+
+## Annotator Aggregation (`annotator_aggregation`)
+
+Control how multiple human annotations are aggregated before comparison with judge results.
+
+=== "Individual Average (Default)"
+
+    Compare judge vs each human separately, then average the scores:
+
+    ```python
+    MetricConfig(
+        scorer=AccuracyScorer(),
+        task_names=["rejection"],
+        task_strategy="single",
+        annotator_aggregation="individual_average"  # Default
+    )
+    ```
+
+    **How it works:**
+    - Judge vs Human 1: Calculate metric score
+    - Judge vs Human 2: Calculate metric score
+    - Judge vs Human 3: Calculate metric score
+    - **Final Score**: Average of all individual scores
+
+=== "Majority Vote"
+
+    Aggregate humans first using majority vote, then compare judge vs consensus:
+
+    ```python
+    MetricConfig(
+        scorer=AccuracyScorer(),
+        task_names=["rejection"],
+        task_strategy="single",
+        annotator_aggregation="majority_vote"
+    )
+    ```
+
+    **How it works:**
+    - Find consensus among human annotators first
+    - Compare judge predictions with consensus
+    - Implementation varies by metric type (see support table below)
+
+### Metric Support Table
+
+| Metric | individual_average | majority_vote |
+|--------|-------------------|---------------|
+| **AccuracyScorer** | :material-check: | :material-check: Per-position majority for multilabel, alphabetical tie-breaking |
+| **TextSimilarityScorer** | :material-check: | :material-check: Best-match approach: highest similarity human per sample |
+| **SemanticSimilarityScorer** | :material-check: | :material-check: Best-match approach: highest similarity human per sample |
+| **CohensKappaScorer** | :material-check: | :material-close: Logs warning, falls back to individual_average (agreement metric) |
+| **AltTestScorer** | :material-check: | :material-close: Logs warning, falls back to individual_average (agreement metric) |
+
+**Why agreement metrics don't support majority_vote:**
+Inter-annotator agreement metrics measure disagreement between individual humans. Majority vote eliminates this disagreement information, making the metrics less meaningful.
 
 ## Custom Scorer
 
@@ -574,6 +644,7 @@ config = MetricConfig(
     scorer=custom_scorer,
     task_names=["text"],
     task_strategy="single",
+    annotator_aggregation="individual_average",
 )
 ```
 

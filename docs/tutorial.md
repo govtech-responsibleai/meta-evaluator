@@ -236,27 +236,32 @@ def main():
                 scorer=accuracy_scorer,
                 task_names=["rejection"],
                 task_strategy="single",
+                annotator_aggregation="individual_average", 
             ),
             MetricConfig(
                 scorer=alt_test_scorer,
                 task_names=["rejection"],
                 task_strategy="single",
+                annotator_aggregation="individual_average",  
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
                 task_names=["rejection"],
                 task_strategy="single",
+                annotator_aggregation="individual_average", 
             ),
             # Free-form text metrics
             MetricConfig(
                 scorer=text_similarity_scorer,
                 task_names=["explanation"],
                 task_strategy="single",
+                annotator_aggregation="individual_average",  
             ),
             MetricConfig(
                 scorer=semantic_similarity_scorer,
                 task_names=["explanation"],
                 task_strategy="single",
+                annotator_aggregation="individual_average", 
             ),
         ]
     )

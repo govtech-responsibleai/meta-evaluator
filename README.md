@@ -149,12 +149,14 @@ config = MetricsConfig(
         MetricConfig(
             scorer=AccuracyScorer(),
             task_names=["rejection"],
-            task_strategy="single"
+            task_strategy="single",
+            annotator_aggregation="majority_vote"  # Use consensus approach
         ),
         MetricConfig(
             scorer=SemanticSimilarityScorer(),  # This metric requires OPENAI_API_KEY
-            task_names=["explanation"], 
-            task_strategy="single"
+            task_names=["explanation"],
+            task_strategy="single",
+            annotator_aggregation="individual_average"  # Individual averaging
         ),
     ]
 )

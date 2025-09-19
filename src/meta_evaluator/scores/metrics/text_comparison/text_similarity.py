@@ -80,35 +80,68 @@ class TextSimilarityScorer(BaseScorer):
             num_comparisons = 0
             failed_comparisons = 1
         else:
-            # For each human, compute text similarity between judge and that human
-            human_similarities = []
-            humans = comparison_df["human_id"].unique()
-
-            for human_id in humans:
-                human_comparisons = comparison_df.filter(pl.col("human_id") == human_id)
-                judge_texts = human_comparisons["label"].to_list()
-                human_texts = human_comparisons["label_right"].to_list()  # From join
-
-                # Compute similarity for this judge-human pair
+            if annotator_aggregation == "majority_vote":
+                # Best match approach: find highest similarity among humans
                 similarities = []
-                for judge_text, human_text in zip(judge_texts, human_texts):
-                    if judge_text is not None and human_text is not None:
-                        # Normalize texts and compute similarity
-                        text1 = str(judge_text).lower().strip()
-                        text2 = str(human_text).lower().strip()
-                        matcher = SequenceMatcher(None, text1, text2)
-                        similarity = matcher.ratio()
-                        similarities.append(similarity)
 
-                if similarities:
-                    human_similarities.append(float(np.mean(similarities)))
+                for original_id in comparison_df["original_id"].unique():
+                    sample_data = comparison_df.filter(
+                        pl.col("original_id") == original_id
+                    )
+                    judge_text = sample_data["label"].to_list()[0]
+                    human_texts = sample_data["label_right"].to_list()
 
-            # Average across all humans
-            similarity_score = (
-                float(np.mean(human_similarities))
-                if human_similarities
-                else float("nan")
-            )
+                    if judge_text is not None:
+                        # Compute similarity with each human, take max
+                        text_similarities = []
+                        for human_text in human_texts:
+                            if human_text is not None:
+                                # Normalize texts and compute similarity
+                                text1 = str(judge_text).lower().strip()
+                                text2 = str(human_text).lower().strip()
+                                matcher = SequenceMatcher(None, text1, text2)
+                                similarity = matcher.ratio()
+                                text_similarities.append(similarity)
+
+                        if text_similarities:
+                            max_similarity = max(text_similarities)
+                            similarities.append(max_similarity)
+
+                similarity_score = (
+                    float(np.mean(similarities)) if similarities else float("nan")
+                )
+            else:
+                # Individual average approach (existing logic)
+                human_similarities = []
+                humans = comparison_df["human_id"].unique()
+
+                for human_id in humans:
+                    human_comparisons = comparison_df.filter(
+                        pl.col("human_id") == human_id
+                    )
+                    judge_texts = human_comparisons["label"].to_list()
+                    human_texts = human_comparisons["label_right"].to_list()
+
+                    # Compute similarity for this judge-human pair
+                    similarities = []
+                    for judge_text, human_text in zip(judge_texts, human_texts):
+                        if judge_text is not None and human_text is not None:
+                            # Normalize texts and compute similarity
+                            text1 = str(judge_text).lower().strip()
+                            text2 = str(human_text).lower().strip()
+                            matcher = SequenceMatcher(None, text1, text2)
+                            similarity = matcher.ratio()
+                            similarities.append(similarity)
+
+                    if similarities:
+                        human_similarities.append(float(np.mean(similarities)))
+
+                # Average across all humans
+                similarity_score = (
+                    float(np.mean(human_similarities))
+                    if human_similarities
+                    else float("nan")
+                )
             num_comparisons = len(comparison_df)
             failed_comparisons = 0
 

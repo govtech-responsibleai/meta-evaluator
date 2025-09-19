@@ -207,41 +207,80 @@ class SemanticSimilarityScorer(BaseScorer):
             # Create mapping from text to embedding
             text_to_embedding = dict(zip(all_texts, all_embeddings))
 
-            # For each human, compute semantic similarity between judge and that human
-            human_similarities = []
-            humans = comparison_df["human_id"].unique()
+            if annotator_aggregation == "majority_vote":
+                # Best match approach: find highest semantic similarity among humans
+                similarities = []
 
-            for human_id in humans:
-                human_comparisons = comparison_df.filter(pl.col("human_id") == human_id)
-                judge_texts_human = human_comparisons["label"].to_list()
-                human_texts_human = human_comparisons["label_right"].to_list()
-
-                # Get embeddings for this human's comparisons
-                judge_embeddings = [
-                    text_to_embedding.get(str(t), [0.0] * 3072)
-                    for t in judge_texts_human
-                    if t is not None
-                ]
-                human_embeddings = [
-                    text_to_embedding.get(str(t), [0.0] * 3072)
-                    for t in human_texts_human
-                    if t is not None
-                ]
-
-                # Compute similarities for this judge-human pair
-                if judge_embeddings and human_embeddings:
-                    similarities = self._compute_cosine_similarities(
-                        judge_embeddings, human_embeddings
+                for original_id in comparison_df["original_id"].unique():
+                    sample_data = comparison_df.filter(
+                        pl.col("original_id") == original_id
                     )
-                    if similarities:
-                        human_similarities.append(float(np.mean(similarities)))
+                    judge_text = sample_data["label"].to_list()[0]
+                    human_texts_sample = sample_data["label_right"].to_list()
 
-            # Average across all humans
-            semantic_similarity_score = (
-                float(np.mean(human_similarities))
-                if human_similarities
-                else float("nan")
-            )
+                    if judge_text is not None:
+                        judge_embedding = text_to_embedding.get(
+                            str(judge_text), [0.0] * 3072
+                        )
+
+                        # Compute similarity with each human, take max
+                        text_similarities = []
+                        for human_text in human_texts_sample:
+                            if human_text is not None:
+                                human_embedding = text_to_embedding.get(
+                                    str(human_text), [0.0] * 3072
+                                )
+                                similarity = self._compute_cosine_similarities(
+                                    [judge_embedding], [human_embedding]
+                                )
+                                if similarity:
+                                    text_similarities.append(similarity[0])
+
+                        if text_similarities:
+                            max_similarity = max(text_similarities)
+                            similarities.append(max_similarity)
+
+                semantic_similarity_score = (
+                    float(np.mean(similarities)) if similarities else float("nan")
+                )
+            else:
+                # Individual average approach (existing logic)
+                human_similarities = []
+                humans = comparison_df["human_id"].unique()
+
+                for human_id in humans:
+                    human_comparisons = comparison_df.filter(
+                        pl.col("human_id") == human_id
+                    )
+                    judge_texts_human = human_comparisons["label"].to_list()
+                    human_texts_human = human_comparisons["label_right"].to_list()
+
+                    # Get embeddings for this human's comparisons
+                    judge_embeddings = [
+                        text_to_embedding.get(str(t), [0.0] * 3072)
+                        for t in judge_texts_human
+                        if t is not None
+                    ]
+                    human_embeddings = [
+                        text_to_embedding.get(str(t), [0.0] * 3072)
+                        for t in human_texts_human
+                        if t is not None
+                    ]
+
+                    # Compute similarities for this judge-human pair
+                    if judge_embeddings and human_embeddings:
+                        similarities = self._compute_cosine_similarities(
+                            judge_embeddings, human_embeddings
+                        )
+                        if similarities:
+                            human_similarities.append(float(np.mean(similarities)))
+
+                # Average across all humans
+                semantic_similarity_score = (
+                    float(np.mean(human_similarities))
+                    if human_similarities
+                    else float("nan")
+                )
             num_comparisons = len(comparison_df)
             failed_comparisons = 0
 

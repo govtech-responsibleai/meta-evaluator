@@ -118,6 +118,7 @@ def main():
                 scorer=accuracy_scorer,
                 task_names=["rejection"],
                 task_strategy="single",
+                annotator_aggregation="majority_vote",  # Default is 'individual_average', set to 'majority_vote' for this example
             ),
             MetricConfig(
                 scorer=alt_test_scorer,
