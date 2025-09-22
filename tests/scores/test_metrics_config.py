@@ -10,11 +10,11 @@ class TestMetricConfigValidation:
     """Test class for MetricConfig validation rules."""
 
     def test_single_aggregation_with_one_task_succeeds(self, accuracy_scorer):
-        """Test that 'single' aggregation mode works with exactly 1 task name."""
+        """Test that 'single' task strategy works with exactly 1 task name."""
         config = MetricConfig(
-            scorer=accuracy_scorer, task_names=["sentiment"], aggregation_name="single"
+            scorer=accuracy_scorer, task_names=["sentiment"], task_strategy="single"
         )
-        assert config.aggregation_name == "single"
+        assert config.task_strategy == "single"
         assert len(config.task_names) == 1
 
     def test_single_aggregation_with_multiple_tasks_fails(self, accuracy_scorer):
@@ -23,7 +23,7 @@ class TestMetricConfigValidation:
             MetricConfig(
                 scorer=accuracy_scorer,
                 task_names=["sentiment", "toxicity"],
-                aggregation_name="single",
+                task_strategy="single",
             )
 
         error_message = str(exc_info.value)
@@ -38,9 +38,7 @@ class TestMetricConfigValidation:
     def test_single_aggregation_with_zero_tasks_fails(self, accuracy_scorer):
         """Test that 'single' aggregation mode fails with zero task names."""
         with pytest.raises(InvalidAggregationModeError) as exc_info:
-            MetricConfig(
-                scorer=accuracy_scorer, task_names=[], aggregation_name="single"
-            )
+            MetricConfig(scorer=accuracy_scorer, task_names=[], task_strategy="single")
 
         error_message = str(exc_info.value)
         assert (
@@ -54,9 +52,9 @@ class TestMetricConfigValidation:
         config = MetricConfig(
             scorer=accuracy_scorer,
             task_names=["sentiment", "toxicity"],
-            aggregation_name="multilabel",
+            task_strategy="multilabel",
         )
-        assert config.aggregation_name == "multilabel"
+        assert config.task_strategy == "multilabel"
         assert len(config.task_names) == 2
 
     def test_multilabel_aggregation_with_one_task_fails(self, accuracy_scorer):
@@ -65,7 +63,7 @@ class TestMetricConfigValidation:
             MetricConfig(
                 scorer=accuracy_scorer,
                 task_names=["sentiment"],
-                aggregation_name="multilabel",
+                task_strategy="multilabel",
             )
 
         error_message = str(exc_info.value)
@@ -80,7 +78,7 @@ class TestMetricConfigValidation:
         """Test that 'multilabel' aggregation mode fails with zero task names."""
         with pytest.raises(InvalidAggregationModeError) as exc_info:
             MetricConfig(
-                scorer=accuracy_scorer, task_names=[], aggregation_name="multilabel"
+                scorer=accuracy_scorer, task_names=[], task_strategy="multilabel"
             )
 
         error_message = str(exc_info.value)
@@ -95,9 +93,9 @@ class TestMetricConfigValidation:
         config = MetricConfig(
             scorer=accuracy_scorer,
             task_names=["sentiment", "toxicity", "safety"],
-            aggregation_name="multitask",
+            task_strategy="multitask",
         )
-        assert config.aggregation_name == "multitask"
+        assert config.task_strategy == "multitask"
         assert len(config.task_names) == 3
 
     def test_multitask_aggregation_with_one_task_fails(self, accuracy_scorer):
@@ -106,7 +104,7 @@ class TestMetricConfigValidation:
             MetricConfig(
                 scorer=accuracy_scorer,
                 task_names=["sentiment"],
-                aggregation_name="multitask",
+                task_strategy="multitask",
             )
 
         error_message = str(exc_info.value)
@@ -121,7 +119,7 @@ class TestMetricConfigValidation:
         """Test that 'multitask' aggregation mode fails with zero task names."""
         with pytest.raises(InvalidAggregationModeError) as exc_info:
             MetricConfig(
-                scorer=accuracy_scorer, task_names=[], aggregation_name="multitask"
+                scorer=accuracy_scorer, task_names=[], task_strategy="multitask"
             )
 
         error_message = str(exc_info.value)
@@ -134,7 +132,7 @@ class TestMetricConfigValidation:
     def test_aggregation_mode_computed_field_still_works(self, accuracy_scorer):
         """Test that the aggregation_mode computed field still works after validation."""
         config = MetricConfig(
-            scorer=accuracy_scorer, task_names=["sentiment"], aggregation_name="single"
+            scorer=accuracy_scorer, task_names=["sentiment"], task_strategy="single"
         )
 
         # Test that the computed field works
@@ -145,7 +143,7 @@ class TestMetricConfigValidation:
     def test_get_unique_name_still_works(self, accuracy_scorer):
         """Test that get_unique_name method still works after validation."""
         config = MetricConfig(
-            scorer=accuracy_scorer, task_names=["sentiment"], aggregation_name="single"
+            scorer=accuracy_scorer, task_names=["sentiment"], task_strategy="single"
         )
 
         unique_name = config.get_unique_name()

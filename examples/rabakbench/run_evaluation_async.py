@@ -116,7 +116,7 @@ def main():
                     "self_harm",
                     "all_other_misconduct",
                 ],
-                aggregation_name="multilabel",
+                task_strategy="multilabel",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
@@ -128,20 +128,24 @@ def main():
                     "self_harm",
                     "all_other_misconduct",
                 ],
-                aggregation_name="multitask",
+                task_strategy="multitask",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
                 task_names=["hateful"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
         ]
     )
 
-    # Run comparison and save results
-    evaluator.compare_async(
-        config, judge_results=judge_results, human_results=human_results
-    )
+    # Add metrics configuration and run comparison
+    evaluator.add_metrics_config(config)
+    evaluator.compare_async(judge_results=judge_results, human_results=human_results)
+
+    # Generate score report
+    evaluator.score_report.save("score_report.html", format="html")  # Save HTML report
+    evaluator.score_report.save("score_report.csv", format="csv")  # Save CSV report
+    evaluator.score_report.print()  # Print to console
 
 
 if __name__ == "__main__":

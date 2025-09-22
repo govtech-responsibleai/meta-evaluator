@@ -13,7 +13,7 @@ class MetaEvaluatorState(BaseModel):
     """Complete serialized state for a MetaEvaluator instance.
 
     Contains all information needed to reconstruct a MetaEvaluator,
-    including client configurations, data metadata, and judge registry.
+    including client configurations, data metadata, judge registry, and metrics configuration.
     """
 
     version: str = "1.0"

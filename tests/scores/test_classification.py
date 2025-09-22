@@ -1,6 +1,9 @@
 """Tests for classification Metrics."""
 
 import polars as pl
+import pytest
+
+from meta_evaluator.scores.enums import TaskAggregationMode
 
 
 class TestAccuracyScorer:
@@ -67,3 +70,28 @@ class TestAccuracyScorer:
         assert "accuracy" in result.scores
         assert isinstance(result.scores["accuracy"], float)
         assert result.scores["accuracy"] == 0.0  # No matches
+
+    @pytest.mark.asyncio
+    async def test_compute_score_async_majority_vote(self, accuracy_scorer):
+        """Test compute_score_async with majority vote."""
+        # Judge gets 1 out of 2 correct vs majority vote
+        judge_data = pl.DataFrame({"original_id": [1, 2], "label": ["A", "B"]})
+
+        human_data = pl.DataFrame(
+            {
+                "original_id": [1, 1, 1, 2, 2, 2],
+                "human_id": ["h1", "h2", "h3", "h1", "h2", "h3"],
+                "label": ["A", "A", "C", "X", "X", "B"],  # Majorities: "A", "X"
+            }
+        )
+
+        result = await accuracy_scorer.compute_score_async(
+            judge_data,
+            human_data,
+            "test",
+            "judge1",
+            TaskAggregationMode.SINGLE,
+            "majority_vote",
+        )
+
+        assert result.scores["accuracy"] == 0.5  # Judge matches 1/2 majorities

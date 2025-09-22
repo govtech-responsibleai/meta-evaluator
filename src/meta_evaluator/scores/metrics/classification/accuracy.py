@@ -18,6 +18,15 @@ class AccuracyScorer(BaseScorer):
         """Initialize accuracy scorer."""
         super().__init__("accuracy")
 
+    @property
+    def min_human_annotators(self) -> int:
+        """Minimum number of human annotators required for accuracy scoring.
+
+        Returns:
+            int: 1 human annotator minimum
+        """
+        return 1
+
     def can_score_task(
         self, sample_label: str | int | float | List[str | int | float]
     ) -> bool:
@@ -47,6 +56,7 @@ class AccuracyScorer(BaseScorer):
         task_name: str,
         judge_id: str,
         aggregation_mode,
+        annotator_aggregation: str = "individual_average",
     ) -> BaseScoringResult:
         """Compute accuracy score for a single judge vs many humans (async).
 
@@ -56,6 +66,7 @@ class AccuracyScorer(BaseScorer):
             task_name: Name of the task(s) being scored
             judge_id: ID of the judge being scored
             aggregation_mode: How the tasks were aggregated for this result
+            annotator_aggregation: How to aggregate multiple human annotators
 
         Returns:
             BaseScoringResult: The scoring result for this judge
@@ -68,25 +79,66 @@ class AccuracyScorer(BaseScorer):
             num_comparisons = 0
             failed_comparisons = 1
         else:
-            # For each human, compute accuracy between judge and that human
-            human_accuracies = []
-            humans = comparison_df["human_id"].unique()
+            if annotator_aggregation == "majority_vote":
+                # Majority vote approach: aggregate humans first, then compare with judge
+                from collections import Counter
 
-            for human_id in humans:
-                human_comparisons = comparison_df.filter(pl.col("human_id") == human_id)
-                judge_labels = human_comparisons["label"].to_list()
-                human_labels = human_comparisons["label_right"].to_list()  # From join
+                correct = 0
+                total = 0
 
-                # Compute accuracy for this judge-human pair
-                correct = sum(j == h for j, h in zip(judge_labels, human_labels))
-                total = len(judge_labels)
-                if total > 0:
-                    human_accuracies.append(correct / total)
+                for original_id in comparison_df["original_id"].unique():
+                    sample_data = comparison_df.filter(
+                        pl.col("original_id") == original_id
+                    )
+                    judge_label = sample_data["label"].to_list()[0]
+                    human_labels = sample_data["label_right"].to_list()
 
-            # Average across all humans
-            accuracy_score = (
-                float(np.mean(human_accuracies)) if human_accuracies else float("nan")
-            )
+                    if isinstance(human_labels[0], list):
+                        # Multilabel: per-position majority (same length assumed)
+                        consensus = []
+                        for pos in range(len(human_labels[0])):
+                            position_votes = [labels[pos] for labels in human_labels]
+                            majority = max(
+                                Counter(position_votes).items(),
+                                key=lambda x: (x[1], x[0]),
+                            )[0]
+                            consensus.append(majority)
+                        majority_label = consensus
+                    else:
+                        # Single label: simple majority
+                        majority_label = max(
+                            Counter(human_labels).items(), key=lambda x: (x[1], x[0])
+                        )[0]
+
+                    if judge_label == majority_label:
+                        correct += 1
+                    total += 1
+
+                accuracy_score = float(correct / total) if total > 0 else float("nan")
+            else:
+                # Individual average approach (existing logic)
+                human_accuracies = []
+                humans = comparison_df["human_id"].unique()
+
+                for human_id in humans:
+                    human_comparisons = comparison_df.filter(
+                        pl.col("human_id") == human_id
+                    )
+                    judge_labels = human_comparisons["label"].to_list()
+                    human_labels = human_comparisons["label_right"].to_list()
+
+                    # Compute accuracy for this judge-human pair
+                    correct = sum(j == h for j, h in zip(judge_labels, human_labels))
+                    total = len(judge_labels)
+                    if total > 0:
+                        human_accuracies.append(correct / total)
+
+                # Average across all humans
+                accuracy_score = (
+                    float(np.mean(human_accuracies))
+                    if human_accuracies
+                    else float("nan")
+                )
             num_comparisons = len(comparison_df)
             failed_comparisons = 0
 

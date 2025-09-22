@@ -241,22 +241,22 @@ def main():
                 MetricConfig(
                     scorer=accuracy_scorer,
                     task_names=["rejection"],
-                    aggregation_name="single",
+                    task_strategy="single",
                 ),
                 MetricConfig(
                     scorer=cohens_kappa_scorer,
                     task_names=["rejection"],
-                    aggregation_name="single",
+                    task_strategy="single",
                 ),
                 MetricConfig(
                     scorer=text_similarity_scorer,
                     task_names=["explanation"],
-                    aggregation_name="single",
+                    task_strategy="single",
                 ),
                 MetricConfig(
                     scorer=semantic_similarity_scorer,
                     task_names=["explanation"],
-                    aggregation_name="single",
+                    task_strategy="single",
                 ),
             ]
         )
@@ -266,9 +266,9 @@ def main():
         human_results = evaluator.load_all_human_results()
 
         print("\n=== Running Scoring ===")
-        # Run comparison and get results
+        # Add metrics configuration and run comparison
+        evaluator.add_metrics_config(config)
         results = evaluator.compare_async(
-            comparison_config=config,
             judge_results=judge_results,
             human_results=human_results,
         )
@@ -287,6 +287,11 @@ def main():
                 print(f"Failed: {result.failed_comparisons}")
 
         print(f"\nResults saved in: {evaluator.paths.scores}")
+
+        # Generate score report
+        evaluator.score_report.save("score_report.html", format="html")
+        evaluator.score_report.save("score_report.csv", format="csv")
+        evaluator.score_report.print()  # Print to console
 
     except Exception as e:
         print(f"Error: {str(e)}")

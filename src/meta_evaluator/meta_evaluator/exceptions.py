@@ -95,6 +95,16 @@ class EvalTaskAlreadyExistsError(MetaEvaluatorConfigurationError):
         )
 
 
+class MetricsConfigAlreadyExistsError(MetaEvaluatorConfigurationError):
+    """Error raised when trying to add metrics config that already exists."""
+
+    def __init__(self):
+        """Initialize the exception."""
+        super().__init__(
+            "Metrics configuration already exists. Use overwrite=True to replace it."
+        )
+
+
 class EvalDataNotFoundError(MetaEvaluatorConfigurationError):
     """Error raised when evaluation data is not found."""
 

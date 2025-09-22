@@ -20,6 +20,15 @@ class CustomScorer(BaseScorer):
         """Initialize custom scorer."""
         super().__init__(name)
 
+    @property
+    def min_human_annotators(self) -> int:
+        """Minimum number of human annotators required for custom scoring.
+
+        Returns:
+            int: 1 human annotator minimum
+        """
+        return 1
+
     def can_score_task(self, sample_label: str | int | float | List[str | int | float]):
         """This custom scorer can only handle single column text tasks.
 
@@ -38,6 +47,7 @@ class CustomScorer(BaseScorer):
         task_name: str,
         judge_id: str,
         aggregation_mode,
+        annotator_aggregation: str = "individual_average",
     ):
         """Simple custom scoring logic - count number of times judge has more letter "A"s than human, 0 otherwise.
 

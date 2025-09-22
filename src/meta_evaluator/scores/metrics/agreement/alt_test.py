@@ -31,7 +31,6 @@ class AltTestScorer(BaseScorer):
         epsilon: float = 0.2,
         multiplicative_epsilon: bool = False,
         q_fdr: float = 0.05,
-        min_humans_per_instance: int = 2,
         min_instances_per_human: int = 30,
     ):
         """Initialize Alt-Test scorer.
@@ -40,20 +39,27 @@ class AltTestScorer(BaseScorer):
             epsilon: Threshold parameter for alt-test
             multiplicative_epsilon: Whether to use multiplicative epsilon
             q_fdr: False discovery rate for multiple testing correction
-            min_humans_per_instance: Minimum humans required per instance
             min_instances_per_human: Minimum instances required per human
         """
         super().__init__("alt_test")
         self.epsilon = epsilon
         self.multiplicative_epsilon = multiplicative_epsilon
         self.q_fdr = q_fdr
-        self.min_humans_per_instance = min_humans_per_instance
         self.min_instances_per_human = min_instances_per_human
 
         # Set up matplotlib config
         plt.rcParams["font.size"] = 12
         plt.rcParams["font.family"] = "sans-serif"
         plt.rcParams["font.sans-serif"] = ["Verdana"]
+
+    @property
+    def min_human_annotators(self) -> int:
+        """Minimum number of human annotators required for Alt-Test.
+
+        Returns:
+            int: 3 human annotators minimum for statistical significance
+        """
+        return 3
 
     def can_score_task(
         self, sample_label: str | int | float | List[str | int | float]
@@ -84,6 +90,7 @@ class AltTestScorer(BaseScorer):
         task_name: str,
         judge_id: str,
         aggregation_mode,
+        annotator_aggregation: str = "individual_average",
     ) -> BaseScoringResult:
         """Compute Alt-Test score for a single judge vs many humans (async).
 
@@ -93,10 +100,17 @@ class AltTestScorer(BaseScorer):
             task_name: Name of the task(s) being scored
             judge_id: ID of the judge being scored
             aggregation_mode: How the tasks were aggregated for this result
+            annotator_aggregation: How to aggregate multiple human annotators
 
         Returns:
             BaseScoringResult: The scoring result for this judge
         """
+        # Check annotator aggregation strategy and warn if majority_vote is used
+        if annotator_aggregation == "majority_vote":
+            self.logger.warning(
+                "AltTestScorer does not support majority_vote aggregation. Using individual_average instead."
+            )
+
         # Join judge and human data on original_id
         comparison_df = judge_data.join(human_data, on="original_id", how="inner")
 
@@ -173,7 +187,7 @@ class AltTestScorer(BaseScorer):
                 "epsilon": self.epsilon,
                 "multiplicative_epsilon": self.multiplicative_epsilon,
                 "q_fdr": self.q_fdr,
-                "min_humans_per_instance": self.min_humans_per_instance,
+                "min_human_annotators": self.min_human_annotators,
                 "min_instances_per_human": self.min_instances_per_human,
                 "ground_truth_method": "alt_test_procedure",
                 "scoring_method": "leave_one_out_cross_validation",
@@ -316,11 +330,11 @@ class AltTestScorer(BaseScorer):
                     h_set[i] = []
                 h_set[i].append(h)
 
-        # remove instances with less than min_humans_per_instance
+        # remove instances with less than min_human_annotators
         instances_to_keep = {
             i
             for i in sorted(h_set.keys())
-            if len(h_set[i]) >= self.min_humans_per_instance and i in llm_annotations
+            if len(h_set[i]) >= self.min_human_annotators and i in llm_annotations
         }
         i_set = {
             h: sorted([i for i in i_set[h] if i in instances_to_keep])

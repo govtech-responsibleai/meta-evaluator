@@ -1,6 +1,9 @@
 """Tests for text similarity metrics."""
 
 import polars as pl
+import pytest
+
+from meta_evaluator.scores.enums import TaskAggregationMode
 
 
 class TestTextSimilarityScorer:
@@ -68,3 +71,40 @@ class TestTextSimilarityScorer:
         assert "text_similarity" in result.scores
         assert isinstance(result.scores["text_similarity"], float)
         assert result.scores["text_similarity"] < 0.5  # Little match
+
+    @pytest.mark.asyncio
+    async def test_compute_score_async_majority_vote_best_match(
+        self, text_similarity_scorer
+    ):
+        """Test majority vote using best match approach."""
+        # Judge gets perfect match with one human, partial with others
+        judge_data = pl.DataFrame(
+            {"original_id": [1, 2], "label": ["hello world", "test case"]}
+        )
+
+        human_data = pl.DataFrame(
+            {
+                "original_id": [1, 1, 1, 2, 2, 2],
+                "human_id": ["h1", "h2", "h3", "h1", "h2", "h3"],
+                "label": [
+                    "hello world",  # Perfect match
+                    "goodbye world",  # Partial match
+                    "hi there",  # Low match
+                    "test case",  # Perfect match
+                    "exam question",  # Partial match
+                    "different text",  # Low match
+                ],
+            }
+        )
+
+        result = await text_similarity_scorer.compute_score_async(
+            judge_data,
+            human_data,
+            "test",
+            "judge1",
+            TaskAggregationMode.SINGLE,
+            "majority_vote",
+        )
+
+        # Should get close to 1.0 since best matches are perfect
+        assert result.scores["similarity"] > 0.9

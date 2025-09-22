@@ -48,6 +48,68 @@ class TestCohensKappaScorer:
         assert isinstance(result.scores["kappa"], float)
         assert result.scores["kappa"] == 1.0  # Perfect agreement
 
+    @pytest.mark.asyncio
+    async def test_majority_vote_warning(self, cohens_kappa_scorer, caplog):
+        """Test that CohensKappaScorer logs warning when majority_vote aggregation is used."""
+        # Create dummy data
+        judge_data = pl.DataFrame({"original_id": [1, 2, 3], "label": ["A", "B", "A"]})
+
+        human_data = pl.DataFrame(
+            {
+                "original_id": [1, 2, 3, 1, 2, 3],
+                "human_id": [
+                    "human1",
+                    "human1",
+                    "human1",
+                    "human2",
+                    "human2",
+                    "human2",
+                ],
+                "label": ["A", "B", "A", "A", "A", "B"],
+            }
+        )
+
+        # Test with majority_vote - should log warning
+        with caplog.at_level("WARNING"):
+            await cohens_kappa_scorer.compute_score_async(
+                judge_data,
+                human_data,
+                "test",
+                "judge1",
+                TaskAggregationMode.SINGLE,
+                "majority_vote",
+            )
+
+        # Check that warning was logged
+        warning_messages = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
+        assert any(
+            "CohensKappaScorer does not support majority_vote aggregation" in msg
+            for msg in warning_messages
+        )
+
+        # Test with individual_average - should not log warning
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            await cohens_kappa_scorer.compute_score_async(
+                judge_data,
+                human_data,
+                "test",
+                "judge1",
+                TaskAggregationMode.SINGLE,
+                "individual_average",
+            )
+
+        # Check that no warning was logged
+        warning_messages = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
+        assert not any(
+            "CohensKappaScorer does not support majority_vote aggregation" in msg
+            for msg in warning_messages
+        )
+
 
 class TestAltTestScorer:
     """Test AltTestScorer functionality."""
@@ -216,3 +278,65 @@ class TestAltTestScorer:
         for plot_name in expected_plots:
             plot_path = alt_test_dir / plot_name
             assert plot_path.exists(), f"Missing plot: {plot_name}"
+
+    @pytest.mark.asyncio
+    async def test_majority_vote_warning(self, alt_test_scorer, caplog):
+        """Test that AltTestScorer logs warning when majority_vote aggregation is used."""
+        # Create dummy data
+        judge_data = pl.DataFrame({"original_id": [1, 2, 3], "label": ["A", "B", "A"]})
+
+        human_data = pl.DataFrame(
+            {
+                "original_id": [1, 2, 3, 1, 2, 3],
+                "human_id": [
+                    "human1",
+                    "human1",
+                    "human1",
+                    "human2",
+                    "human2",
+                    "human2",
+                ],
+                "label": ["A", "B", "A", "A", "A", "B"],
+            }
+        )
+
+        # Test with majority_vote - should log warning
+        with caplog.at_level("WARNING"):
+            await alt_test_scorer.compute_score_async(
+                judge_data,
+                human_data,
+                "test",
+                "judge1",
+                TaskAggregationMode.SINGLE,
+                "majority_vote",
+            )
+
+        # Check that warning was logged
+        warning_messages = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
+        assert any(
+            "AltTestScorer does not support majority_vote aggregation" in msg
+            for msg in warning_messages
+        )
+
+        # Test with individual_average - should not log warning
+        caplog.clear()
+        with caplog.at_level("WARNING"):
+            await alt_test_scorer.compute_score_async(
+                judge_data,
+                human_data,
+                "test",
+                "judge1",
+                TaskAggregationMode.SINGLE,
+                "individual_average",
+            )
+
+        # Check that no warning was logged
+        warning_messages = [
+            record.message for record in caplog.records if record.levelname == "WARNING"
+        ]
+        assert not any(
+            "AltTestScorer does not support majority_vote aggregation" in msg
+            for msg in warning_messages
+        )

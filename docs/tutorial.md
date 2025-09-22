@@ -3,14 +3,11 @@
 This guide walks you through a complete example evaluating how well LLM judges detect response rejections.
 
 
-!!! note "Future Developments"
-    The repository is still a work in progress. A Python package release is planned in the near future.
-
 ## Installation
 
 ```bash
 # Requires Python 3.13+
-pip install git+https://github.com/govtech-responsibleai/meta-evaluator#egg=meta-evaluator
+pip install git+https://github.com/govtech-responsibleai/meta-evaluator.git
 ```
 
 **Set up environment variables:** You can either:
@@ -235,39 +232,49 @@ def main():
             MetricConfig(
                 scorer=accuracy_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
+                annotator_aggregation="individual_average", 
             ),
             MetricConfig(
                 scorer=alt_test_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
+                annotator_aggregation="individual_average",  
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
+                annotator_aggregation="individual_average", 
             ),
             # Free-form text metrics
             MetricConfig(
                 scorer=text_similarity_scorer,
                 task_names=["explanation"],
-                aggregation_name="single",
+                task_strategy="single",
+                annotator_aggregation="individual_average",  
             ),
             MetricConfig(
                 scorer=semantic_similarity_scorer,
                 task_names=["explanation"],
-                aggregation_name="single",
+                task_strategy="single",
+                annotator_aggregation="individual_average", 
             ),
         ]
     )
     
-    # Step 8: Compare results (requires human annotations)
+    # Step 8: Add metrics configuration and compare results (requires human annotations)
     # See "Adding Human Annotations" section below for how to collect human data
+    evaluator.add_metrics_config(config)  # Creates evaluator.score_report automatically
     evaluator.compare_async(
-        config, 
-        judge_results=judge_results, 
+        judge_results=judge_results,
         human_results=human_results
     )
+
+    # Step 9: Generate summary report
+    evaluator.score_report.save("score_report.html", format="html")  # Save HTML report
+    evaluator.score_report.save("score_report.csv", format="csv")    # Save CSV report
+    evaluator.score_report.print()  # Print to console
 
 
 if __name__ == "__main__":
@@ -307,6 +314,8 @@ quickstart_project/
 │   └── run_20250815_110504_15c89e71_claude_judge_20250815_110521_results.json
 ├── annotations/                # Human annotation results (when added)
 └── scores/                     # Computed metrics (after comparison with human data)
+    ├── score_report.html    # Summary HTML report
+    ├── score_report.csv     # Summary CSV report
     ├── accuracy/
     ├── cohens_kappa/
     └── text_similarity/
@@ -326,5 +335,36 @@ Comparison metrics (when human data available):
 - **Cohen's Kappa**: Agreement accounting for chance  
 - **Detailed breakdowns**: Per-task and aggregate scores
 
+## What save_state Saves and Doesn't Save
+
+When you call `evaluator.save_state()`, MetaEvaluator persists your project configuration for later use. Here's what gets saved and what doesn't:
+
+### ✅ Saved by save_state
+- **Evaluation task configuration**: Task schemas, columns, prompts, answering methods
+- **Data metadata and files**: Your evaluation dataset and its configuration
+- **Judge configurations**: Registered judges and their settings
+- **Project structure**: Directory organization and paths
+
+### ❌ NOT saved by save_state
+- **Metrics configurations**: MetricsConfig objects (not supported yet)
+- **Judge evaluation results**: Saved separately in `results/` directory
+- **Human annotation results**: Saved separately in `annotations/` directory
+- **Computed scores**: Saved separately in `scores/` directory
+
+### 🔄 After Loading a Project
+When you load a saved project, you must re-add your metrics configuration:
+
+```python
+# Load existing project
+evaluator = MetaEvaluator(project_dir="my_project", load=True)
+
+# Add metrics configuration
+config = MetricsConfig(metrics=[...])
+evaluator.add_metrics_config(config)
+
+# Now you can run comparisons
+evaluator.compare_async(judge_results, human_results)
+```
+
 !!! tip "External Data Loading"
-    Already have judge or human annotation results from previous runs or external sources? You can load them directly without re-running evaluations. See the [External Data Loading section in the Results Guide](guides/results.md#external-data-loading) for details on the required data formats and how to use `add_external_judge_results()` and `add_external_annotation_results()`.  
+    Already have judge or human annotation results from previous runs or external sources? You can load them directly without re-running evaluations. See the [External Data Loading section in the Results Guide](guides/results.md#external-data-loading) for details on the required data formats and how to use `add_external_judge_results()` and `add_external_annotation_results()`.

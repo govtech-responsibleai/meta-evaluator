@@ -6,11 +6,11 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple
 
-if TYPE_CHECKING:
-    from .base import Paths
-
 import numpy as np
 import polars as pl
+
+if TYPE_CHECKING:
+    from .base import Paths
 
 from ..common.async_utils import sync_wrapper
 from ..data import EvalData
@@ -57,16 +57,18 @@ class ScoringMixin:
         >>> cohens_kappa_scorer = CohensKappaScorer()
         >>> config = MetricsConfig(
         >>>    metrics=[
-        >>>        MetricConfig(scorer=alt_test_scorer,task_names=["task_1", "task_2"], aggregation_name="multilabel"),
-        >>>        MetricConfig(scorer=cohens_kappa_scorer, task_names=["task_1"], aggregation_name="single"),
+        >>>        MetricConfig(scorer=alt_test_scorer,task_names=["task_1", "task_2"], task_strategy="multilabel"),
+        >>>        MetricConfig(scorer=cohens_kappa_scorer, task_names=["task_1"], task_strategy="single"),
         >>>    ]
         >>> )
-        >>> await evaluator.compare_async(config, judge_results=judge_results, human_results=human_results)
+        >>> evaluator.add_metrics_config(config)
+        >>> await evaluator.compare_async(judge_results=judge_results, human_results=human_results)
     """
 
     # Type hints for attributes that will be provided by MetaEvaluator
     eval_task: Optional[EvalTask]
     data: Optional[EvalData]
+    metrics_config: Optional[MetricsConfig]
     paths: "Paths"
     logger: logging.Logger
 
@@ -529,7 +531,17 @@ class ScoringMixin:
             if judge_df.is_empty() or human_df.is_empty():
                 raise InsufficientDataError(f"No aligned data for judge {judge_id}")
 
-            # Step 2: Process based on aggregation mode
+            # Step 2: Validate minimum human annotators
+            num_humans = len(human_df["human_id"].unique())
+            min_required = metric_config.scorer.min_human_annotators
+
+            if num_humans < min_required:
+                raise InsufficientDataError(
+                    f"Scorer '{metric_config.scorer.scorer_name}' requires at least {min_required} "
+                    f"human annotators, but only {num_humans} found for judge {judge_id}"
+                )
+
+            # Step 3: Process based on aggregation mode
             if metric_config.aggregation_mode == TaskAggregationMode.MULTITASK:
                 # MULTITASK - process each task separately, then average.
                 task_scoring_results = []
@@ -558,6 +570,7 @@ class ScoringMixin:
                             task_name,
                             judge_id,
                             TaskAggregationMode.SINGLE,
+                            metric_config.annotator_aggregation,
                         )
                     )
                     task_scoring_results.append(task_scoring_result)
@@ -602,6 +615,7 @@ class ScoringMixin:
                     display_task_name,
                     judge_id,
                     metric_config.aggregation_mode,
+                    metric_config.annotator_aggregation,
                 )
                 return result
 
@@ -682,21 +696,19 @@ class ScoringMixin:
 
     async def _compare_async(
         self,
-        comparison_config: MetricsConfig,
         judge_results: Optional[Dict[str, JudgeResults]] = None,
         human_results: Optional[Dict[str, HumanAnnotationResults]] = None,
     ) -> Dict[str, Tuple[MetricConfig, List[BaseScoringResult]]]:
         """Main method to compare judge and human results using configured metrics.
 
         Handles:
-        - Validating comparison configuration
+        - Validating metrics configuration
         - Loading judge and human results
         - Running scoring for each metric configuration
         - Saving individual judge results
         - Running aggregations for each metric configuration for all judges
 
         Args:
-            comparison_config: Configuration specifying which metrics to run and on which tasks
             judge_results: Dictionary mapping run_ids to judge evaluation results.
                 If None, loads all judge results from the project's results directory.
             human_results: Dictionary mapping run_ids to human annotation results.
@@ -709,15 +721,21 @@ class ScoringMixin:
             ScoringConfigError: If no metrics configured, no results found, or scoring fails
             InsufficientDataError: If insufficient data is available for scoring
         """
+        # Validate metrics configuration
+        if self.metrics_config is None:
+            raise ScoringConfigError(
+                "No metrics configuration set. Use add_metrics_config() to add configuration."
+            )
+
         self.logger.info(
-            f"Starting comparison with {len(comparison_config.metrics)} metrics"
+            f"Starting comparison with {len(self.metrics_config.metrics)} metrics"
         )
 
-        # Validate comparison configuration
-        if not comparison_config.metrics:
+        # Validate metrics configuration
+        if not self.metrics_config.metrics:
             raise ScoringConfigError("No metrics configured for comparison")
 
-        for i, metric_config in enumerate(comparison_config.metrics):
+        for i, metric_config in enumerate(self.metrics_config.metrics):
             if not metric_config.task_names:
                 raise ScoringConfigError(f"No task names specified for metric {i}")
 
@@ -741,7 +759,7 @@ class ScoringMixin:
 
         # Parallelize different scorers and judges
         scorer_tasks = []
-        for metric_config in comparison_config.metrics:
+        for metric_config in self.metrics_config.metrics:
             task = self._run_scoring_async(metric_config, judge_results, human_results)
             scorer_tasks.append(task)
 
@@ -773,7 +791,7 @@ class ScoringMixin:
         total_results = sum(
             len(scorer_results_list) for _, scorer_results_list in results.values()
         )
-        total_metric_configs = len(comparison_config.metrics)
+        total_metric_configs = len(self.metrics_config.metrics)
         self.logger.info(
             f"Async comparison completed successfully. Generated {total_results} total scoring results from {total_metric_configs} metric configurations"
         )

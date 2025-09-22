@@ -112,30 +112,34 @@ def main():
             MetricConfig(
                 scorer=accuracy_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
             MetricConfig(
                 scorer=alt_test_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
             MetricConfig(
                 scorer=text_similarity_scorer,
                 task_names=["explanation"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
         ]
     )
 
-    # Run comparison and save results
-    evaluator.compare_async(
-        config, judge_results=judge_results, human_results=human_results
-    )
+    # Add metrics configuration and run comparison
+    evaluator.add_metrics_config(config)
+    evaluator.compare_async(judge_results=judge_results, human_results=human_results)
+
+    # Generate score report
+    evaluator.score_report.save("score_report.html", format="html")
+    evaluator.score_report.save("score_report.csv", format="csv")
+    evaluator.score_report.print()  # Print to console
 
 
 if __name__ == "__main__":

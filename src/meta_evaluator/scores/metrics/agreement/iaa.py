@@ -19,6 +19,15 @@ class CohensKappaScorer(BaseScorer):
         """Initialize Cohen's kappa scorer."""
         super().__init__("cohens_kappa")
 
+    @property
+    def min_human_annotators(self) -> int:
+        """Minimum number of human annotators required for Cohen's kappa.
+
+        Returns:
+            int: 2 human annotators minimum for inter-annotator agreement
+        """
+        return 2
+
     def can_score_task(
         self, sample_label: str | int | float | List[str | int | float]
     ) -> bool:
@@ -48,6 +57,7 @@ class CohensKappaScorer(BaseScorer):
         task_name: str,
         judge_id: str,
         aggregation_mode,
+        annotator_aggregation: str = "individual_average",
     ) -> BaseScoringResult:
         """Compute Cohen's kappa score for a single judge vs many humans (async).
 
@@ -57,10 +67,17 @@ class CohensKappaScorer(BaseScorer):
             task_name: Name of the task(s) being scored
             judge_id: ID of the judge being scored
             aggregation_mode: How the tasks were aggregated for this result
+            annotator_aggregation: How to aggregate multiple human annotators
 
         Returns:
             BaseScoringResult: The scoring result for this judge
         """
+        # Check annotator aggregation strategy and warn if majority_vote is used
+        if annotator_aggregation == "majority_vote":
+            self.logger.warning(
+                "CohensKappaScorer does not support majority_vote aggregation. Using individual_average instead."
+            )
+
         # Join judge and human data on original_id
         comparison_df = judge_data.join(human_data, on="original_id", how="inner")
 

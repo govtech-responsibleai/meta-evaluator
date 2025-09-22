@@ -3,7 +3,6 @@
 
 import logging
 import sys
-import time
 
 import dotenv
 
@@ -70,32 +69,32 @@ def rejection_data() -> EvalData:
 def main():
     """Main function to run alt-test evaluation."""
     # Set load = False to initialise new MetaEvaluator instance
-    evaluator = MetaEvaluator(project_dir="project_dir_1", load=True)
+    evaluator = MetaEvaluator(project_dir="project_dir_test", load=True)
 
-    # Add eval task and eval data
-    eval_task = rejection_task()
-    eval_data = rejection_data()
-    evaluator.add_eval_task(eval_task)
-    evaluator.add_data(eval_data)
+    # # Add eval task and eval data
+    # eval_task = rejection_task()
+    # eval_data = rejection_data()
+    # evaluator.add_eval_task(eval_task)
+    # evaluator.add_data(eval_data)
 
-    # Add judges
-    evaluator.load_judges_from_yaml(
-        yaml_file="judges.yaml",
-        on_duplicate="skip",  # Skip if judge_id already exists. Set to "overwrite" to replace existing judge.
-        async_mode=True,  # Run judges asynchronously
-    )
+    # # Add judges
+    # evaluator.load_judges_from_yaml(
+    #     yaml_file="judges.yaml",
+    #     on_duplicate="skip",  # Skip if judge_id already exists. Set to "overwrite" to replace existing judge.
+    #     async_mode=True,  # Run judges asynchronously
+    # )
 
-    # Save state (task, data, judges)
-    evaluator.save_state(data_format="json")
+    # # Save state (task, data, judges)
+    # evaluator.save_state(data_format="json")
 
-    # Run judges
-    print("Starting async judge evaluation with batching...")
-    start_time = time.time()
-    evaluator.run_judges_async(
-        skip_duplicates=True  # Skip duplicates to avoid re-running judges
-    )
-    end_time = time.time()
-    print(f"Async judge evaluation completed in {end_time - start_time:.2f} seconds")
+    # # Run judges
+    # print("Starting async judge evaluation with batching...")
+    # start_time = time.time()
+    # evaluator.run_judges_async(
+    #     skip_duplicates=True  # Skip duplicates to avoid re-running judges
+    # )
+    # end_time = time.time()
+    # print(f"Async judge evaluation completed in {end_time - start_time:.2f} seconds")
 
     # Load judge/human annotation results
     judge_results = evaluator.load_all_judge_results()
@@ -117,35 +116,40 @@ def main():
             MetricConfig(
                 scorer=accuracy_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
+                annotator_aggregation="majority_vote",  # Default is 'individual_average', set to 'majority_vote' for this example
             ),
             MetricConfig(
                 scorer=alt_test_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
                 task_names=["rejection"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
             MetricConfig(
                 scorer=text_similarity_scorer,
                 task_names=["explanation"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
             MetricConfig(
                 scorer=semantic_similarity_scorer,
                 task_names=["explanation"],
-                aggregation_name="single",
+                task_strategy="single",
             ),
         ]
     )
 
-    # Run comparison and save results
-    evaluator.compare_async(
-        config, judge_results=judge_results, human_results=human_results
-    )
+    # Add metrics configuration and run comparison
+    evaluator.add_metrics_config(config)
+    evaluator.compare_async(judge_results=judge_results, human_results=human_results)
+
+    # Generate score report
+    evaluator.score_report.save("score_report.html", format="html")
+    evaluator.score_report.save("score_report.csv", format="csv")
+    evaluator.score_report.print()
 
 
 if __name__ == "__main__":

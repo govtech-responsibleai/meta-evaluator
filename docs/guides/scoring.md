@@ -23,13 +23,15 @@ Configure and use alignment metrics to compare judge evaluations with human anno
             MetricConfig(
                 scorer=AccuracyScorer(),
                 task_names=["rejection"],
-                aggregation_name="single", # One of 'single', 'multilabel', or 'multitask'
+                task_strategy="single", # One of 'single', 'multilabel', or 'multitask'
+                annotator_aggregation="individual_average",  # Default
             ),
         ]
     )
     
-    # Run comparison
-    evaluator.compare_async(config, judge_results, human_results)
+    # Add metrics configuration and run comparison
+    evaluator.add_metrics_config(config)
+    evaluator.compare_async(judge_results, human_results)
     ```
 
 === "Multiple Metrics"
@@ -57,12 +59,14 @@ Configure and use alignment metrics to compare judge evaluations with human anno
                     "self_harm",
                     "all_other_misconduct",
                 ],
-                aggregation_name="multilabel", 
+                task_strategy="multilabel",
+                annotator_aggregation="individual_average",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
                 task_names=["hateful"],
-                aggregation_name="single",
+                task_strategy="single",
+                annotator_aggregation="individual_average",
             ),
             MetricConfig(
                 scorer=cohens_kappa_scorer,
@@ -74,124 +78,22 @@ Configure and use alignment metrics to compare judge evaluations with human anno
                     "self_harm",
                     "all_other_misconduct",
                 ],
-                aggregation_name="multitask",
+                task_strategy="multitask",
+                annotator_aggregation="individual_average",
             ),
             MetricConfig(
                 scorer=text_similarity_scorer,
                 task_names=["explanation"],
-                aggregation_name="single",
+                task_strategy="single",
+                annotator_aggregation="majority_vote",  # Example using majority vote
             ),
         ]
     )
-    
-    evaluator.compare_async(config, judge_results, human_results)
+
+    # Add metrics configuration and run comparison
+    evaluator.add_metrics_config(config)
+    evaluator.compare_async(judge_results, human_results)
     ```
-
-## Task Configuration Types (`aggregation_name`)
-
-The `aggregation_name` parameter defines how tasks are processed and must be one of: `"single"`, `"multitask"`, or `"multilabel"`.
-
-!!! important "Task Count Requirements"
-    - **`"single"`**: Use only when `task_names` contains **exactly 1 task**
-    - **`"multitask"`** and **`"multilabel"`**: Use only when `task_names` contains **2 or more tasks**
-
-=== "Single Label (Single Task)"
-    
-    Evaluate one classification task:
-
-    ```python linenums="1" hl_lines="6 7"
-    # Single binary classification task
-    config = MetricsConfig(
-        metrics=[
-            MetricConfig(
-                scorer=AccuracyScorer(),
-                task_names=["rejection"],  # Single task name
-                aggregation_name="single",  # Required: "single" for single task
-            ),
-        ]
-    )
-    ```
-
-    !!! note "Single Task Behavior"
-        - Single score for the specified task
-        - **Required**: Exactly 1 task in `task_names` list
-        - Use this when evaluating one task independently
-
-=== "Multi-Task (Multiple Single Labels)"
-    
-    Apply the same scorer to multiple separate tasks:
-
-    ```python linenums="1" hl_lines="6 7"
-    # Same scorer applied to each task separately
-    config = MetricsConfig(
-        metrics=[
-            MetricConfig(
-                scorer=AccuracyScorer(),
-                task_names=["helpful", "harmless", "honest"],  # Multiple tasks
-                aggregation_name="multitask",  # Required: "multitask" for multiple separate tasks
-            ),
-        ]
-    )
-    ```
-
-    !!! note "Multi-Task Behavior"
-        - **Required**: 2 or more tasks in `task_names` list
-        - **Same scorer applied to each task individually**
-        - **Result**: Aggregated score across all tasks
-        - For different scorers on different tasks, create separate `MetricConfig` entries
-
-=== "Multi-Label (Combined Classification)"
-    
-    Treat multiple classification tasks as a single multi-label problem:
-
-    ```python linenums="1" hl_lines="8 9"
-    # Multi-label classification (AltTestScorer only)
-    alt_test_scorer = AltTestScorer()
-
-    config = MetricsConfig(
-        metrics=[
-            MetricConfig(
-                scorer=alt_test_scorer,
-                task_names=["hateful", "violent", "sexual"],  # Combined as multi-label
-                aggregation_name="multilabel",  # Required: "multilabel" for combined tasks
-            ),
-        ]
-    )
-    ```
-
-
-    !!! note "Multi-label Behavior"
-        - **Required**: 2 or more tasks in `task_names` list
-        - Each instance can have multiple labels: `["hateful", "violent"]`, and these will be passed as 1 input into the Scorer.
-        - Calculation of metric depends on the Scorer. For instance AltTestScorer uses Jaccard similarity for comparison, and AccuracyScorer uses exact match.
-
-
-**Example with different scorers per task:**
-```python linenums="1" hl_lines="7 13 19"
-config = MetricsConfig(
-    metrics=[
-        # Accuracy for single classification tasks
-        MetricConfig(
-            scorer=AccuracyScorer(),
-            task_names=["helpful"],
-            aggregation_name="single",
-        ),
-        # Accuracy for multitask classification tasks
-        MetricConfig(
-            scorer=AccuracyScorer(),
-            task_names=["helpful", "harmless", "honest"],
-            aggregation_name="multitask",
-        ),
-        # Text similarity for text tasks, all tasks combined into one multilabel
-        MetricConfig(
-            scorer=TextSimilarityScorer(),
-            task_names=["explanation", "reasoning"],
-            aggregation_name="multilabel",
-        ),
-    ]
-)
-```
-    
 ## Available Scorers
 
 === "Accuracy"
@@ -204,7 +106,8 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=accuracy_scorer,
         task_names=["classification_field"],
-        aggregation_name="single",
+        task_strategy="single",
+        annotator_aggregation="individual_average",
     )
     ```
 
@@ -218,7 +121,7 @@ config = MetricsConfig(
     {
       "judge_id": "gpt_4_judge",
       "scorer_name": "accuracy",
-      "aggregation_name": "single",
+      "task_strategy": "single",
       "task_name": "rejection",
       "score": 0.87,
       "total_instances": 100,
@@ -240,7 +143,8 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=kappa_scorer,
         task_names=["classification_field"],
-        aggregation_name="single",
+        task_strategy="single",
+        annotator_aggregation="individual_average",
     )
     ```
 
@@ -264,7 +168,7 @@ config = MetricsConfig(
     {
       "judge_id": "claude_judge",
       "scorer_name": "cohens_kappa", 
-      "aggregation_name": "single",
+      "task_strategy": "single",
       "task_name": "rejection",
       "score": 0.72,
       "interpretation": "substantial",
@@ -287,7 +191,8 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=alt_test_scorer,
         task_names=["classification_field"],
-        aggregation_name="single",
+        task_strategy="single",
+        annotator_aggregation="individual_average",
     )
     ```
 
@@ -308,7 +213,7 @@ config = MetricsConfig(
     {
       "judge_id": "anthropic_claude_3_5_haiku_judge",
       "scorer_name": "alt_test",
-      "aggregation_name": "multilabel", 
+      "task_strategy": "multilabel", 
       "task_name": "rejection",
       "scores": {
         "winning_rate": {
@@ -346,8 +251,9 @@ config = MetricsConfig(
     
     config = MetricConfig(
         scorer=text_scorer,
-        task_names=["explanation", "reasoning"],
-        aggregation_name="single",
+        task_names=["explanation"],
+        task_strategy="single",
+        annotator_aggregation="majority_vote",  # Example using majority vote
     )
     ```
 
@@ -365,7 +271,7 @@ config = MetricsConfig(
     {
       "judge_id": "gpt_4_judge",
       "scorer_name": "text_similarity",
-      "aggregation_name": "single", 
+      "task_strategy": "single", 
       "task_name": "explanation",
       "score": 0.76,
       "metadata": {
@@ -387,7 +293,8 @@ config = MetricsConfig(
     config = MetricConfig(
         scorer=semantic_scorer,
         task_names=["explanation"],
-        aggregation_name="single",
+        task_strategy="single",
+        annotator_aggregation="individual_average",
     )
     ```
 
@@ -411,7 +318,7 @@ config = MetricsConfig(
     {
       "judge_id": "claude_judge",
       "scorer_name": "semantic_similarity",
-      "aggregation_name": "single", 
+      "task_strategy": "single", 
       "task_name": "explanation",
       "score": 0.84,
       "metadata": {
@@ -429,6 +336,172 @@ config = MetricsConfig(
     - **Cohen's Kappa**: -1 to 1 (higher is better, accounts for chance) 
     - **Text/Semantic Similarity**: 0-1 (higher is better, semantic similarity)
     - **Alt-Test**: Winning rates across epsilon values, advantage probabilities (0-1)
+
+
+## Task Configuration Types (`task_strategy`)
+
+The `task_strategy` parameter defines how tasks are processed and must be one of: `"single"`, `"multitask"`, or `"multilabel"`.
+
+!!! important "Task Count Requirements"
+    - **`"single"`**: Use only when `task_names` contains **exactly 1 task**
+    - **`"multitask"`** and **`"multilabel"`**: Use only when `task_names` contains **2 or more tasks**
+
+=== "Single Label (Single Task)"
+    
+    Evaluate one classification task:
+
+    ```python linenums="1" hl_lines="6 7"
+    # Single binary classification task
+    config = MetricsConfig(
+        metrics=[
+            MetricConfig(
+                scorer=AccuracyScorer(),
+                task_names=["rejection"],  # Single task name
+                task_strategy="single",  # Required: "single" for single task
+                annotator_aggregation="individual_average",
+            ),
+        ]
+    )
+    ```
+
+    !!! note "Single Task Behavior"
+        - Single score for the specified task
+        - **Required**: Exactly 1 task in `task_names` list
+        - Use this when evaluating one task independently
+
+=== "Multi-Task (Multiple Single Labels)"
+    
+    Apply the same scorer to multiple separate tasks:
+
+    ```python linenums="1" hl_lines="6 7"
+    # Same scorer applied to each task separately
+    config = MetricsConfig(
+        metrics=[
+            MetricConfig(
+                scorer=AccuracyScorer(),
+                task_names=["helpful", "harmless", "honest"],  # Multiple tasks
+                task_strategy="multitask",  # Required: "multitask" for multiple separate tasks
+                annotator_aggregation="majority_vote",  # Example using majority vote
+            ),
+        ]
+    )
+    ```
+
+    !!! note "Multi-Task Behavior"
+        - **Required**: 2 or more tasks in `task_names` list
+        - **Same scorer applied to each task individually**
+        - **Result**: Aggregated score across all tasks
+        - For different scorers on different tasks, create separate `MetricConfig` entries
+
+=== "Multi-Label (Combined Classification)"
+    
+    Treat multiple classification tasks as a single multi-label problem:
+
+    ```python linenums="1" hl_lines="8 9"
+    # Multi-label classification (AltTestScorer only)
+    alt_test_scorer = AltTestScorer()
+
+    config = MetricsConfig(
+        metrics=[
+            MetricConfig(
+                scorer=alt_test_scorer,
+                task_names=["hateful", "violent", "sexual"],  # Combined as multi-label
+                task_strategy="multilabel",  # Required: "multilabel" for combined tasks
+                annotator_aggregation="individual_average",
+            ),
+        ]
+    )
+    ```
+
+
+    !!! note "Multi-label Behavior"
+        - **Required**: 2 or more tasks in `task_names` list
+        - Each instance can have multiple labels: `["hateful", "violent"]`, and these will be passed as 1 input into the Scorer.
+        - Calculation of metric depends on the Scorer. For instance AltTestScorer uses Jaccard similarity for comparison, and AccuracyScorer uses exact match.
+
+
+**Example with different scorers per task:**
+```python linenums="1" hl_lines="7 13 19"
+config = MetricsConfig(
+    metrics=[
+        # Accuracy for single classification tasks
+        MetricConfig(
+            scorer=AccuracyScorer(),
+            task_names=["helpful"],
+            task_strategy="single",
+            annotator_aggregation="majority_vote",
+        ),
+        # Accuracy for multitask classification tasks
+        MetricConfig(
+            scorer=AccuracyScorer(),
+            task_names=["helpful", "harmless", "honest"],
+            task_strategy="multitask",
+            annotator_aggregation="individual_average",
+        ),
+        # Text similarity for text tasks, all tasks combined into one multilabel
+        MetricConfig(
+            scorer=TextSimilarityScorer(),
+            task_names=["explanation", "reasoning"],
+            task_strategy="multilabel",
+            annotator_aggregation="majority_vote",
+        ),
+    ]
+)
+```
+
+## Annotator Aggregation (`annotator_aggregation`)
+
+Control how multiple human annotations are aggregated before comparison with judge results.
+
+=== "Individual Average (Default)"
+
+    Compare judge vs each human separately, then average the scores:
+
+    ```python
+    MetricConfig(
+        scorer=AccuracyScorer(),
+        task_names=["rejection"],
+        task_strategy="single",
+        annotator_aggregation="individual_average"  # Default
+    )
+    ```
+
+    **How it works:**
+    - Judge vs Human 1: Calculate metric score
+    - Judge vs Human 2: Calculate metric score
+    - Judge vs Human 3: Calculate metric score
+    - **Final Score**: Average of all individual scores
+
+=== "Majority Vote"
+
+    Aggregate humans first using majority vote, then compare judge vs consensus:
+
+    ```python
+    MetricConfig(
+        scorer=AccuracyScorer(),
+        task_names=["rejection"],
+        task_strategy="single",
+        annotator_aggregation="majority_vote"
+    )
+    ```
+
+    **How it works:**
+    - Find consensus among human annotators first
+    - Compare judge predictions with consensus
+    - Implementation varies by metric type (see support table below)
+
+### Metric Support Table
+
+| Metric | individual_average | majority_vote |
+|--------|-------------------|---------------|
+| **AccuracyScorer** | :material-check: | :material-check: Per-position majority for multilabel, alphabetical tie-breaking |
+| **TextSimilarityScorer** | :material-check: | :material-check: Best-match approach: highest similarity human per sample |
+| **SemanticSimilarityScorer** | :material-check: | :material-check: Best-match approach: highest similarity human per sample |
+| **CohensKappaScorer** | :material-check: | :material-close: Logs warning, falls back to individual_average (agreement metric) |
+| **AltTestScorer** | :material-check: | :material-close: Logs warning, falls back to individual_average (agreement metric) |
+
+**Why agreement metrics don't support majority_vote:**
+Inter-annotator agreement metrics measure disagreement between individual humans. Majority vote eliminates this disagreement information, making the metrics less meaningful.
 
 ## Custom Scorer
 
@@ -573,7 +646,8 @@ custom_scorer = MyCustomScorer()
 config = MetricConfig(
     scorer=custom_scorer,
     task_names=["text"],
-    aggregation_name="single",
+    task_strategy="single",
+    annotator_aggregation="individual_average",
 )
 ```
 
@@ -594,7 +668,9 @@ config = MetricConfig(
 
 ## Results Output
 
-Scores are saved to your project directory:
+### Individual Metric Results
+
+Detailed scores and charts are saved to individual metric directories in your project:
 
 ```
 my_project/
@@ -623,5 +699,46 @@ my_project/
             └── claude_judge_result.json
 ```
 
-!!! note
-    This will be upgraded with a better reporting system in the future. Stay tuned!
+### Summary Reports
+
+You can generate summary reports that aggregate all metrics across all judges in a single view.
+
+```python linenums="1"
+# After running evaluations and scoring and configuring metric configs
+evaluator.add_metrics_config(config)
+evaluator.compare_async(judge_results, human_results)
+
+# Save to files
+evaluator.score_report.save("score_report.html", format="html")  # Interactive HTML with highlighting
+evaluator.score_report.save("score_report.csv", format="csv")    # CSV for analysis
+
+# Print to console
+evaluator.score_report.print()
+```
+
+Summary reports are saved to the scores directory:
+
+```
+my_project/
+└── scores/
+    ├── score_report.html    # Interactive HTML table with best score highlighting
+    ├── score_report.csv     # CSV format for analysis/Excel
+    ├── accuracy/            # Detailed accuracy results...
+    ├── cohens_kappa/        # Detailed kappa results...
+    ├── alt_test/            # Detailed alt-test results...
+    └── text_similarity/     # Detailed similarity results...
+```
+
+**Console Output:**
+```
+Score Report:
+┌─────────┬─────────────────────┬─────────────────────┬─────────────────────┬─────────────────────┐
+│ judge_id ┆ accuracy_1tasks_22e ┆ alt_test_1tasks_22e ┆ alt_test_1tasks_22e ┆ text_similarity_1ta │
+│ ---     ┆ 76eaf_single        ┆ 76eaf_single_winni… ┆ 76eaf_single_advant ┆ sks_74d0861_single  │
+│ str     ┆ ---                 ┆ ---                 ┆ ---                 ┆ ---                 │
+│         ┆ f64                 ┆ f64                 ┆ f64                 ┆ f64                 │
+╞═════════╪═════════════════════╪═════════════════════╪═════════════════════╪═════════════════════╡
+│ judge1  ┆ 0.87               ┆ 0.6                 ┆ 0.75                ┆ 0.85                │
+│ judge2  ┆ 0.82               ┆ 0.4                 ┆ 0.65                ┆ 0.78                │
+└─────────┴─────────────────────┴─────────────────────┴─────────────────────┴─────────────────────┘
+```
