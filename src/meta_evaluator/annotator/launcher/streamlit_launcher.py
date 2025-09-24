@@ -93,6 +93,7 @@ class StreamlitLauncher:
 
         # Save configuration
         import json
+
         config = {"auto_save": self.auto_save}
         with open(config_filepath, "w") as f:
             json.dump(config, f, indent=2)

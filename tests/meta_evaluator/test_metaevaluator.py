@@ -634,15 +634,14 @@ class TestMetaEvaluatorBase:
         with pytest.raises(SavedStateNotFoundError, match="No saved state found"):
             MetaEvaluator(str(project_dir), load=True)
 
-    # TODO: fix this test
-    # def test_load_false_with_existing_directory(self, tmp_path):
-    #     """Test load=False when directory already exists."""
-    #     project_dir = tmp_path / "existing_project"
-    #     project_dir.mkdir()  # Create directory
+    def test_load_false_with_existing_directory(self, tmp_path):
+        """Test load=False when directory already exists."""
+        project_dir = tmp_path / "existing_project"
+        project_dir.mkdir()  # Create directory
 
-    #     # Attempt to create new MetaEvaluator in existing directory
-    #     with pytest.raises(ProjectDirectoryExistsError, match="already exists"):
-    #         MetaEvaluator(str(project_dir), load=False)
+        # Attempt to create new MetaEvaluator in existing directory
+        with pytest.raises(ProjectDirectoryExistsError, match="already exists"):
+            MetaEvaluator(str(project_dir), load=False)
 
     def test_load_false_with_new_directory(self, tmp_path):
         """Test load=False when directory doesn't exist (creates new MetaEvaluator)."""
@@ -878,91 +877,88 @@ class TestMetaEvaluatorBase:
         ):
             MetaEvaluator.load_state(str(project_dir))
 
-    # TODO: fix this test
-    # def test_load_state_missing_required_keys(self, tmp_path):
-    #     """Test InvalidFileError when state file is missing required keys."""
-    #     state_file = tmp_path / "main_state.json"
-    #     state_file.write_text('{"version": "1.0"}')
+    def test_load_state_missing_required_keys(self, tmp_path):
+        """Test InvalidFileError when state file is missing required keys."""
+        state_file = tmp_path / "main_state.json"
+        state_file.write_text('{"version": "1.0"}')
 
-    #     with pytest.raises(
-    #         InvalidFileError,
-    #         match=re.compile(
-    #             rf"{re.escape(INVALID_JSON_STRUCTURE_MSG)}.*Field required", re.DOTALL
-    #         ),
-    #     ):
-    #         MetaEvaluator.load_state(str(tmp_path))
+        with pytest.raises(
+            InvalidFileError,
+            match=re.compile(
+                rf"{re.escape(INVALID_JSON_STRUCTURE_MSG)}.*Field required", re.DOTALL
+            ),
+        ):
+            MetaEvaluator.load_state(str(tmp_path))
 
-    # TODO: fix this test
-    # def test_load_state_nonexistent_data_file(self, tmp_path, mock_openai_client):
-    #     """Test FileNotFoundError when referenced data file doesn't exist."""
-    #     # Create state file that references nonexistent data file
-    #     state_data = {
-    #         "version": "1.0",
-    #         "data": {
-    #             "name": "Test Data",
-    #             "id_column": "message_id",
-    #             "data_file": "nonexistent_data.json",
-    #             "data_format": "json",
-    #             "type": "EvalData",
-    #         },
-    #     }
+    def test_load_state_nonexistent_data_file(self, tmp_path, mock_openai_client):
+        """Test FileNotFoundError when referenced data file doesn't exist."""
+        # Create state file that references nonexistent data file
+        state_data = {
+            "version": "1.0",
+            "data": {
+                "name": "Test Data",
+                "id_column": "message_id",
+                "data_file": "nonexistent_data.json",
+                "data_format": "json",
+                "type": "EvalData",
+            },
+        }
 
-    #     state_file = tmp_path / "main_state.json"
-    #     with open(state_file, "w") as f:
-    #         json.dump(state_data, f)
+        state_file = tmp_path / "main_state.json"
+        with open(state_file, "w") as f:
+            json.dump(state_data, f)
 
-    #     with patch(
-    #         "meta_evaluator.meta_evaluator.clients.OpenAIClient"
-    #     ) as mock_client_class:
-    #         mock_client = mock_openai_client
-    #         mock_client_class.return_value = mock_client
+        with patch(
+            "meta_evaluator.meta_evaluator.clients.OpenAIClient"
+        ) as mock_client_class:
+            mock_client = mock_openai_client
+            mock_client_class.return_value = mock_client
 
-    #         with pytest.raises(FileNotFoundError, match="Data file not found"):
-    #             MetaEvaluator.load_state(
-    #                 project_dir=str(tmp_path),
-    #                 load_data=True,
-    #             )
+            with pytest.raises(FileNotFoundError, match="Data file not found"):
+                MetaEvaluator.load_state(
+                    project_dir=str(tmp_path),
+                    load_data=True,
+                )
 
-    # TODO: fix this test
-    # def test_load_state_unsupported_data_format(self, tmp_path, mock_openai_client):
-    #     """Test ValueError when data format is unsupported."""
-    #     # Create state file with unsupported data format
-    #     state_data = {
-    #         "version": "1.0",
-    #         "data": {
-    #             "name": "Test Data",
-    #             "id_column": "message_id",
-    #             "data_file": "test_data.xml",
-    #             "data_format": "xml",  # Unsupported format
-    #             "type": "EvalData",
-    #         },
-    #     }
+    def test_load_state_unsupported_data_format(self, tmp_path, mock_openai_client):
+        """Test ValueError when data format is unsupported."""
+        # Create state file with unsupported data format
+        state_data = {
+            "version": "1.0",
+            "data": {
+                "name": "Test Data",
+                "id_column": "message_id",
+                "data_file": "test_data.xml",
+                "data_format": "xml",  # Unsupported format
+                "type": "EvalData",
+            },
+        }
 
-    #     state_file = tmp_path / "main_state.json"
-    #     with open(state_file, "w") as f:
-    #         json.dump(state_data, f)
+        state_file = tmp_path / "main_state.json"
+        with open(state_file, "w") as f:
+            json.dump(state_data, f)
 
-    #     # Create the referenced data file (even though format is unsupported)
-    #     data_file = tmp_path / "test_data.xml"
-    #     data_file.write_text("<data></data>")
+        # Create the referenced data file (even though format is unsupported)
+        data_file = tmp_path / "test_data.xml"
+        data_file.write_text("<data></data>")
 
-    #     with patch(
-    #         "meta_evaluator.meta_evaluator.clients.OpenAIClient"
-    #     ) as mock_client_class:
-    #         mock_client = mock_openai_client
-    #         mock_client_class.return_value = mock_client
+        with patch(
+            "meta_evaluator.meta_evaluator.clients.OpenAIClient"
+        ) as mock_client_class:
+            mock_client = mock_openai_client
+            mock_client_class.return_value = mock_client
 
-    #         with pytest.raises(
-    #             InvalidFileError,
-    #             match=re.compile(
-    #                 rf"{re.escape(INVALID_JSON_STRUCTURE_MSG)}.*Input should be 'json', 'csv' or 'parquet'",
-    #                 re.DOTALL,
-    #             ),
-    #         ):
-    #             MetaEvaluator.load_state(
-    #                 project_dir=str(tmp_path),
-    #                 load_data=True,
-    #             )
+            with pytest.raises(
+                InvalidFileError,
+                match=re.compile(
+                    rf"{re.escape(INVALID_JSON_STRUCTURE_MSG)}.*Input should be 'json', 'csv' or 'parquet'",
+                    re.DOTALL,
+                ),
+            ):
+                MetaEvaluator.load_state(
+                    project_dir=str(tmp_path),
+                    load_data=True,
+                )
 
 
 class TestMetaEvaluatorAnnotator:

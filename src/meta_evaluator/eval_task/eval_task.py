@@ -152,7 +152,11 @@ class EvalTask(BaseModel):
             return self.required_columns
         else:
             # Default behavior: all non-null schemas are required
-            return [task_name for task_name, schema in self.task_schemas.items() if schema is not None]
+            return [
+                task_name
+                for task_name, schema in self.task_schemas.items()
+                if schema is not None
+            ]
 
     def get_all_outcomes(self) -> list[str]:
         """Get all possible outcomes across all tasks.
