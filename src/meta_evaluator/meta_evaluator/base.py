@@ -529,6 +529,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         port: Optional[int] = None,
         use_ngrok: bool = False,
         traffic_policy_file: Optional[str] = None,
+        auto_save: bool = True,
     ) -> None:
         """Launch the Streamlit annotator interface.
 
@@ -542,6 +543,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
             traffic_policy_file: Optional path to an ngrok traffic policy file for advanced
                 configuration. See https://ngrok.com/docs/traffic-policy/ for details.
                 Only used when use_ngrok=True.
+            auto_save: Whether to automatically save annotations as they are made. Defaults to True.
 
         Raises:
             EvalTaskNotFoundError: If the evaluation task is not set.
@@ -562,6 +564,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
             eval_task=self.eval_task,
             annotations_dir=str(self.paths.annotations),
             port=port,
+            auto_save=auto_save,
         )
 
         # Launch the interface
