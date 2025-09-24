@@ -88,12 +88,12 @@ def create_test_app():
             "quality": ["high", "medium", "low"],
             "comments": None,  # Free form text
         }
-        mock_eval_task.required_columns = ["sentiment", "quality"]
+        mock_eval_task.required_tasks = ["sentiment", "quality"]
         mock_eval_task.prompt_columns = ["question"]
         mock_eval_task.response_columns = ["answer"]
         mock_eval_task.answering_method = "structured"
         mock_eval_task.annotation_prompt = "Please evaluate the following response:"
-        mock_eval_task.get_required_columns.return_value = ["sentiment", "quality"]
+        mock_eval_task.get_required_tasks.return_value = ["sentiment", "quality"]
 
         # Create temp directory
         temp_annotations_dir = "/tmp/test_annotations"
@@ -190,12 +190,12 @@ def create_complete_test_app():
             "quality": ["high", "medium", "low"],
             "comments": None,  # Free form text
         }
-        mock_eval_task.required_columns = ["sentiment", "quality"]
+        mock_eval_task.required_tasks = ["sentiment", "quality"]
         mock_eval_task.prompt_columns = ["question"]
         mock_eval_task.response_columns = ["answer"]
         mock_eval_task.answering_method = "structured"
         mock_eval_task.annotation_prompt = "Please evaluate the following response:"
-        mock_eval_task.get_required_columns.return_value = ["sentiment", "quality"]
+        mock_eval_task.get_required_tasks.return_value = ["sentiment", "quality"]
 
         # Create temp directory
         temp_annotations_dir = "/tmp/test_annotations"
@@ -457,12 +457,12 @@ class TestStreamlitAppUI:
                 "quality": ["high", "medium", "low"],
                 "comments": None,
             }
-            mock_eval_task.required_columns = ["sentiment", "quality"]
+            mock_eval_task.required_tasks = ["sentiment", "quality"]
             mock_eval_task.prompt_columns = ["question"]
             mock_eval_task.response_columns = ["answer"]
             mock_eval_task.answering_method = "structured"
             mock_eval_task.annotation_prompt = "Please evaluate the following response:"
-            mock_eval_task.get_required_columns.return_value = ["sentiment", "quality"]
+            mock_eval_task.get_required_tasks.return_value = ["sentiment", "quality"]
 
             temp_annotations_dir = "/tmp/test_annotations"
 
@@ -637,7 +637,7 @@ class TestStreamlitAppUI:
             mock_eval_task.prompt_columns = ["prompt"]
             mock_eval_task.response_columns = ["response"]
             mock_eval_task.annotation_prompt = "Please evaluate the following response:"
-            mock_eval_task.get_required_columns.return_value = ["sentiment", "quality"]
+            mock_eval_task.get_required_tasks.return_value = ["sentiment", "quality"]
 
             temp_annotations_dir = "/tmp/test_annotations"
 

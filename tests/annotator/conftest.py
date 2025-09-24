@@ -212,7 +212,7 @@ def mock_eval_task():
     mock_task.response_columns = ["answer"]
     mock_task.answering_method = "structured"
     mock_task.annotation_prompt = "Please evaluate the following response:"
-    mock_task.get_required_columns.return_value = ["sentiment", "quality"]
+    mock_task.get_required_tasks.return_value = ["sentiment", "quality"]
     return mock_task
 
 

@@ -28,7 +28,7 @@ class StreamlitAnnotator:
         eval_task: EvalTask,
         annotations_dir: str,
         auto_save: bool = True,
-        required_columns: Optional[list[str]] = None,
+        required_tasks: Optional[list[str]] = None,
         metadata: Optional[dict] = None,
     ):
         """Initialize the Streamlit annotator.
@@ -38,7 +38,7 @@ class StreamlitAnnotator:
             eval_task: EvalTask object containing task configuration.
             annotations_dir: Path where annotations will be saved.
             auto_save: Whether to save annotations automatically as they are made.
-            required_columns: List of columns that must be filled (default: all except remarks).
+            required_tasks: List of columns that must be filled (default: all except remarks).
             metadata: Metadata to include in saved annotations.
 
         Raises:
@@ -54,7 +54,7 @@ class StreamlitAnnotator:
         self.annotations_dir: str = annotations_dir
         self.annotator_name: str | None = None
         self.auto_save: bool = auto_save
-        self.required_columns: list[str] = required_columns or [
+        self.required_tasks: list[str] = required_tasks or [
             col for col in self.response_columns
         ]
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -228,10 +228,10 @@ class StreamlitAnnotator:
         missing_fields = []
 
         # Get required columns from the eval task
-        required_columns = self.eval_task.get_required_columns()
+        required_tasks = self.eval_task.get_required_tasks()
 
         # Only check required fields
-        for task_name in required_columns:
+        for task_name in required_tasks:
             if (
                 task_name not in annotation
                 or not annotation[task_name]

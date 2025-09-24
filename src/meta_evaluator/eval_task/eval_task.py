@@ -32,7 +32,7 @@ class EvalTask(BaseModel):
     Attributes:
         task_schemas (dict[str, list[str] | None]): Maps task names to allowed outcomes.
             Use None for free-form text outputs, or list of strings for classification.
-        required_columns (Optional[list[str]]): List of task names that are required for
+        required_tasks (Optional[list[str]]): List of task names that are required for
             valid annotations. If None, all non-null task_schemas are required.
         prompt_columns (Optional[list[str]]): Column names containing inputs to the
             evaluated LLM. Only used when judging LLM outputs, None when judging text.
@@ -77,7 +77,7 @@ class EvalTask(BaseModel):
         ...,
         description="Dictionary mapping task names to their allowed outcome values. Use None for free form text outputs.",
     )
-    required_columns: Optional[list[str]] = Field(
+    required_tasks: Optional[list[str]] = Field(
         default=None,
         description="List of task names that are required for valid annotations. If None, all non-null task_schemas are required.",
     )
@@ -122,9 +122,9 @@ class EvalTask(BaseModel):
                     f"Please define at least 2 outcomes for task {task_name}."
                 )
 
-        # Validate required_columns if provided
-        if self.required_columns is not None:
-            for required_col in self.required_columns:
+        # Validate required_tasks if provided
+        if self.required_tasks is not None:
+            for required_col in self.required_tasks:
                 if required_col not in self.task_schemas:
                     raise TaskSchemaError(
                         f"Required column '{required_col}' not found in task_schemas. "
@@ -141,15 +141,15 @@ class EvalTask(BaseModel):
         """
         return list(self.task_schemas.keys())
 
-    def get_required_columns(self) -> list[str]:
+    def get_required_tasks(self) -> list[str]:
         """Get list of required task names for valid annotations.
 
         Returns:
-            list[str]: List of required task names. If required_columns is None,
+            list[str]: List of required task names. If required_tasks is None,
                 returns all task names with non-null schemas.
         """
-        if self.required_columns is not None:
-            return self.required_columns
+        if self.required_tasks is not None:
+            return self.required_tasks
         else:
             # Default behavior: all non-null schemas are required
             return [
