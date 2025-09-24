@@ -1064,8 +1064,8 @@
 </span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17"></a><span class="n">judge_results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">load_all_judge_results</span><span class="p">()</span>
 </span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18"></a><span class="n">human_results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">load_all_human_results</span><span class="p">()</span>
 </span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19"></a>
-</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20"></a><span class="n">results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">compare_async</span><span class="p">(</span>
-</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21"></a>    <span class="n">comparison_config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_metrics_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21"></a><span class="n">results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">compare_async</span><span class="p">(</span>
 </span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22"></a>    <span class="n">judge_results</span><span class="o">=</span><span class="n">judge_results</span><span class="p">,</span>
 </span><span id="__span-6-23"><a id="__codelineno-6-23" name="__codelineno-6-23"></a>    <span class="n">human_results</span><span class="o">=</span><span class="n">human_results</span>
 </span><span id="__span-6-24"><a id="__codelineno-6-24" name="__codelineno-6-24"></a><span class="p">)</span>
