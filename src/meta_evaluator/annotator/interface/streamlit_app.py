@@ -27,6 +27,9 @@ class StreamlitAnnotator:
         eval_data: EvalData,
         eval_task: EvalTask,
         annotations_dir: str,
+        auto_save: bool = True,
+        required_tasks: Optional[list[str]] = None,
+        metadata: Optional[dict] = None,
     ):
         """Initialize the Streamlit annotator.
 
@@ -34,19 +37,33 @@ class StreamlitAnnotator:
             eval_data: EvalData object containing the evaluation data.
             eval_task: EvalTask object containing task configuration.
             annotations_dir: Path where annotations will be saved.
+            auto_save: Whether to save annotations automatically as they are made.
+            required_tasks: List of columns that must be filled (default: all except remarks).
+            metadata: Metadata to include in saved annotations.
 
         Raises:
             SaveError: If the annotations directory cannot be created.
         """
         self.df: pl.DataFrame = eval_data.data
         self.id_col: str = eval_data.id_column  # type: ignore
+        self.eval_task: EvalTask = eval_task  # Store the full eval_task object
         self.task_schemas: dict[str, list[str] | None] = eval_task.task_schemas
         self.prompt_columns: Optional[list[str]] = eval_task.prompt_columns
         self.response_columns: list[str] = eval_task.response_columns
         self.annotation_prompt: str = eval_task.annotation_prompt
         self.annotations_dir: str = annotations_dir
         self.annotator_name: str | None = None
+        self.auto_save: bool = auto_save
+        self.required_tasks: list[str] = required_tasks or [
+            col for col in self.response_columns
+        ]
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+
+        # Store metadata for use in exports
+        self.metadata = metadata or {}
+
+        # Initialize auto-save file path (will be set when session is initialized)
+        self.auto_save_file = None
 
         # Initialize session manager
         self.session_manager = StreamlitSessionManager()
@@ -62,14 +79,20 @@ class StreamlitAnnotator:
 
     def display_top_header(self, current_row_idx: int, total_samples: int) -> None:
         """Display the header section with sample number and progress."""
-        col1, col2 = st.columns([0.5, 0.5], vertical_alignment="center")
+        col1, col2, col3 = st.columns([0.4, 0.4, 0.2], vertical_alignment="center")
         with col1:
             st.subheader(f"Sample {current_row_idx + 1}")
         with col2:
             st.markdown(
-                f"<div style='text-align: right'>Progress: {self.session_manager.annotated_count}/{total_samples} samples annotated</div>",
+                f"<div style='text-align: center'>Progress: {self.session_manager.annotated_count}/{total_samples} samples annotated</div>",
                 unsafe_allow_html=True,
             )
+        with col3:
+            if self.auto_save:
+                st.markdown(
+                    "<div style='text-align: right; color: green; font-size: 12px;'>💾 Auto-save ON (backup)</div>",
+                    unsafe_allow_html=True,
+                )
 
     def display_subheader(self, text: str, level: int = 3) -> None:
         """Display a header with the given text."""
@@ -168,12 +191,9 @@ class StreamlitAnnotator:
                 outcome = self.session_manager.get_input_value(input_key)
                 annotation[task_name] = outcome
 
-            # Check if all tasks are completed for this row
-            if all(
-                task_name in annotation and annotation[task_name] is not None
-                for task_name in self.task_schemas
-            ):
-                # All tasks completed - add/update the row
+            # Check if required tasks are completed for this row (flexible validation)
+            if self._is_annotation_valid(annotation):
+                # Required tasks completed - add/update the row
                 sample_example_id = f"sample_{self.session_manager.current_row + 1}"
 
                 self.session_manager.create_success_row(
@@ -183,10 +203,221 @@ class StreamlitAnnotator:
                     annotation_timestamp=datetime.now(),
                 )
 
+                # Auto-save if enabled
+                if self.auto_save:
+                    try:
+                        self._auto_save_annotation(current_id, annotation)
+                    except Exception:
+                        # Re-raise to see original behavior
+                        raise
+
             return annotation
 
         except Exception as e:
             raise AnnotationValidationError(current_id, e)
+
+    def _is_annotation_valid(self, annotation: dict[str, Any]) -> bool:
+        """Check if annotation is valid based on required columns.
+
+        Args:
+            annotation: Dictionary of annotation outcomes
+
+        Returns:
+            bool: True if annotation is valid, False otherwise
+        """
+        missing_fields = []
+
+        # Get required columns from the eval task
+        required_tasks = self.eval_task.get_required_tasks()
+
+        # Only check required fields
+        for task_name in required_tasks:
+            if (
+                task_name not in annotation
+                or not annotation[task_name]
+                or str(annotation[task_name]).strip() == ""
+            ):
+                missing_fields.append(task_name)
+
+        if missing_fields:
+            self.logger.debug(f"Missing required fields: {missing_fields}")
+            return False
+
+        return True
+
+    def _generate_auto_save_filename(self, annotator_name: str | None) -> str:
+        """Generate the auto-save filename using the same pattern as final save.
+
+        Args:
+            annotator_name: Name of the annotator
+
+        Returns:
+            str: Full path to the auto-save file
+
+        Raises:
+            RuntimeError: If there is no user session
+        """
+        if not self.session_manager.has_user_session:
+            raise RuntimeError(
+                "Cannot generate auto-save filename without user session"
+            )
+
+        run_id = self.session_manager.run_id
+        annotator_id = self.session_manager.annotator_id
+
+        # Use same pattern as final save but with 'autosave' prefix
+        return os.path.join(
+            self.annotations_dir,
+            f"autosave_{run_id}_{annotator_id}_{annotator_name}_data.parquet",
+        )
+
+    def _find_existing_auto_save_file(self, annotator_name: str) -> Optional[str]:
+        """Find existing auto-save file for the given annotator.
+
+        Args:
+            annotator_name: Name of the annotator
+
+        Returns:
+            Optional[str]: Path to existing auto-save file, or None if not found
+        """
+        import glob
+
+        # Create pattern to match auto-save files for this annotator
+        # Pattern: autosave_*_{annotator_id}_{annotator_name}_data.parquet
+        pattern = os.path.join(
+            self.annotations_dir, f"autosave_*_*_{annotator_name}_data.parquet"
+        )
+        matching_files = glob.glob(pattern)
+
+        if matching_files:
+            # Return the most recent file (by modification time)
+            most_recent = max(matching_files, key=os.path.getmtime)
+            self.logger.info(f"Found existing auto-save file: {most_recent}")
+            return most_recent
+
+        return None
+
+    def _set_auto_save_filename(self) -> None:
+        """Set the auto-save filename using the same pattern as final save."""
+        self.auto_save_file = self._generate_auto_save_filename(self.annotator_name)
+
+    def _save_annotations_data(
+        self, filepath: str | None, data_format: str = "parquet"
+    ) -> None:
+        """Unified function to save annotation data in specified format.
+
+        Args:
+            filepath: Path to save the data file
+            data_format: Format to save in ("parquet" or "json")
+
+        Raises:
+            SaveError: If filepath is None or if there is no user session
+        """
+        if filepath is None:
+            raise SaveError(
+                "Error: filepath is None but it should have been automatically set. Try again."
+            )
+
+        if not self.session_manager.has_user_session:
+            raise SaveError("No results to save")
+
+        # Get current results from the session manager
+        results_builder = self.session_manager.results_builder
+        current_results = results_builder._results.copy()
+
+        if not current_results:
+            raise SaveError("No annotation data to save")
+
+        # Convert results to DataFrame format
+        row_dicts = [row.model_dump() for row in current_results.values()]
+        results_data = pl.DataFrame(row_dicts)
+
+        # Save in the specified format
+        if data_format == "parquet":
+            results_data.write_parquet(filepath)
+        elif data_format == "json":
+            results_data.write_json(filepath)
+        else:
+            raise SaveError(f"Unsupported data format: {data_format}")
+
+        self.logger.info(
+            f"Saved {len(results_data)} annotations to {filepath} in {data_format} format"
+        )
+
+    def _load_auto_save_results(self, auto_save_file: str) -> bool:
+        """Load results from auto-save file into the session manager.
+
+        Args:
+            auto_save_file: Path to the auto-save file
+
+        Returns:
+            bool: True if successfully loaded, False otherwise
+        """
+        try:
+            # Load the auto-save data (support both parquet and json for backward compatibility)
+            if auto_save_file.endswith(".parquet"):
+                results_data = pl.read_parquet(auto_save_file)
+            else:
+                results_data = pl.read_json(auto_save_file)
+
+            if results_data.is_empty():
+                return False
+
+            # Convert DataFrame back to result rows and add to session manager
+            for row_dict in results_data.to_dicts():
+                # Extract the original_id to use as key
+                original_id = row_dict.get("original_id")
+                if not original_id:
+                    continue
+
+                # Create a HumanAnnotationResultRow from the data
+                from meta_evaluator.results.human_results import (
+                    HumanAnnotationResultRow,
+                )
+
+                result_row = HumanAnnotationResultRow(**row_dict)
+
+                # Add to the session manager's results builder
+                self.session_manager.results_builder._results[original_id] = result_row
+
+            self.logger.info(
+                f"Loaded {len(results_data)} annotations from auto-save file: {os.path.basename(auto_save_file)}"
+            )
+            return True
+
+        except Exception as e:
+            self.logger.error(
+                f"Failed to load auto-save file {auto_save_file}: {str(e)}"
+            )
+            return False
+
+    def _auto_save_annotation(
+        self, current_id: str | int, annotation: dict[str, Any]
+    ) -> None:
+        """Auto-save annotation using the same format as final save (parquet format)."""
+        try:
+            # Check if auto-save is enabled
+            if not self.auto_save:
+                return
+
+            if not self.session_manager.has_user_session:
+                return
+
+            # Set auto-save filename if not already set
+            if self.auto_save_file is None:
+                self._set_auto_save_filename()
+
+            # Use the unified save function to save in parquet format
+            self._save_annotations_data(self.auto_save_file, data_format="parquet")
+
+            # Show success message
+            st.success(
+                f"Auto-saved annotation (backup) for sample {self.session_manager.current_row + 1}"
+            )
+
+        except Exception as e:
+            self.logger.error(f"Auto-save failed: {str(e)}")
+            st.error(f"Auto-save failed: {str(e)}")
 
     def display_navigation_buttons(self) -> None:
         """Display navigation buttons and handle navigation logic."""
@@ -239,13 +470,15 @@ class StreamlitAnnotator:
             metadata_filename = (
                 f"{run_id}_{annotator_id}_{self.annotator_name}_metadata.json"
             )
-            data_filename = f"{run_id}_{annotator_id}_{self.annotator_name}_data.json"
+            data_filename = (
+                f"{run_id}_{annotator_id}_{self.annotator_name}_data.parquet"
+            )
 
             # Save the results
             try:
                 results.save_state(
                     state_file=os.path.join(self.annotations_dir, metadata_filename),
-                    data_format="json",
+                    data_format="parquet",
                     data_filename=data_filename,
                 )
             except Exception as e:
@@ -330,6 +563,34 @@ class StreamlitAnnotator:
                         task_schemas=self.task_schemas,
                         expected_ids=expected_ids,
                     )
+
+                    # Check for existing auto-save and load if found
+                    try:
+                        # Look for existing auto-save files for this annotator
+                        existing_auto_save_file = self._find_existing_auto_save_file(
+                            self.annotator_name
+                        )
+
+                        if existing_auto_save_file:
+                            if self._load_auto_save_results(existing_auto_save_file):
+                                st.info(
+                                    f"Resumed from auto-save: {os.path.basename(existing_auto_save_file)}"
+                                )
+                                # Set the auto-save file to the existing one
+                                self.auto_save_file = existing_auto_save_file
+                            else:
+                                st.warning(
+                                    "Found auto-save file but failed to load it. Starting fresh."
+                                )
+                                # Set up new auto-save filename
+                                self._set_auto_save_filename()
+                        else:
+                            # Set up new auto-save filename
+                            self._set_auto_save_filename()
+                    except Exception as e:
+                        # If auto-save setup fails, continue without auto-save
+                        self.logger.warning(f"Auto-save setup failed: {e}")
+                        self._set_auto_save_filename()
 
                 current_row = self.df.row(self.session_manager.current_row)
 

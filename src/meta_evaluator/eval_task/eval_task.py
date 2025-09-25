@@ -32,6 +32,8 @@ class EvalTask(BaseModel):
     Attributes:
         task_schemas (dict[str, list[str] | None]): Maps task names to allowed outcomes.
             Use None for free-form text outputs, or list of strings for classification.
+        required_tasks (Optional[list[str]]): List of task names that are required for
+            valid annotations. If None, all non-null task_schemas are required.
         prompt_columns (Optional[list[str]]): Column names containing inputs to the
             evaluated LLM. Only used when judging LLM outputs, None when judging text.
         response_columns (list[str]): Column names containing text/outputs to evaluate.
@@ -75,6 +77,10 @@ class EvalTask(BaseModel):
         ...,
         description="Dictionary mapping task names to their allowed outcome values. Use None for free form text outputs.",
     )
+    required_tasks: Optional[list[str]] = Field(
+        default=None,
+        description="List of task names that are required for valid annotations. If None, all non-null task_schemas are required.",
+    )
     prompt_columns: Optional[list[str]] = Field(default=None)
     response_columns: list[str] = Field(..., min_length=1)
     skip_function: Callable[[dict[str, Any]], bool] = lambda x: False
@@ -116,6 +122,15 @@ class EvalTask(BaseModel):
                     f"Please define at least 2 outcomes for task {task_name}."
                 )
 
+        # Validate required_tasks if provided
+        if self.required_tasks is not None:
+            for required_col in self.required_tasks:
+                if required_col not in self.task_schemas:
+                    raise TaskSchemaError(
+                        f"Required column '{required_col}' not found in task_schemas. "
+                        f"Available tasks: {list(self.task_schemas.keys())}"
+                    )
+
         return self
 
     def get_task_names(self) -> list[str]:
@@ -125,6 +140,23 @@ class EvalTask(BaseModel):
             list[str]: List of task names
         """
         return list(self.task_schemas.keys())
+
+    def get_required_tasks(self) -> list[str]:
+        """Get list of required task names for valid annotations.
+
+        Returns:
+            list[str]: List of required task names. If required_tasks is None,
+                returns all task names with non-null schemas.
+        """
+        if self.required_tasks is not None:
+            return self.required_tasks
+        else:
+            # Default behavior: all non-null schemas are required
+            return [
+                task_name
+                for task_name, schema in self.task_schemas.items()
+                if schema is not None
+            ]
 
     def get_all_outcomes(self) -> list[str]:
         """Get all possible outcomes across all tasks.

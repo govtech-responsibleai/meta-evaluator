@@ -29,6 +29,7 @@ class StreamlitLauncher:
         eval_task: EvalTask,
         annotations_dir: str,
         port: Optional[int] = None,
+        auto_save: bool = True,
     ):
         """Initialize the StreamlitLauncher.
 
@@ -37,11 +38,13 @@ class StreamlitLauncher:
             eval_data: The evaluation data to annotate
             annotations_dir: Directory to save annotations. Is used as the parent directory for any tmp folders created.
             port: Optional port number for Streamlit server
+            auto_save: Whether to automatically save annotations as they are made. Defaults to True.
         """
         self.eval_task = eval_task
         self.eval_data = eval_data
         self.annotations_dir = annotations_dir
         self.port = port
+        self.auto_save = auto_save
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
         # Create the annotations directory if it doesn't exist
@@ -79,6 +82,7 @@ class StreamlitLauncher:
         task_filepath = tmp_path / "evaltask.json"
         metadata_filepath = tmp_path / "evaldata_metadata.json"
         data_filepath = tmp_path / "evaldata.parquet"
+        config_filepath = tmp_path / "config.json"
 
         # Save the evaluation task and data metadata
         with open(task_filepath, "w") as f:
@@ -86,6 +90,13 @@ class StreamlitLauncher:
 
         with open(metadata_filepath, "w") as f:
             f.write(data_metadata.model_dump_json(indent=2))
+
+        # Save configuration
+        import json
+
+        config = {"auto_save": self.auto_save}
+        with open(config_filepath, "w") as f:
+            json.dump(config, f, indent=2)
 
         self.eval_data.write_data(
             filepath=str(data_filepath),

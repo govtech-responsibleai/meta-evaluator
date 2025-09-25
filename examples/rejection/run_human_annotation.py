@@ -14,6 +14,7 @@ def rejection_task() -> EvalTask:
     """
     task = EvalTask(
         task_schemas={"rejection": ["rejection", "not rejection"]},
+        required_tasks=["rejection"],
         prompt_columns=["prompt"],
         response_columns=["llm_response"],
         answering_method="structured",
