@@ -418,22 +418,46 @@ class StreamlitAnnotator:
             if results_data.is_empty():
                 return False
 
-            # Convert DataFrame back to result rows and add to session manager
+            # Convert DataFrame back to result rows using proper builder methods
             for row_dict in results_data.to_dicts():
                 # Extract the original_id to use as key
                 original_id = row_dict.get("original_id")
                 if not original_id:
                     continue
 
-                # Create a HumanAnnotationResultRow from the data
-                from meta_evaluator.results.human_results import (
-                    HumanAnnotationResultRow,
+                # Extract task outcomes (only the actual task results)
+                outcomes = {}
+                for task_name in self.task_schemas.keys():
+                    if task_name in row_dict and row_dict[task_name] is not None:
+                        outcomes[task_name] = row_dict[task_name]
+
+                # Skip rows that don't have any outcomes
+                if not outcomes:
+                    continue
+
+                # Parse annotation timestamp
+                from datetime import datetime
+
+                annotation_timestamp = row_dict.get("annotation_timestamp")
+                if isinstance(annotation_timestamp, str):
+                    try:
+                        annotation_timestamp = datetime.fromisoformat(
+                            annotation_timestamp.replace("Z", "+00:00")
+                        )
+                    except (ValueError, AttributeError):
+                        annotation_timestamp = datetime.now()
+                elif annotation_timestamp is None:
+                    annotation_timestamp = datetime.now()
+
+                # Use session manager's proper method (handles duplicates correctly)
+                self.session_manager.create_success_row(
+                    sample_example_id=row_dict.get(
+                        "sample_example_id", f"sample_{original_id}"
+                    ),
+                    original_id=original_id,
+                    outcomes=outcomes,
+                    annotation_timestamp=annotation_timestamp,
                 )
-
-                result_row = HumanAnnotationResultRow(**row_dict)
-
-                # Add to the session manager's results builder
-                self.session_manager.results_builder._results[original_id] = result_row
 
             self.logger.info(
                 f"Loaded {len(results_data)} annotations from auto-save file: {os.path.basename(auto_save_file)}"
@@ -585,10 +609,12 @@ class StreamlitAnnotator:
                 # Initialize user-specific session if not already done
                 if not self.session_manager.has_user_session:
                     expected_ids = self.df[self.id_col].to_list()
+                    required_tasks = self.eval_task.get_required_tasks()
                     self.session_manager.initialize_user_session(
                         annotator_name=self.annotator_name,
                         task_schemas=self.task_schemas,
                         expected_ids=expected_ids,
+                        required_tasks=required_tasks,
                     )
 
                     # Check for existing auto-save and load if found

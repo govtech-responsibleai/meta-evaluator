@@ -168,6 +168,7 @@ def base_judge_results_builder(single_task_schemas) -> JudgeResultsBuilder:
         model_used="gpt-4",
         task_schemas=single_task_schemas,
         expected_ids=["id1", "id2", "id3"],
+        required_tasks=["sentiment"],
         is_sampled_run=False,
     )
 
@@ -189,6 +190,7 @@ def multi_task_judge_results_builder() -> JudgeResultsBuilder:
             "toxicity": ["toxic", "non_toxic"],
         },
         expected_ids=["id1", "id2", "id3", "id4", "id5"],
+        required_tasks=["sentiment", "toxicity"],
         is_sampled_run=True,
     )
 
@@ -207,6 +209,7 @@ def single_task_judge_results_builder() -> JudgeResultsBuilder:
         model_used="claude-3",
         task_schemas={"sentiment": ["positive", "negative"]},
         expected_ids=["id1"],
+        required_tasks=["sentiment"],
         is_sampled_run=False,
     )
 
@@ -240,6 +243,7 @@ def serialization_judge_results_builder(
         model_used="gpt-4",
         task_schemas=serialization_task_schemas,
         expected_ids=["id1", "id2", "id3", "id4"],
+        required_tasks=["task1", "task2"],
         is_sampled_run=False,
     )
 
@@ -422,6 +426,7 @@ def sync_test_builder(single_task_schemas) -> JudgeResultsBuilder:
         model_used="gpt-4",
         task_schemas=single_task_schemas,
         expected_ids=["1", "2", "3"],  # Match basic_eval_data IDs
+        required_tasks=["sentiment"],
         is_sampled_run=False,
     )
 
@@ -443,6 +448,7 @@ def single_row_test_builder(single_task_schemas) -> JudgeResultsBuilder:
         model_used="gpt-4",
         task_schemas=single_task_schemas,
         expected_ids=["1"],  # Single row test
+        required_tasks=["sentiment"],
         is_sampled_run=False,
     )
 

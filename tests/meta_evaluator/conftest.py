@@ -436,6 +436,7 @@ def completed_judge_results():
         model_used="gpt-4",
         task_schemas={"sentiment": ["positive", "negative"]},
         expected_ids=["id1"],
+        required_tasks=["sentiment"],
     )
     builder.create_success_row(
         sample_example_id="test_1",
@@ -462,6 +463,7 @@ def completed_human_results():
         annotator_id="test_annotator",
         task_schemas={"accuracy": ["accurate", "inaccurate"]},
         expected_ids=["id1"],
+        required_tasks=["accuracy"],
     )
     builder.create_success_row(
         sample_example_id="test_1",

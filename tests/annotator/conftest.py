@@ -369,6 +369,7 @@ def base_human_results_builder() -> HumanAnnotationResultsBuilder:
         annotator_id="annotator_1",
         task_schemas={"task1": ["yes", "no"], "task2": ["good", "bad"]},
         expected_ids=["id1", "id2"],
+        required_tasks=["task1", "task2"],
         is_sampled_run=False,
     )
 
@@ -385,6 +386,7 @@ def single_task_human_results_builder() -> HumanAnnotationResultsBuilder:
         annotator_id="annotator_1",
         task_schemas={"task1": ["yes", "no"]},
         expected_ids=["id1"],
+        required_tasks=["task1"],
         is_sampled_run=False,
     )
 

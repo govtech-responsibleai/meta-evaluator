@@ -233,6 +233,7 @@ def test_streamlit_launcher_basic_integration(
             annotator_id="test_annotator",
             task_schemas=integration_eval_task.task_schemas,
             expected_ids=["sample_1", "sample_2", "sample_3"],
+            required_tasks=integration_eval_task.get_required_tasks(),
             is_sampled_run=False,
         )
 

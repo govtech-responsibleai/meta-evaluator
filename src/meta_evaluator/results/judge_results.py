@@ -3,7 +3,7 @@
 import json
 import logging
 from datetime import datetime
-from typing import Dict, List, Literal, cast
+from typing import Dict, List, Literal, Optional, cast
 
 import polars as pl
 from pydantic import Field, ValidationError
@@ -275,6 +275,7 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         model_used: str,
         task_schemas: Dict[str, List[str] | None],
         expected_ids: List[str | int],
+        required_tasks: Optional[List[str]] = None,
         is_sampled_run: bool = False,
     ):
         """Initialize the judge results builder.
@@ -286,9 +287,12 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
             model_used: Name of the LLM model used.
             task_schemas: Dictionary mapping task names to their allowed outcome values.
             expected_ids: List of expected original IDs.
+            required_tasks: List of task names that are required for success rows. If None, defaults to all tasks.
             is_sampled_run: True if input was sampled data.
         """
-        super().__init__(run_id, judge_id, task_schemas, expected_ids, is_sampled_run)
+        super().__init__(
+            run_id, judge_id, task_schemas, expected_ids, required_tasks, is_sampled_run
+        )
         self.llm_client = llm_client
         self.model_used = model_used
 
@@ -323,14 +327,15 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         Raises:
             MismatchedTasksError: If outcomes don't contain exactly all expected tasks.
         """
-        # Validate that outcomes contain exactly all tasks
-        expected_tasks = set(self.task_schemas.keys())
+        # Validate that outcomes contain all required tasks (allow extra fields)
+        expected_tasks = set(self.required_tasks)
         outcome_tasks = set(outcomes.keys())
 
-        if expected_tasks != outcome_tasks:
+        missing_tasks = expected_tasks - outcome_tasks
+        if missing_tasks:
             raise MismatchedTasksError(
-                list(expected_tasks - outcome_tasks),
-                "Success row must contain outcomes for ALL tasks",
+                list(missing_tasks),
+                f"Success row missing required tasks: {missing_tasks}. Required: {expected_tasks}, Got: {outcome_tasks}",
             )
 
         row = JudgeResultRow(

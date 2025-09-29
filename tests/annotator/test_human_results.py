@@ -128,15 +128,6 @@ class TestHumanAnnotationResultsBuilder:
                 annotation_timestamp=datetime.now(),
             )
 
-        # Extra tasks in success row
-        with pytest.raises(MismatchedTasksError):
-            base_human_results_builder.create_success_row(
-                sample_example_id="test_1",
-                original_id="id1",
-                outcomes={"task1": "yes", "task2": "good", "extra_task": "value"},
-                annotation_timestamp=datetime.now(),
-            )
-
     # === Validation Tests (_validate_and_store) ===
 
     def test_validate_and_store_invalid_original_id_error(
@@ -221,6 +212,7 @@ class TestHumanAnnotationResultsBuilder:
             annotator_id="annotator_1",
             task_schemas={"task1": ["yes", "no"], "task2": ["good", "bad"]},
             expected_ids=["id1", "id2", "id3"],
+            required_tasks=["task1", "task2"],
             is_sampled_run=False,
         )
 
@@ -272,6 +264,7 @@ class TestHumanAnnotationResultsBuilder:
                 annotator_id="annotator_1",
                 task_schemas={"task1": ["yes", "no"], "task2": ["good", "bad"]},
                 expected_ids=[],  # Empty expected_ids should raise error
+                required_tasks=["task1", "task2"],
                 is_sampled_run=False,
             )
 
@@ -375,6 +368,7 @@ class TestHumanAnnotationResultsSerialization:
             annotator_id="annotator_1",
             task_schemas={"task1": ["yes", "no"], "task2": ["good", "bad"]},
             expected_ids=["id1", "id2"],
+            required_tasks=["task1", "task2"],
             is_sampled_run=False,
         )
 
@@ -390,6 +384,7 @@ class TestHumanAnnotationResultsSerialization:
             annotator_id="annotator_1",
             task_schemas={"task1": ["yes", "no"]},
             expected_ids=["id1"],
+            required_tasks=["task1"],
             is_sampled_run=False,
         )
 

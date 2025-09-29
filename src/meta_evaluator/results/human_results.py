@@ -195,6 +195,7 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
         annotator_id: str,
         task_schemas: Dict[str, List[str] | None],
         expected_ids: List[str | int],
+        required_tasks: Optional[List[str]] = None,
         is_sampled_run: bool = False,
     ):
         """Initialize the human annotation results builder.
@@ -204,10 +205,16 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
             annotator_id: ID of the human annotator.
             task_schemas: Dictionary mapping task names to their allowed outcome values.
             expected_ids: List of expected original IDs.
+            required_tasks: List of task names that are required for success rows. If None, defaults to all tasks.
             is_sampled_run: True if input was sampled data.
         """
         super().__init__(
-            run_id, annotator_id, task_schemas, expected_ids, is_sampled_run
+            run_id,
+            annotator_id,
+            task_schemas,
+            expected_ids,
+            required_tasks,
+            is_sampled_run,
         )
 
     def create_success_row(
@@ -233,14 +240,15 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
         Raises:
             MismatchedTasksError: If outcomes do not contain all tasks.
         """
-        # Validate that outcomes contain exactly all tasks
-        expected_tasks = set(self.task_schemas.keys())
+        # Validate that outcomes contain all required tasks (allow extra fields)
+        expected_tasks = set(self.required_tasks)
         outcome_tasks = set(outcomes.keys())
 
-        if expected_tasks != outcome_tasks:
+        missing_tasks = expected_tasks - outcome_tasks
+        if missing_tasks:
             raise MismatchedTasksError(
-                list(expected_tasks - outcome_tasks),
-                "Success row must contain outcomes for ALL tasks",
+                list(missing_tasks),
+                f"Success row missing required tasks: {missing_tasks}. Required: {expected_tasks}, Got: {outcome_tasks}",
             )
 
         row = HumanAnnotationResultRow(

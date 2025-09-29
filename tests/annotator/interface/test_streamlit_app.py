@@ -1040,12 +1040,21 @@ class TestAutoSave:
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
             )
+            # Mock task_schemas to match test data
+            annotator.task_schemas = {
+                "sentiment": ["positive", "negative"],
+                "quality": ["good", "bad"],
+            }
 
             result = annotator._load_auto_save_results(auto_save_file)
 
             assert result is True
-            assert len(mock_results_builder._results) == 1
-            assert "id1" in mock_results_builder._results
+            # Verify that create_success_row was called correctly
+            mock_session_manager.create_success_row.assert_called_once()
+            call_args = mock_session_manager.create_success_row.call_args
+            assert call_args[1]["original_id"] == "id1"
+            assert call_args[1]["outcomes"]["sentiment"] == "positive"
+            assert call_args[1]["outcomes"]["quality"] == "good"
 
     def test_load_auto_save_results_empty_file(
         self, mock_eval_data, mock_eval_task, temp_annotations_dir
@@ -1319,14 +1328,23 @@ class TestAutoSave:
                 annotations_dir=temp_annotations_dir,
             )
             annotator.annotator_name = "test_user"
+            # Mock task_schemas to match test data
+            annotator.task_schemas = {
+                "sentiment": ["positive", "negative"],
+                "quality": ["good", "bad"],
+            }
 
             # Test the auto-save loading directly
             result = annotator._load_auto_save_results(auto_save_file)
 
             # Verify that auto-save was loaded successfully
             assert result is True
-            assert len(mock_results_builder._results) == 1
-            assert "id1" in mock_results_builder._results
+            # Verify that create_success_row was called correctly
+            mock_session_manager.create_success_row.assert_called_once()
+            call_args = mock_session_manager.create_success_row.call_args
+            assert call_args[1]["original_id"] == "id1"
+            assert call_args[1]["outcomes"]["sentiment"] == "positive"
+            assert call_args[1]["outcomes"]["quality"] == "good"
 
     def test_initialization_no_auto_save_found(
         self, mock_eval_data, mock_eval_task, temp_annotations_dir

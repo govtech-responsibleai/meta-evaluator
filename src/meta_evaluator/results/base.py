@@ -459,6 +459,7 @@ class BaseEvaluationResultsBuilder(ABC):
         evaluator_id: str,
         task_schemas: Dict[str, List[str] | None],
         expected_ids: List[str | int],
+        required_tasks: Optional[List[str]] = None,
         is_sampled_run: bool = False,
     ):
         """Initialize the base evaluation results builder.
@@ -468,6 +469,7 @@ class BaseEvaluationResultsBuilder(ABC):
             evaluator_id: ID of the evaluator (judge_id or annotator_id).
             task_schemas: Dictionary mapping task names to their allowed outcome values.
             expected_ids: List of expected original IDs.
+            required_tasks: List of task names that are required for success rows. If None, defaults to all tasks.
             is_sampled_run: True if input was sampled data.
 
         Raises:
@@ -476,6 +478,9 @@ class BaseEvaluationResultsBuilder(ABC):
         self.run_id = run_id
         self.evaluator_id = evaluator_id
         self.task_schemas = task_schemas
+        self.required_tasks = (
+            required_tasks if required_tasks is not None else list(task_schemas.keys())
+        )
         self.is_sampled_run = is_sampled_run
         self._results: Dict[str | int, BaseResultRow] = {}
 

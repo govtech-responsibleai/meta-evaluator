@@ -647,6 +647,7 @@ class AsyncEvaluationMixin(ABC):
             model_used=self.model,
             task_schemas=self.eval_task.task_schemas,
             expected_ids=expected_ids,
+            required_tasks=self.eval_task.get_required_tasks(),
             is_sampled_run=isinstance(eval_data, SampleEvalData),
         )
 

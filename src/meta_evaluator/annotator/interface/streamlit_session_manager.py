@@ -109,7 +109,11 @@ class StreamlitSessionManager:
         return self.results_builder.completed_count
 
     def initialize_user_session(
-        self, annotator_name: str, task_schemas: dict, expected_ids: list
+        self,
+        annotator_name: str,
+        task_schemas: dict,
+        expected_ids: list,
+        required_tasks: list,
     ) -> None:
         """Initialize a new user session.
 
@@ -117,6 +121,7 @@ class StreamlitSessionManager:
             annotator_name: Name of the annotator
             task_schemas: Task schemas for the annotation
             expected_ids: List of expected IDs to annotate
+            required_tasks: List of required task names for success rows
         """
         # Generate IDs using pure functions
         run_id = generate_run_id()
@@ -128,6 +133,7 @@ class StreamlitSessionManager:
             annotator_id=annotator_id,
             task_schemas=task_schemas,
             expected_ids=expected_ids,
+            required_tasks=required_tasks,
             is_sampled_run=False,
         )
         st.session_state.current_run_id = run_id

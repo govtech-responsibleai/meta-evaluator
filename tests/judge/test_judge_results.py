@@ -131,28 +131,12 @@ class TestJudgeResultsBuilder:
         # Missing tasks in success row
         with pytest.raises(
             MismatchedTasksError,
-            match="Success row must contain outcomes for ALL tasks",
+            match="Success row missing required tasks:",
         ):
             base_judge_results_builder.create_success_row(
                 sample_example_id="test_1",
                 original_id="id1",
                 outcomes={},  # Missing sentiment task
-                llm_raw_response_content="response",
-                llm_prompt_tokens=10,
-                llm_completion_tokens=5,
-                llm_total_tokens=15,
-                llm_call_duration_seconds=1.0,
-            )
-
-        # Extra tasks in success row
-        with pytest.raises(
-            MismatchedTasksError,
-            match="Success row must contain outcomes for ALL tasks",
-        ):
-            base_judge_results_builder.create_success_row(
-                sample_example_id="test_1",
-                original_id="id1",
-                outcomes={"sentiment": "positive", "extra_task": "value"},
                 llm_raw_response_content="response",
                 llm_prompt_tokens=10,
                 llm_completion_tokens=5,
@@ -312,6 +296,7 @@ class TestJudgeResultsBuilder:
                 model_used="gpt-4",
                 task_schemas={"sentiment": ["positive", "negative", "neutral"]},
                 expected_ids=[],  # Empty expected_ids should raise error
+                required_tasks=["sentiment"],
                 is_sampled_run=False,
             )
 
