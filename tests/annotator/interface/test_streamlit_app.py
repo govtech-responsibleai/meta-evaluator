@@ -712,7 +712,6 @@ class TestAnnotationLogic:
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
-                auto_save=True,
             )
 
             current_row = ("sample_1", "What is AI?", "AI is...", "extra1")
@@ -1162,7 +1161,6 @@ class TestAutoSave:
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
-                auto_save=True,
             )
             annotator.annotator_name = "test_user"
             annotator._set_auto_save_filename()
@@ -1207,7 +1205,6 @@ class TestAutoSave:
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
-                auto_save=True,
             )
 
             # Should return early without error
@@ -1253,7 +1250,6 @@ class TestAutoSave:
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
-                auto_save=True,
             )
             annotator.annotator_name = "test_user"
             # Don't set auto_save_file - should be set automatically

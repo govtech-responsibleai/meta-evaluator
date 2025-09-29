@@ -27,7 +27,6 @@ class StreamlitAnnotator:
         eval_data: EvalData,
         eval_task: EvalTask,
         annotations_dir: str,
-        auto_save: bool = True,
         required_tasks: Optional[list[str]] = None,
         metadata: Optional[dict] = None,
     ):
@@ -37,7 +36,6 @@ class StreamlitAnnotator:
             eval_data: EvalData object containing the evaluation data.
             eval_task: EvalTask object containing task configuration.
             annotations_dir: Path where annotations will be saved.
-            auto_save: Whether to save annotations automatically as they are made.
             required_tasks: List of columns that must be filled (default: all except remarks).
             metadata: Metadata to include in saved annotations.
 
@@ -56,7 +54,6 @@ class StreamlitAnnotator:
         self.annotation_prompt: str = eval_task.annotation_prompt
         self.annotations_dir: str = annotations_dir
         self.annotator_name: str | None = None
-        self.auto_save: bool = auto_save
         self.required_tasks: list[str] = required_tasks or [
             col for col in self.response_columns
         ]
@@ -210,11 +207,10 @@ class StreamlitAnnotator:
         Raises:
             AnnotationValidationError: If there is an error processing the annotation
         """
-        if self.auto_save:
-            st.markdown(
-                "<div style='color: green; font-size: 12px; margin-top: -25px;'>💾  Responses are automatically saved.</div>",
-                unsafe_allow_html=True,
-            )
+        st.markdown(
+            "<div style='color: green; font-size: 12px; margin-top: -25px;'>💾  Responses are automatically saved when all required fields are filled in.</div>",
+            unsafe_allow_html=True,
+        )
 
         annotation = {}
         current_id = current_row[self.df.columns.index(self.id_col)]
@@ -263,13 +259,12 @@ class StreamlitAnnotator:
                     annotation_timestamp=datetime.now(),
                 )
 
-                # Auto-save if enabled
-                if self.auto_save:
-                    try:
-                        self._auto_save_annotation(current_id, annotation)
-                    except Exception:
-                        # Re-raise to see original behavior
-                        raise
+                # Auto-save annotations
+                try:
+                    self._auto_save_annotation(current_id, annotation)
+                except Exception:
+                    # Re-raise to see original behavior
+                    raise
 
             return annotation
 
@@ -456,10 +451,6 @@ class StreamlitAnnotator:
     ) -> None:
         """Auto-save annotation using the same format as final save (parquet format)."""
         try:
-            # Check if auto-save is enabled
-            if not self.auto_save:
-                return
-
             if not self.session_manager.has_user_session:
                 return
 

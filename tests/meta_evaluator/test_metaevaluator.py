@@ -1098,7 +1098,7 @@ class TestMetaEvaluatorAnnotator:
         mock_launcher = mock_launcher_class.return_value
 
         # Execute
-        meta_evaluator.launch_annotator(auto_save=False)
+        meta_evaluator.launch_annotator()
 
         # Verify
         mock_launcher_class.assert_called_once_with(
@@ -1106,7 +1106,6 @@ class TestMetaEvaluatorAnnotator:
             eval_task=basic_eval_task,
             annotations_dir=str(meta_evaluator.paths.annotations),
             port=None,
-            auto_save=False,
         )
         mock_launcher.launch.assert_called_once_with(
             use_ngrok=False, traffic_policy_file=None
