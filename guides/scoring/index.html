@@ -957,35 +957,27 @@
 <span class="normal"><a href="#__codelineno-0-18">18</a></span>
 <span class="normal"><a href="#__codelineno-0-19">19</a></span>
 <span class="normal"><a href="#__codelineno-0-20">20</a></span>
-<span class="normal"><a href="#__codelineno-0-21">21</a></span>
-<span class="normal"><a href="#__codelineno-0-22">22</a></span>
-<span class="normal"><a href="#__codelineno-0-23">23</a></span>
-<span class="normal"><a href="#__codelineno-0-24">24</a></span>
-<span class="normal"><a href="#__codelineno-0-25">25</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetaEvaluator</span>
+<span class="normal"><a href="#__codelineno-0-21">21</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetaEvaluator</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.scores</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricConfig</span><span class="p">,</span> <span class="n">MetricsConfig</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.scores.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">AccuracyScorer</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4"></a>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="n">evaluator</span> <span class="o">=</span> <span class="n">MetaEvaluator</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;my_project&quot;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="c1"># Load results</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="n">judge_results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">load_all_judge_results</span><span class="p">()</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="n">human_results</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">load_all_human_results</span><span class="p">()</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="hll"><span class="c1"># Configure single metric</span>
-</span></span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="hll"><span class="n">config</span> <span class="o">=</span> <span class="n">MetricsConfig</span><span class="p">(</span>
-</span></span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="hll">    <span class="n">metrics</span><span class="o">=</span><span class="p">[</span>
-</span></span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="hll">        <span class="n">MetricConfig</span><span class="p">(</span>
-</span></span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="hll">            <span class="n">scorer</span><span class="o">=</span><span class="n">AccuracyScorer</span><span class="p">(),</span>
-</span></span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="hll">            <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">],</span>
-</span></span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="hll">            <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span> <span class="c1"># One of &#39;single&#39;, &#39;multilabel&#39;, or &#39;multitask&#39;</span>
-</span></span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="hll">            <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span>  <span class="c1"># Default</span>
-</span></span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="hll">        <span class="p">),</span>
-</span></span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="hll">    <span class="p">]</span>
-</span></span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="p">)</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22"></a>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="c1"># Add metrics configuration and run comparison</span>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_metrics_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">compare_async</span><span class="p">(</span><span class="n">judge_results</span><span class="p">,</span> <span class="n">human_results</span><span class="p">)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="c1"># Configure single metric</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="hll"><span class="n">config</span> <span class="o">=</span> <span class="n">MetricsConfig</span><span class="p">(</span>
+</span></span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="hll">    <span class="n">metrics</span><span class="o">=</span><span class="p">[</span>
+</span></span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="hll">        <span class="n">MetricConfig</span><span class="p">(</span>
+</span></span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="hll">            <span class="n">scorer</span><span class="o">=</span><span class="n">AccuracyScorer</span><span class="p">(),</span>
+</span></span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="hll">            <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">],</span>
+</span></span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="hll">            <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span> <span class="c1"># One of &#39;single&#39;, &#39;multilabel&#39;, or &#39;multitask&#39;</span>
+</span></span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="hll">            <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span>  <span class="c1"># Default</span>
+</span></span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="hll">        <span class="p">),</span>
+</span></span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="hll">    <span class="p">]</span>
+</span></span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="hll"><span class="p">)</span>
+</span></span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18"></a>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="c1"># Add metrics configuration and run comparison</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_metrics_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">compare_async</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
 </div>
 <div class="tabbed-block">
@@ -1092,14 +1084,14 @@
 </span></span><span id="__span-1-46"><a id="__codelineno-1-46" name="__codelineno-1-46"></a><span class="hll">            <span class="n">scorer</span><span class="o">=</span><span class="n">text_similarity_scorer</span><span class="p">,</span>
 </span></span><span id="__span-1-47"><a id="__codelineno-1-47" name="__codelineno-1-47"></a><span class="hll">            <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;explanation&quot;</span><span class="p">],</span>
 </span></span><span id="__span-1-48"><a id="__codelineno-1-48" name="__codelineno-1-48"></a><span class="hll">            <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span>
-</span></span><span id="__span-1-49"><a id="__codelineno-1-49" name="__codelineno-1-49"></a>            <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;majority_vote&quot;</span><span class="p">,</span>  <span class="c1"># Example using majority vote</span>
-</span><span id="__span-1-50"><a id="__codelineno-1-50" name="__codelineno-1-50"></a>        <span class="p">),</span>
-</span><span id="__span-1-51"><a id="__codelineno-1-51" name="__codelineno-1-51"></a>    <span class="p">]</span>
-</span><span id="__span-1-52"><a id="__codelineno-1-52" name="__codelineno-1-52"></a><span class="p">)</span>
-</span><span id="__span-1-53"><a id="__codelineno-1-53" name="__codelineno-1-53"></a>
+</span></span><span id="__span-1-49"><a id="__codelineno-1-49" name="__codelineno-1-49"></a><span class="hll">            <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;majority_vote&quot;</span><span class="p">,</span>  <span class="c1"># Example using majority vote</span>
+</span></span><span id="__span-1-50"><a id="__codelineno-1-50" name="__codelineno-1-50"></a><span class="hll">        <span class="p">),</span>
+</span></span><span id="__span-1-51"><a id="__codelineno-1-51" name="__codelineno-1-51"></a><span class="hll">    <span class="p">]</span>
+</span></span><span id="__span-1-52"><a id="__codelineno-1-52" name="__codelineno-1-52"></a><span class="hll"><span class="p">)</span>
+</span></span><span id="__span-1-53"><a id="__codelineno-1-53" name="__codelineno-1-53"></a>
 </span><span id="__span-1-54"><a id="__codelineno-1-54" name="__codelineno-1-54"></a><span class="c1"># Add metrics configuration and run comparison</span>
 </span><span id="__span-1-55"><a id="__codelineno-1-55" name="__codelineno-1-55"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_metrics_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-</span><span id="__span-1-56"><a id="__codelineno-1-56" name="__codelineno-1-56"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">compare_async</span><span class="p">(</span><span class="n">judge_results</span><span class="p">,</span> <span class="n">human_results</span><span class="p">)</span>
+</span><span id="__span-1-56"><a id="__codelineno-1-56" name="__codelineno-1-56"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">compare_async</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
 </div>
 </div>
@@ -1983,9 +1975,9 @@ Inter-annotator agreement metrics measure disagreement between individual humans
 <span class="normal"><a href="#__codelineno-22-7"> 7</a></span>
 <span class="normal"><a href="#__codelineno-22-8"> 8</a></span>
 <span class="normal"><a href="#__codelineno-22-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-22-10">10</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1"></a><span class="c1"># After running evaluations and scoring and configuring metric configs</span>
+<span class="normal"><a href="#__codelineno-22-10">10</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1"></a><span class="c1"># After running evaluations and configuring metric configs</span>
 </span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_metrics_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">compare_async</span><span class="p">(</span><span class="n">judge_results</span><span class="p">,</span> <span class="n">human_results</span><span class="p">)</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">compare_async</span><span class="p">()</span>
 </span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4"></a>
 </span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5"></a><span class="c1"># Save to files</span>
 </span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">score_report</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;score_report.html&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;html&quot;</span><span class="p">)</span>  <span class="c1"># Interactive HTML with highlighting</span>
