@@ -1,12 +1,12 @@
 judges:
-  - id: openai_gpt_4_1_nano_judge
+  - id: openai_gpt_5_mini_judge
     llm_client: openai
-    model: gpt-4.1-nano
+    model: gpt-5-mini
     prompt_file: ./prompt.md
     
-  - id: azure_gpt_4o_mini_2024_07_18_judge
+  - id: azure_gpt_5_nano_2025_08_07_judge
     llm_client: azure
-    model: gpt-4o-mini-2024-07-18
+    model: gpt-5-nano-2025-08-07
     prompt_file: ./prompt.md
 
   - id: anthropic_claude_3_5_haiku_judge
@@ -20,7 +20,7 @@ judges:
     prompt_file: ./prompt.md
 
   - id: gemini_2_5_flash_lite_judge
-    llm_client: vertex_ai
+    llm_client: gemini
     model: gemini-2.5-flash-lite
     prompt_file: ./prompt.md
 

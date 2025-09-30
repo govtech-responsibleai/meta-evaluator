@@ -12,6 +12,7 @@ or external sources and only want to compute alignment metrics.
 """
 
 import logging
+import random
 import sys
 import tempfile
 from pathlib import Path
@@ -25,6 +26,7 @@ from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.scores import MetricConfig, MetricsConfig
 from meta_evaluator.scores.metrics import (
     AccuracyScorer,
+    AltTestScorer,
     CohensKappaScorer,
     SemanticSimilarityScorer,
     TextSimilarityScorer,
@@ -47,7 +49,7 @@ logging.basicConfig(
 
 
 def create_mock_judge_results(eval_data: pl.DataFrame) -> str:
-    """Create mock judge results for the rejection task.
+    """Create mock judge results for a single judge.
 
     The CSV format only requires user-provided columns:
     - original_id: Unique identifier for each sample
@@ -92,10 +94,8 @@ def create_mock_judge_results(eval_data: pl.DataFrame) -> str:
     return str(judge_path)
 
 
-def create_mock_human_results(eval_data: pl.DataFrame) -> str:
-    """Create mock human annotation results for the rejection task.
-
-    These results will have ~80% agreement with judge results to test scoring.
+def create_mock_human_results(eval_data: pl.DataFrame, annotator_id: str) -> str:
+    """Create randomised mock human annotation results for a single annotator.
 
     The CSV format only requires user-provided columns:
     - original_id: Unique identifier for each sample
@@ -106,54 +106,39 @@ def create_mock_human_results(eval_data: pl.DataFrame) -> str:
 
     Args:
         eval_data: The original evaluation data
+        annotator_id: Unique identifier for this specific annotator
 
     Returns:
-        Path to the created human results CSV file
+        Path to the created human results CSV file for this annotator
     """
     original_ids = [f"sample_{i}" for i in range(1, len(eval_data) + 1)]
 
-    # Define judge labels (same pattern as in create_mock_judge_results)
-    judge_labels = ["rejection", "not rejection", "rejection"] * (
-        len(eval_data) // 3 + 1
-    )
-    judge_labels = judge_labels[: len(eval_data)]
+    # Define valid label options
+    label_options = ["rejection", "not rejection"]
 
-    # Create human labels with 80% agreement (flip 2 out of 10 samples)
-    disagreement_indices = [2, 7]  # Make these indices different for 80% agreement
-    human_labels = []
-    for i, judge_label in enumerate(judge_labels):
-        if i in disagreement_indices:
-            # Flip the judge's decision
-            human_label = "not rejection" if judge_label == "rejection" else "rejection"
-        else:
-            # Match the judge's decision
-            human_label = judge_label
-        human_labels.append(human_label)
-
-    # Create human results with 2 annotators each
+    # Create human results with random labels
     human_results = []
 
-    for annotator_id in ["annotator_1", "annotator_2"]:
-        for i, (original_id, rejection) in enumerate(zip(original_ids, human_labels)):
-            # Create somewhat different explanations to test text similarity
-            if i in disagreement_indices:
-                explanation = f"Human {annotator_id} analysis for {original_id}: This content appears to be {'acceptable' if rejection == 'not rejection' else 'problematic'} based on safety guidelines."
-            else:
-                explanation = f"Human {annotator_id} analysis for {original_id}: This response demonstrates {'concerning patterns' if rejection == 'rejection' else 'proper safety measures'}."
+    for original_id in original_ids:
+        # Randomly select a label
+        rejection = random.choice(label_options)
 
-            human_results.append(
-                {
-                    "original_id": original_id,
-                    "rejection": rejection,
-                    "explanation": explanation,
-                }
-            )
+        # Generate explanation based on the random label
+        explanation = f"Human {annotator_id} analysis for {original_id}: This content appears to be {'problematic' if rejection == 'rejection' else 'acceptable'} based on safety guidelines."
+
+        human_results.append(
+            {
+                "original_id": original_id,
+                "rejection": rejection,
+                "explanation": explanation,
+            }
+        )
 
     human_df = pl.DataFrame(human_results)
 
     # Save to temporary file
     temp_dir = tempfile.mkdtemp()
-    human_path = Path(temp_dir) / "human_results.csv"
+    human_path = Path(temp_dir) / f"human_results_{annotator_id}.csv"
     human_df.write_csv(human_path)
 
     return str(human_path)
@@ -195,12 +180,12 @@ def main():
     """Main function to run scoring-only evaluation with external results."""
     print("=== Rejection Scoring-Only Evaluation ===")
 
-    # Create temporary project directory
-    project_dir = tempfile.mkdtemp()
+    # Set random seed at the start for reproducibility
+    random.seed(42)
 
     try:
         # Initialize MetaEvaluator
-        evaluator = MetaEvaluator(project_dir=project_dir, load=False)
+        evaluator = MetaEvaluator(project_dir="test_project", load=False)
 
         # Add eval task and data
         eval_task = rejection_task()
@@ -210,10 +195,12 @@ def main():
 
         # Create mock judge and human results
         judge_results_path = create_mock_judge_results(eval_data.data)
-        human_results_path = create_mock_human_results(eval_data.data)
+        human1_results_path = create_mock_human_results(eval_data.data, "annotator_1")
+        human2_results_path = create_mock_human_results(eval_data.data, "annotator_2")
+        human3_results_path = create_mock_human_results(eval_data.data, "annotator_3")
 
         print("\n=== Loading External Results ===")
-        # Load external judge results
+        # Load external judge results (can be called multiple times for multiple judges)
         evaluator.add_external_judge_results(
             file_path=judge_results_path,
             judge_id="rejection_judge",
@@ -222,15 +209,26 @@ def main():
             run_id="judge_run_1",
         )
 
-        # Load external human results
+        # Load external human results (can be called multiple times for multiple annotators)
         evaluator.add_external_annotation_results(
-            file_path=human_results_path,
-            annotator_id="human_annotators",
+            file_path=human1_results_path,
+            annotator_id="annotator_1",
             run_id="human_run_1",
+        )
+        evaluator.add_external_annotation_results(
+            file_path=human2_results_path,
+            annotator_id="annotator_2",
+            run_id="human_run_2",
+        )
+        evaluator.add_external_annotation_results(
+            file_path=human3_results_path,
+            annotator_id="annotator_3",
+            run_id="human_run_3",
         )
 
         # Create scorers
         accuracy_scorer = AccuracyScorer()
+        alt_test_scorer = AltTestScorer()
         cohens_kappa_scorer = CohensKappaScorer()
         text_similarity_scorer = TextSimilarityScorer()
         semantic_similarity_scorer = SemanticSimilarityScorer()
@@ -249,6 +247,11 @@ def main():
                     task_strategy="single",
                 ),
                 MetricConfig(
+                    scorer=alt_test_scorer,
+                    task_names=["rejection"],
+                    task_strategy="single",
+                ),
+                MetricConfig(
                     scorer=text_similarity_scorer,
                     task_names=["explanation"],
                     task_strategy="single",
@@ -261,30 +264,10 @@ def main():
             ]
         )
 
-        # Load judge and human results
-        judge_results = evaluator.load_all_judge_results()
-        human_results = evaluator.load_all_human_results()
-
         print("\n=== Running Scoring ===")
         # Add metrics configuration and run comparison
         evaluator.add_metrics_config(config)
-        results = evaluator.compare_async(
-            judge_results=judge_results,
-            human_results=human_results,
-        )
-
-        print("\n=== Results ===")
-        # Display results
-        for unique_name, (metric_config, scoring_results) in results.items():
-            print(f"\n--- {unique_name} ---")
-
-            for result in scoring_results:
-                print(f"Scorer: {result.scorer_name}")
-                print(f"Task: {result.task_name}")
-                print(f"Judge: {result.judge_id}")
-                print(f"Scores: {result.scores}")
-                print(f"Comparisons: {result.num_comparisons}")
-                print(f"Failed: {result.failed_comparisons}")
+        evaluator.compare_async()
 
         print(f"\nResults saved in: {evaluator.paths.scores}")
 
@@ -295,16 +278,6 @@ def main():
 
     except Exception as e:
         print(f"Error: {str(e)}")
-        import traceback
-
-        traceback.print_exc()
-
-    finally:
-        # Clean up temporary files
-        import shutil
-
-        if Path(project_dir).exists():
-            shutil.rmtree(project_dir)
 
 
 if __name__ == "__main__":

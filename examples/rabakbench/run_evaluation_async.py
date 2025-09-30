@@ -71,32 +71,28 @@ def rabakbench_data() -> EvalData:
 def main():
     """Main function to run alt-test evaluation."""
     # Load judge results from converted data
-    evaluator = MetaEvaluator(project_dir="project_dir", load=False)
+    evaluator = MetaEvaluator(project_dir="project_dir", load=True)
 
-    # Add eval task and eval data
-    eval_task = rabakbench_task()
-    eval_data = rabakbench_data()
-    evaluator.add_eval_task(eval_task)
-    evaluator.add_data(eval_data)
+    # # Add eval task and eval data
+    # eval_task = rabakbench_task()
+    # eval_data = rabakbench_data()
+    # evaluator.add_eval_task(eval_task)
+    # evaluator.add_data(eval_data)
 
-    # Add judges
-    evaluator.load_judges_from_yaml(
-        yaml_file="judges.yaml",
-        on_duplicate="skip",
-        async_mode=True,
-    )
+    # # Add judges
+    # evaluator.load_judges_from_yaml(
+    #     yaml_file="judges.yaml",
+    #     on_duplicate="skip",
+    #     async_mode=True,
+    # )
 
-    evaluator.save_state(data_format="json")
+    # evaluator.save_state(data_format="json")
 
-    evaluator.run_judges_async(
-        skip_duplicates=True  # Skip duplicates to avoid re-running judges
-    )
+    # evaluator.run_judges_async(
+    #     skip_duplicates=True  # Skip duplicates to avoid re-running judges
+    # )
 
-    # Load judge/human annotation results
-    judge_results = evaluator.load_all_judge_results()
-    human_results = evaluator.load_all_human_results()
-
-    # Create scorers
+    # # Create scorers
     alt_test_scorer = AltTestScorer(multiplicative_epsilon=True)
     alt_test_scorer.min_instances_per_human = (
         10  # Just for testing as this example does not have enough data
@@ -140,7 +136,7 @@ def main():
 
     # Add metrics configuration and run comparison
     evaluator.add_metrics_config(config)
-    evaluator.compare_async(judge_results=judge_results, human_results=human_results)
+    evaluator.compare_async()
 
     # Generate score report
     evaluator.score_report.save("score_report.html", format="html")  # Save HTML report

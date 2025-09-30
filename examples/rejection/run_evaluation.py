@@ -68,7 +68,7 @@ def rejection_data() -> EvalData:
 
 def main():
     """Main function to run evaluation."""
-    evaluator = MetaEvaluator(project_dir="project_dir", load=False)
+    evaluator = MetaEvaluator(project_dir="project_dir")
 
     # Add eval task and eval data
     eval_task = rejection_task()
@@ -93,16 +93,9 @@ def main():
     end_time = time.time()
     print(f"Sync judge evaluation completed in {end_time - start_time:.2f} seconds")
 
-    # Load judge/human annotation results
-    judge_results = evaluator.load_all_judge_results()
-    human_results = evaluator.load_all_human_results()
-
     # Create scorers
     accuracy_scorer = AccuracyScorer()
     alt_test_scorer = AltTestScorer()
-    alt_test_scorer.min_instances_per_human = (
-        10  # Just for testing as this example only has 10 instances
-    )
     cohens_kappa_scorer = CohensKappaScorer()
     text_similarity_scorer = TextSimilarityScorer()
 
@@ -134,7 +127,7 @@ def main():
 
     # Add metrics configuration and run comparison
     evaluator.add_metrics_config(config)
-    evaluator.compare_async(judge_results=judge_results, human_results=human_results)
+    evaluator.compare_async()
 
     # Generate score report
     evaluator.score_report.save("score_report.html", format="html")
