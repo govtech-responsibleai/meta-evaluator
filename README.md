@@ -127,10 +127,6 @@ evaluator.run_judges_async(skip_duplicates=True)
 Compare judge performance against human annotations:
 
 ```python
-# Load results  
-judge_results = evaluator.load_all_judge_results()
-human_results = evaluator.load_all_human_results()
-
 # Configure metrics
 from meta_evaluator.scores import MetricConfig, MetricsConfig
 from meta_evaluator.scores.metrics import (
@@ -156,7 +152,7 @@ config = MetricsConfig(
 
 # Add metrics configuration and run comparison
 evaluator.add_metrics_config(config)  # Creates evaluator.score_report automatically
-evaluator.compare_async(judge_results, human_results)
+evaluator.compare_async()
 
 # Generate summary report
 evaluator.score_report.save("score_report.html", format="html")  # Save HTML report
@@ -171,13 +167,13 @@ MetaEvaluator supports loading pre-existing judge and human annotation results f
 - Want to compute metrics on externally generated judge/human data
 - Need to re-run scoring with different metrics without re-evaluating
 
-### Loading External Judge Results
+### Loading A Single External Judge Results
 ```python
 # Load external judge results from CSV
 evaluator.add_external_judge_results(
-    file_path="path/to/judge_results.csv",
-    judge_id="external_judge",
-    llm_client="openai",  
+    file_path="path/to/judge1_results.csv",
+    judge_id="external_judge_1",
+    llm_client="openai",
     model_used="gpt-4",
     run_id="external_run_1"
 )
@@ -187,13 +183,14 @@ evaluator.add_external_judge_results(
 - `original_id`: Unique identifier for each sample
 - Task columns matching your `EvalTask.task_schemas`
 
-### Loading External Annotation Results
+### Loading A Single External Annotation Results
 ```python
 # Load external human annotations from CSV
+
 evaluator.add_external_annotation_results(
-    file_path="path/to/human_results.csv",
-    annotator_id="external_annotators",
-    run_id="external_human_run_1"
+    file_path="path/to/human_results_1.csv",
+    annotator_id="annotator_1",
+    run_id="human_run_1"
 )
 ```
 

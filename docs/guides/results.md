@@ -1,19 +1,12 @@
 # Loading Results
 
-## Internal Data Loading
-
-If you used MetaEvaluator to generate judge and human annotation results, congratulations! Your data has been formatted and is ready to use for scoring.  
-  
-Load your saved results with:
+If you used MetaEvaluator to generate judge and human annotation results, great! You may move on to [Scoring](scoring.md). Results are automatically loaded when you call `compare_async()`:
 
 ```python linenums="1"
-# Load both judge and human results  
-judge_results = evaluator.load_all_judge_results()
-human_results = evaluator.load_all_human_results()
-
-print(f"Judges: {len(judge_results)}, Humans: {len(human_results)}")
+# Results are automatically loaded from your project directory
+evaluator.add_metrics_config(config)
+evaluator.compare_async()  # Automatically loads all judge and human results
 ```
-
 
 ## External Data Loading
 
@@ -21,12 +14,12 @@ MetaEvaluator supports loading pre-existing judge and human annotation results f
 
 ### Importing External Judge Results
 
-Use `add_external_judge_results()` to load judge evaluation data from CSV files:
+Use `add_external_judge_results()` to load a single judge evaluation data from a CSV file:
 
 ```python linenums="1"
 evaluator.add_external_judge_results(
-    file_path="path/to/judge_results.csv",
-    judge_id="external_judge",
+    file_path="path/to/judge1_results.csv",
+    judge_id="external_judge_1",
     llm_client="openai",
     model_used="gpt-4",
     run_id="external_run_1"
@@ -41,34 +34,32 @@ evaluator.add_external_judge_results(
 - `model_used`: The specific model name used for evaluation (e.g., "gpt-4", "claude-3-sonnet")
 - `run_id`: Unique identifier for this evaluation run (optional, will be auto-generated if not provided)
 
-**Required Judge Data Format:**
 
-Your CSV file must contain these columns:
+!!! note ""
+    **Your CSV file must contain these columns:**
 
-- `original_id`: Original identifier from your evaluation data
-- **Task columns**: One column for each task defined in your `EvalTask.task_schemas`
+    - `original_id`: Original identifier from your evaluation data
+    - **Task columns**: One column for each task defined in your `EvalTask.task_schemas`
 
-System columns (`sample_example_id`, `run_id`, `judge_id`) are auto-generated from the function parameters.
-
-Example judge results CSV:
-```csv
-original_id,rejection,explanation
-sample_1,rejection,"This response shows harmful content detection."
-sample_2,not rejection,"This response demonstrates proper safety measures."
-sample_3,rejection,"This response contains concerning patterns."
-```
+    Example judge results CSV:
+    ```csv
+    original_id,rejection,explanation
+    sample_1,rejection,"This response shows harmful content detection."
+    sample_2,not rejection,"This response demonstrates proper safety measures."
+    sample_3,rejection,"This response contains concerning patterns."
+    ```
 
 ### Importing External Annotation Results
 
-Use `add_external_annotation_results()` to load human annotation data from CSV files:
+Use `add_external_annotation_results()` to load a single human annotation data from a CSV file:
 
 ```python linenums="1"
 evaluator.add_external_annotation_results(
-    file_path="path/to/human_results.csv",
-    annotator_id="external_annotators",
-    run_id="external_human_run_1"
+    file_path="path/to/human_results_1.csv",
+    annotator_id="annotator_1",
+    run_id="human_run_1"
 )
-```
+``` 
 
 **Arguments:**
 
@@ -76,25 +67,21 @@ evaluator.add_external_annotation_results(
 - `annotator_id`: Unique identifier for the annotator(s)
 - `run_id`: Unique identifier for this annotation run (optional, will be auto-generated if not provided)
 
-**Required Human Data Format:**
+!!! note ""
+    **Your CSV file must contain these columns:**
 
-Your CSV file must contain these columns:
+    - `original_id`: Original identifier from your evaluation data
+    - **Task columns**: One column for each task defined in your `EvalTask.task_schemas`
 
-- `original_id`: Original identifier from your evaluation data
-- **Task columns**: One column for each task defined in your `EvalTask.task_schemas`
+    Example human results CSV:
+    ```csv
+    original_id,rejection,explanation
+    sample_1,rejection,"This content appears problematic based on safety guidelines."
+    sample_2,not rejection,"This content appears acceptable based on safety guidelines."
+    sample_3,not rejection,"This response demonstrates proper safety measures."
+    ```
 
-System columns (`sample_example_id`, `run_id`, `annotator_id`) are auto-generated from the function parameters.
-
-Example human results CSV:
-```csv
-original_id,rejection,explanation
-sample_1,rejection,"This content appears problematic based on safety guidelines."
-sample_1,rejection,"This response demonstrates concerning patterns."
-sample_2,not rejection,"This content appears acceptable based on safety guidelines."
-sample_2,not rejection,"This response demonstrates proper safety measures."
-```
-
-### Data Schema Requirements
+### Schema Requirements
 
 **Important**: The task columns in your external data must match the task schema defined in your `EvalTask`:
 
@@ -115,7 +102,7 @@ task = EvalTask(
 
 ### Complete Example
 
-See `examples/rejection/run_scoring_only_async.py` in the [GitHub Repository](https://github.com/govtech-responsibleai/meta-evaluator) for a complete example that:
+See `examples/rejection/run_scoring_only_async.py` in the [GitHub Repository](https://github.com/govtech-responsibleai/meta-evaluator/blob/main/examples/rejection/run_scoring_only_async.py) for a complete example that:
 
 1. Loads original evaluation data
 2. Creates mock external judge and human results
@@ -123,7 +110,7 @@ See `examples/rejection/run_scoring_only_async.py` in the [GitHub Repository](ht
 4. Runs scoring metrics to compare judge vs human performance
 
 ```python linenums="1"
-# Load external results
+# Load external judge results (can be called multiple times for multiple judges)
 evaluator.add_external_judge_results(
     file_path="judge_results.csv",
     judge_id="rejection_judge", 
@@ -132,28 +119,39 @@ evaluator.add_external_judge_results(
     run_id="judge_run_1"
 )
 
+# Load external human results (can be called multiple times for multiple annotators)
 evaluator.add_external_annotation_results(
-    file_path="human_results.csv",
-    annotator_id="human_annotators",
-    run_id="human_run_1"
+    file_path="human1.csv",
+    annotator_id="annotator_1",
+    run_id="human_run_1",
+)
+evaluator.add_external_annotation_results(
+    file_path="human2.csv",
+    annotator_id="annotator_2",
+    run_id="human_run_2",
+)
+evaluator.add_external_annotation_results(
+    file_path="human3.csv",
+    annotator_id="annotator_3",
+    run_id="human_run_3",
 )
 
-# Load and run scoring
-judge_results = evaluator.load_all_judge_results()
-human_results = evaluator.load_all_human_results()
-
+# Run scoring
 evaluator.add_metrics_config(config)
-results = evaluator.compare_async(
-    judge_results=judge_results,
-    human_results=human_results
-)
+results = evaluator.compare_async()
 ```
 
 This approach allows you to leverage MetaEvaluator's scoring capabilities on any existing judge/human evaluation data, making it easy to compute alignment metrics without needing to re-run evaluations.
 
-## View Data Format
+## Advanced: View Results Data Format
+
+For more advanced users, you may load the results directly for analysis, debugging, or additional operations.
 
 ```python linenums="1"
+# Load judge and human results
+judge_results = evaluator.load_all_judge_results()
+human_results = evaluator.load_all_human_results()
+
 # Check judge results data format
 for judge_id, judge_result in judge_results.items():
     print(f"Judge: {judge_id}")

@@ -6,17 +6,13 @@ Configure and use alignment metrics to compare judge evaluations with human anno
 
 === "Single Metric"
 
-    ```python linenums="1" hl_lines="11-20"
+    ```python linenums="1" hl_lines="8-17"
     from meta_evaluator import MetaEvaluator
     from meta_evaluator.scores import MetricConfig, MetricsConfig
     from meta_evaluator.scores.metrics import AccuracyScorer
-    
+
     evaluator = MetaEvaluator(project_dir="my_project", load=True)
-    
-    # Load results
-    judge_results = evaluator.load_all_judge_results()
-    human_results = evaluator.load_all_human_results()
-    
+
     # Configure single metric
     config = MetricsConfig(
         metrics=[
@@ -28,15 +24,15 @@ Configure and use alignment metrics to compare judge evaluations with human anno
             ),
         ]
     )
-    
+
     # Add metrics configuration and run comparison
     evaluator.add_metrics_config(config)
-    evaluator.compare_async(judge_results, human_results)
+    evaluator.compare_async()
     ```
 
 === "Multiple Metrics"
 
-    ```python linenums="1" hl_lines="11-48"
+    ```python linenums="1" hl_lines="11-52"
     from meta_evaluator.scores.metrics import (
         AccuracyScorer,
         AltTestScorer,
@@ -92,7 +88,7 @@ Configure and use alignment metrics to compare judge evaluations with human anno
 
     # Add metrics configuration and run comparison
     evaluator.add_metrics_config(config)
-    evaluator.compare_async(judge_results, human_results)
+    evaluator.compare_async()
     ```
 ## Available Scorers
 
@@ -704,9 +700,9 @@ my_project/
 You can generate summary reports that aggregate all metrics across all judges in a single view.
 
 ```python linenums="1"
-# After running evaluations and scoring and configuring metric configs
+# After running evaluations and configuring metric configs
 evaluator.add_metrics_config(config)
-evaluator.compare_async(judge_results, human_results)
+evaluator.compare_async()
 
 # Save to files
 evaluator.score_report.save("score_report.html", format="html")  # Interactive HTML with highlighting

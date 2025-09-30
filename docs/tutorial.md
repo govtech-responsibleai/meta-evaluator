@@ -214,12 +214,8 @@ def main():
     
     # Step 5: Run judge evaluations
     evaluator.run_judges_async(skip_duplicates=True)
-    
-    # Step 6: Load results  
-    judge_results = evaluator.load_all_judge_results()
-    human_results = evaluator.load_all_human_results()
-    
-    # Step 7: Set up multiple metrics for comprehensive comparison
+
+    # Step 6: Set up multiple metrics for comprehensive comparison
     accuracy_scorer = AccuracyScorer()
     alt_test_scorer = AltTestScorer()
     cohens_kappa_scorer = CohensKappaScorer()
@@ -263,15 +259,12 @@ def main():
         ]
     )
     
-    # Step 8: Add metrics configuration and compare results (requires human annotations)
+    # Step 7: Add metrics configuration and compare results (requires human annotations)
     # See "Adding Human Annotations" section below for how to collect human data
     evaluator.add_metrics_config(config)  # Creates evaluator.score_report automatically
-    evaluator.compare_async(
-        judge_results=judge_results,
-        human_results=human_results
-    )
+    evaluator.compare_async()
 
-    # Step 9: Generate summary report
+    # Step 8: Generate summary report
     evaluator.score_report.save("score_report.html", format="html")  # Save HTML report
     evaluator.score_report.save("score_report.csv", format="csv")    # Save CSV report
     evaluator.score_report.print()  # Print to console
@@ -321,20 +314,6 @@ quickstart_project/
     └── text_similarity/
 ```
 
-## Understanding Results
-
-Judge results contain:  
-
-- **Structured outputs**: JSON responses with rejection classification and explanation  
-- **Metadata**: Model used, timestamps, success rates  
-- **Raw responses**: Complete LLM outputs for debugging  
-
-Comparison metrics (when human data available):  
-
-- **Accuracy**: How often judges match human labels  
-- **Cohen's Kappa**: Agreement accounting for chance  
-- **Detailed breakdowns**: Per-task and aggregate scores
-
 ## What save_state Saves and Doesn't Save
 
 When you call `evaluator.save_state()`, MetaEvaluator persists your project configuration for later use. Here's what gets saved and what doesn't:
@@ -363,7 +342,7 @@ config = MetricsConfig(metrics=[...])
 evaluator.add_metrics_config(config)
 
 # Now you can run comparisons
-evaluator.compare_async(judge_results, human_results)
+evaluator.compare_async()
 ```
 
 !!! tip "External Data Loading"
