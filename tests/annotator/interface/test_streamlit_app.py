@@ -134,6 +134,7 @@ def create_test_app():
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
+                test_environment=True,
             )
             annotator.build_streamlit_app()
 
@@ -231,6 +232,7 @@ def create_complete_test_app():
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
+                test_environment=True,
             )
             annotator.build_streamlit_app()
 
@@ -742,6 +744,11 @@ class TestAnnotationLogic:
         mock_session_manager.create_success_row = Mock()
         mock_session_manager.current_row = 0
 
+        # Add results_builder for auto-save functionality
+        mock_results_builder = Mock()
+        mock_results_builder._results = {}
+        mock_session_manager.results_builder = mock_results_builder
+
         with patch(
             "meta_evaluator.annotator.interface.streamlit_app.StreamlitSessionManager",
             return_value=mock_session_manager,
@@ -750,6 +757,7 @@ class TestAnnotationLogic:
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
+                test_environment=True,
             )
 
             current_row = ("sample_1", "What is AI?", "AI is...", "extra1")

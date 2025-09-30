@@ -29,6 +29,7 @@ class StreamlitAnnotator:
         annotations_dir: str,
         required_tasks: Optional[list[str]] = None,
         metadata: Optional[dict] = None,
+        test_environment: bool = False,
     ):
         """Initialize the Streamlit annotator.
 
@@ -38,6 +39,7 @@ class StreamlitAnnotator:
             annotations_dir: Path where annotations will be saved.
             required_tasks: List of columns that must be filled (default: all except remarks).
             metadata: Metadata to include in saved annotations.
+            test_environment: Whether running in test environment (disables auto-rerun).
 
         Raises:
             SaveError: If the annotations directory cannot be created.
@@ -64,6 +66,9 @@ class StreamlitAnnotator:
 
         # Initialize auto-save file path (will be set when session is initialized)
         self.auto_save_file = None
+
+        # Store test environment flag
+        self.test_environment = test_environment
 
         # Initialize session manager
         self.session_manager = StreamlitSessionManager()
@@ -252,6 +257,11 @@ class StreamlitAnnotator:
                 # Required tasks completed - add/update the row
                 sample_example_id = f"sample_{self.session_manager.current_row + 1}"
 
+                # Check if this is a new annotation
+                is_new_annotation = (
+                    current_id not in self.session_manager.results_builder._results
+                )
+
                 self.session_manager.create_success_row(
                     sample_example_id=sample_example_id,
                     original_id=current_id,
@@ -265,6 +275,10 @@ class StreamlitAnnotator:
                 except Exception:
                     # Re-raise to see original behavior
                     raise
+
+                # Refresh the page to update the progress bar for new annotation
+                if is_new_annotation and not self.test_environment:
+                    st.rerun()
 
             return annotation
 
