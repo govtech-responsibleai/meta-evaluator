@@ -1,5 +1,6 @@
 """Streamlit-based annotation interface for meta-evaluator."""
 
+import html
 import logging
 import os
 from datetime import datetime
@@ -152,17 +153,17 @@ class StreamlitAnnotator:
         st.markdown(f"<h{level}>{text}</h{level}>", unsafe_allow_html=True)
 
     def display_annotation_prompt(self) -> None:
-        """Display the annotation prompt in a nicely formatted container with instructions title."""
-        if len(self.annotation_prompt) <= 500:
-            with st.container(border=True):
-                self.display_subheader(self.annotation_prompt, level=4)
+        """Display the annotation prompt as bold, larger plain text."""
+        escaped_prompt = html.escape(self.annotation_prompt)
+
+        if len(escaped_prompt) <= 800:
+            st.html(
+                f"<div style='font-size: 1.3em; white-space: pre-wrap;'>{escaped_prompt}</div>"
+            )
         else:
-            with st.expander("Instructions", expanded=True):
-                st.code(
-                    self.annotation_prompt,
-                    language=None,
-                    line_numbers=True,
-                    wrap_lines=False,
+            with st.container(border=True, height=400):
+                st.html(
+                    f"<div style='font-size: 1.3em; white-space: pre-wrap;'>{escaped_prompt}</div>"
                 )
 
     def display_columns_to_evaluate(

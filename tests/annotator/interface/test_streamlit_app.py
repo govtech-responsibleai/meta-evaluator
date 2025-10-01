@@ -277,6 +277,30 @@ class TestStreamlitAnnotatorInitialization:
         assert os.path.exists(temp_annotations_dir)
         assert annotator.annotations_dir == temp_annotations_dir
 
+    def test_annotation_prompt_is_stored(
+        self, mock_eval_data, mock_eval_task, temp_annotations_dir
+    ):
+        """Test that StreamlitAnnotator stores the custom annotation_prompt from EvalTask.
+
+        Verifies that when a StreamlitAnnotator is initialized with an EvalTask
+        that has a custom annotation_prompt, the annotator correctly stores and
+        makes the prompt accessible via the annotation_prompt attribute.
+        """
+        # Set custom annotation prompt on mock_eval_task
+        custom_prompt = "Please analyze the toxicity of the following text."
+        mock_eval_task.annotation_prompt = custom_prompt
+
+        with patch(
+            "meta_evaluator.annotator.interface.streamlit_app.StreamlitSessionManager"
+        ):
+            annotator = StreamlitAnnotator(
+                eval_data=mock_eval_data,
+                eval_task=mock_eval_task,
+                annotations_dir=temp_annotations_dir,
+            )
+
+        assert annotator.annotation_prompt == custom_prompt
+
     def test_init_with_invalid_directory_raises_save_error(
         self, mock_eval_data, mock_eval_task
     ):
