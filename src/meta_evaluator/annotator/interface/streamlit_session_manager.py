@@ -3,7 +3,7 @@
 import re
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 import streamlit as st
 
@@ -267,3 +267,50 @@ class StreamlitSessionManager:
             bool: True if can go next
         """
         return self.current_row < total_rows - 1
+
+    def get_incomplete_samples(
+        self, all_ids: list, required_tasks: list[str]
+    ) -> dict[int, dict[str, Any]]:
+        """Get all incomplete samples with their missing required fields.
+
+        Args:
+            all_ids: List of all sample IDs in order
+            required_tasks: List of required task names
+
+        Returns:
+            dict[int, dict[str, Any]]: Dictionary mapping sample number (1-indexed)
+                to dict with 'id' (str) and 'missing_fields' (list[str]) keys
+        """
+        if not self.has_user_session:
+            return {}
+
+        incomplete_samples = {}
+
+        # Iterate through all sample IDs
+        for idx, original_id in enumerate(all_ids):
+            sample_number = idx + 1
+
+            # Check if this sample has been annotated
+            if original_id not in self.results_builder._results:
+                # Sample not annotated at all
+                incomplete_samples[sample_number] = {
+                    "id": original_id,
+                    "missing_fields": required_tasks.copy(),
+                }
+            else:
+                # Sample exists, check if all required fields are filled
+                result_row = self.results_builder._results[original_id]
+                missing_fields = []
+
+                for task_name in required_tasks:
+                    task_value = getattr(result_row, task_name, None)
+                    if not task_value or str(task_value).strip() == "":
+                        missing_fields.append(task_name)
+
+                if missing_fields:
+                    incomplete_samples[sample_number] = {
+                        "id": original_id,
+                        "missing_fields": missing_fields,
+                    }
+
+        return incomplete_samples

@@ -120,6 +120,7 @@ def create_test_app():
         mock_session_manager.complete_session = Mock()
         mock_session_manager.next_row = Mock()
         mock_session_manager.previous_row = Mock()
+        mock_session_manager.get_incomplete_samples = Mock(return_value={})
 
         # Add results_builder for auto-save functionality
         mock_results_builder = Mock()
@@ -203,7 +204,7 @@ def create_complete_test_app():
 
         # Create mock session manager with all annotations complete
         mock_session_manager = Mock()
-        mock_session_manager.current_row = 0
+        mock_session_manager.current_row = 2  # On last sample (index 2 of 3 samples)
         mock_session_manager.annotated_count = 3  # All 3 samples annotated
         mock_session_manager.has_user_session = True
         mock_session_manager.run_id = "test_run_123"
@@ -218,6 +219,7 @@ def create_complete_test_app():
         mock_session_manager.complete_session = Mock()
         mock_session_manager.next_row = Mock()
         mock_session_manager.previous_row = Mock()
+        mock_session_manager.get_incomplete_samples = Mock(return_value={})
 
         # Add results_builder for auto-save functionality
         mock_results_builder = Mock()
@@ -378,12 +380,12 @@ class TestStreamlitAppUI:
 
         # Check that radio buttons are displayed for sentiment and quality tasks
         radio_labels = [radio.label for radio in at.radio]
-        assert "sentiment:" in radio_labels
-        assert "quality:" in radio_labels
+        assert "sentiment" in radio_labels
+        assert "quality" in radio_labels
 
         # Check radio button options
         sentiment_radio = next(
-            radio for radio in at.radio if radio.label == "sentiment:"
+            radio for radio in at.radio if radio.label == "sentiment"
         )
         assert sentiment_radio.options == ["positive", "negative", "neutral"]
 
@@ -572,7 +574,7 @@ class TestStreamlitAppUI:
 
         # Select a radio button option
         sentiment_radio = next(
-            radio for radio in at.radio if radio.label == "sentiment:"
+            radio for radio in at.radio if radio.label == "sentiment"
         )
         sentiment_radio.set_value("positive")
         at.run()
@@ -772,6 +774,7 @@ class TestAnnotationLogic:
                 outcomes=["positive", "negative", "neutral"],
                 key="key_sentiment",
                 selected_index=0,
+                is_required=True,
             )
 
     def test_handle_annotation_raises_validation_error(

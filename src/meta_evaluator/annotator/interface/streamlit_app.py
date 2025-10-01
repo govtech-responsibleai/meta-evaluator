@@ -183,23 +183,45 @@ class StreamlitAnnotator:
         outcomes: list[str],
         key: str,
         selected_index: Optional[int] = None,
+        is_required: bool = False,
     ) -> None:
         """Display radio buttons for annotation."""
-        st.radio(
-            label=f"{label}:",
-            options=outcomes,
-            key=key,
-            index=selected_index,
-        )
+        if is_required:
+            st.markdown(
+                f"**{label}:** <span style='color:red'>*</span>", unsafe_allow_html=True
+            )
+            st.radio(
+                label=label,
+                options=outcomes,
+                key=key,
+                index=selected_index,
+                label_visibility="collapsed",
+            )
+        else:
+            st.radio(
+                label=f"{label}:",
+                options=outcomes,
+                key=key,
+                index=selected_index,
+            )
 
     def display_free_form_text(
         self,
         label: str,
         value: Optional[str] = None,
         key: Optional[str] = None,
+        is_required: bool = False,
     ) -> None:
         """Display a free form text input."""
-        st.text_area(label=label, value=value, key=key)
+        if is_required:
+            st.markdown(
+                f"**{label}:** <span style='color:red'>*</span>", unsafe_allow_html=True
+            )
+            st.text_area(
+                label=label, value=value, key=key, label_visibility="collapsed"
+            )
+        else:
+            st.text_area(label=label, value=value, key=key)
 
     def handle_annotation(
         self, current_row: tuple[Any, ...]
@@ -213,7 +235,7 @@ class StreamlitAnnotator:
             AnnotationValidationError: If there is an error processing the annotation
         """
         st.markdown(
-            "<div style='color: green; font-size: 12px; margin-top: -25px;'>💾  Responses are automatically saved when all required fields are filled in.</div>",
+            "<div style='color: green; font-size: 12px; margin-top: -25px;'>Responses are automatically saved when all required fields are filled in.</div>",
             unsafe_allow_html=True,
         )
 
@@ -224,6 +246,9 @@ class StreamlitAnnotator:
             if not self.task_schemas:
                 return annotation
 
+            # Get required tasks for this annotation
+            required_tasks = self.eval_task.get_required_tasks()
+
             for task_name, schema in self.task_schemas.items():
                 input_key = self.session_manager.get_input_key(task_name)
 
@@ -231,6 +256,9 @@ class StreamlitAnnotator:
                 prev_outcome = self.session_manager.get_previous_outcome(
                     task_name, current_id
                 )
+
+                # Check if this task is required
+                is_required = task_name in required_tasks
 
                 if isinstance(schema, list):
                     prev_selected_index = (
@@ -241,12 +269,14 @@ class StreamlitAnnotator:
                         outcomes=schema,
                         key=input_key,
                         selected_index=prev_selected_index,
+                        is_required=is_required,
                     )
                 else:
                     self.display_free_form_text(
                         label=task_name,
                         value=prev_outcome,
                         key=input_key,
+                        is_required=is_required,
                     )
 
                 outcome = self.session_manager.get_input_value(input_key)
@@ -501,7 +531,7 @@ class StreamlitAnnotator:
 
             # Show success message
             st.success(
-                f"Auto-saved annotation (backup) for sample {self.session_manager.current_row + 1}"
+                f"Auto-saved annotation for sample {self.session_manager.current_row + 1}"
             )
 
         except Exception as e:
@@ -554,29 +584,54 @@ class StreamlitAnnotator:
             # Show success information
             st.success("✅ Export completed successfully!")
             self.display_subheader("Export Summary:", level=5)
-            st.write(f"> **Run ID:** {run_id}")
-            st.write(f"> **Annotator:** {annotator_id}")
-            st.write(
-                f"> **Time Completed:** {results.timestamp_local.strftime('%Y-%m-%d %H:%M')}"
-            )
+
+            # ID row
+            col1, col2 = st.columns([0.3, 0.7])
+            with col1:
+                st.write("ID")
+            with col2:
+                st.markdown(
+                    f"<div style='text-align: right'>{run_id}</div>",
+                    unsafe_allow_html=True,
+                )
+
+            # Name row
+            col1, col2 = st.columns([0.3, 0.7])
+            with col1:
+                st.write("Annotator Name")
+            with col2:
+                st.markdown(
+                    f"<div style='text-align: right'>{annotator_id}</div>",
+                    unsafe_allow_html=True,
+                )
+
+            # Time Completed row
+            col1, col2 = st.columns([0.3, 0.7])
+            with col1:
+                st.write("Time Completed")
+            with col2:
+                st.markdown(
+                    f"<div style='text-align: right'>{results.timestamp_local.strftime('%B %d, %Y at %I:%M %p')}</div>",
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown("---")
 
             # Show task completion rates
             self.display_subheader("Task Completion Rates:", level=5)
             for task_name in results.task_schemas.keys():
                 success_rate = results.get_task_success_rate(task_name)
-                st.progress(
-                    success_rate, text=f"{task_name}: {success_rate * 100:.1f}%"
-                )
+                completed_count = int(success_rate * results.total_count)
 
-            # Provide next steps
-            self.display_subheader("Next Steps:", level=5)
-            st.markdown(
-                """
-            - Your annotations have been saved successfully
-            - You can close this browser tab
-            - Thank you for your contribution!
-            """
-            )
+                # Task completion row with left/right alignment
+                col1, col2 = st.columns([0.3, 0.7])
+                with col1:
+                    st.write(f"{task_name}")
+                with col2:
+                    st.markdown(
+                        f"<div style='text-align: right'>{completed_count}/{results.total_count}</div>",
+                        unsafe_allow_html=True,
+                    )
 
         except Exception as e:
             st.error(f"Error creating results: {str(e)}", icon="🚨")
@@ -591,9 +646,43 @@ class StreamlitAnnotator:
 
     def display_annotation_export(self, total_samples: int) -> None:
         """Display export button when all samples are annotated."""
-        if self.session_manager.annotated_count != total_samples:
+        # Track if user has reached the end at least once
+        if "has_reached_end" not in st.session_state:
+            st.session_state.has_reached_end = False
+
+        # Mark as reached end if on last sample
+        if self.session_manager.current_row >= total_samples - 1:
+            st.session_state.has_reached_end = True
+
+        # Only show export section if user has reached the end at least once
+        if not st.session_state.has_reached_end:
             return
 
+        # Check for incomplete samples
+        all_ids = self.df[self.id_col].to_list()
+        required_tasks = self.eval_task.get_required_tasks()
+        incomplete_samples = self.session_manager.get_incomplete_samples(
+            all_ids, required_tasks
+        )
+
+        if incomplete_samples:
+            # Show warning about incomplete samples
+            st.warning(
+                f"⚠️ Cannot export: {len(incomplete_samples)} sample(s) incomplete",
+                icon="⚠️",
+            )
+
+            # Display incomplete samples in an expander
+            with st.expander(
+                f"View Incomplete Samples ({len(incomplete_samples)})", expanded=False
+            ):
+                for sample_num, info in sorted(incomplete_samples.items()):
+                    st.write(f"**Sample {sample_num}** (ID: {info['id']})")
+                    st.write(f"Missing fields: {', '.join(info['missing_fields'])}")
+                    st.write("---")
+            return
+
+        # All samples complete - show export section
         self.display_subheader("All done here, export your annotations:", level=5)
 
         # Validate name
