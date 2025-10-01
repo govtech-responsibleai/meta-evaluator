@@ -69,43 +69,10 @@ Launch the Streamlit-based annotation interface to collect human evaluations for
     evaluator.launch_annotator(port=8501)
     ```
 
-!!! warning "Dataset choice"
-    - Use a small dataset (recommended: 20-50 rows of data)
-    - Current implementation doesn't support saving progress midway, so users must complete all annotations in one session.
-
-## Annotation Interface Features
-
-The interface automatically presents all tasks from your `EvalTask` configuration in the UI:
-
-```python linenums="1"
-task = EvalTask(
-    task_schemas={
-        "quality": ["excellent", "good", "fair", "poor"],
-        "relevance": ["relevant", "partially_relevant", "irrelevant"],
-        "explanation": None,  # Free-form text field
-    },
-    prompt_columns=["prompt"],
-    response_columns=["response"],
-    answering_method="structured",
-    annotation_prompt="Please evaluate the AI response quality and relevance.",
-)
-```
-
-**Interface displays:**
-
-- Required input for annotator name  
-- Radio buttons for classification tasks (helpfulness, accuracy, safety)  
-- Text area for free-form fields (explanation)  
-- Progress tracking and navigation controls 
-
-**Example of the platform:**
-<figure markdown="span">
-  ![Simple Annotation Interface](../assets/simple_annotation_interface.png)
-</figure>
-
-!!! note
-    The annotation platform is slated for usability, functionality, and visual updates in the near future!
-
+!!! tip "Dataset Recommendations"
+    - Use a small dataset (recommended: 30-50 rows of data)
+    - The interface supports **automatic saving** and **session resumption**
+    - Progress is auto-saved when required fields are completed and resumed upon session reopen
 
 ## Launch Configuration
 
@@ -123,14 +90,16 @@ evaluator.launch_annotator(port=8080)
 
 ### Remote Access with ngrok
 
+**When to use ngrok**: If you want to share your annotation interface with remote annotators (e.g., teammates working from different locations) and your data is **not classified or sensitive**, you can use ngrok to create a public URL that anyone with the link can access.
+
 ```python linenums="1"
-# Basic ngrok tunnel
+# Basic ngrok tunnel - creates a public URL
 evaluator.launch_annotator(
     port=8501,
     use_ngrok=True
 )
 
-# Advanced ngrok with traffic policy
+# Advanced ngrok with traffic policy (authentication, IP restrictions, etc.)
 evaluator.launch_annotator(
     port=8501,
     use_ngrok=True,
@@ -138,35 +107,57 @@ evaluator.launch_annotator(
 )
 ```
 
-!!! note "ngrok Setup"
-    - Requires ngrok installed and authenticated
-    - Creates secure tunnel to your local annotation interface
-    - Useful for remote annotators or team collaboration
-    - **Traffic policy files** allow advanced configuration including login authentication, IP restrictions, custom headers, and more.   
-        For examples and detailed configuration, see: [ngrok Traffic Policy Documentation](https://ngrok.com/docs/traffic-policy/)
+**How it works**: 
+
+!!! note "ngrok Setup Requirements"
+    - ngrok creates a secure tunnel from a public URL (e.g., `https://abc123.ngrok.io`) to your local machine. Remote annotators can access the interface through this URL without needing VPN or complex network setup.
+    - Install ngrok: `brew install ngrok` (Mac) or download from [ngrok.com](https://ngrok.com)
+    - Authenticate: `ngrok authtoken YOUR_TOKEN` (free account required)
+    - **Traffic policy files** allow advanced configuration including login authentication, IP restrictions, custom headers, and more. 
+        For examples and detailed configuration, see: [ngrok Traffic Policy Documentation](https://ngrok.com/docs/traffic-policy/)(https://ngrok.com/docs/traffic-policy/)
+
+!!! warning "Data Security"
+    **Only use ngrok if your data is not classified or sensitive.** ngrok creates a publicly accessible URL that exposes your local annotation interface to the internet. Anyone with the URL can access your interface. For classified or sensitive data, use local network access only or implement proper authentication.
+
 
 ## Using the Interface
 
-### Starting Annotation
 
 1. **Launch the interface**: Load your data and task, and run `evaluator.launch_annotator()`
 2. **Open browser**: Navigate to `http://localhost:8501` 
 3. **Enter annotator ID**: Provide your name or identifier
-4. **Begin annotation**: Start evaluating samples
+4. **Begin annotation**: Start evaluating samples!
 
 
-### Best Practices
+The interface automatically presents all tasks from your `EvalTask` configuration in the UI:
 
-!!! tip "Annotation Quality"
-    - **Documentation**: Provide clear `annotation_prompt` in your EvalTask for the interface
-    - **Multiple annotators**: Have 2-3 people annotate the same data for reliability
-    - **Regular breaks**: Avoid annotation fatigue with scheduled breaks
+```python linenums="1"
+task = EvalTask(
+    task_schemas={
+        "quality": ["excellent", "good", "fair", "poor"],
+        "relevance": ["relevant", "partially_relevant", "irrelevant"],
+        "explanation": None,  # Free-form text field
+    },
+    prompt_columns=["prompt"],
+    response_columns=["response"],
+    answering_method="structured",
+    annotation_prompt="Please evaluate the AI response quality and relevance.",
+)
+```
 
-!!! warning "Session Management"
-    - Each annotator should use a unique ID for tracking
-    - Administrator should coordinate annotation assignments to avoid duplication
-    - Don't close browser tabs abruptly to avoid losing progress
-    - Internet connection required for ngrok remote access
+- Uses annotator name and session time to differentiate annotations
+- Auto-saves when required fields are filled; resumes from last incomplete sample on reload
+
+**The annotation platform (Web):**
+<figure markdown="span">
+  ![Simple Annotation Interface](../assets/simple_annotation_interface.png)
+</figure>
+
+
+**The annotation platform (Mobile):**
+<figure markdown="span">
+  ![Simple Annotation Interface](../assets/simple_annotation_interface_mobile.jpg){ width="300" }
+</figure>
 
 ## Results and Output
 

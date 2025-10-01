@@ -68,9 +68,10 @@ from meta_evaluator.eval_task import EvalTask
 
 task = EvalTask(
     task_schemas={
-        "rejection": ["rejection", "not rejection"],  # Classification
-        "explanation": None,  # Free-form text
+        "rejection": ["rejection", "not rejection"],  # Classification (required by default)
+        "explanation": None,  # Free-form text (not required by default)
     },
+    # required_tasks not specified - only classification tasks required by default
     prompt_columns=["prompt"],         # Context columns
     response_columns=["llm_response"], # What to evaluate
     answering_method="structured",     # JSON output parsing

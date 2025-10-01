@@ -90,8 +90,19 @@ class StreamlitAnnotator:
             .stMainBlockContainer {
                 padding-top: 3rem; /* default is 6rem */
             }
-            [data-testid="stProgress"] > div:nth-child(2) {
-                padding-bottom: 25px;
+            /* Only apply progress padding on desktop (screens wider than 768px) */
+            @media (min-width: 769px) {
+                [data-testid="stProgress"] > div:nth-child(2) {
+                    padding-bottom: 25px;
+                }
+                .autosave-static-message {
+                    margin-top: -25px;
+                }
+            }
+            .autosave-static-message {
+                color: green;
+                font-size: 12px;
+                margin-top: -10px;
             }
             [data-testid="stExpanderDetails"] {
                 overflow: auto;
@@ -118,7 +129,7 @@ class StreamlitAnnotator:
 
     def display_annotation_progress(self, total_samples: int) -> None:
         """Display the progress bar with navigation buttons."""
-        col1, col2 = st.columns([0.8, 0.2], vertical_alignment="center")
+        col1, col2 = st.columns([0.8, 0.2], gap=None, vertical_alignment="center")
         progress = self.session_manager.annotated_count / total_samples
         with col1:
             st.progress(progress, text="Your progress:")
@@ -240,7 +251,7 @@ class StreamlitAnnotator:
             AnnotationValidationError: If there is an error processing the annotation
         """
         st.markdown(
-            "<div style='color: green; font-size: 12px; margin-top: -25px;'>Responses are automatically saved when all required fields are filled in.</div>",
+            "<div class='autosave-static-message'>Responses are automatically saved when all required fields are filled in.</div>",
             unsafe_allow_html=True,
         )
 
@@ -778,7 +789,7 @@ class StreamlitAnnotator:
                 # Display the annotation interface
                 st.markdown("---")
 
-                col1, col2 = st.columns((0.6, 0.4), gap="large")
+                col1, col2 = st.columns((0.6, 0.4), gap="medium")
                 with col1:
                     self.display_subheader(
                         f"Sample {self.session_manager.current_row + 1}", level=3

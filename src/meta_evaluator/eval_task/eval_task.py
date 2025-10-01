@@ -148,7 +148,7 @@ class EvalTask(BaseModel):
             list[str]: List of required task names. If required_tasks is None,
                 returns all task names with non-null schemas.
         """
-        if self.required_tasks is not None:
+        if self.required_tasks is not None and len(self.required_tasks) > 0:
             return self.required_tasks
         else:
             # Default behavior: all non-null schemas are required
