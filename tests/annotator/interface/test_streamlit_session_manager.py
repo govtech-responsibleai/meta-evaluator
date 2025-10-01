@@ -200,6 +200,7 @@ def test_initialize_user_session_sets_up_properly(
         annotator_name=annotator_name,
         task_schemas=sample_task_schemas,
         expected_ids=sample_expected_ids,
+        required_tasks=["task1", "task2"],
     )
 
     # Check that the session manager properly sets up the user session
@@ -236,6 +237,7 @@ def test_results_builder_property_with_session(
         annotator_name="Test User",
         task_schemas=sample_task_schemas,
         expected_ids=sample_expected_ids,
+        required_tasks=["task1", "task2"],
     )
 
     # Now test that we can access the results_builder
@@ -308,6 +310,7 @@ def test_get_previous_outcome_with_existing_result(
         annotator_name="Test User",
         task_schemas=sample_task_schemas,
         expected_ids=sample_expected_ids,
+        required_tasks=["task1", "task2"],
     )
 
     # Create a real annotation result first
@@ -334,6 +337,7 @@ def test_get_previous_outcome_no_existing_result(
         annotator_name="Test User",
         task_schemas=sample_task_schemas,
         expected_ids=sample_expected_ids,
+        required_tasks=["task1", "task2"],
     )
 
     # Don't create any results - test with empty results
@@ -350,6 +354,7 @@ def test_get_previous_outcome_missing_task(
         annotator_name="Test User",
         task_schemas=sample_task_schemas,
         expected_ids=sample_expected_ids,
+        required_tasks=["task1", "task2"],
     )
 
     # Create a complete result first (required by validation)
@@ -420,6 +425,7 @@ def test_create_success_row_calls_builder(
         annotator_name="Test User",
         task_schemas=sample_task_schemas,
         expected_ids=sample_expected_ids,
+        required_tasks=["task1", "task2"],
     )
 
     outcomes = {"task1": "yes", "task2": "good"}
@@ -456,6 +462,7 @@ def test_create_success_row_removes_existing_result(
         annotator_name="Test User",
         task_schemas=sample_task_schemas,
         expected_ids=sample_expected_ids,
+        required_tasks=["task1", "task2"],
     )
 
     # Create initial result
@@ -555,6 +562,7 @@ def test_full_session_workflow(
         annotator_name="Test User",
         task_schemas=sample_task_schemas,
         expected_ids=sample_expected_ids,
+        required_tasks=["task1", "task2"],
     )
 
     # Check session is initialized

@@ -17,3 +17,4 @@ class EvalTaskState(BaseModel):
     response_columns: List[str]
     answering_method: Literal["structured", "instructor", "xml"]
     structured_outputs_fallback: bool = False
+    annotation_prompt: str = "Please evaluate the following response:"

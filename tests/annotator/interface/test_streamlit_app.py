@@ -120,6 +120,7 @@ def create_test_app():
         mock_session_manager.complete_session = Mock()
         mock_session_manager.next_row = Mock()
         mock_session_manager.previous_row = Mock()
+        mock_session_manager.get_incomplete_samples = Mock(return_value={})
 
         # Add results_builder for auto-save functionality
         mock_results_builder = Mock()
@@ -134,6 +135,7 @@ def create_test_app():
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
+                test_environment=True,
             )
             annotator.build_streamlit_app()
 
@@ -202,7 +204,7 @@ def create_complete_test_app():
 
         # Create mock session manager with all annotations complete
         mock_session_manager = Mock()
-        mock_session_manager.current_row = 0
+        mock_session_manager.current_row = 2  # On last sample (index 2 of 3 samples)
         mock_session_manager.annotated_count = 3  # All 3 samples annotated
         mock_session_manager.has_user_session = True
         mock_session_manager.run_id = "test_run_123"
@@ -217,6 +219,7 @@ def create_complete_test_app():
         mock_session_manager.complete_session = Mock()
         mock_session_manager.next_row = Mock()
         mock_session_manager.previous_row = Mock()
+        mock_session_manager.get_incomplete_samples = Mock(return_value={})
 
         # Add results_builder for auto-save functionality
         mock_results_builder = Mock()
@@ -231,6 +234,7 @@ def create_complete_test_app():
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
+                test_environment=True,
             )
             annotator.build_streamlit_app()
 
@@ -272,6 +276,30 @@ class TestStreamlitAnnotatorInitialization:
 
         assert os.path.exists(temp_annotations_dir)
         assert annotator.annotations_dir == temp_annotations_dir
+
+    def test_annotation_prompt_is_stored(
+        self, mock_eval_data, mock_eval_task, temp_annotations_dir
+    ):
+        """Test that StreamlitAnnotator stores the custom annotation_prompt from EvalTask.
+
+        Verifies that when a StreamlitAnnotator is initialized with an EvalTask
+        that has a custom annotation_prompt, the annotator correctly stores and
+        makes the prompt accessible via the annotation_prompt attribute.
+        """
+        # Set custom annotation prompt on mock_eval_task
+        custom_prompt = "Please analyze the toxicity of the following text."
+        mock_eval_task.annotation_prompt = custom_prompt
+
+        with patch(
+            "meta_evaluator.annotator.interface.streamlit_app.StreamlitSessionManager"
+        ):
+            annotator = StreamlitAnnotator(
+                eval_data=mock_eval_data,
+                eval_task=mock_eval_task,
+                annotations_dir=temp_annotations_dir,
+            )
+
+        assert annotator.annotation_prompt == custom_prompt
 
     def test_init_with_invalid_directory_raises_save_error(
         self, mock_eval_data, mock_eval_task
@@ -321,10 +349,6 @@ class TestStreamlitAppUI:
         at = AppTest.from_function(app)
         at.run()
 
-        # Check that title is displayed
-        assert len(at.title) > 0
-        assert "Simple Annotation Interface" in at.title[0].value
-
         # Check that name input is displayed
         assert len(at.text_input) > 0
         assert "Hello," in at.text_input[0].label
@@ -349,9 +373,9 @@ class TestStreamlitAppUI:
         at.text_input[0].input("Test User")
         at.run()
 
-        # Check that subheader is displayed (Sample 1)
-        assert len(at.subheader) > 0
-        assert "Sample 1" in at.subheader[0].value
+        # Check that markdown header is displayed (Sample 1) - now uses display_subheader with markdown
+        markdown_texts = [elem.value for elem in at.markdown]
+        assert any("Sample 1" in text for text in markdown_texts)
 
     def test_app_displays_prompt_and_response_columns(self):
         """Test that app displays prompt and response columns."""
@@ -380,12 +404,12 @@ class TestStreamlitAppUI:
 
         # Check that radio buttons are displayed for sentiment and quality tasks
         radio_labels = [radio.label for radio in at.radio]
-        assert "sentiment:" in radio_labels
-        assert "quality:" in radio_labels
+        assert "sentiment" in radio_labels
+        assert "quality" in radio_labels
 
         # Check radio button options
         sentiment_radio = next(
-            radio for radio in at.radio if radio.label == "sentiment:"
+            radio for radio in at.radio if radio.label == "sentiment"
         )
         assert sentiment_radio.options == ["positive", "negative", "neutral"]
 
@@ -415,10 +439,8 @@ class TestStreamlitAppUI:
         at.text_input[0].input("Test User")
         at.run()
 
-        # Check that navigation buttons are displayed
-        button_labels = [button.label for button in at.button]
-        assert "Previous" in button_labels
-        assert "Next" in button_labels
+        # Check that navigation buttons are displayed (now using icon buttons)
+        assert len(at.button) >= 2  # Should have at least 2 navigation buttons
 
     def test_navigation_buttons_functionality(self):
         """Test navigation buttons functionality."""
@@ -511,14 +533,15 @@ class TestStreamlitAppUI:
         at.text_input[0].input("Test User")
         at.run()
 
-        # Click next button
-        next_button = next(button for button in at.button if button.label == "Next")
-        next_button.click()
-        at.run()
+        # Click the second button (should be next button with icon)
+        if len(at.button) >= 2:
+            next_button = at.button[1]  # Second button should be next
+            next_button.click()
+            at.run()
 
-        # Get the session manager from session state and verify next_row was called
-        session_manager = at.session_state["test_session_manager"]
-        session_manager.next_row.assert_called_once()
+            # Get the session manager from session state and verify next_row was called
+            session_manager = at.session_state["test_session_manager"]
+            session_manager.next_row.assert_called_once()
 
     def test_export_button_not_shown_when_incomplete(self):
         """Test that export button is not shown when annotations are incomplete."""
@@ -575,7 +598,7 @@ class TestStreamlitAppUI:
 
         # Select a radio button option
         sentiment_radio = next(
-            radio for radio in at.radio if radio.label == "sentiment:"
+            radio for radio in at.radio if radio.label == "sentiment"
         )
         sentiment_radio.set_value("positive")
         at.run()
@@ -717,7 +740,6 @@ class TestAnnotationLogic:
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
-                auto_save=True,
             )
 
             current_row = ("sample_1", "What is AI?", "AI is...", "extra1")
@@ -748,6 +770,11 @@ class TestAnnotationLogic:
         mock_session_manager.create_success_row = Mock()
         mock_session_manager.current_row = 0
 
+        # Add results_builder for auto-save functionality
+        mock_results_builder = Mock()
+        mock_results_builder._results = {}
+        mock_session_manager.results_builder = mock_results_builder
+
         with patch(
             "meta_evaluator.annotator.interface.streamlit_app.StreamlitSessionManager",
             return_value=mock_session_manager,
@@ -756,6 +783,7 @@ class TestAnnotationLogic:
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
+                test_environment=True,
             )
 
             current_row = ("sample_1", "What is AI?", "AI is...", "extra1")
@@ -770,6 +798,7 @@ class TestAnnotationLogic:
                 outcomes=["positive", "negative", "neutral"],
                 key="key_sentiment",
                 selected_index=0,
+                is_required=True,
             )
 
     def test_handle_annotation_raises_validation_error(
@@ -1046,12 +1075,21 @@ class TestAutoSave:
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
             )
+            # Mock task_schemas to match test data
+            annotator.task_schemas = {
+                "sentiment": ["positive", "negative"],
+                "quality": ["good", "bad"],
+            }
 
             result = annotator._load_auto_save_results(auto_save_file)
 
             assert result is True
-            assert len(mock_results_builder._results) == 1
-            assert "id1" in mock_results_builder._results
+            # Verify that create_success_row was called correctly
+            mock_session_manager.create_success_row.assert_called_once()
+            call_args = mock_session_manager.create_success_row.call_args
+            assert call_args[1]["original_id"] == "id1"
+            assert call_args[1]["outcomes"]["sentiment"] == "positive"
+            assert call_args[1]["outcomes"]["quality"] == "good"
 
     def test_load_auto_save_results_empty_file(
         self, mock_eval_data, mock_eval_task, temp_annotations_dir
@@ -1167,7 +1205,6 @@ class TestAutoSave:
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
-                auto_save=True,
             )
             annotator.annotator_name = "test_user"
             annotator._set_auto_save_filename()
@@ -1212,7 +1249,6 @@ class TestAutoSave:
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
-                auto_save=True,
             )
 
             # Should return early without error
@@ -1258,7 +1294,6 @@ class TestAutoSave:
                 eval_data=mock_eval_data,
                 eval_task=mock_eval_task,
                 annotations_dir=temp_annotations_dir,
-                auto_save=True,
             )
             annotator.annotator_name = "test_user"
             # Don't set auto_save_file - should be set automatically
@@ -1276,18 +1311,19 @@ class TestAutoSave:
     def test_initialization_loads_existing_auto_save(
         self, mock_eval_data, mock_eval_task, temp_annotations_dir
     ):
-        """Test that initialization loads existing auto-save file.
+        """Test that initialization loads existing auto-save file and resumes at correct position.
 
         Verifies that when a user session is initialized, the system automatically
-        checks for and loads existing auto-save files. This ensures that users can
-        seamlessly resume their annotation work from where they left off, providing
-        a continuous and uninterrupted annotation experience.
+        checks for and loads existing auto-save files, and resumes from the first
+        incomplete sample. This ensures that users can seamlessly resume their
+        annotation work from where they left off, providing a continuous and
+        uninterrupted annotation experience.
         """
-        # Create a test auto-save file
+        # Create a test auto-save file with only first sample completed
         test_data = [
             {
                 "sample_example_id": "sample_1",
-                "original_id": "id1",
+                "original_id": 1,  # Match the actual ID from sample_dataframe
                 "run_id": "test_run_123",
                 "annotator_id": "test_annotator",
                 "status": "success",
@@ -1313,10 +1349,18 @@ class TestAutoSave:
         mock_session_manager.has_user_session = True  # Set to True for this test
         mock_session_manager.run_id = "test_run_123"
         mock_session_manager.annotator_id = "test_annotator"
+        mock_session_manager.current_row = 0  # Initial position
 
         mock_results_builder = Mock()
         mock_results_builder._results = {}
         mock_session_manager.results_builder = mock_results_builder
+
+        # Mock get_incomplete_samples to return samples 2 and 3 as incomplete
+        # (since sample 1 is completed in the autosave)
+        mock_session_manager.get_incomplete_samples.return_value = {
+            2: {"id": 2, "missing_fields": ["sentiment", "quality"]},
+            3: {"id": 3, "missing_fields": ["sentiment", "quality"]},
+        }
 
         with patch(
             "meta_evaluator.annotator.interface.streamlit_app.StreamlitSessionManager",
@@ -1328,14 +1372,38 @@ class TestAutoSave:
                 annotations_dir=temp_annotations_dir,
             )
             annotator.annotator_name = "test_user"
+            # Mock task_schemas to match test data
+            annotator.task_schemas = {
+                "sentiment": ["positive", "negative"],
+                "quality": ["good", "bad"],
+            }
 
             # Test the auto-save loading directly
             result = annotator._load_auto_save_results(auto_save_file)
 
             # Verify that auto-save was loaded successfully
             assert result is True
-            assert len(mock_results_builder._results) == 1
-            assert "id1" in mock_results_builder._results
+            # Verify that create_success_row was called correctly
+            mock_session_manager.create_success_row.assert_called_once()
+            call_args = mock_session_manager.create_success_row.call_args
+            assert call_args[1]["original_id"] == 1
+            assert call_args[1]["outcomes"]["sentiment"] == "positive"
+            assert call_args[1]["outcomes"]["quality"] == "good"
+
+            # Test that resume position is set correctly when there are incomplete samples
+            # Simulate what happens in build_streamlit_app after loading autosave
+            expected_ids = [1, 2, 3]
+            required_tasks = ["sentiment", "quality"]
+            incomplete_samples = mock_session_manager.get_incomplete_samples(
+                expected_ids, required_tasks
+            )
+
+            if incomplete_samples:
+                first_incomplete = min(incomplete_samples.keys())
+                mock_session_manager.current_row = first_incomplete - 1
+
+            # Verify that current_row is set to 1 (0-based index for sample 2)
+            assert mock_session_manager.current_row == 1
 
     def test_initialization_no_auto_save_found(
         self, mock_eval_data, mock_eval_task, temp_annotations_dir

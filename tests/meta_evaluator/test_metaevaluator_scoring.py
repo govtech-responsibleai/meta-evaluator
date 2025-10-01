@@ -158,6 +158,7 @@ class TestResultsLoading:
                 model_used="gpt-4",
                 task_schemas={"sentiment": ["positive", "negative"]},
                 expected_ids=[f"id{i}"],
+                required_tasks=["sentiment"],
             )
             builder.create_success_row(
                 sample_example_id=f"test_{i}",
@@ -320,6 +321,7 @@ class TestResultsLoading:
                 annotator_id=annotator_id,
                 task_schemas={"accuracy": ["accurate", "inaccurate"]},
                 expected_ids=[f"id{i}"],
+                required_tasks=["accuracy"],
             )
             builder.create_success_row(
                 sample_example_id=f"test_{i}",

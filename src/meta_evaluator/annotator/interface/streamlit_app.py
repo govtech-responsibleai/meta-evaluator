@@ -1,5 +1,6 @@
 """Streamlit-based annotation interface for meta-evaluator."""
 
+import html
 import logging
 import os
 from datetime import datetime
@@ -27,9 +28,9 @@ class StreamlitAnnotator:
         eval_data: EvalData,
         eval_task: EvalTask,
         annotations_dir: str,
-        auto_save: bool = True,
         required_tasks: Optional[list[str]] = None,
         metadata: Optional[dict] = None,
+        test_environment: bool = False,
     ):
         """Initialize the Streamlit annotator.
 
@@ -37,13 +38,16 @@ class StreamlitAnnotator:
             eval_data: EvalData object containing the evaluation data.
             eval_task: EvalTask object containing task configuration.
             annotations_dir: Path where annotations will be saved.
-            auto_save: Whether to save annotations automatically as they are made.
             required_tasks: List of columns that must be filled (default: all except remarks).
             metadata: Metadata to include in saved annotations.
+            test_environment: Whether running in test environment (disables auto-rerun).
 
         Raises:
             SaveError: If the annotations directory cannot be created.
         """
+        # Set page config
+        st.set_page_config(layout="wide")
+
         self.df: pl.DataFrame = eval_data.data
         self.id_col: str = eval_data.id_column  # type: ignore
         self.eval_task: EvalTask = eval_task  # Store the full eval_task object
@@ -53,7 +57,6 @@ class StreamlitAnnotator:
         self.annotation_prompt: str = eval_task.annotation_prompt
         self.annotations_dir: str = annotations_dir
         self.annotator_name: str | None = None
-        self.auto_save: bool = auto_save
         self.required_tasks: list[str] = required_tasks or [
             col for col in self.response_columns
         ]
@@ -64,6 +67,9 @@ class StreamlitAnnotator:
 
         # Initialize auto-save file path (will be set when session is initialized)
         self.auto_save_file = None
+
+        # Store test environment flag
+        self.test_environment = test_environment
 
         # Initialize session manager
         self.session_manager = StreamlitSessionManager()
@@ -77,26 +83,99 @@ class StreamlitAnnotator:
                     f"Cannot create annotations directory ({e})", self.annotations_dir
                 ) from e
 
-    def display_top_header(self, current_row_idx: int, total_samples: int) -> None:
-        """Display the header section with sample number and progress."""
-        col1, col2, col3 = st.columns([0.4, 0.4, 0.2], vertical_alignment="center")
+    def set_style(self) -> None:
+        """Set the style for the Streamlit app."""
+        css = """
+        <style>
+            .stMainBlockContainer {
+                padding-top: 3rem; /* default is 6rem */
+            }
+            /* Only apply progress padding on desktop (screens wider than 768px) */
+            @media (min-width: 769px) {
+                [data-testid="stProgress"] > div:nth-child(2) {
+                    padding-bottom: 25px;
+                }
+                .autosave-static-message {
+                    margin-top: -25px;
+                }
+            }
+            .autosave-static-message {
+                color: green;
+                font-size: 12px;
+                margin-top: -10px;
+            }
+            [data-testid="stExpanderDetails"] {
+                overflow: auto;
+                max-height: 400px;
+                scrollbar-color: rgba(0, 0, 0, .5) rgba(0, 0, 0, .025) !important;
+            }
+            [data-testid="stVerticalBlock"] > div:has(> div.stText) {
+                padding: 5px;
+            }
+            ::-webkit-scrollbar {
+                -webkit-appearance: none;
+                width: 7px;
+            }
+            ::-webkit-scrollbar-thumb {
+                border-radius: 4px;
+                background-color: rgba(0, 0, 0, .5);
+            }
+            ::-webkit-scrollbar-track {
+                background: rgba(0, 0, 0, .025);
+            }
+        </style>
+        """
+        st.markdown(css, unsafe_allow_html=True)
+
+    def display_annotation_progress(self, total_samples: int) -> None:
+        """Display the progress bar with navigation buttons."""
+        col1, col2 = st.columns([0.8, 0.2], gap=None, vertical_alignment="center")
+        progress = self.session_manager.annotated_count / total_samples
         with col1:
-            st.subheader(f"Sample {current_row_idx + 1}")
+            st.progress(progress, text="Your progress:")
         with col2:
-            st.markdown(
-                f"<div style='text-align: center'>Progress: {self.session_manager.annotated_count}/{total_samples} samples annotated</div>",
-                unsafe_allow_html=True,
+            st.caption(
+                f"{self.session_manager.annotated_count}/{total_samples} ({progress * 100:.1f}%)"
             )
-        with col3:
-            if self.auto_save:
-                st.markdown(
-                    "<div style='text-align: right; color: green; font-size: 12px;'>💾 Auto-save ON (backup)</div>",
-                    unsafe_allow_html=True,
-                )
+
+    def display_annotation_navigation(self) -> None:
+        """Display navigation buttons and handle navigation logic."""
+        left, right = st.columns(2, vertical_alignment="center")
+        if left.button(
+            "",
+            icon=":material/arrow_back:",
+            disabled=not self.session_manager.can_go_previous(len(self.df)),
+            width="stretch",
+        ):
+            self.session_manager.previous_row()
+            st.rerun()
+
+        if right.button(
+            "",
+            icon=":material/arrow_forward:",
+            disabled=not self.session_manager.can_go_next(len(self.df)),
+            width="stretch",
+        ):
+            self.session_manager.next_row()
+            st.rerun()
 
     def display_subheader(self, text: str, level: int = 3) -> None:
         """Display a header with the given text."""
         st.markdown(f"<h{level}>{text}</h{level}>", unsafe_allow_html=True)
+
+    def display_annotation_prompt(self) -> None:
+        """Display the annotation prompt as bold, larger plain text."""
+        escaped_prompt = html.escape(self.annotation_prompt)
+
+        if len(escaped_prompt) <= 800:
+            st.html(
+                f"<div style='font-size: 1.3em; white-space: pre-wrap;'>{escaped_prompt}</div>"
+            )
+        else:
+            with st.container(border=True, height=400):
+                st.html(
+                    f"<div style='font-size: 1.3em; white-space: pre-wrap;'>{escaped_prompt}</div>"
+                )
 
     def display_columns_to_evaluate(
         self,
@@ -108,17 +187,9 @@ class StreamlitAnnotator:
         if not columns:
             return
 
-        st.write(f"**{col_type.capitalize()}s to Evaluate:**")
+        st.write(f"**{col_type.capitalize()}s to evaluate**")
         for col in columns:
-            with st.container():
-                st.markdown(
-                    f'<div style="position: absolute; top: 10px; left: 10px; font-size: 12px; color: #666; font-weight: bold;">{col}:</div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    '<style>div[data-testid="stVerticalBlock"] > div:has(> div.stText) {background-color: #f0f2f6; padding: 20px; border-radius: 5px; margin-bottom: 20px;}</style>',
-                    unsafe_allow_html=True,
-                )
+            with st.expander(col, expanded=True):
                 st.text(current_row[self.df.columns.index(col)])
 
     def display_radio_buttons(
@@ -127,13 +198,25 @@ class StreamlitAnnotator:
         outcomes: list[str],
         key: str,
         selected_index: Optional[int] = None,
+        is_required: bool = False,
     ) -> None:
         """Display radio buttons for annotation."""
+        if is_required:
+            st.markdown(
+                f"<p style='margin-bottom: 0px;'><strong>{label}:</strong> <span style='color:red'>*</span></p>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f"<p style='margin-bottom: 0px;'><strong>{label}:</strong></p>",
+                unsafe_allow_html=True,
+            )
         st.radio(
-            label=f"{label}:",
+            label=label,
             options=outcomes,
             key=key,
             index=selected_index,
+            label_visibility="collapsed",
         )
 
     def display_free_form_text(
@@ -141,9 +224,20 @@ class StreamlitAnnotator:
         label: str,
         value: Optional[str] = None,
         key: Optional[str] = None,
+        is_required: bool = False,
     ) -> None:
         """Display a free form text input."""
-        st.text_area(label=label, value=value, key=key)
+        if is_required:
+            st.markdown(
+                f"<p style='margin-bottom: 0px;'><strong>{label}:</strong> <span style='color:red'>*</span></p>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f"<p style='margin-bottom: 0px;'><strong>{label}:</strong></p>",
+                unsafe_allow_html=True,
+            )
+        st.text_area(label=label, value=value, key=key, label_visibility="collapsed")
 
     def handle_annotation(
         self, current_row: tuple[Any, ...]
@@ -156,12 +250,20 @@ class StreamlitAnnotator:
         Raises:
             AnnotationValidationError: If there is an error processing the annotation
         """
+        st.markdown(
+            "<div class='autosave-static-message'>Responses are automatically saved when all required fields are filled in.</div>",
+            unsafe_allow_html=True,
+        )
+
         annotation = {}
         current_id = current_row[self.df.columns.index(self.id_col)]
 
         try:
             if not self.task_schemas:
                 return annotation
+
+            # Get required tasks for this annotation
+            required_tasks = self.eval_task.get_required_tasks()
 
             for task_name, schema in self.task_schemas.items():
                 input_key = self.session_manager.get_input_key(task_name)
@@ -170,6 +272,9 @@ class StreamlitAnnotator:
                 prev_outcome = self.session_manager.get_previous_outcome(
                     task_name, current_id
                 )
+
+                # Check if this task is required
+                is_required = task_name in required_tasks
 
                 if isinstance(schema, list):
                     prev_selected_index = (
@@ -180,12 +285,14 @@ class StreamlitAnnotator:
                         outcomes=schema,
                         key=input_key,
                         selected_index=prev_selected_index,
+                        is_required=is_required,
                     )
                 else:
                     self.display_free_form_text(
                         label=task_name,
                         value=prev_outcome,
                         key=input_key,
+                        is_required=is_required,
                     )
 
                 outcome = self.session_manager.get_input_value(input_key)
@@ -196,6 +303,11 @@ class StreamlitAnnotator:
                 # Required tasks completed - add/update the row
                 sample_example_id = f"sample_{self.session_manager.current_row + 1}"
 
+                # Check if this is a new annotation
+                is_new_annotation = (
+                    current_id not in self.session_manager.results_builder._results
+                )
+
                 self.session_manager.create_success_row(
                     sample_example_id=sample_example_id,
                     original_id=current_id,
@@ -203,13 +315,16 @@ class StreamlitAnnotator:
                     annotation_timestamp=datetime.now(),
                 )
 
-                # Auto-save if enabled
-                if self.auto_save:
-                    try:
-                        self._auto_save_annotation(current_id, annotation)
-                    except Exception:
-                        # Re-raise to see original behavior
-                        raise
+                # Auto-save annotations
+                try:
+                    self._auto_save_annotation(current_id, annotation)
+                except Exception:
+                    # Re-raise to see original behavior
+                    raise
+
+                # Refresh the page to update the progress bar for new annotation
+                if is_new_annotation and not self.test_environment:
+                    st.rerun()
 
             return annotation
 
@@ -363,22 +478,46 @@ class StreamlitAnnotator:
             if results_data.is_empty():
                 return False
 
-            # Convert DataFrame back to result rows and add to session manager
+            # Convert DataFrame back to result rows using proper builder methods
             for row_dict in results_data.to_dicts():
                 # Extract the original_id to use as key
                 original_id = row_dict.get("original_id")
                 if not original_id:
                     continue
 
-                # Create a HumanAnnotationResultRow from the data
-                from meta_evaluator.results.human_results import (
-                    HumanAnnotationResultRow,
+                # Extract task outcomes (only the actual task results)
+                outcomes = {}
+                for task_name in self.task_schemas.keys():
+                    if task_name in row_dict and row_dict[task_name] is not None:
+                        outcomes[task_name] = row_dict[task_name]
+
+                # Skip rows that don't have any outcomes
+                if not outcomes:
+                    continue
+
+                # Parse annotation timestamp
+                from datetime import datetime
+
+                annotation_timestamp = row_dict.get("annotation_timestamp")
+                if isinstance(annotation_timestamp, str):
+                    try:
+                        annotation_timestamp = datetime.fromisoformat(
+                            annotation_timestamp.replace("Z", "+00:00")
+                        )
+                    except (ValueError, AttributeError):
+                        annotation_timestamp = datetime.now()
+                elif annotation_timestamp is None:
+                    annotation_timestamp = datetime.now()
+
+                # Use session manager's proper method (handles duplicates correctly)
+                self.session_manager.create_success_row(
+                    sample_example_id=row_dict.get(
+                        "sample_example_id", f"sample_{original_id}"
+                    ),
+                    original_id=original_id,
+                    outcomes=outcomes,
+                    annotation_timestamp=annotation_timestamp,
                 )
-
-                result_row = HumanAnnotationResultRow(**row_dict)
-
-                # Add to the session manager's results builder
-                self.session_manager.results_builder._results[original_id] = result_row
 
             self.logger.info(
                 f"Loaded {len(results_data)} annotations from auto-save file: {os.path.basename(auto_save_file)}"
@@ -396,10 +535,6 @@ class StreamlitAnnotator:
     ) -> None:
         """Auto-save annotation using the same format as final save (parquet format)."""
         try:
-            # Check if auto-save is enabled
-            if not self.auto_save:
-                return
-
             if not self.session_manager.has_user_session:
                 return
 
@@ -412,37 +547,12 @@ class StreamlitAnnotator:
 
             # Show success message
             st.success(
-                f"Auto-saved annotation (backup) for sample {self.session_manager.current_row + 1}"
+                f"Auto-saved annotation for sample {self.session_manager.current_row + 1}"
             )
 
         except Exception as e:
             self.logger.error(f"Auto-save failed: {str(e)}")
             st.error(f"Auto-save failed: {str(e)}")
-
-    def display_navigation_buttons(self) -> None:
-        """Display navigation buttons and handle navigation logic."""
-        col1, col2, col3 = st.columns([0.15, 0.7, 0.15], vertical_alignment="center")
-
-        with col1:
-            if st.button(
-                "Previous",
-                disabled=not self.session_manager.can_go_previous(len(self.df)),
-            ):
-                self.session_manager.previous_row()
-                st.rerun()
-
-        with col2:
-            st.markdown(
-                f"<div style='text-align: center'>Sample {self.session_manager.current_row + 1} of {len(self.df)}</div>",
-                unsafe_allow_html=True,
-            )
-
-        with col3:
-            if st.button(
-                "Next", disabled=not self.session_manager.can_go_next(len(self.df))
-            ):
-                self.session_manager.next_row()
-                st.rerun()
 
     def save_results(self) -> None:
         """Save the results to the results builder.
@@ -490,29 +600,54 @@ class StreamlitAnnotator:
             # Show success information
             st.success("✅ Export completed successfully!")
             self.display_subheader("Export Summary:", level=5)
-            st.write(f"> **Run ID:** {run_id}")
-            st.write(f"> **Annotator:** {annotator_id}")
-            st.write(
-                f"> **Time Completed:** {results.timestamp_local.strftime('%Y-%m-%d %H:%M')}"
-            )
+
+            # ID row
+            col1, col2 = st.columns([0.3, 0.7])
+            with col1:
+                st.write("ID")
+            with col2:
+                st.markdown(
+                    f"<div style='text-align: right'>{run_id}</div>",
+                    unsafe_allow_html=True,
+                )
+
+            # Name row
+            col1, col2 = st.columns([0.3, 0.7])
+            with col1:
+                st.write("Annotator Name")
+            with col2:
+                st.markdown(
+                    f"<div style='text-align: right'>{annotator_id}</div>",
+                    unsafe_allow_html=True,
+                )
+
+            # Time Completed row
+            col1, col2 = st.columns([0.3, 0.7])
+            with col1:
+                st.write("Time Completed")
+            with col2:
+                st.markdown(
+                    f"<div style='text-align: right'>{results.timestamp_local.strftime('%B %d, %Y at %I:%M %p')}</div>",
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown("---")
 
             # Show task completion rates
             self.display_subheader("Task Completion Rates:", level=5)
             for task_name in results.task_schemas.keys():
                 success_rate = results.get_task_success_rate(task_name)
-                st.progress(
-                    success_rate, text=f"{task_name}: {success_rate * 100:.1f}%"
-                )
+                completed_count = int(success_rate * results.total_count)
 
-            # Provide next steps
-            self.display_subheader("Next Steps:", level=5)
-            st.markdown(
-                """
-            - Your annotations have been saved successfully
-            - You can close this browser tab
-            - Thank you for your contribution!
-            """
-            )
+                # Task completion row with left/right alignment
+                col1, col2 = st.columns([0.3, 0.7])
+                with col1:
+                    st.write(f"{task_name}")
+                with col2:
+                    st.markdown(
+                        f"<div style='text-align: right'>{completed_count}/{results.total_count}</div>",
+                        unsafe_allow_html=True,
+                    )
 
         except Exception as e:
             st.error(f"Error creating results: {str(e)}", icon="🚨")
@@ -525,11 +660,45 @@ class StreamlitAnnotator:
             """
             )
 
-    def display_export_button(self, total_samples: int) -> None:
+    def display_annotation_export(self, total_samples: int) -> None:
         """Display export button when all samples are annotated."""
-        if self.session_manager.annotated_count != total_samples:
+        # Track if user has reached the end at least once
+        if "has_reached_end" not in st.session_state:
+            st.session_state.has_reached_end = False
+
+        # Mark as reached end if on last sample
+        if self.session_manager.current_row >= total_samples - 1:
+            st.session_state.has_reached_end = True
+
+        # Only show export section if user has reached the end at least once
+        if not st.session_state.has_reached_end:
             return
 
+        # Check for incomplete samples
+        all_ids = self.df[self.id_col].to_list()
+        required_tasks = self.eval_task.get_required_tasks()
+        incomplete_samples = self.session_manager.get_incomplete_samples(
+            all_ids, required_tasks
+        )
+
+        if incomplete_samples:
+            # Show warning about incomplete samples
+            st.warning(
+                f"⚠️ Cannot export: {len(incomplete_samples)} sample(s) incomplete",
+                icon="⚠️",
+            )
+
+            # Display incomplete samples in an expander
+            with st.expander(
+                f"View Incomplete Samples ({len(incomplete_samples)})", expanded=False
+            ):
+                for sample_num, info in sorted(incomplete_samples.items()):
+                    st.write(f"**Sample {sample_num}** (ID: {info['id']})")
+                    st.write(f"Missing fields: {', '.join(info['missing_fields'])}")
+                    st.write("---")
+            return
+
+        # All samples complete - show export section
         self.display_subheader("All done here, export your annotations:", level=5)
 
         # Validate name
@@ -546,22 +715,25 @@ class StreamlitAnnotator:
     def build_streamlit_app(self) -> None:
         """Launch the Streamlit annotation interface."""
         try:
-            st.title("Simple Annotation Interface")
+            # Set style (important for the UI)
+            self.set_style()
+
             self.annotator_name = st.text_input(
                 label="Hello,",
                 placeholder="Your name here.",
                 help="This will be used to identify your annotations!",
             )
-
             # Check if user has entered a name and initialize their session
             if self.annotator_name and self.annotator_name.strip():
                 # Initialize user-specific session if not already done
                 if not self.session_manager.has_user_session:
                     expected_ids = self.df[self.id_col].to_list()
+                    required_tasks = self.eval_task.get_required_tasks()
                     self.session_manager.initialize_user_session(
                         annotator_name=self.annotator_name,
                         task_schemas=self.task_schemas,
                         expected_ids=expected_ids,
+                        required_tasks=required_tasks,
                     )
 
                     # Check for existing auto-save and load if found
@@ -573,9 +745,29 @@ class StreamlitAnnotator:
 
                         if existing_auto_save_file:
                             if self._load_auto_save_results(existing_auto_save_file):
-                                st.info(
-                                    f"Resumed from auto-save: {os.path.basename(existing_auto_save_file)}"
+                                # Find incomplete samples to determine resume position
+                                incomplete_samples = (
+                                    self.session_manager.get_incomplete_samples(
+                                        expected_ids, required_tasks
+                                    )
                                 )
+
+                                if incomplete_samples:
+                                    # Resume from first incomplete sample
+                                    first_incomplete = min(incomplete_samples.keys())
+                                    self.session_manager.current_row = (
+                                        first_incomplete - 1
+                                    )
+                                    st.info(
+                                        f"Resumed from auto-save: Continuing from sample {first_incomplete}"
+                                    )
+                                else:
+                                    # All samples complete - go to last sample
+                                    self.session_manager.current_row = len(self.df) - 1
+                                    st.info(
+                                        "Resumed from auto-save: All samples complete. Ready to export!"
+                                    )
+
                                 # Set the auto-save file to the existing one
                                 self.auto_save_file = existing_auto_save_file
                             else:
@@ -594,27 +786,32 @@ class StreamlitAnnotator:
 
                 current_row = self.df.row(self.session_manager.current_row)
 
-                self.display_top_header(
-                    current_row_idx=self.session_manager.current_row,
-                    total_samples=len(self.df),
-                )
-                st.markdown("---")
-                self.display_subheader(text=self.annotation_prompt, level=4)
-                self.display_columns_to_evaluate(
-                    col_type="prompt", current_row=current_row
-                )
-                self.display_columns_to_evaluate(
-                    col_type="response", current_row=current_row
-                )
-                st.markdown("---")
-                self.display_subheader(text="Your response:", level=5)
-                self.handle_annotation(current_row=current_row)
-
-                st.markdown("---")
-                self.display_navigation_buttons()
+                # Display the annotation interface
                 st.markdown("---")
 
-                self.display_export_button(total_samples=len(self.df))
+                col1, col2 = st.columns((0.6, 0.4), gap="medium")
+                with col1:
+                    self.display_subheader(
+                        f"Sample {self.session_manager.current_row + 1}", level=3
+                    )
+                    self.display_annotation_prompt()
+
+                    self.display_columns_to_evaluate(
+                        col_type="prompt", current_row=current_row
+                    )
+                    self.display_columns_to_evaluate(
+                        col_type="response", current_row=current_row
+                    )
+
+                with col2:
+                    self.display_subheader(text="Annotations", level=4)
+                    self.display_annotation_progress(total_samples=len(self.df))
+                    self.handle_annotation(current_row=current_row)
+                    self.display_annotation_navigation()
+
+                    st.markdown("---")
+                    self.display_annotation_export(total_samples=len(self.df))
+
             else:
                 st.info("Please enter your name to start annotating.")
 

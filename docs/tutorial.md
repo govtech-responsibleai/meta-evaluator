@@ -43,9 +43,10 @@ def create_rejection_task() -> EvalTask:
     """Define the rejection detection task."""
     return EvalTask(
         task_schemas={
-            "rejection": ["rejection", "not rejection"],  # Classification
-            "explanation": None,  # Free-form text explanation
+            "rejection": ["rejection", "not rejection"],  # Classification (required by default)
+            "explanation": None,  # Free-form text (not required by default)
         },
+        # required_tasks not specified - only classification tasks required by default
         prompt_columns=["prompt"],        # Context from prompt
         response_columns=["llm_response"], # Response to evaluate
         answering_method="structured",    # Use structured JSON output
@@ -170,9 +171,10 @@ def create_rejection_task() -> EvalTask:
     """Define the rejection detection task."""
     return EvalTask(
         task_schemas={
-            "rejection": ["rejection", "not rejection"],  # Classification
-            "explanation": None,  # Free-form text explanation
+            "rejection": ["rejection", "not rejection"],  # Classification (required by default)
+            "explanation": None,  # Free-form text (not required by default)
         },
+        # required_tasks not specified - only classification tasks required by default
         prompt_columns=["prompt"],        # Context from prompt
         response_columns=["llm_response"], # Response to evaluate
         answering_method="structured",    # Use structured JSON output
@@ -318,19 +320,22 @@ quickstart_project/
 
 When you call `evaluator.save_state()`, MetaEvaluator persists your project configuration for later use. Here's what gets saved and what doesn't:
 
-### ✅ Saved by save_state
+✅&nbsp; **Saved by save_state**
+
 - **Evaluation task configuration**: Task schemas, columns, prompts, answering methods
 - **Data metadata and files**: Your evaluation dataset and its configuration
 - **Judge configurations**: Registered judges and their settings
 - **Project structure**: Directory organization and paths
 
-### ❌ NOT saved by save_state
+❌&nbsp; **NOT saved by save_state**
+
 - **Metrics configurations**: MetricsConfig objects (not supported yet)
 - **Judge evaluation results**: Saved separately in `results/` directory
 - **Human annotation results**: Saved separately in `annotations/` directory
 - **Computed scores**: Saved separately in `scores/` directory
 
-### 🔄 After Loading a Project
+🔄&nbsp; **After Loading a Project**
+
 When you load a saved project, you must re-add your metrics configuration:
 
 ```python

@@ -148,7 +148,7 @@ class EvalTask(BaseModel):
             list[str]: List of required task names. If required_tasks is None,
                 returns all task names with non-null schemas.
         """
-        if self.required_tasks is not None:
+        if self.required_tasks is not None and len(self.required_tasks) > 0:
             return self.required_tasks
         else:
             # Default behavior: all non-null schemas are required
@@ -245,6 +245,7 @@ class EvalTask(BaseModel):
             response_columns=self.response_columns,
             answering_method=self.answering_method,
             structured_outputs_fallback=self.structured_outputs_fallback,
+            annotation_prompt=self.annotation_prompt,
         )
 
     @classmethod
@@ -264,6 +265,9 @@ class EvalTask(BaseModel):
             answering_method=state.answering_method,
             structured_outputs_fallback=getattr(
                 state, "structured_outputs_fallback", False
+            ),
+            annotation_prompt=getattr(
+                state, "annotation_prompt", "Please evaluate the following response:"
             ),
             # skip_function must be set manually or defaulted
         )

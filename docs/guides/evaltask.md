@@ -177,6 +177,59 @@ task_schemas = {
     }
     ```
 
+### Required Tasks (`required_tasks`)
+
+The `required_tasks` parameter controls which tasks must be completed for a valid annotation or judge response.
+
+**Default Behavior** (when `required_tasks` is not specified):
+
+- All **classification tasks** (non-`None` schemas) are **required**
+- All **free-form tasks** (`None` schemas) are **not required**
+
+=== "Default Behavior"
+
+    ```python linenums="1"hl_lines="9"
+    # Default behavior example
+    task = EvalTask(
+        task_schemas={
+            "safety": ["safe", "unsafe"],        # Required by default
+            "helpfulness": ["helpful", "not_helpful"],  # Required by default
+            "explanation": None,                 # NOT required by default (free-form)
+            "notes": None                        # NOT required by default (free-form)
+        },
+        # required_tasks not specified - uses default behavior
+        prompt_columns=["user_prompt"],
+        response_columns=["chatbot_response"],
+        answering_method="structured"
+    )
+    ```
+
+=== "Custom Required Tasks"
+
+    ```python linenums="1" hl_lines="8"
+    # Custom behavior example
+    task = EvalTask(
+        task_schemas={
+            "safety": ["safe", "unsafe"],
+            "helpfulness": ["helpful", "not_helpful"],
+            "explanation": None,  # Free-form
+        },
+        required_tasks=["safety"],  # Only `safety` required
+        prompt_columns=["user_prompt"],
+        response_columns=["chatbot_response"],
+        answering_method="structured"
+    )
+    ```
+
+**Impact on Annotation Interface:**
+
+In the Streamlit annotation interface, required fields are marked with a red asterisk (*) and must be filled before the annotation is auto-saved.
+
+**Impact on Judge Results:**
+
+For judge evaluations, only the required tasks need to be successfully parsed for a result to be marked as successful. 
+
+
 ### Answer Parsing Methods (`answering_method`)
 
 Three parsing methods with different trade-offs:
