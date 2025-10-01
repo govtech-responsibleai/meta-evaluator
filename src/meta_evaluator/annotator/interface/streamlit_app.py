@@ -86,6 +86,9 @@ class StreamlitAnnotator:
         """Set the style for the Streamlit app."""
         css = """
         <style>
+            .stMainBlockContainer {
+                padding-top: 3rem; /* default is 6rem */
+            }
             [data-testid="stProgress"] > div:nth-child(2) {
                 padding-bottom: 25px;
             }
@@ -188,22 +191,21 @@ class StreamlitAnnotator:
         """Display radio buttons for annotation."""
         if is_required:
             st.markdown(
-                f"**{label}:** <span style='color:red'>*</span>", unsafe_allow_html=True
-            )
-            st.radio(
-                label=label,
-                options=outcomes,
-                key=key,
-                index=selected_index,
-                label_visibility="collapsed",
+                f"<p style='margin-bottom: 0px;'><strong>{label}:</strong> <span style='color:red'>*</span></p>",
+                unsafe_allow_html=True,
             )
         else:
-            st.radio(
-                label=f"{label}:",
-                options=outcomes,
-                key=key,
-                index=selected_index,
+            st.markdown(
+                f"<p style='margin-bottom: 0px;'><strong>{label}:</strong></p>",
+                unsafe_allow_html=True,
             )
+        st.radio(
+            label=label,
+            options=outcomes,
+            key=key,
+            index=selected_index,
+            label_visibility="collapsed",
+        )
 
     def display_free_form_text(
         self,
@@ -215,13 +217,15 @@ class StreamlitAnnotator:
         """Display a free form text input."""
         if is_required:
             st.markdown(
-                f"**{label}:** <span style='color:red'>*</span>", unsafe_allow_html=True
-            )
-            st.text_area(
-                label=label, value=value, key=key, label_visibility="collapsed"
+                f"<p style='margin-bottom: 0px;'><strong>{label}:</strong> <span style='color:red'>*</span></p>",
+                unsafe_allow_html=True,
             )
         else:
-            st.text_area(label=label, value=value, key=key)
+            st.markdown(
+                f"<p style='margin-bottom: 0px;'><strong>{label}:</strong></p>",
+                unsafe_allow_html=True,
+            )
+        st.text_area(label=label, value=value, key=key, label_visibility="collapsed")
 
     def handle_annotation(
         self, current_row: tuple[Any, ...]
@@ -729,9 +733,29 @@ class StreamlitAnnotator:
 
                         if existing_auto_save_file:
                             if self._load_auto_save_results(existing_auto_save_file):
-                                st.info(
-                                    f"Resumed from auto-save: {os.path.basename(existing_auto_save_file)}"
+                                # Find incomplete samples to determine resume position
+                                incomplete_samples = (
+                                    self.session_manager.get_incomplete_samples(
+                                        expected_ids, required_tasks
+                                    )
                                 )
+
+                                if incomplete_samples:
+                                    # Resume from first incomplete sample
+                                    first_incomplete = min(incomplete_samples.keys())
+                                    self.session_manager.current_row = (
+                                        first_incomplete - 1
+                                    )
+                                    st.info(
+                                        f"Resumed from auto-save: Continuing from sample {first_incomplete}"
+                                    )
+                                else:
+                                    # All samples complete - go to last sample
+                                    self.session_manager.current_row = len(self.df) - 1
+                                    st.info(
+                                        "Resumed from auto-save: All samples complete. Ready to export!"
+                                    )
+
                                 # Set the auto-save file to the existing one
                                 self.auto_save_file = existing_auto_save_file
                             else:
