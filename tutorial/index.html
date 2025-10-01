@@ -460,39 +460,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="What save_state Saves and Doesn&#39;t Save">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#saved-by-save_state" class="md-nav__link">
-    <span class="md-ellipsis">
-      ✅ Saved by save_state
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#not-saved-by-save_state" class="md-nav__link">
-    <span class="md-ellipsis">
-      ❌ NOT saved by save_state
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#after-loading-a-project" class="md-nav__link">
-    <span class="md-ellipsis">
-      🔄 After Loading a Project
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
     </ul>
@@ -936,39 +903,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="What save_state Saves and Doesn&#39;t Save">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#saved-by-save_state" class="md-nav__link">
-    <span class="md-ellipsis">
-      ✅ Saved by save_state
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#not-saved-by-save_state" class="md-nav__link">
-    <span class="md-ellipsis">
-      ❌ NOT saved by save_state
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#after-loading-a-project" class="md-nav__link">
-    <span class="md-ellipsis">
-      🔄 After Loading a Project
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
     </ul>
@@ -1047,7 +981,8 @@
 <span class="normal"><a href="#__codelineno-2-35">35</a></span>
 <span class="normal"><a href="#__codelineno-2-36">36</a></span>
 <span class="normal"><a href="#__codelineno-2-37">37</a></span>
-<span class="normal"><a href="#__codelineno-2-38">38</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span><span class="p">,</span> <span class="n">EvalData</span>
+<span class="normal"><a href="#__codelineno-2-38">38</a></span>
+<span class="normal"><a href="#__codelineno-2-39">39</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span><span class="p">,</span> <span class="n">EvalData</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.eval_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvalTask</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.meta_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetaEvaluator</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4"></a>
@@ -1055,36 +990,37 @@
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Define the rejection detection task.&quot;&quot;&quot;</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7"></a>    <span class="k">return</span> <span class="n">EvalTask</span><span class="p">(</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8"></a>        <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9"></a>            <span class="s2">&quot;rejection&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">,</span> <span class="s2">&quot;not rejection&quot;</span><span class="p">],</span>  <span class="c1"># Classification</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10"></a>            <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># Free-form text explanation</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9"></a>            <span class="s2">&quot;rejection&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">,</span> <span class="s2">&quot;not rejection&quot;</span><span class="p">],</span>  <span class="c1"># Classification (required by default)</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10"></a>            <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># Free-form text (not required by default)</span>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11"></a>        <span class="p">},</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12"></a>        <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prompt&quot;</span><span class="p">],</span>        <span class="c1"># Context from prompt</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13"></a>        <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;llm_response&quot;</span><span class="p">],</span> <span class="c1"># Response to evaluate</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14"></a>        <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>    <span class="c1"># Use structured JSON output</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15"></a>        <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># Fallback if structured fails</span>
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16"></a>    <span class="p">)</span>
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17"></a>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12"></a>        <span class="c1"># required_tasks not specified - only classification tasks required by default</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13"></a>        <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prompt&quot;</span><span class="p">],</span>        <span class="c1"># Context from prompt</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14"></a>        <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;llm_response&quot;</span><span class="p">],</span> <span class="c1"># Response to evaluate</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15"></a>        <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>    <span class="c1"># Use structured JSON output</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16"></a>        <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># Fallback if structured fails</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17"></a>    <span class="p">)</span>
 </span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18"></a>
-</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_sample_data</span><span class="p">():</span>
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load the quickstart CSV data.&quot;&quot;&quot;</span>
-</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21"></a>    <span class="k">return</span> <span class="n">DataLoader</span><span class="o">.</span><span class="n">load_csv</span><span class="p">(</span>
-</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;quickstart_rejection&quot;</span><span class="p">,</span>
-</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23"></a>        <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;quickstart_data.csv&quot;</span><span class="p">,</span>
-</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24"></a>    <span class="p">)</span>
-</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25"></a>
-</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26"></a><span class="c1"># Step 1: Initialize MetaEvaluator</span>
-</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27"></a><span class="c1"># load=False: Create new project (ensure directory is empty or doesn&#39;t exist)</span>
-</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28"></a><span class="n">evaluator</span> <span class="o">=</span> <span class="n">MetaEvaluator</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;quickstart_project&quot;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29"></a>
-</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30"></a><span class="c1"># Step 2: Add evaluation task and data</span>
-</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31"></a><span class="n">task</span> <span class="o">=</span> <span class="n">create_rejection_task</span><span class="p">()</span>
-</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32"></a><span class="n">data</span> <span class="o">=</span> <span class="n">load_sample_data</span><span class="p">()</span>
-</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33"></a>
-</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_eval_task</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-</span><span id="__span-2-36"><a id="__codelineno-2-36" name="__codelineno-2-36"></a>
-</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37"></a><span class="c1"># Step 3: Launch annotator</span>
-</span><span id="__span-2-38"><a id="__codelineno-2-38" name="__codelineno-2-38"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">8501</span><span class="p">)</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19"></a>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_sample_data</span><span class="p">():</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load the quickstart CSV data.&quot;&quot;&quot;</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22"></a>    <span class="k">return</span> <span class="n">DataLoader</span><span class="o">.</span><span class="n">load_csv</span><span class="p">(</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;quickstart_rejection&quot;</span><span class="p">,</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24"></a>        <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;quickstart_data.csv&quot;</span><span class="p">,</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25"></a>    <span class="p">)</span>
+</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26"></a>
+</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27"></a><span class="c1"># Step 1: Initialize MetaEvaluator</span>
+</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28"></a><span class="c1"># load=False: Create new project (ensure directory is empty or doesn&#39;t exist)</span>
+</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29"></a><span class="n">evaluator</span> <span class="o">=</span> <span class="n">MetaEvaluator</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;quickstart_project&quot;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30"></a>
+</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31"></a><span class="c1"># Step 2: Add evaluation task and data</span>
+</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32"></a><span class="n">task</span> <span class="o">=</span> <span class="n">create_rejection_task</span><span class="p">()</span>
+</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33"></a><span class="n">data</span> <span class="o">=</span> <span class="n">load_sample_data</span><span class="p">()</span>
+</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34"></a>
+</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_eval_task</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+</span><span id="__span-2-36"><a id="__codelineno-2-36" name="__codelineno-2-36"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">add_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37"></a>
+</span><span id="__span-2-38"><a id="__codelineno-2-38" name="__codelineno-2-38"></a><span class="c1"># Step 3: Launch annotator</span>
+</span><span id="__span-2-39"><a id="__codelineno-2-39" name="__codelineno-2-39"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">8501</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
 <h3 id="step-3-create-judge-configuration">Step 3: Create Judge Configuration</h3>
 <p>Create <code>judges.yaml</code>:</p>
@@ -1270,7 +1206,8 @@
 <span class="normal"><a href="#__codelineno-5-141">141</a></span>
 <span class="normal"><a href="#__codelineno-5-142">142</a></span>
 <span class="normal"><a href="#__codelineno-5-143">143</a></span>
-<span class="normal"><a href="#__codelineno-5-144">144</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><span class="ch">#!/usr/bin/env python3</span>
+<span class="normal"><a href="#__codelineno-5-144">144</a></span>
+<span class="normal"><a href="#__codelineno-5-145">145</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><span class="ch">#!/usr/bin/env python3</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2"></a><span class="sd">&quot;&quot;&quot;Quickstart example for MetaEvaluator.&quot;&quot;&quot;</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3"></a>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
@@ -1312,108 +1249,109 @@
 </span><span id="__span-5-40"><a id="__codelineno-5-40" name="__codelineno-5-40"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Define the rejection detection task.&quot;&quot;&quot;</span>
 </span><span id="__span-5-41"><a id="__codelineno-5-41" name="__codelineno-5-41"></a>    <span class="k">return</span> <span class="n">EvalTask</span><span class="p">(</span>
 </span><span id="__span-5-42"><a id="__codelineno-5-42" name="__codelineno-5-42"></a>        <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-5-43"><a id="__codelineno-5-43" name="__codelineno-5-43"></a>            <span class="s2">&quot;rejection&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">,</span> <span class="s2">&quot;not rejection&quot;</span><span class="p">],</span>  <span class="c1"># Classification</span>
-</span><span id="__span-5-44"><a id="__codelineno-5-44" name="__codelineno-5-44"></a>            <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># Free-form text explanation</span>
+</span><span id="__span-5-43"><a id="__codelineno-5-43" name="__codelineno-5-43"></a>            <span class="s2">&quot;rejection&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">,</span> <span class="s2">&quot;not rejection&quot;</span><span class="p">],</span>  <span class="c1"># Classification (required by default)</span>
+</span><span id="__span-5-44"><a id="__codelineno-5-44" name="__codelineno-5-44"></a>            <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># Free-form text (not required by default)</span>
 </span><span id="__span-5-45"><a id="__codelineno-5-45" name="__codelineno-5-45"></a>        <span class="p">},</span>
-</span><span id="__span-5-46"><a id="__codelineno-5-46" name="__codelineno-5-46"></a>        <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prompt&quot;</span><span class="p">],</span>        <span class="c1"># Context from prompt</span>
-</span><span id="__span-5-47"><a id="__codelineno-5-47" name="__codelineno-5-47"></a>        <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;llm_response&quot;</span><span class="p">],</span> <span class="c1"># Response to evaluate</span>
-</span><span id="__span-5-48"><a id="__codelineno-5-48" name="__codelineno-5-48"></a>        <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>    <span class="c1"># Use structured JSON output</span>
-</span><span id="__span-5-49"><a id="__codelineno-5-49" name="__codelineno-5-49"></a>        <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># Fallback if structured fails</span>
-</span><span id="__span-5-50"><a id="__codelineno-5-50" name="__codelineno-5-50"></a>    <span class="p">)</span>
-</span><span id="__span-5-51"><a id="__codelineno-5-51" name="__codelineno-5-51"></a>
+</span><span id="__span-5-46"><a id="__codelineno-5-46" name="__codelineno-5-46"></a>        <span class="c1"># required_tasks not specified - only classification tasks required by default</span>
+</span><span id="__span-5-47"><a id="__codelineno-5-47" name="__codelineno-5-47"></a>        <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prompt&quot;</span><span class="p">],</span>        <span class="c1"># Context from prompt</span>
+</span><span id="__span-5-48"><a id="__codelineno-5-48" name="__codelineno-5-48"></a>        <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;llm_response&quot;</span><span class="p">],</span> <span class="c1"># Response to evaluate</span>
+</span><span id="__span-5-49"><a id="__codelineno-5-49" name="__codelineno-5-49"></a>        <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>    <span class="c1"># Use structured JSON output</span>
+</span><span id="__span-5-50"><a id="__codelineno-5-50" name="__codelineno-5-50"></a>        <span class="n">structured_outputs_fallback</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># Fallback if structured fails</span>
+</span><span id="__span-5-51"><a id="__codelineno-5-51" name="__codelineno-5-51"></a>    <span class="p">)</span>
 </span><span id="__span-5-52"><a id="__codelineno-5-52" name="__codelineno-5-52"></a>
-</span><span id="__span-5-53"><a id="__codelineno-5-53" name="__codelineno-5-53"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_sample_data</span><span class="p">():</span>
-</span><span id="__span-5-54"><a id="__codelineno-5-54" name="__codelineno-5-54"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load the quickstart CSV data.&quot;&quot;&quot;</span>
-</span><span id="__span-5-55"><a id="__codelineno-5-55" name="__codelineno-5-55"></a>    <span class="k">return</span> <span class="n">DataLoader</span><span class="o">.</span><span class="n">load_csv</span><span class="p">(</span>
-</span><span id="__span-5-56"><a id="__codelineno-5-56" name="__codelineno-5-56"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;quickstart_rejection&quot;</span><span class="p">,</span>
-</span><span id="__span-5-57"><a id="__codelineno-5-57" name="__codelineno-5-57"></a>        <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;quickstart_data.csv&quot;</span><span class="p">,</span>
-</span><span id="__span-5-58"><a id="__codelineno-5-58" name="__codelineno-5-58"></a>    <span class="p">)</span>
-</span><span id="__span-5-59"><a id="__codelineno-5-59" name="__codelineno-5-59"></a>
+</span><span id="__span-5-53"><a id="__codelineno-5-53" name="__codelineno-5-53"></a>
+</span><span id="__span-5-54"><a id="__codelineno-5-54" name="__codelineno-5-54"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_sample_data</span><span class="p">():</span>
+</span><span id="__span-5-55"><a id="__codelineno-5-55" name="__codelineno-5-55"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load the quickstart CSV data.&quot;&quot;&quot;</span>
+</span><span id="__span-5-56"><a id="__codelineno-5-56" name="__codelineno-5-56"></a>    <span class="k">return</span> <span class="n">DataLoader</span><span class="o">.</span><span class="n">load_csv</span><span class="p">(</span>
+</span><span id="__span-5-57"><a id="__codelineno-5-57" name="__codelineno-5-57"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;quickstart_rejection&quot;</span><span class="p">,</span>
+</span><span id="__span-5-58"><a id="__codelineno-5-58" name="__codelineno-5-58"></a>        <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;quickstart_data.csv&quot;</span><span class="p">,</span>
+</span><span id="__span-5-59"><a id="__codelineno-5-59" name="__codelineno-5-59"></a>    <span class="p">)</span>
 </span><span id="__span-5-60"><a id="__codelineno-5-60" name="__codelineno-5-60"></a>
-</span><span id="__span-5-61"><a id="__codelineno-5-61" name="__codelineno-5-61"></a><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-5-62"><a id="__codelineno-5-62" name="__codelineno-5-62"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Run the complete evaluation workflow.&quot;&quot;&quot;</span>
-</span><span id="__span-5-63"><a id="__codelineno-5-63" name="__codelineno-5-63"></a>
-</span><span id="__span-5-64"><a id="__codelineno-5-64" name="__codelineno-5-64"></a>    <span class="c1"># Step 1: Initialize MetaEvaluator</span>
-</span><span id="__span-5-65"><a id="__codelineno-5-65" name="__codelineno-5-65"></a>    <span class="c1"># load=False: Create new project (ensure directory is empty or doesn&#39;t exist)</span>
-</span><span id="__span-5-66"><a id="__codelineno-5-66" name="__codelineno-5-66"></a>    <span class="n">evaluator</span> <span class="o">=</span> <span class="n">MetaEvaluator</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;quickstart_project&quot;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span><span id="__span-5-67"><a id="__codelineno-5-67" name="__codelineno-5-67"></a>
-</span><span id="__span-5-68"><a id="__codelineno-5-68" name="__codelineno-5-68"></a>    <span class="c1"># Step 2: Add evaluation task and data</span>
-</span><span id="__span-5-69"><a id="__codelineno-5-69" name="__codelineno-5-69"></a>    <span class="n">task</span> <span class="o">=</span> <span class="n">create_rejection_task</span><span class="p">()</span>
-</span><span id="__span-5-70"><a id="__codelineno-5-70" name="__codelineno-5-70"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">load_sample_data</span><span class="p">()</span>
-</span><span id="__span-5-71"><a id="__codelineno-5-71" name="__codelineno-5-71"></a>
-</span><span id="__span-5-72"><a id="__codelineno-5-72" name="__codelineno-5-72"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">add_eval_task</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-</span><span id="__span-5-73"><a id="__codelineno-5-73" name="__codelineno-5-73"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">add_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-</span><span id="__span-5-74"><a id="__codelineno-5-74" name="__codelineno-5-74"></a>
-</span><span id="__span-5-75"><a id="__codelineno-5-75" name="__codelineno-5-75"></a>    <span class="c1"># Step 3: Load judges from YAML</span>
-</span><span id="__span-5-76"><a id="__codelineno-5-76" name="__codelineno-5-76"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">load_judges_from_yaml</span><span class="p">(</span>
-</span><span id="__span-5-77"><a id="__codelineno-5-77" name="__codelineno-5-77"></a>        <span class="n">yaml_file</span><span class="o">=</span><span class="s2">&quot;judges.yaml&quot;</span><span class="p">,</span>
-</span><span id="__span-5-78"><a id="__codelineno-5-78" name="__codelineno-5-78"></a>        <span class="n">on_duplicate</span><span class="o">=</span><span class="s2">&quot;skip&quot;</span><span class="p">,</span>  <span class="c1"># Skip if already exists</span>
-</span><span id="__span-5-79"><a id="__codelineno-5-79" name="__codelineno-5-79"></a>        <span class="n">async_mode</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>      <span class="c1"># Enable async evaluation</span>
-</span><span id="__span-5-80"><a id="__codelineno-5-80" name="__codelineno-5-80"></a>    <span class="p">)</span>
-</span><span id="__span-5-81"><a id="__codelineno-5-81" name="__codelineno-5-81"></a>
-</span><span id="__span-5-82"><a id="__codelineno-5-82" name="__codelineno-5-82"></a>    <span class="c1"># Step 4: Save state for persistence</span>
-</span><span id="__span-5-83"><a id="__codelineno-5-83" name="__codelineno-5-83"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">save_state</span><span class="p">(</span><span class="n">data_format</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">)</span>
-</span><span id="__span-5-84"><a id="__codelineno-5-84" name="__codelineno-5-84"></a>
-</span><span id="__span-5-85"><a id="__codelineno-5-85" name="__codelineno-5-85"></a>    <span class="c1"># Step 5: Run judge evaluations</span>
-</span><span id="__span-5-86"><a id="__codelineno-5-86" name="__codelineno-5-86"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">run_judges_async</span><span class="p">(</span><span class="n">skip_duplicates</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-5-87"><a id="__codelineno-5-87" name="__codelineno-5-87"></a>
-</span><span id="__span-5-88"><a id="__codelineno-5-88" name="__codelineno-5-88"></a>    <span class="c1"># Step 6: Set up multiple metrics for comprehensive comparison</span>
-</span><span id="__span-5-89"><a id="__codelineno-5-89" name="__codelineno-5-89"></a>    <span class="n">accuracy_scorer</span> <span class="o">=</span> <span class="n">AccuracyScorer</span><span class="p">()</span>
-</span><span id="__span-5-90"><a id="__codelineno-5-90" name="__codelineno-5-90"></a>    <span class="n">alt_test_scorer</span> <span class="o">=</span> <span class="n">AltTestScorer</span><span class="p">()</span>
-</span><span id="__span-5-91"><a id="__codelineno-5-91" name="__codelineno-5-91"></a>    <span class="n">cohens_kappa_scorer</span> <span class="o">=</span> <span class="n">CohensKappaScorer</span><span class="p">()</span>
-</span><span id="__span-5-92"><a id="__codelineno-5-92" name="__codelineno-5-92"></a>    <span class="n">text_similarity_scorer</span> <span class="o">=</span> <span class="n">TextSimilarityScorer</span><span class="p">()</span>
-</span><span id="__span-5-93"><a id="__codelineno-5-93" name="__codelineno-5-93"></a>    <span class="n">semantic_similarity_scorer</span> <span class="o">=</span> <span class="n">SemanticSimilarityScorer</span><span class="p">()</span>  <span class="c1"># Requires OPENAI_API_KEY</span>
-</span><span id="__span-5-94"><a id="__codelineno-5-94" name="__codelineno-5-94"></a>
-</span><span id="__span-5-95"><a id="__codelineno-5-95" name="__codelineno-5-95"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">MetricsConfig</span><span class="p">(</span>
-</span><span id="__span-5-96"><a id="__codelineno-5-96" name="__codelineno-5-96"></a>        <span class="n">metrics</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-5-97"><a id="__codelineno-5-97" name="__codelineno-5-97"></a>            <span class="c1"># Classification task metrics</span>
-</span><span id="__span-5-98"><a id="__codelineno-5-98" name="__codelineno-5-98"></a>            <span class="n">MetricConfig</span><span class="p">(</span>
-</span><span id="__span-5-99"><a id="__codelineno-5-99" name="__codelineno-5-99"></a>                <span class="n">scorer</span><span class="o">=</span><span class="n">accuracy_scorer</span><span class="p">,</span>
-</span><span id="__span-5-100"><a id="__codelineno-5-100" name="__codelineno-5-100"></a>                <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">],</span>
-</span><span id="__span-5-101"><a id="__codelineno-5-101" name="__codelineno-5-101"></a>                <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span>
-</span><span id="__span-5-102"><a id="__codelineno-5-102" name="__codelineno-5-102"></a>                <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span> 
-</span><span id="__span-5-103"><a id="__codelineno-5-103" name="__codelineno-5-103"></a>            <span class="p">),</span>
-</span><span id="__span-5-104"><a id="__codelineno-5-104" name="__codelineno-5-104"></a>            <span class="n">MetricConfig</span><span class="p">(</span>
-</span><span id="__span-5-105"><a id="__codelineno-5-105" name="__codelineno-5-105"></a>                <span class="n">scorer</span><span class="o">=</span><span class="n">alt_test_scorer</span><span class="p">,</span>
-</span><span id="__span-5-106"><a id="__codelineno-5-106" name="__codelineno-5-106"></a>                <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">],</span>
-</span><span id="__span-5-107"><a id="__codelineno-5-107" name="__codelineno-5-107"></a>                <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span>
-</span><span id="__span-5-108"><a id="__codelineno-5-108" name="__codelineno-5-108"></a>                <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span>  
-</span><span id="__span-5-109"><a id="__codelineno-5-109" name="__codelineno-5-109"></a>            <span class="p">),</span>
-</span><span id="__span-5-110"><a id="__codelineno-5-110" name="__codelineno-5-110"></a>            <span class="n">MetricConfig</span><span class="p">(</span>
-</span><span id="__span-5-111"><a id="__codelineno-5-111" name="__codelineno-5-111"></a>                <span class="n">scorer</span><span class="o">=</span><span class="n">cohens_kappa_scorer</span><span class="p">,</span>
-</span><span id="__span-5-112"><a id="__codelineno-5-112" name="__codelineno-5-112"></a>                <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">],</span>
-</span><span id="__span-5-113"><a id="__codelineno-5-113" name="__codelineno-5-113"></a>                <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span>
-</span><span id="__span-5-114"><a id="__codelineno-5-114" name="__codelineno-5-114"></a>                <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span> 
-</span><span id="__span-5-115"><a id="__codelineno-5-115" name="__codelineno-5-115"></a>            <span class="p">),</span>
-</span><span id="__span-5-116"><a id="__codelineno-5-116" name="__codelineno-5-116"></a>            <span class="c1"># Free-form text metrics</span>
-</span><span id="__span-5-117"><a id="__codelineno-5-117" name="__codelineno-5-117"></a>            <span class="n">MetricConfig</span><span class="p">(</span>
-</span><span id="__span-5-118"><a id="__codelineno-5-118" name="__codelineno-5-118"></a>                <span class="n">scorer</span><span class="o">=</span><span class="n">text_similarity_scorer</span><span class="p">,</span>
-</span><span id="__span-5-119"><a id="__codelineno-5-119" name="__codelineno-5-119"></a>                <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;explanation&quot;</span><span class="p">],</span>
-</span><span id="__span-5-120"><a id="__codelineno-5-120" name="__codelineno-5-120"></a>                <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span>
-</span><span id="__span-5-121"><a id="__codelineno-5-121" name="__codelineno-5-121"></a>                <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span>  
-</span><span id="__span-5-122"><a id="__codelineno-5-122" name="__codelineno-5-122"></a>            <span class="p">),</span>
-</span><span id="__span-5-123"><a id="__codelineno-5-123" name="__codelineno-5-123"></a>            <span class="n">MetricConfig</span><span class="p">(</span>
-</span><span id="__span-5-124"><a id="__codelineno-5-124" name="__codelineno-5-124"></a>                <span class="n">scorer</span><span class="o">=</span><span class="n">semantic_similarity_scorer</span><span class="p">,</span>
-</span><span id="__span-5-125"><a id="__codelineno-5-125" name="__codelineno-5-125"></a>                <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;explanation&quot;</span><span class="p">],</span>
-</span><span id="__span-5-126"><a id="__codelineno-5-126" name="__codelineno-5-126"></a>                <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span>
-</span><span id="__span-5-127"><a id="__codelineno-5-127" name="__codelineno-5-127"></a>                <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span> 
-</span><span id="__span-5-128"><a id="__codelineno-5-128" name="__codelineno-5-128"></a>            <span class="p">),</span>
-</span><span id="__span-5-129"><a id="__codelineno-5-129" name="__codelineno-5-129"></a>        <span class="p">]</span>
-</span><span id="__span-5-130"><a id="__codelineno-5-130" name="__codelineno-5-130"></a>    <span class="p">)</span>
-</span><span id="__span-5-131"><a id="__codelineno-5-131" name="__codelineno-5-131"></a>
-</span><span id="__span-5-132"><a id="__codelineno-5-132" name="__codelineno-5-132"></a>    <span class="c1"># Step 7: Add metrics configuration and compare results (requires human annotations)</span>
-</span><span id="__span-5-133"><a id="__codelineno-5-133" name="__codelineno-5-133"></a>    <span class="c1"># See &quot;Adding Human Annotations&quot; section below for how to collect human data</span>
-</span><span id="__span-5-134"><a id="__codelineno-5-134" name="__codelineno-5-134"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">add_metrics_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>  <span class="c1"># Creates evaluator.score_report automatically</span>
-</span><span id="__span-5-135"><a id="__codelineno-5-135" name="__codelineno-5-135"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">compare_async</span><span class="p">()</span>
-</span><span id="__span-5-136"><a id="__codelineno-5-136" name="__codelineno-5-136"></a>
-</span><span id="__span-5-137"><a id="__codelineno-5-137" name="__codelineno-5-137"></a>    <span class="c1"># Step 8: Generate summary report</span>
-</span><span id="__span-5-138"><a id="__codelineno-5-138" name="__codelineno-5-138"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">score_report</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;score_report.html&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;html&quot;</span><span class="p">)</span>  <span class="c1"># Save HTML report</span>
-</span><span id="__span-5-139"><a id="__codelineno-5-139" name="__codelineno-5-139"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">score_report</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;score_report.csv&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csv&quot;</span><span class="p">)</span>    <span class="c1"># Save CSV report</span>
-</span><span id="__span-5-140"><a id="__codelineno-5-140" name="__codelineno-5-140"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">score_report</span><span class="o">.</span><span class="n">print</span><span class="p">()</span>  <span class="c1"># Print to console</span>
-</span><span id="__span-5-141"><a id="__codelineno-5-141" name="__codelineno-5-141"></a>
+</span><span id="__span-5-61"><a id="__codelineno-5-61" name="__codelineno-5-61"></a>
+</span><span id="__span-5-62"><a id="__codelineno-5-62" name="__codelineno-5-62"></a><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-5-63"><a id="__codelineno-5-63" name="__codelineno-5-63"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Run the complete evaluation workflow.&quot;&quot;&quot;</span>
+</span><span id="__span-5-64"><a id="__codelineno-5-64" name="__codelineno-5-64"></a>
+</span><span id="__span-5-65"><a id="__codelineno-5-65" name="__codelineno-5-65"></a>    <span class="c1"># Step 1: Initialize MetaEvaluator</span>
+</span><span id="__span-5-66"><a id="__codelineno-5-66" name="__codelineno-5-66"></a>    <span class="c1"># load=False: Create new project (ensure directory is empty or doesn&#39;t exist)</span>
+</span><span id="__span-5-67"><a id="__codelineno-5-67" name="__codelineno-5-67"></a>    <span class="n">evaluator</span> <span class="o">=</span> <span class="n">MetaEvaluator</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;quickstart_project&quot;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-5-68"><a id="__codelineno-5-68" name="__codelineno-5-68"></a>
+</span><span id="__span-5-69"><a id="__codelineno-5-69" name="__codelineno-5-69"></a>    <span class="c1"># Step 2: Add evaluation task and data</span>
+</span><span id="__span-5-70"><a id="__codelineno-5-70" name="__codelineno-5-70"></a>    <span class="n">task</span> <span class="o">=</span> <span class="n">create_rejection_task</span><span class="p">()</span>
+</span><span id="__span-5-71"><a id="__codelineno-5-71" name="__codelineno-5-71"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">load_sample_data</span><span class="p">()</span>
+</span><span id="__span-5-72"><a id="__codelineno-5-72" name="__codelineno-5-72"></a>
+</span><span id="__span-5-73"><a id="__codelineno-5-73" name="__codelineno-5-73"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">add_eval_task</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+</span><span id="__span-5-74"><a id="__codelineno-5-74" name="__codelineno-5-74"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">add_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span><span id="__span-5-75"><a id="__codelineno-5-75" name="__codelineno-5-75"></a>
+</span><span id="__span-5-76"><a id="__codelineno-5-76" name="__codelineno-5-76"></a>    <span class="c1"># Step 3: Load judges from YAML</span>
+</span><span id="__span-5-77"><a id="__codelineno-5-77" name="__codelineno-5-77"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">load_judges_from_yaml</span><span class="p">(</span>
+</span><span id="__span-5-78"><a id="__codelineno-5-78" name="__codelineno-5-78"></a>        <span class="n">yaml_file</span><span class="o">=</span><span class="s2">&quot;judges.yaml&quot;</span><span class="p">,</span>
+</span><span id="__span-5-79"><a id="__codelineno-5-79" name="__codelineno-5-79"></a>        <span class="n">on_duplicate</span><span class="o">=</span><span class="s2">&quot;skip&quot;</span><span class="p">,</span>  <span class="c1"># Skip if already exists</span>
+</span><span id="__span-5-80"><a id="__codelineno-5-80" name="__codelineno-5-80"></a>        <span class="n">async_mode</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>      <span class="c1"># Enable async evaluation</span>
+</span><span id="__span-5-81"><a id="__codelineno-5-81" name="__codelineno-5-81"></a>    <span class="p">)</span>
+</span><span id="__span-5-82"><a id="__codelineno-5-82" name="__codelineno-5-82"></a>
+</span><span id="__span-5-83"><a id="__codelineno-5-83" name="__codelineno-5-83"></a>    <span class="c1"># Step 4: Save state for persistence</span>
+</span><span id="__span-5-84"><a id="__codelineno-5-84" name="__codelineno-5-84"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">save_state</span><span class="p">(</span><span class="n">data_format</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">)</span>
+</span><span id="__span-5-85"><a id="__codelineno-5-85" name="__codelineno-5-85"></a>
+</span><span id="__span-5-86"><a id="__codelineno-5-86" name="__codelineno-5-86"></a>    <span class="c1"># Step 5: Run judge evaluations</span>
+</span><span id="__span-5-87"><a id="__codelineno-5-87" name="__codelineno-5-87"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">run_judges_async</span><span class="p">(</span><span class="n">skip_duplicates</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-5-88"><a id="__codelineno-5-88" name="__codelineno-5-88"></a>
+</span><span id="__span-5-89"><a id="__codelineno-5-89" name="__codelineno-5-89"></a>    <span class="c1"># Step 6: Set up multiple metrics for comprehensive comparison</span>
+</span><span id="__span-5-90"><a id="__codelineno-5-90" name="__codelineno-5-90"></a>    <span class="n">accuracy_scorer</span> <span class="o">=</span> <span class="n">AccuracyScorer</span><span class="p">()</span>
+</span><span id="__span-5-91"><a id="__codelineno-5-91" name="__codelineno-5-91"></a>    <span class="n">alt_test_scorer</span> <span class="o">=</span> <span class="n">AltTestScorer</span><span class="p">()</span>
+</span><span id="__span-5-92"><a id="__codelineno-5-92" name="__codelineno-5-92"></a>    <span class="n">cohens_kappa_scorer</span> <span class="o">=</span> <span class="n">CohensKappaScorer</span><span class="p">()</span>
+</span><span id="__span-5-93"><a id="__codelineno-5-93" name="__codelineno-5-93"></a>    <span class="n">text_similarity_scorer</span> <span class="o">=</span> <span class="n">TextSimilarityScorer</span><span class="p">()</span>
+</span><span id="__span-5-94"><a id="__codelineno-5-94" name="__codelineno-5-94"></a>    <span class="n">semantic_similarity_scorer</span> <span class="o">=</span> <span class="n">SemanticSimilarityScorer</span><span class="p">()</span>  <span class="c1"># Requires OPENAI_API_KEY</span>
+</span><span id="__span-5-95"><a id="__codelineno-5-95" name="__codelineno-5-95"></a>
+</span><span id="__span-5-96"><a id="__codelineno-5-96" name="__codelineno-5-96"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">MetricsConfig</span><span class="p">(</span>
+</span><span id="__span-5-97"><a id="__codelineno-5-97" name="__codelineno-5-97"></a>        <span class="n">metrics</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-5-98"><a id="__codelineno-5-98" name="__codelineno-5-98"></a>            <span class="c1"># Classification task metrics</span>
+</span><span id="__span-5-99"><a id="__codelineno-5-99" name="__codelineno-5-99"></a>            <span class="n">MetricConfig</span><span class="p">(</span>
+</span><span id="__span-5-100"><a id="__codelineno-5-100" name="__codelineno-5-100"></a>                <span class="n">scorer</span><span class="o">=</span><span class="n">accuracy_scorer</span><span class="p">,</span>
+</span><span id="__span-5-101"><a id="__codelineno-5-101" name="__codelineno-5-101"></a>                <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">],</span>
+</span><span id="__span-5-102"><a id="__codelineno-5-102" name="__codelineno-5-102"></a>                <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span>
+</span><span id="__span-5-103"><a id="__codelineno-5-103" name="__codelineno-5-103"></a>                <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span> 
+</span><span id="__span-5-104"><a id="__codelineno-5-104" name="__codelineno-5-104"></a>            <span class="p">),</span>
+</span><span id="__span-5-105"><a id="__codelineno-5-105" name="__codelineno-5-105"></a>            <span class="n">MetricConfig</span><span class="p">(</span>
+</span><span id="__span-5-106"><a id="__codelineno-5-106" name="__codelineno-5-106"></a>                <span class="n">scorer</span><span class="o">=</span><span class="n">alt_test_scorer</span><span class="p">,</span>
+</span><span id="__span-5-107"><a id="__codelineno-5-107" name="__codelineno-5-107"></a>                <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">],</span>
+</span><span id="__span-5-108"><a id="__codelineno-5-108" name="__codelineno-5-108"></a>                <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span>
+</span><span id="__span-5-109"><a id="__codelineno-5-109" name="__codelineno-5-109"></a>                <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span>  
+</span><span id="__span-5-110"><a id="__codelineno-5-110" name="__codelineno-5-110"></a>            <span class="p">),</span>
+</span><span id="__span-5-111"><a id="__codelineno-5-111" name="__codelineno-5-111"></a>            <span class="n">MetricConfig</span><span class="p">(</span>
+</span><span id="__span-5-112"><a id="__codelineno-5-112" name="__codelineno-5-112"></a>                <span class="n">scorer</span><span class="o">=</span><span class="n">cohens_kappa_scorer</span><span class="p">,</span>
+</span><span id="__span-5-113"><a id="__codelineno-5-113" name="__codelineno-5-113"></a>                <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;rejection&quot;</span><span class="p">],</span>
+</span><span id="__span-5-114"><a id="__codelineno-5-114" name="__codelineno-5-114"></a>                <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span>
+</span><span id="__span-5-115"><a id="__codelineno-5-115" name="__codelineno-5-115"></a>                <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span> 
+</span><span id="__span-5-116"><a id="__codelineno-5-116" name="__codelineno-5-116"></a>            <span class="p">),</span>
+</span><span id="__span-5-117"><a id="__codelineno-5-117" name="__codelineno-5-117"></a>            <span class="c1"># Free-form text metrics</span>
+</span><span id="__span-5-118"><a id="__codelineno-5-118" name="__codelineno-5-118"></a>            <span class="n">MetricConfig</span><span class="p">(</span>
+</span><span id="__span-5-119"><a id="__codelineno-5-119" name="__codelineno-5-119"></a>                <span class="n">scorer</span><span class="o">=</span><span class="n">text_similarity_scorer</span><span class="p">,</span>
+</span><span id="__span-5-120"><a id="__codelineno-5-120" name="__codelineno-5-120"></a>                <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;explanation&quot;</span><span class="p">],</span>
+</span><span id="__span-5-121"><a id="__codelineno-5-121" name="__codelineno-5-121"></a>                <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span>
+</span><span id="__span-5-122"><a id="__codelineno-5-122" name="__codelineno-5-122"></a>                <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span>  
+</span><span id="__span-5-123"><a id="__codelineno-5-123" name="__codelineno-5-123"></a>            <span class="p">),</span>
+</span><span id="__span-5-124"><a id="__codelineno-5-124" name="__codelineno-5-124"></a>            <span class="n">MetricConfig</span><span class="p">(</span>
+</span><span id="__span-5-125"><a id="__codelineno-5-125" name="__codelineno-5-125"></a>                <span class="n">scorer</span><span class="o">=</span><span class="n">semantic_similarity_scorer</span><span class="p">,</span>
+</span><span id="__span-5-126"><a id="__codelineno-5-126" name="__codelineno-5-126"></a>                <span class="n">task_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;explanation&quot;</span><span class="p">],</span>
+</span><span id="__span-5-127"><a id="__codelineno-5-127" name="__codelineno-5-127"></a>                <span class="n">task_strategy</span><span class="o">=</span><span class="s2">&quot;single&quot;</span><span class="p">,</span>
+</span><span id="__span-5-128"><a id="__codelineno-5-128" name="__codelineno-5-128"></a>                <span class="n">annotator_aggregation</span><span class="o">=</span><span class="s2">&quot;individual_average&quot;</span><span class="p">,</span> 
+</span><span id="__span-5-129"><a id="__codelineno-5-129" name="__codelineno-5-129"></a>            <span class="p">),</span>
+</span><span id="__span-5-130"><a id="__codelineno-5-130" name="__codelineno-5-130"></a>        <span class="p">]</span>
+</span><span id="__span-5-131"><a id="__codelineno-5-131" name="__codelineno-5-131"></a>    <span class="p">)</span>
+</span><span id="__span-5-132"><a id="__codelineno-5-132" name="__codelineno-5-132"></a>
+</span><span id="__span-5-133"><a id="__codelineno-5-133" name="__codelineno-5-133"></a>    <span class="c1"># Step 7: Add metrics configuration and compare results (requires human annotations)</span>
+</span><span id="__span-5-134"><a id="__codelineno-5-134" name="__codelineno-5-134"></a>    <span class="c1"># See &quot;Adding Human Annotations&quot; section below for how to collect human data</span>
+</span><span id="__span-5-135"><a id="__codelineno-5-135" name="__codelineno-5-135"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">add_metrics_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>  <span class="c1"># Creates evaluator.score_report automatically</span>
+</span><span id="__span-5-136"><a id="__codelineno-5-136" name="__codelineno-5-136"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">compare_async</span><span class="p">()</span>
+</span><span id="__span-5-137"><a id="__codelineno-5-137" name="__codelineno-5-137"></a>
+</span><span id="__span-5-138"><a id="__codelineno-5-138" name="__codelineno-5-138"></a>    <span class="c1"># Step 8: Generate summary report</span>
+</span><span id="__span-5-139"><a id="__codelineno-5-139" name="__codelineno-5-139"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">score_report</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;score_report.html&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;html&quot;</span><span class="p">)</span>  <span class="c1"># Save HTML report</span>
+</span><span id="__span-5-140"><a id="__codelineno-5-140" name="__codelineno-5-140"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">score_report</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;score_report.csv&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csv&quot;</span><span class="p">)</span>    <span class="c1"># Save CSV report</span>
+</span><span id="__span-5-141"><a id="__codelineno-5-141" name="__codelineno-5-141"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">score_report</span><span class="o">.</span><span class="n">print</span><span class="p">()</span>  <span class="c1"># Print to console</span>
 </span><span id="__span-5-142"><a id="__codelineno-5-142" name="__codelineno-5-142"></a>
-</span><span id="__span-5-143"><a id="__codelineno-5-143" name="__codelineno-5-143"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-</span><span id="__span-5-144"><a id="__codelineno-5-144" name="__codelineno-5-144"></a>    <span class="n">main</span><span class="p">()</span>
+</span><span id="__span-5-143"><a id="__codelineno-5-143" name="__codelineno-5-143"></a>
+</span><span id="__span-5-144"><a id="__codelineno-5-144" name="__codelineno-5-144"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+</span><span id="__span-5-145"><a id="__codelineno-5-145" name="__codelineno-5-145"></a>    <span class="n">main</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
 <h3 id="step-5-run-the-evaluation-script">Step 5: Run the evaluation script</h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Run the evaluation</span>
@@ -1447,21 +1385,21 @@
 </span></code></pre></div>
 <h2 id="what-save_state-saves-and-doesnt-save">What save_state Saves and Doesn't Save</h2>
 <p>When you call <code>evaluator.save_state()</code>, MetaEvaluator persists your project configuration for later use. Here's what gets saved and what doesn't:</p>
-<h3 id="saved-by-save_state">✅ Saved by save_state</h3>
+<p>✅&nbsp; <strong>Saved by save_state</strong></p>
 <ul>
 <li><strong>Evaluation task configuration</strong>: Task schemas, columns, prompts, answering methods</li>
 <li><strong>Data metadata and files</strong>: Your evaluation dataset and its configuration</li>
 <li><strong>Judge configurations</strong>: Registered judges and their settings</li>
 <li><strong>Project structure</strong>: Directory organization and paths</li>
 </ul>
-<h3 id="not-saved-by-save_state">❌ NOT saved by save_state</h3>
+<p>❌&nbsp; <strong>NOT saved by save_state</strong></p>
 <ul>
 <li><strong>Metrics configurations</strong>: MetricsConfig objects (not supported yet)</li>
 <li><strong>Judge evaluation results</strong>: Saved separately in <code>results/</code> directory</li>
 <li><strong>Human annotation results</strong>: Saved separately in <code>annotations/</code> directory</li>
 <li><strong>Computed scores</strong>: Saved separately in <code>scores/</code> directory</li>
 </ul>
-<h3 id="after-loading-a-project">🔄 After Loading a Project</h3>
+<p>🔄&nbsp; <strong>After Loading a Project</strong></p>
 <p>When you load a saved project, you must re-add your metrics configuration:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Load existing project</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">evaluator</span> <span class="o">=</span> <span class="n">MetaEvaluator</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="s2">&quot;my_project&quot;</span><span class="p">,</span> <span class="n">load</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>

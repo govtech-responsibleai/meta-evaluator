@@ -451,15 +451,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#annotation-interface-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      Annotation Interface Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#launch-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       Launch Configuration
@@ -498,30 +489,6 @@
       Using the Interface
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Using the Interface">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#starting-annotation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Starting Annotation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#best-practices" class="md-nav__link">
-    <span class="md-ellipsis">
-      Best Practices
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -891,15 +858,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#annotation-interface-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      Annotation Interface Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#launch-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       Launch Configuration
@@ -938,30 +896,6 @@
       Using the Interface
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Using the Interface">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#starting-annotation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Starting Annotation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#best-practices" class="md-nav__link">
-    <span class="md-ellipsis">
-      Best Practices
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1160,69 +1094,79 @@
 </div>
 </div>
 </div>
-<div class="admonition warning">
-<p class="admonition-title">Dataset choice</p>
+<div class="admonition tip">
+<p class="admonition-title">Dataset Recommendations</p>
 <ul>
-<li>Use a small dataset (recommended: 20-50 rows of data)</li>
-<li>Current implementation doesn't support saving progress midway, so users must complete all annotations in one session.</li>
+<li>Use a small dataset (recommended: 30-50 rows of data)</li>
+<li>The interface supports <strong>automatic saving</strong> and <strong>session resumption</strong></li>
+<li>Progress is auto-saved when required fields are completed and resumed upon session reopen</li>
 </ul>
-</div>
-<h2 id="annotation-interface-features">Annotation Interface Features</h2>
-<p>The interface automatically presents all tasks from your <code>EvalTask</code> configuration in the UI:</p>
-<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-3-1"> 1</a></span>
-<span class="normal"><a href="#__codelineno-3-2"> 2</a></span>
-<span class="normal"><a href="#__codelineno-3-3"> 3</a></span>
-<span class="normal"><a href="#__codelineno-3-4"> 4</a></span>
-<span class="normal"><a href="#__codelineno-3-5"> 5</a></span>
-<span class="normal"><a href="#__codelineno-3-6"> 6</a></span>
-<span class="normal"><a href="#__codelineno-3-7"> 7</a></span>
-<span class="normal"><a href="#__codelineno-3-8"> 8</a></span>
-<span class="normal"><a href="#__codelineno-3-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-3-10">10</a></span>
-<span class="normal"><a href="#__codelineno-3-11">11</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3"></a>        <span class="s2">&quot;quality&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;excellent&quot;</span><span class="p">,</span> <span class="s2">&quot;good&quot;</span><span class="p">,</span> <span class="s2">&quot;fair&quot;</span><span class="p">,</span> <span class="s2">&quot;poor&quot;</span><span class="p">],</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4"></a>        <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relevant&quot;</span><span class="p">,</span> <span class="s2">&quot;partially_relevant&quot;</span><span class="p">,</span> <span class="s2">&quot;irrelevant&quot;</span><span class="p">],</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5"></a>        <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># Free-form text field</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6"></a>    <span class="p">},</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prompt&quot;</span><span class="p">],</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">],</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10"></a>    <span class="n">annotation_prompt</span><span class="o">=</span><span class="s2">&quot;Please evaluate the AI response quality and relevance.&quot;</span><span class="p">,</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11"></a><span class="p">)</span>
-</span></code></pre></div></td></tr></table></div>
-<p><strong>Interface displays:</strong></p>
-<ul>
-<li>Required input for annotator name  </li>
-<li>Radio buttons for classification tasks (helpfulness, accuracy, safety)  </li>
-<li>Text area for free-form fields (explanation)  </li>
-<li>Progress tracking and navigation controls </li>
-</ul>
-<p><strong>Example of the platform:</strong></p>
-<figure>
-  <img alt="Simple Annotation Interface" src="../../assets/simple_annotation_interface.png" />
-</figure>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The annotation platform is slated for usability, functionality, and visual updates in the near future!</p>
 </div>
 <h2 id="launch-configuration">Launch Configuration</h2>
 <h3 id="port-settings">Port Settings</h3>
-<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-4-1">1</a></span>
-<span class="normal"><a href="#__codelineno-4-2">2</a></span>
-<span class="normal"><a href="#__codelineno-4-3">3</a></span>
-<span class="normal"><a href="#__codelineno-4-4">4</a></span>
-<span class="normal"><a href="#__codelineno-4-5">5</a></span>
-<span class="normal"><a href="#__codelineno-4-6">6</a></span>
-<span class="normal"><a href="#__codelineno-4-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><span class="c1"># Default port (8501)</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">()</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4"></a><span class="c1"># Custom port</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">)</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6"></a>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7"></a><span class="c1"># System will find available port if specified port is occupied</span>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-3-1">1</a></span>
+<span class="normal"><a href="#__codelineno-3-2">2</a></span>
+<span class="normal"><a href="#__codelineno-3-3">3</a></span>
+<span class="normal"><a href="#__codelineno-3-4">4</a></span>
+<span class="normal"><a href="#__codelineno-3-5">5</a></span>
+<span class="normal"><a href="#__codelineno-3-6">6</a></span>
+<span class="normal"><a href="#__codelineno-3-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a><span class="c1"># Default port (8501)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">()</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4"></a><span class="c1"># Custom port</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">)</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7"></a><span class="c1"># System will find available port if specified port is occupied</span>
 </span></code></pre></div></td></tr></table></div>
 <h3 id="remote-access-with-ngrok">Remote Access with ngrok</h3>
+<p><strong>When to use ngrok</strong>: If you want to share your annotation interface with remote annotators (e.g., teammates working from different locations) and your data is <strong>not classified or sensitive</strong>, you can use ngrok to create a public URL that anyone with the link can access.</p>
+<div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-4-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-4-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-4-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-4-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-4-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-4-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-4-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-4-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-4-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-4-10">10</a></span>
+<span class="normal"><a href="#__codelineno-4-11">11</a></span>
+<span class="normal"><a href="#__codelineno-4-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><span class="c1"># Basic ngrok tunnel - creates a public URL</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3"></a>    <span class="n">port</span><span class="o">=</span><span class="mi">8501</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4"></a>    <span class="n">use_ngrok</span><span class="o">=</span><span class="kc">True</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5"></a><span class="p">)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6"></a>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7"></a><span class="c1"># Advanced ngrok with traffic policy (authentication, IP restrictions, etc.)</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9"></a>    <span class="n">port</span><span class="o">=</span><span class="mi">8501</span><span class="p">,</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10"></a>    <span class="n">use_ngrok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11"></a>    <span class="n">traffic_policy_file</span><span class="o">=</span><span class="s2">&quot;ngrok_policy.yaml&quot;</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12"></a><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+<p><strong>How it works</strong>: </p>
+<div class="admonition note">
+<p class="admonition-title">ngrok Setup Requirements</p>
+<ul>
+<li>ngrok creates a secure tunnel from a public URL (e.g., <code>https://abc123.ngrok.io</code>) to your local machine. Remote annotators can access the interface through this URL without needing VPN or complex network setup.</li>
+<li>Install ngrok: <code>brew install ngrok</code> (Mac) or download from <a href="https://ngrok.com">ngrok.com</a></li>
+<li>Authenticate: <code>ngrok authtoken YOUR_TOKEN</code> (free account required)</li>
+<li><strong>Traffic policy files</strong> allow advanced configuration including login authentication, IP restrictions, custom headers, and more. 
+    For examples and detailed configuration, see: <a href="https://ngrok.com/docs/traffic-policy/">ngrok Traffic Policy Documentation</a>(https://ngrok.com/docs/traffic-policy/)</li>
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Data Security</p>
+<p><strong>Only use ngrok if your data is not classified or sensitive.</strong> ngrok creates a publicly accessible URL that exposes your local annotation interface to the internet. Anyone with the URL can access your interface. For classified or sensitive data, use local network access only or implement proper authentication.</p>
+</div>
+<h2 id="using-the-interface">Using the Interface</h2>
+<ol>
+<li><strong>Launch the interface</strong>: Load your data and task, and run <code>evaluator.launch_annotator()</code></li>
+<li><strong>Open browser</strong>: Navigate to <code>http://localhost:8501</code> </li>
+<li><strong>Enter annotator ID</strong>: Provide your name or identifier</li>
+<li><strong>Begin annotation</strong>: Start evaluating samples!</li>
+</ol>
+<p>The interface automatically presents all tasks from your <code>EvalTask</code> configuration in the UI:</p>
 <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1"> 1</a></span>
 <span class="normal"><a href="#__codelineno-5-2"> 2</a></span>
 <span class="normal"><a href="#__codelineno-5-3"> 3</a></span>
@@ -1233,56 +1177,30 @@
 <span class="normal"><a href="#__codelineno-5-8"> 8</a></span>
 <span class="normal"><a href="#__codelineno-5-9"> 9</a></span>
 <span class="normal"><a href="#__codelineno-5-10">10</a></span>
-<span class="normal"><a href="#__codelineno-5-11">11</a></span>
-<span class="normal"><a href="#__codelineno-5-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><span class="c1"># Basic ngrok tunnel</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3"></a>    <span class="n">port</span><span class="o">=</span><span class="mi">8501</span><span class="p">,</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4"></a>    <span class="n">use_ngrok</span><span class="o">=</span><span class="kc">True</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5"></a><span class="p">)</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7"></a><span class="c1"># Advanced ngrok with traffic policy</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8"></a><span class="n">evaluator</span><span class="o">.</span><span class="n">launch_annotator</span><span class="p">(</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9"></a>    <span class="n">port</span><span class="o">=</span><span class="mi">8501</span><span class="p">,</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10"></a>    <span class="n">use_ngrok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11"></a>    <span class="n">traffic_policy_file</span><span class="o">=</span><span class="s2">&quot;ngrok_policy.yaml&quot;</span>
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12"></a><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-5-11">11</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><span class="n">task</span> <span class="o">=</span> <span class="n">EvalTask</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2"></a>    <span class="n">task_schemas</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3"></a>        <span class="s2">&quot;quality&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;excellent&quot;</span><span class="p">,</span> <span class="s2">&quot;good&quot;</span><span class="p">,</span> <span class="s2">&quot;fair&quot;</span><span class="p">,</span> <span class="s2">&quot;poor&quot;</span><span class="p">],</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4"></a>        <span class="s2">&quot;relevance&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relevant&quot;</span><span class="p">,</span> <span class="s2">&quot;partially_relevant&quot;</span><span class="p">,</span> <span class="s2">&quot;irrelevant&quot;</span><span class="p">],</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5"></a>        <span class="s2">&quot;explanation&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># Free-form text field</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6"></a>    <span class="p">},</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7"></a>    <span class="n">prompt_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;prompt&quot;</span><span class="p">],</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8"></a>    <span class="n">response_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">],</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9"></a>    <span class="n">answering_method</span><span class="o">=</span><span class="s2">&quot;structured&quot;</span><span class="p">,</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10"></a>    <span class="n">annotation_prompt</span><span class="o">=</span><span class="s2">&quot;Please evaluate the AI response quality and relevance.&quot;</span><span class="p">,</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11"></a><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-<div class="admonition note">
-<p class="admonition-title">ngrok Setup</p>
 <ul>
-<li>Requires ngrok installed and authenticated</li>
-<li>Creates secure tunnel to your local annotation interface</li>
-<li>Useful for remote annotators or team collaboration</li>
-<li><strong>Traffic policy files</strong> allow advanced configuration including login authentication, IP restrictions, custom headers, and more. <br />
-    For examples and detailed configuration, see: <a href="https://ngrok.com/docs/traffic-policy/">ngrok Traffic Policy Documentation</a></li>
+<li>Uses annotator name and session time to differentiate annotations</li>
+<li>Auto-saves when required fields are filled; resumes from last incomplete sample on reload</li>
 </ul>
-</div>
-<h2 id="using-the-interface">Using the Interface</h2>
-<h3 id="starting-annotation">Starting Annotation</h3>
-<ol>
-<li><strong>Launch the interface</strong>: Load your data and task, and run <code>evaluator.launch_annotator()</code></li>
-<li><strong>Open browser</strong>: Navigate to <code>http://localhost:8501</code> </li>
-<li><strong>Enter annotator ID</strong>: Provide your name or identifier</li>
-<li><strong>Begin annotation</strong>: Start evaluating samples</li>
-</ol>
-<h3 id="best-practices">Best Practices</h3>
-<div class="admonition tip">
-<p class="admonition-title">Annotation Quality</p>
-<ul>
-<li><strong>Documentation</strong>: Provide clear <code>annotation_prompt</code> in your EvalTask for the interface</li>
-<li><strong>Multiple annotators</strong>: Have 2-3 people annotate the same data for reliability</li>
-<li><strong>Regular breaks</strong>: Avoid annotation fatigue with scheduled breaks</li>
-</ul>
-</div>
-<div class="admonition warning">
-<p class="admonition-title">Session Management</p>
-<ul>
-<li>Each annotator should use a unique ID for tracking</li>
-<li>Administrator should coordinate annotation assignments to avoid duplication</li>
-<li>Don't close browser tabs abruptly to avoid losing progress</li>
-<li>Internet connection required for ngrok remote access</li>
-</ul>
-</div>
+<p><strong>The annotation platform (Web):</strong></p>
+<figure>
+  <img alt="Simple Annotation Interface" src="../../assets/simple_annotation_interface.png" />
+</figure>
+<p><strong>The annotation platform (Mobile):</strong></p>
+<figure>
+  <img alt="Simple Annotation Interface" src="../../assets/simple_annotation_interface_mobile.jpg" width="300" />
+</figure>
 <h2 id="results-and-output">Results and Output</h2>
 <h3 id="file-structure">File Structure</h3>
 <p>After annotation, results are saved to your project directory:</p>
