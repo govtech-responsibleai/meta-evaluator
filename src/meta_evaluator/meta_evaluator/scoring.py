@@ -244,12 +244,16 @@ class ScoringMixin:
                 human_df = human_df.with_columns(
                     pl.lit(human_result.annotator_id).alias("human_id")
                 )
+                # Ensure consistent column order so vertical concatenation does not fail
+                human_df = human_df.select(sorted(human_df.columns))
                 human_success_dfs.append(human_df)
 
         if not human_success_dfs:
             return pl.DataFrame(), pl.DataFrame()
 
-        combined_human_df = pl.concat(human_success_dfs)
+        # Use relaxed vertical concat to automatically promote mixed dtypes
+        # (e.g. columns that are Null in some result sets and String in others)
+        combined_human_df = pl.concat(human_success_dfs, how="vertical_relaxed")
 
         # Find common IDs
         judge_ids = set(judge_success_df["original_id"].unique())
