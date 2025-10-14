@@ -232,30 +232,30 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
                 response_columns=self.eval_task.response_columns,
             )
 
-    def _create_system_message(
+    def _create_user_message(
         self, row: dict[str, Any], include_xml_instructions: bool = False
     ) -> Message:
-        """Create the system message with evaluation instructions.
+        """Create the user message with evaluation instructions.
 
         Args:
             include_xml_instructions: Whether to include XML formatting instructions.
             row: Optional row data for template variable substitution.
 
         Returns:
-            Message: System message with evaluation context and instructions.
+            Message: User message with evaluation context and instructions.
 
         """
-        system_content = self.prompt.prompt
+        user_content = self.prompt.prompt
 
         # Perform template variable substitution if row data is provided
         if row is not None:
             # Validate that all required template variables are present in the prompt
-            self._validate_template_variables(system_content)
-            system_content = self._substitute_template_variables(system_content, row)
+            self._validate_template_variables(user_content)
+            user_content = self._substitute_template_variables(user_content, row)
 
         if include_xml_instructions:
-            system_content += self._get_xml_instructions()
-        return Message(role=RoleEnum.SYSTEM, content=system_content)
+            user_content += self._get_xml_instructions()
+        return Message(role=RoleEnum.USER, content=user_content)
 
     def _get_dicts_as_generator(
         self, eval_data: EvalData
