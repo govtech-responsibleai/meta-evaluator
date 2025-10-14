@@ -84,12 +84,12 @@ class AsyncEvaluationMixin(ABC):
                     )
                     return  # Success, exit early
                 elif method == "instructor":
-                    # Create system message with template substitution
-                    system_message = self._create_system_message(  # type: ignore
+                    # Create user message with template substitution
+                    user_message = self._create_user_message(  # type: ignore
                         row=row,
                         include_xml_instructions=False,
                     )
-                    messages = [system_message]
+                    messages = [user_message]
 
                     await self._evaluate_row_instructor_async(
                         row=row,
@@ -174,12 +174,12 @@ class AsyncEvaluationMixin(ABC):
             f"EvalData {eval_data.name} has no ID column, but was expected to have one."
         )
         try:
-            # Create system message with template substitution
-            system_message = self._create_system_message(  # type: ignore
+            # Create user message with template substitution
+            user_message = self._create_user_message(  # type: ignore
                 row=row,
                 include_xml_instructions=False,
             )  # type: ignore
-            messages = [system_message]
+            messages = [user_message]
 
             # Call LLM with structured response
             start_time = time.time()
@@ -403,11 +403,11 @@ class AsyncEvaluationMixin(ABC):
         )
 
         try:
-            # Create system message with template substitution and XML instructions
-            system_message = self._create_system_message(  # type: ignore
+            # Create user message with template substitution and XML instructions
+            user_message = self._create_user_message(  # type: ignore
                 row=row, include_xml_instructions=True
             )  # type: ignore
-            messages = [system_message]
+            messages = [user_message]
 
             start_time = time.time()
 
@@ -575,12 +575,12 @@ class AsyncEvaluationMixin(ABC):
                         assert task_class is not None, (
                             "task_class was to be set previously"
                         )
-                        # Create system message with template substitution
-                        system_message = self._create_system_message(  # type: ignore
+                        # Create user message with template substitution
+                        user_message = self._create_user_message(  # type: ignore
                             row=row_data,
                             include_xml_instructions=False,
                         )
-                        messages = [system_message]
+                        messages = [user_message]
 
                         await self._evaluate_row_instructor_async(
                             row=row_data,

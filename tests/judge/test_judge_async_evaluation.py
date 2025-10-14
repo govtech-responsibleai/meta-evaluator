@@ -115,10 +115,10 @@ class TestJudgeAsyncEvaluation:
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
         # Create messages with template substitution
-        system_message = instructor_judge._create_system_message(
+        user_message = instructor_judge._create_user_message(
             row=sample_row, include_xml_instructions=False
         )
-        messages = [system_message]
+        messages = [user_message]
 
         task_class = instructor_judge.eval_task.create_task_class()
 
@@ -338,10 +338,10 @@ class TestJudgeAsyncEvaluation:
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
         # Create messages
-        system_message = instructor_judge._create_system_message(
+        user_message = instructor_judge._create_user_message(
             row=sample_row, include_xml_instructions=False
         )
-        messages = [system_message]
+        messages = [user_message]
 
         task_class = instructor_judge.eval_task.create_task_class()
 

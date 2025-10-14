@@ -82,28 +82,28 @@ class TestJudge:
         assert "positive, negative, neutral" in instructions
         assert "toxic, non_toxic" in instructions
 
-    def test_create_system_message_without_xml_no_row(self, basic_judge):
-        """Test system message creation without XML instructions and no row data."""
-        message = basic_judge._create_system_message(
+    def test_create_user_message_without_xml_no_row(self, basic_judge):
+        """Test user message creation without XML instructions and no row data."""
+        message = basic_judge._create_user_message(
             row=None, include_xml_instructions=False
         )
 
-        assert message.role == RoleEnum.SYSTEM
+        assert message.role == RoleEnum.USER
         assert message.content == "Evaluate the sentiment of the given text."
         assert "<sentiment>" not in message.content
 
-    def test_create_system_message_with_xml_no_row(self, basic_judge):
-        """Test system message creation with XML instructions and no row data."""
-        message = basic_judge._create_system_message(
+    def test_create_user_message_with_xml_no_row(self, basic_judge):
+        """Test user message creation with XML instructions and no row data."""
+        message = basic_judge._create_user_message(
             row=None, include_xml_instructions=True
         )
 
-        assert message.role == RoleEnum.SYSTEM
+        assert message.role == RoleEnum.USER
         assert "Evaluate the sentiment of the given text." in message.content
         assert "<sentiment>" in message.content
 
-    def test_create_system_message_with_template_substitution(self, sample_prompt):
-        """Test system message creation with template variable substitution."""
+    def test_create_user_message_with_template_substitution(self, sample_prompt):
+        """Test user message creation with template variable substitution."""
         from meta_evaluator.common.models import Prompt
 
         # Create a prompt with template variables
@@ -127,9 +127,9 @@ class TestJudge:
         )
 
         row = {"text": "Good movie", "response": "I liked it"}
-        message = judge._create_system_message(row=row, include_xml_instructions=False)
+        message = judge._create_user_message(row=row, include_xml_instructions=False)
 
-        assert message.role == RoleEnum.SYSTEM
+        assert message.role == RoleEnum.USER
         assert (
             "Evaluate the sentiment of this text: Good movie. The response was: I liked it"
             in message.content
@@ -165,7 +165,7 @@ class TestJudge:
         row = {"text": "Good movie", "response": "I liked it"}
 
         with pytest.raises(MissingTemplateVariablesError) as exc_info:
-            judge._create_system_message(row=row, include_xml_instructions=False)
+            judge._create_user_message(row=row, include_xml_instructions=False)
 
         error = exc_info.value
         assert "text" in error.missing_variables
@@ -195,9 +195,9 @@ class TestJudge:
         )
 
         row = {"response": "bad movie"}
-        message = judge._create_system_message(row=row, include_xml_instructions=False)
+        message = judge._create_user_message(row=row, include_xml_instructions=False)
 
-        assert message.role == RoleEnum.SYSTEM
+        assert message.role == RoleEnum.USER
         assert "Evaluate this response: bad movie" in message.content
         assert "{response}" not in message.content  # Variable should be substituted
 
