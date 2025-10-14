@@ -453,6 +453,27 @@ class AltTestScorer(BaseScorer):
     ######################
     # Plotting functions #
     ######################
+    def _get_plot_colors(self, n: int) -> np.ndarray:
+        """Get n distinct colors by concatenating tab20 colormaps.
+
+        Concatenates tab20, tab20b, and tab20c to provide up to 60 distinct colors.
+        If more than 60 colors are needed, colors will repeat.
+
+        Args:
+            n: Number of colors needed
+
+        Returns:
+            np.ndarray: Array of n RGBA color tuples
+        """
+        # Concatenate tab20, tab20b, tab20c (60 colors total)
+        tab20 = plt.cm.tab20(np.linspace(0, 1, 20))  # type: ignore
+        tab20b = plt.cm.tab20b(np.linspace(0, 1, 20))  # type: ignore
+        tab20c = plt.cm.tab20c(np.linspace(0, 1, 20))  # type: ignore
+        all_colors = np.vstack([tab20, tab20b, tab20c])
+
+        # Return first n colors (will repeat if n > 60)
+        return all_colors[:n]
+
     def generate_aggregate_winning_rates_plot(
         self,
         results: List[BaseScoringResult],
@@ -465,7 +486,7 @@ class AltTestScorer(BaseScorer):
 
         # Generate colors for each judge
         judge_ids = [result.judge_id for result in results]
-        colors = plt.cm.Set1(np.linspace(0, 1, len(judge_ids)))  # type: ignore
+        colors = self._get_plot_colors(len(judge_ids))
 
         # Extract epsilon values from the first result's winning_rate dict keys
         winning_rates_dict = results[0].scores["winning_rate"]
@@ -561,7 +582,7 @@ class AltTestScorer(BaseScorer):
         ax.set_title(
             f"LLM Advantage Probabilities: {scoring_function.replace('_', ' ').title()} ({unique_name})"
         )
-        ax.set_ylim(0, 1)
+        ax.set_ylim(0, 1.1)
         ax.grid(True, alpha=0.3)
         plt.xticks(rotation=45, ha="right")
         plt.tight_layout()
