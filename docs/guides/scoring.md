@@ -725,7 +725,7 @@ my_project/
     └── text_similarity/     # Detailed similarity results...
 ```
 
-**Console Output:**
+**Sample Console Output:**
 ```
 Score Report:
 ┌─────────┬─────────────────────┬─────────────────────┬─────────────────────┬─────────────────────┐
@@ -738,3 +738,8 @@ Score Report:
 │ judge2  ┆ 0.82               ┆ 0.4                 ┆ 0.65                ┆ 0.78                │
 └─────────┴─────────────────────┴─────────────────────┴─────────────────────┴─────────────────────┘
 ```
+
+**Sample HTML Report:**
+<figure markdown="span">
+  ![Score Report HTML Table](../assets/example_summary_report.png)
+</figure>

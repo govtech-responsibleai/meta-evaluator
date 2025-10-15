@@ -183,7 +183,7 @@ class ScoreReport:
         .score-report-table {
             border-collapse: collapse;
             width: 100%;
-            font-family: Arial, sans-serif;
+            font-family: Monospace, sans-serif;
         }
         .score-report-table th, .score-report-table td {
             border: 1px solid #ddd;
@@ -195,7 +195,7 @@ class ScoreReport:
             font-weight: bold;
         }
         .best-score {
-            background-color: lightgreen !important;
+            background-color: rgb(199, 224, 185) !important;
             font-weight: bold;
         }
         </style>
