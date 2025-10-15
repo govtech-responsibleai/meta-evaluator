@@ -14,7 +14,7 @@ MetaEvaluator helps you assess LLM judges by:
 1. **Install the package:**
    ```bash
    # Requires Python 3.13+
-   pip install git+https://github.com/govtech-responsibleai/meta-evaluator#egg=meta-evaluator
+   pip install git+https://github.com/govtech-responsibleai/meta-evaluator
    ```
 
 2. **Set up environment variables:**
