@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run alt-test dataset with human annotator app."""
 
+import os
 from meta_evaluator.data import DataLoader, EvalData
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.meta_evaluator import MetaEvaluator
@@ -56,8 +57,9 @@ def main():
     evaluator.add_eval_task(eval_task, overwrite=True)
     evaluator.add_data(eval_data, overwrite=True)
 
-    # Launch annotator
-    evaluator.launch_annotator(port=8501)
+    # Launch annotator - use PORT environment variable or default to 8501
+    port = int(os.environ.get("PORT", 8501))
+    evaluator.launch_annotator(port=port)
 
 
 if __name__ == "__main__":
