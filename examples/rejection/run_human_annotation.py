@@ -57,7 +57,7 @@ def main():
     evaluator.add_data(eval_data, overwrite=True)
 
     # Launch annotator
-    evaluator.launch_annotator(port=8501, use_ngrok=True)
+    evaluator.launch_annotator(port=8501)
 
 
 if __name__ == "__main__":

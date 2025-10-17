@@ -16,21 +16,6 @@ Launch the Streamlit-based annotation interface to collect human evaluations for
     evaluator.launch_annotator(port=8501) 
     ```
 
-=== "With ngrok (Remote Access)"
-
-    ```python linenums="1" hl_lines="7 8 9 10"
-    from meta_evaluator import MetaEvaluator
-    
-    # Load existing project with data and task
-    evaluator = MetaEvaluator(project_dir="my_project", load=True) 
-    
-    # Enable internet access via ngrok tunnel
-    evaluator.launch_annotator(
-        port=8501,
-        use_ngrok=True
-    )
-    ```
-
 === "Complete Setup Example"
 
     ```python linenums="1" hl_lines="33"
@@ -74,51 +59,9 @@ Launch the Streamlit-based annotation interface to collect human evaluations for
     - The interface supports **automatic saving** and **session resumption**
     - Progress is auto-saved when required fields are completed and resumed upon session reopen
 
-## Launch Configuration
+## Deployment Options
 
-### Port Settings
-
-```python linenums="1"
-# Default port (8501)
-evaluator.launch_annotator()
-
-# Custom port
-evaluator.launch_annotator(port=8080)
-
-# System will find available port if specified port is occupied
-```
-
-### Remote Access with ngrok
-
-**When to use ngrok**: If you want to share your annotation interface with remote annotators (e.g., teammates working from different locations) and your data is **not classified or sensitive**, you can use ngrok to create a public URL that anyone with the link can access.
-
-```python linenums="1"
-# Basic ngrok tunnel - creates a public URL
-evaluator.launch_annotator(
-    port=8501,
-    use_ngrok=True
-)
-
-# Advanced ngrok with traffic policy (authentication, IP restrictions, etc.)
-evaluator.launch_annotator(
-    port=8501,
-    use_ngrok=True,
-    traffic_policy_file="ngrok_policy.yaml"
-)
-```
-
-**How it works**: 
-
-!!! note "ngrok Setup Requirements"
-    - ngrok creates a secure tunnel from a public URL (e.g., `https://abc123.ngrok.io`) to your local machine. Remote annotators can access the interface through this URL without needing VPN or complex network setup.
-    - Install ngrok: `brew install ngrok` (Mac) or download from [ngrok.com](https://ngrok.com)
-    - Authenticate: `ngrok authtoken YOUR_TOKEN` (free account required)
-    - **Traffic policy files** allow advanced configuration including login authentication, IP restrictions, custom headers, and more. 
-        For examples and detailed configuration, see: [ngrok Traffic Policy Documentation](https://ngrok.com/docs/traffic-policy/)(https://ngrok.com/docs/traffic-policy/)
-
-!!! warning "Data Security"
-    **Only use ngrok if your data is not classified or sensitive.** ngrok creates a publicly accessible URL that exposes your local annotation interface to the internet. Anyone with the URL can access your interface. For classified or sensitive data, use local network access only or implement proper authentication.
-
+For different deployment scenarios including remote access (ngrok) and Docker deployment for sensitive data, see the **[Deployment Guide](deployment.md)**.
 
 ## Using the Interface
 
@@ -261,15 +204,6 @@ for result in human_results:
     ```
     Manually navigate to: http://localhost:8501
     Check console output for exact URL and port
-    ```
-
-=== "ngrok Issues"
-    ```bash
-    # Ensure ngrok is installed and authenticated
-    ngrok config check
-    ngrok authtoken YOUR_TOKEN
-    
-    # Check ngrok logs in console output
     ```
 
 === "Lost Annotations"
