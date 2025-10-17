@@ -88,6 +88,8 @@ Collect human ground truth using the built-in Streamlit interface:
 evaluator.launch_annotator(port=8501)
 ```
 
+For deployment options including remote access (ngrok) and Docker deployment for classified data, see the [Deployment Guide](docs/annotation_guide/deployment.md).
+
 ### 5. Judge Configuration & Prompt Templates
 Configure multiple LLM judges using YAML and template-based prompts:
 
@@ -229,7 +231,8 @@ Comprehensive documentation is available in the `docs/` directory:
 - **[Judge Configuration](docs/guides/judges_load.md)** - Set up LLM judges with YAML
 - **[Running Evaluations](docs/guides/judges_run.md)** - Execute judge evaluations
 - **[Scoring & Metrics](docs/guides/scoring.md)** - Compute alignment metrics
-- **[Human Annotations](docs/guides/annotation_guide/annotation.md)** - Collect human ground truth
+- **[Human Annotations](docs/annotation_guide/annotation.md)** - Collect human ground truth
+- **[Deployment Guide for Annotation Platform](docs/annotation_guide/deployment.md)** - Deployment options (local, ngrok, Docker)
 
 ## Project Structure (automatically generated)
 
@@ -254,6 +257,7 @@ See the `examples/` directory for complete working examples:
 - **[`examples/rejection/data/sample_rejection.csv`](examples/rejection/data/sample_rejection.csv)** - Sample rejection detection dataset
 - **[`examples/rejection/judges.yaml`](examples/rejection/judges.yaml)** - Judge configuration example
 - **[`examples/rejection/prompt.md`](examples/rejection/prompt.md)** - Evaluation prompt template
+- **[`examples/rejection/docker-compose.yml`](examples/rejection/docker-compose.yml)** - Docker compose template
 
 ### RabakBench Evaluation (data not included)
 - **[`examples/rabakbench/run_evaluation_async.py`](examples/rabakbench/run_evaluation_async.py)** - Complete async evaluation with multiple metrics

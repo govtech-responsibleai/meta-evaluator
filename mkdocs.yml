@@ -46,6 +46,7 @@ nav:
     - Tutorial: tutorial.md
     - Annotation Guide:
       - Setting up the annotation platform: annotation_guide/annotation.md
+      - Deployment options: annotation_guide/deployment.md
     - Evaluation Guides: 
       - Defining the evaluation task: guides/evaltask.md
       - Loading the evaluation data: guides/evaldata.md
