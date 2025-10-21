@@ -1,0 +1,22 @@
+FROM gdssingapore/airbase:python-3.13
+ENV PYTHONUNBUFFERED=TRUE
+
+# Install system dependencies needed for building Python packages
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install meta-evaluator from GitHub
+RUN pip install --no-cache-dir git+https://github.com/govtech-responsibleai/meta-evaluator
+
+# Copy the annotation script and data
+COPY --chown=app:app run_human_annotation.py ./
+COPY --chown=app:app data/ ./data/
+
+# Switch to non-root user (already set up in base image)
+USER app
+
+# Run the annotation script with the PORT environment variable
+CMD ["bash", "-c", "python run_human_annotation.py"]
