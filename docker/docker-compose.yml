@@ -1,0 +1,36 @@
+# Docker Compose Template for MetaEvaluator
+#
+# This template is configured for the examples/rejection scenario.
+# You should modify the paths and commands to match your specific project structure.
+#
+# 1. Copy this file to your project workspace directory
+# 2. Update the 'context' path to point to where you want to build from
+# 3. Update the 'dockerfile' path if using a different Dockerfile (e.g., Dockerfile.airbase)
+# 4. Update the 'command' to run your specific annotation script
+# 6. (Optional) Set PORT environment variable to customize the port (defaults to 8501)
+
+services:
+  annotation:
+    # Build configuration
+    build:
+      context: ../  # Build context - adjust based on where you place this file
+      dockerfile: docker/Dockerfile  # Path to Dockerfile from context
+      # For AIRBase users, use: dockerfile: docker/Dockerfile.airbase
+    image: meta-evaluator:latest
+
+    # Environment variables
+    environment:
+      - PORT=${PORT:-8501}  # Defaults to 8501. To change, set PORT=8080 directly.
+
+    # Port mapping: host:container
+    ports:
+      - "${PORT:-8501}:${PORT:-8501}"
+
+    # Volume mapping: mount current directory to /app/workspace in container
+    # This allows the container to access your annotation script and data files
+    volumes:
+      - ./:/app/workspace
+
+    # Command to run the annotation script
+    # Update this to match your annotation script filename
+    command: python run_annotation.py  # Change to your script name (e.g., run_human_annotation.py)
