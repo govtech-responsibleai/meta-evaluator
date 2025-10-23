@@ -257,7 +257,10 @@ See the `examples/` directory for complete working examples:
 - **[`examples/rejection/data/sample_rejection.csv`](examples/rejection/data/sample_rejection.csv)** - Sample rejection detection dataset
 - **[`examples/rejection/judges.yaml`](examples/rejection/judges.yaml)** - Judge configuration example
 - **[`examples/rejection/prompt.md`](examples/rejection/prompt.md)** - Evaluation prompt template
-- **[`examples/rejection/docker-compose.yml`](examples/rejection/docker-compose.yml)** - Docker compose template
+
+### Docker Templates
+- **[`docker/Dockerfile`](docker/Dockerfile)** - Basic Dockerfile template
+- **[`docker/docker-compose.yml`](docker/docker-compose.yml)** - Docker compose template
 
 ### RabakBench Evaluation (data not included)
 - **[`examples/rabakbench/run_evaluation_async.py`](examples/rabakbench/run_evaluation_async.py)** - Complete async evaluation with multiple metrics

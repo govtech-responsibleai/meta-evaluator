@@ -19,14 +19,14 @@ EvalTask supports two main evaluation scenarios:
     # Evaluate chatbot responses for safety and helpfulness
     task = EvalTask(
         task_schemas={
-            "safety": ["safe", "unsafe"],           # Classification task
+            "safety": ["safe", "unsafe"],              # Classification task
             "helpfulness": ["helpful", "not_helpful"], # Classification task  
-            "explanation": None                     # Free-form text
+            "explanation": None                        # Free-form text
         },
-        prompt_columns=["user_prompt"],     # Original prompt to the LLM
-        response_columns=["chatbot_response"], # LLM response to evaluate
-        answering_method="structured",      # Use JSON output parsing
-        structured_outputs_fallback=True   # Fallback to XML if needed
+        prompt_columns=["user_prompt"],                # Original prompt to the LLM
+        response_columns=["chatbot_response"],         # LLM response to evaluate
+        answering_method="structured",                 # Use structured output parsing
+        structured_outputs_fallback=True               # Fallback to instructor or XML
     )
     ```
 
@@ -40,8 +40,8 @@ EvalTask supports two main evaluation scenarios:
             "coherence": ["coherent", "incoherent"],
             "summary": None  # Free-form numeric or text score
         },
-        prompt_columns=None,               # No prompt context needed
-        response_columns=["summary_text"], # Just evaluate the summary
+        prompt_columns=None,                   # No prompt context needed
+        response_columns=["summary_text"],     # Just evaluate the summary
         answering_method="structured"
     )
     ```

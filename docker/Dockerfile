@@ -1,6 +1,4 @@
-# Dockerfile for MetaEvaluator Annotation Platform
-# This image provides a containerized environment for running the annotation platform
-# with all dependencies pre-installed.
+# Dockerfile for running the MetaEvaluator with all dependencies pre-installed.
 
 FROM python:3.13-slim
 
@@ -18,9 +16,6 @@ RUN pip install --no-cache-dir git+https://github.com/govtech-responsibleai/meta
 # Set working directory
 # User's project files will be mounted here via volume mapping
 WORKDIR /app/workspace
-
-# Expose Streamlit default port
-EXPOSE 8501
 
 # Default command (typically overridden by docker-compose or docker run)
 CMD ["python"]

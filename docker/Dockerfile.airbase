@@ -1,3 +1,6 @@
+# Dockerfile for running the MetaEvaluator on GCC using Airbase.
+# For public officers only, see docs: https://console.v2.airbase.sg/docs
+
 FROM gdssingapore/airbase:python-3.13
 ENV PYTHONUNBUFFERED=TRUE
 

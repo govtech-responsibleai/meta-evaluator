@@ -15,6 +15,7 @@ from meta_evaluator.scores.metrics import (
     AccuracyScorer,
     AltTestScorer,
     CohensKappaScorer,
+    SemanticSimilarityScorer,
     TextSimilarityScorer,
 )
 
@@ -67,8 +68,9 @@ def rejection_data() -> EvalData:
 
 
 def main():
-    """Main function to run evaluation."""
-    evaluator = MetaEvaluator(project_dir="project_dir")
+    """Main function to run async evaluation."""
+    # Set load = False to initialise new MetaEvaluator instance
+    evaluator = MetaEvaluator(project_dir="project_dir_async", load=True)
 
     # Add eval task and eval data
     eval_task = rejection_task()
@@ -80,24 +82,27 @@ def main():
     evaluator.load_judges_from_yaml(
         yaml_file="judges.yaml",
         on_duplicate="skip",  # Skip if judge_id already exists. Set to "overwrite" to replace existing judge.
+        async_mode=True,  # Run judges asynchronously
     )
+
     # Save state (task, data, judges)
     evaluator.save_state(data_format="json")
 
     # Run judges
-    print("Starting sync judge evaluation without batching...")
+    print("Starting async judge evaluation with batching...")
     start_time = time.time()
-    evaluator.run_judges(
-        skip_duplicates=False  # Skip duplicates to avoid re-running judges
+    evaluator.run_judges_async(
+        skip_duplicates=True  # Skip duplicates to avoid re-running judges
     )
     end_time = time.time()
-    print(f"Sync judge evaluation completed in {end_time - start_time:.2f} seconds")
+    print(f"Async judge evaluation completed in {end_time - start_time:.2f} seconds")
 
     # Create scorers
     accuracy_scorer = AccuracyScorer()
     alt_test_scorer = AltTestScorer()
     cohens_kappa_scorer = CohensKappaScorer()
     text_similarity_scorer = TextSimilarityScorer()
+    semantic_similarity_scorer = SemanticSimilarityScorer()
 
     # Create metrics config
     config = MetricsConfig(
@@ -106,6 +111,7 @@ def main():
                 scorer=accuracy_scorer,
                 task_names=["rejection"],
                 task_strategy="single",
+                annotator_aggregation="majority_vote",  # Default is 'individual_average', set to 'majority_vote' for this example
             ),
             MetricConfig(
                 scorer=alt_test_scorer,
@@ -122,6 +128,11 @@ def main():
                 task_names=["explanation"],
                 task_strategy="single",
             ),
+            MetricConfig(
+                scorer=semantic_similarity_scorer,
+                task_names=["explanation"],
+                task_strategy="single",
+            ),
         ]
     )
 
@@ -132,7 +143,7 @@ def main():
     # Generate score report
     evaluator.score_report.save("score_report.html", format="html")
     evaluator.score_report.save("score_report.csv", format="csv")
-    evaluator.score_report.print()  # Print to console
+    evaluator.score_report.print()
 
 
 if __name__ == "__main__":

@@ -674,26 +674,38 @@ my_project/
     ├── accuracy/
     │   └── accuracy_1tasks_22e76eaf_rejection_accuracy/
     │       ├── accuracy_scores.png
-    │       ├── gpt_4_judge_result.json
-    │       └── claude_judge_result.json
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
     ├── cohens_kappa/
     │   └── cohens_kappa_1tasks_22e76eaf_rejection_agreement/
     │       ├── cohens_kappa_scores.png
-    │       ├── gpt_4_judge_result.json
-    │       └── claude_judge_result.json
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
     ├── alt_test/
     │   └── alt_test_3tasks_22e76eaf_safety_significance/
     │       ├── aggregate_advantage_probabilities.png
     │       ├── aggregate_human_vs_llm_advantage.png
     │       ├── aggregate_winning_rates.png
-    │       ├── gpt_4_judge_result.json
-    │       └── claude_judge_result.json
-    └── text_similarity/
-        └── text_similarity_1tasks_74d08617_explanation_quality/
-            ├── text_similarity_scores.png
-            ├── gpt_4_judge_result.json
-            └── claude_judge_result.json
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
+    ├── text_similarity/
+    │   └── text_similarity_1tasks_74d08617_explanation_quality/
+    │       ├── text_similarity_scores.png
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
+    ├── score_report.csv
+    └── score_report.html
 ```
+
+!!! note "Chart Styling"
+    Basic, shared plots use default matplotlib styling. Users may customize their chart theme by using Matplotlib's style sheets and rcParams.
+
+**Sample Charts:**
+
+`accuracy_scores.png` (AccuracyScorer) |  `aggregate_winning_rates.png` (AltTestScorer)
+:-------------------------:|:-------------------------:
+![Score Report HTML Table](../assets/example_accuracy_scores.png)|![Score Report HTML Table](../assets/example_aggregate_winning_rates.png)
+
 
 ### Summary Reports
 
@@ -726,20 +738,11 @@ my_project/
 ```
 
 **Sample Console Output:**
-```
-Score Report:
-┌─────────┬─────────────────────┬─────────────────────┬─────────────────────┬─────────────────────┐
-│ judge_id ┆ accuracy_1tasks_22e ┆ alt_test_1tasks_22e ┆ alt_test_1tasks_22e ┆ text_similarity_1ta │
-│ ---     ┆ 76eaf_single        ┆ 76eaf_single_winni… ┆ 76eaf_single_advant ┆ sks_74d0861_single  │
-│ str     ┆ ---                 ┆ ---                 ┆ ---                 ┆ ---                 │
-│         ┆ f64                 ┆ f64                 ┆ f64                 ┆ f64                 │
-╞═════════╪═════════════════════╪═════════════════════╪═════════════════════╪═════════════════════╡
-│ judge1  ┆ 0.87               ┆ 0.6                 ┆ 0.75                ┆ 0.85                │
-│ judge2  ┆ 0.82               ┆ 0.4                 ┆ 0.65                ┆ 0.78                │
-└─────────┴─────────────────────┴─────────────────────┴─────────────────────┴─────────────────────┘
-```
+
+![Score Report CLI Output](../assets/example_score_report_console.png)
+
 
 **Sample HTML Report:**
-<figure markdown="span">
-  ![Score Report HTML Table](../assets/example_summary_report.png)
-</figure>
+
+![Score Report HTML Table](../assets/example_score_report_html.png)
+

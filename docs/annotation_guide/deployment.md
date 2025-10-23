@@ -3,7 +3,7 @@
 Choose the deployment method that best fits your data security requirements and infrastructure.
 
 ## Run Locally
-Run the annotation platform on your local machine. Suitable for single-user annotation.
+Run the annotation platform on your local machine.
 
 ```python
 from meta_evaluator import MetaEvaluator
@@ -70,29 +70,36 @@ Install Docker on your host environment (your local machine or server where Dock
 - **Docker**: [Install Docker](https://docs.docker.com/get-docker/)
 - **Docker Compose**: Included with Docker Desktop, or [install separately](https://docs.docker.com/compose/install/)
 
-### Local Machine 
+**Download Docker templates:**
 
+Download Dockerfile and docker-compose.yml templates:
+```bash
+curl -O https://raw.githubusercontent.com/govtech-responsibleai/meta-evaluator/refs/heads/main/docker/Dockerfile
+curl -O https://raw.githubusercontent.com/govtech-responsibleai/meta-evaluator/refs/heads/main/docker/docker-compose.yml
+```
 
-1.  **Download files and set up:**
+Or manually download the files:
 
-    Download Dockerfile and docker-compose.yml
-    ```bash
-    curl -O https://raw.githubusercontent.com/govtech-responsibleai/meta-evaluator/refs/heads/main/Dockerfile
-    curl -O https://raw.githubusercontent.com/govtech-responsibleai/meta-evaluator/refs/heads/main/examples/rejection/docker-compose.yml
-    ```
+- Download manually: [Dockerfile](https://raw.githubusercontent.com/govtech-responsibleai/meta-evaluator/main/docker/Dockerfile)
+- View template: [docker-compose.yml](https://github.com/govtech-responsibleai/meta-evaluator/blob/main/docker/docker-compose.yml)
 
-    Or manually download the files:
+**About the templates:**
 
-    - Download manually: [Dockerfile](https://raw.githubusercontent.com/govtech-responsibleai/meta-evaluator/main/Dockerfile)
-    - View template: [docker-compose.yml](https://github.com/govtech-responsibleai/meta-evaluator/blob/main/examples/rejection/docker-compose.yml)
+- The **Dockerfile** template can be used directly as it downloads the necessary Python version and packages, but you may modify it according to your environment needs.
+- The **docker-compose.yml** template must be modified as it contains project-specific configurations such as file paths, build context, and the command to run your annotation script.
 
-    Configure your docker-compose.yml file based on your local environment.
+!!! note
+    Using Docker Compose is optional. Depending on the complexity of your setup, you may choose to use `docker build` and `docker run` commands directly instead.
 
-2.  **Prepare your script:**
+### Local Machine
+
+Ensure you have downloaded the Docker templates above and are in the directory containing the Dockerfile and docker-compose.yml.
+
+1.  **Prepare your script:**
 
     Create your `run_annotation.py` script to load your task/data and launch the annotator. See the [Annotation Guide](annotation.md) on how to set up the script.
 
-3.  **Build and run:**
+2.  **Build and run:**
 
     ```bash
     docker compose build
@@ -100,7 +107,7 @@ Install Docker on your host environment (your local machine or server where Dock
 
     ```
 
-4. **Access at `http://localhost:8501`**
+3. **Access at `http://localhost:8501`**
 
 ### Server
 
@@ -112,21 +119,14 @@ Install Docker on your host environment (your local machine or server where Dock
 
 2.  **Set up workspace on server:**
 
+    Download the Docker templates (see instructions above) and upload them to your server. Ensure you are in the directory containing the Dockerfile and docker-compose.yml.
+
     ```bash
     # Create workspace directory
     mkdir workspace && cd workspace
 
-    # Download Dockerfile and docker-compose.yml
-    curl -O https://raw.githubusercontent.com/govtech-responsibleai/meta-evaluator/main/Dockerfile
-    curl -O https://raw.githubusercontent.com/govtech-responsibleai/meta-evaluator/main/examples/rejection/docker-compose.yml
+    # Upload Dockerfile and docker-compose.yml to this directory
     ```
-
-    Or manually download the files:
-
-    - Download manually: [Dockerfile](https://raw.githubusercontent.com/govtech-responsibleai/meta-evaluator/main/Dockerfile)
-    - View template: [docker-compose.yml](https://github.com/govtech-responsibleai/meta-evaluator/blob/main/examples/rejection/docker-compose.yml)
-
-    Configure your docker-compose.yml file based on your local environment.
 
 3.  **Prepare and upload your script and data:**
 

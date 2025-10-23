@@ -127,6 +127,7 @@ class StreamlitLauncher:
             list[str]: The command to launch the Streamlit interface
         """
         cmd = ["streamlit", "run"]
+        cmd.extend(["--server.address", "0.0.0.0"])
         if self.port:
             cmd.extend(["--server.port", str(self.port)])
         return cmd
