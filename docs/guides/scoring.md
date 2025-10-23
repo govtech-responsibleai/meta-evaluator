@@ -688,11 +688,13 @@ my_project/
     │       ├── aggregate_winning_rates.png
     │       ├── judge_1_result.json
     │       └── judge_2_result.json
-    └── text_similarity/
-        └── text_similarity_1tasks_74d08617_explanation_quality/
-            ├── text_similarity_scores.png
-            ├── judge_1_result.json
-            └── judge_2_result.json
+    ├── text_similarity/
+    │   └── text_similarity_1tasks_74d08617_explanation_quality/
+    │       ├── text_similarity_scores.png
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
+    ├── score_report.csv
+    └── score_report.html
 ```
 
 !!! note "Chart Styling"
