@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.19">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.17">
     
     
       
@@ -406,6 +406,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../annotation_guide/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Deployment options
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -456,6 +479,29 @@
             Evaluation Guides
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../base/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MetaEvaluator
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1612,28 +1658,28 @@
 <tbody>
 <tr>
 <td><strong>AccuracyScorer</strong></td>
-<td>:material-check:</td>
-<td>:material-check: Per-position majority for multilabel, alphabetical tie-breaking</td>
+<td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 7 9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/></svg></span></td>
+<td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 7 9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/></svg></span> Per-position majority for multilabel, alphabetical tie-breaking</td>
 </tr>
 <tr>
 <td><strong>TextSimilarityScorer</strong></td>
-<td>:material-check:</td>
-<td>:material-check: Best-match approach: highest similarity human per sample</td>
+<td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 7 9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/></svg></span></td>
+<td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 7 9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/></svg></span> Best-match approach: highest similarity human per sample</td>
 </tr>
 <tr>
 <td><strong>SemanticSimilarityScorer</strong></td>
-<td>:material-check:</td>
-<td>:material-check: Best-match approach: highest similarity human per sample</td>
+<td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 7 9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/></svg></span></td>
+<td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 7 9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/></svg></span> Best-match approach: highest similarity human per sample</td>
 </tr>
 <tr>
 <td><strong>CohensKappaScorer</strong></td>
-<td>:material-check:</td>
-<td>:material-close: Logs warning, falls back to individual_average (agreement metric)</td>
+<td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 7 9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/></svg></span></td>
+<td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></span> Logs warning, falls back to individual_average (agreement metric)</td>
 </tr>
 <tr>
 <td><strong>AltTestScorer</strong></td>
-<td>:material-check:</td>
-<td>:material-close: Logs warning, falls back to individual_average (agreement metric)</td>
+<td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 7 9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/></svg></span></td>
+<td><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></span> Logs warning, falls back to individual_average (agreement metric)</td>
 </tr>
 </tbody>
 </table>
@@ -1944,26 +1990,47 @@ Inter-annotator agreement metrics measure disagreement between individual humans
 </span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>    ├── accuracy/
 </span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    │   └── accuracy_1tasks_22e76eaf_rejection_accuracy/
 </span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    │       ├── accuracy_scores.png
-</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    │       ├── gpt_4_judge_result.json
-</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>    │       └── claude_judge_result.json
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    │       ├── judge_1_result.json
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>    │       └── judge_2_result.json
 </span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>    ├── cohens_kappa/
 </span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>    │   └── cohens_kappa_1tasks_22e76eaf_rejection_agreement/
 </span><span id="__span-21-10"><a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a>    │       ├── cohens_kappa_scores.png
-</span><span id="__span-21-11"><a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>    │       ├── gpt_4_judge_result.json
-</span><span id="__span-21-12"><a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a>    │       └── claude_judge_result.json
+</span><span id="__span-21-11"><a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>    │       ├── judge_1_result.json
+</span><span id="__span-21-12"><a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a>    │       └── judge_2_result.json
 </span><span id="__span-21-13"><a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a>    ├── alt_test/
 </span><span id="__span-21-14"><a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a>    │   └── alt_test_3tasks_22e76eaf_safety_significance/
 </span><span id="__span-21-15"><a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a>    │       ├── aggregate_advantage_probabilities.png
 </span><span id="__span-21-16"><a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a>    │       ├── aggregate_human_vs_llm_advantage.png
 </span><span id="__span-21-17"><a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a>    │       ├── aggregate_winning_rates.png
-</span><span id="__span-21-18"><a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a>    │       ├── gpt_4_judge_result.json
-</span><span id="__span-21-19"><a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a>    │       └── claude_judge_result.json
-</span><span id="__span-21-20"><a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a>    └── text_similarity/
-</span><span id="__span-21-21"><a id="__codelineno-21-21" name="__codelineno-21-21" href="#__codelineno-21-21"></a>        └── text_similarity_1tasks_74d08617_explanation_quality/
-</span><span id="__span-21-22"><a id="__codelineno-21-22" name="__codelineno-21-22" href="#__codelineno-21-22"></a>            ├── text_similarity_scores.png
-</span><span id="__span-21-23"><a id="__codelineno-21-23" name="__codelineno-21-23" href="#__codelineno-21-23"></a>            ├── gpt_4_judge_result.json
-</span><span id="__span-21-24"><a id="__codelineno-21-24" name="__codelineno-21-24" href="#__codelineno-21-24"></a>            └── claude_judge_result.json
+</span><span id="__span-21-18"><a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a>    │       ├── judge_1_result.json
+</span><span id="__span-21-19"><a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a>    │       └── judge_2_result.json
+</span><span id="__span-21-20"><a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a>    ├── text_similarity/
+</span><span id="__span-21-21"><a id="__codelineno-21-21" name="__codelineno-21-21" href="#__codelineno-21-21"></a>    │   └── text_similarity_1tasks_74d08617_explanation_quality/
+</span><span id="__span-21-22"><a id="__codelineno-21-22" name="__codelineno-21-22" href="#__codelineno-21-22"></a>    │       ├── text_similarity_scores.png
+</span><span id="__span-21-23"><a id="__codelineno-21-23" name="__codelineno-21-23" href="#__codelineno-21-23"></a>    │       ├── judge_1_result.json
+</span><span id="__span-21-24"><a id="__codelineno-21-24" name="__codelineno-21-24" href="#__codelineno-21-24"></a>    │       └── judge_2_result.json
+</span><span id="__span-21-25"><a id="__codelineno-21-25" name="__codelineno-21-25" href="#__codelineno-21-25"></a>    ├── score_report.csv
+</span><span id="__span-21-26"><a id="__codelineno-21-26" name="__codelineno-21-26" href="#__codelineno-21-26"></a>    └── score_report.html
 </span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Chart Styling</p>
+<p>Basic, shared plots use default matplotlib styling. Users may customize their chart theme by using Matplotlib's style sheets and rcParams.</p>
+</div>
+<p><strong>Sample Charts:</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"><code>accuracy_scores.png</code> (AccuracyScorer)</th>
+<th style="text-align: center;"><code>aggregate_winning_rates.png</code> (AltTestScorer)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><img alt="Score Report HTML Table" src="../../assets/example_accuracy_scores.png" /></td>
+<td style="text-align: center;"><img alt="Score Report HTML Table" src="../../assets/example_aggregate_winning_rates.png" /></td>
+</tr>
+</tbody>
+</table>
 <h3 id="summary-reports">Summary Reports</h3>
 <p>You can generate summary reports that aggregate all metrics across all judges in a single view.</p>
 <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-22-1"> 1</a></span>
@@ -1996,22 +2063,10 @@ Inter-annotator agreement metrics measure disagreement between individual humans
 </span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>    ├── alt_test/            # Detailed alt-test results...
 </span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>    └── text_similarity/     # Detailed similarity results...
 </span></code></pre></div>
-<p><strong>Sample Console Output:</strong>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>Score Report:
-</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>┌─────────┬─────────────────────┬─────────────────────┬─────────────────────┬─────────────────────┐
-</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>│ judge_id ┆ accuracy_1tasks_22e ┆ alt_test_1tasks_22e ┆ alt_test_1tasks_22e ┆ text_similarity_1ta │
-</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>│ ---     ┆ 76eaf_single        ┆ 76eaf_single_winni… ┆ 76eaf_single_advant ┆ sks_74d0861_single  │
-</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>│ str     ┆ ---                 ┆ ---                 ┆ ---                 ┆ ---                 │
-</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>│         ┆ f64                 ┆ f64                 ┆ f64                 ┆ f64                 │
-</span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>╞═════════╪═════════════════════╪═════════════════════╪═════════════════════╪═════════════════════╡
-</span><span id="__span-24-8"><a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>│ judge1  ┆ 0.87               ┆ 0.6                 ┆ 0.75                ┆ 0.85                │
-</span><span id="__span-24-9"><a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>│ judge2  ┆ 0.82               ┆ 0.4                 ┆ 0.65                ┆ 0.78                │
-</span><span id="__span-24-10"><a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>└─────────┴─────────────────────┴─────────────────────┴─────────────────────┴─────────────────────┘
-</span></code></pre></div></p>
+<p><strong>Sample Console Output:</strong></p>
+<p><img alt="Score Report CLI Output" src="../../assets/example_score_report_console.png" /></p>
 <p><strong>Sample HTML Report:</strong></p>
-<figure>
-  <img alt="Score Report HTML Table" src="../../assets/example_summary_report.png" />
-</figure>
+<p><img alt="Score Report HTML Table" src="../../assets/example_score_report_html.png" /></p>
 
 
 
