@@ -21,6 +21,7 @@ Configure and use alignment metrics to compare judge evaluations with human anno
                 task_names=["rejection"],
                 task_strategy="single", # One of 'single', 'multilabel', or 'multitask'
                 annotator_aggregation="individual_average",  # Default
+                display_name="rejection_accuracy",  # Optional: custom column name
             ),
         ]
     )
@@ -334,7 +335,8 @@ Configure and use alignment metrics to compare judge evaluations with human anno
     - **Alt-Test**: Winning rates across epsilon values, advantage probabilities (0-1)
 
 
-## Task Configuration Types (`task_strategy`)
+## Arguments
+### Task Configuration Types (`task_strategy`)
 
 The `task_strategy` parameter defines how tasks are processed and must be one of: `"single"`, `"multitask"`, or `"multilabel"`.
 
@@ -445,7 +447,7 @@ config = MetricsConfig(
 )
 ```
 
-## Annotator Aggregation (`annotator_aggregation`)
+### Annotator Aggregation (`annotator_aggregation`)
 
 Control how multiple human annotations are aggregated before comparison with judge results.
 
@@ -486,7 +488,31 @@ Control how multiple human annotations are aggregated before comparison with jud
     - Compare judge predictions with consensus
     - Implementation varies by metric type (see support table below)
 
-### Metric Support Table
+
+### Custom Column Names (`display_name`)
+
+Override auto-generated column names (e.g., `accuracy_1tasks_5d6db9a1_single`) with custom names:
+
+```python linenums="1" hl_lines="7 13"
+config = MetricsConfig(
+    metrics=[
+        MetricConfig(
+            scorer=AccuracyScorer(),
+            task_names=["accuracy"],
+            task_strategy="single",
+            display_name="accuracy_score"  # Custom column name
+        ),
+        MetricConfig(
+            scorer=AccuracyScorer(),
+            task_names=["groundedness"],
+            task_strategy="single",
+            display_name="groundedness_score"
+        ),
+    ]
+)
+```
+
+**Metric Support Table**
 
 | Metric | individual_average | majority_vote |
 |--------|-------------------|---------------|
@@ -498,6 +524,92 @@ Control how multiple human annotations are aggregated before comparison with jud
 
 **Why agreement metrics don't support majority_vote:**
 Inter-annotator agreement metrics measure disagreement between individual humans. Majority vote eliminates this disagreement information, making the metrics less meaningful.
+
+## Results Output
+
+### Individual Metric Results
+
+Detailed scores and charts are saved to individual metric directories in your project:
+
+```
+my_project/
+└── scores/
+    ├── accuracy/
+    │   └── accuracy_1tasks_22e76eaf_rejection_accuracy/
+    │       ├── accuracy_scores.png
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
+    ├── cohens_kappa/
+    │   └── cohens_kappa_1tasks_22e76eaf_rejection_agreement/
+    │       ├── cohens_kappa_scores.png
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
+    ├── alt_test/
+    │   └── alt_test_3tasks_22e76eaf_safety_significance/
+    │       ├── aggregate_advantage_probabilities.png
+    │       ├── aggregate_human_vs_llm_advantage.png
+    │       ├── aggregate_winning_rates.png
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
+    ├── text_similarity/
+    │   └── text_similarity_1tasks_74d08617_explanation_quality/
+    │       ├── text_similarity_scores.png
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
+    ├── score_report.csv
+    └── score_report.html
+```
+
+!!! note "Chart Styling"
+    Basic, shared plots use default matplotlib styling. Users may customize their chart theme by using Matplotlib's style sheets and rcParams.
+
+**Sample Charts:**
+
+`accuracy_scores.png` (AccuracyScorer) |  `aggregate_winning_rates.png` (AltTestScorer)
+:-------------------------:|:-------------------------:
+![Score Report HTML Table](../assets/example_accuracy_scores.png)|![Score Report HTML Table](../assets/example_aggregate_winning_rates.png)
+
+
+### Summary Reports
+
+You can generate summary reports that aggregate all metrics across all judges in a single view.
+
+```python linenums="1"
+# After running evaluations and configuring metric configs
+evaluator.add_metrics_config(config)
+evaluator.compare_async()
+
+# Save to files
+evaluator.score_report.save("score_report.html", format="html")  # Interactive HTML with highlighting
+evaluator.score_report.save("score_report.csv", format="csv")    # CSV for analysis
+
+# Print to console
+evaluator.score_report.print()
+```
+
+Summary reports are saved to the scores directory:
+
+```
+my_project/
+└── scores/
+    ├── score_report.html    # Interactive HTML table with best score highlighting
+    ├── score_report.csv     # CSV format for analysis/Excel
+    ├── accuracy/            # Detailed accuracy results...
+    ├── cohens_kappa/        # Detailed kappa results...
+    ├── alt_test/            # Detailed alt-test results...
+    └── text_similarity/     # Detailed similarity results...
+```
+
+**Sample Console Output:**
+
+![Score Report CLI Output](../assets/example_score_report_console.png)
+
+
+**Sample HTML Report:**
+
+![Score Report HTML Table](../assets/example_score_report_html.png)
+
+---
 
 ## Custom Scorer
 
@@ -660,89 +772,4 @@ config = MetricConfig(
     - Return `BaseScoringResult` from `compute_score_async()`
     - Handle edge cases (empty data, mismatched IDs, etc.)
     - Add meaningful metadata for debugging and transparency
-
-
-## Results Output
-
-### Individual Metric Results
-
-Detailed scores and charts are saved to individual metric directories in your project:
-
-```
-my_project/
-└── scores/
-    ├── accuracy/
-    │   └── accuracy_1tasks_22e76eaf_rejection_accuracy/
-    │       ├── accuracy_scores.png
-    │       ├── judge_1_result.json
-    │       └── judge_2_result.json
-    ├── cohens_kappa/
-    │   └── cohens_kappa_1tasks_22e76eaf_rejection_agreement/
-    │       ├── cohens_kappa_scores.png
-    │       ├── judge_1_result.json
-    │       └── judge_2_result.json
-    ├── alt_test/
-    │   └── alt_test_3tasks_22e76eaf_safety_significance/
-    │       ├── aggregate_advantage_probabilities.png
-    │       ├── aggregate_human_vs_llm_advantage.png
-    │       ├── aggregate_winning_rates.png
-    │       ├── judge_1_result.json
-    │       └── judge_2_result.json
-    ├── text_similarity/
-    │   └── text_similarity_1tasks_74d08617_explanation_quality/
-    │       ├── text_similarity_scores.png
-    │       ├── judge_1_result.json
-    │       └── judge_2_result.json
-    ├── score_report.csv
-    └── score_report.html
-```
-
-!!! note "Chart Styling"
-    Basic, shared plots use default matplotlib styling. Users may customize their chart theme by using Matplotlib's style sheets and rcParams.
-
-**Sample Charts:**
-
-`accuracy_scores.png` (AccuracyScorer) |  `aggregate_winning_rates.png` (AltTestScorer)
-:-------------------------:|:-------------------------:
-![Score Report HTML Table](../assets/example_accuracy_scores.png)|![Score Report HTML Table](../assets/example_aggregate_winning_rates.png)
-
-
-### Summary Reports
-
-You can generate summary reports that aggregate all metrics across all judges in a single view.
-
-```python linenums="1"
-# After running evaluations and configuring metric configs
-evaluator.add_metrics_config(config)
-evaluator.compare_async()
-
-# Save to files
-evaluator.score_report.save("score_report.html", format="html")  # Interactive HTML with highlighting
-evaluator.score_report.save("score_report.csv", format="csv")    # CSV for analysis
-
-# Print to console
-evaluator.score_report.print()
-```
-
-Summary reports are saved to the scores directory:
-
-```
-my_project/
-└── scores/
-    ├── score_report.html    # Interactive HTML table with best score highlighting
-    ├── score_report.csv     # CSV format for analysis/Excel
-    ├── accuracy/            # Detailed accuracy results...
-    ├── cohens_kappa/        # Detailed kappa results...
-    ├── alt_test/            # Detailed alt-test results...
-    └── text_similarity/     # Detailed similarity results...
-```
-
-**Sample Console Output:**
-
-![Score Report CLI Output](../assets/example_score_report_console.png)
-
-
-**Sample HTML Report:**
-
-![Score Report HTML Table](../assets/example_score_report_html.png)
 

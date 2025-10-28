@@ -22,6 +22,7 @@ class MetricConfig(BaseModel):
     annotator_aggregation: Literal["individual_average", "majority_vote"] = (
         "individual_average"
     )
+    display_name: str | None = None
 
     @model_validator(mode="after")
     def validate_task_strategy_constraints(self) -> "MetricConfig":
@@ -77,7 +78,13 @@ class MetricConfig(BaseModel):
 
         Returns:
             str: A unique identifier for this metric configuration.
+                If display_name is set, returns that. Otherwise generates a hash-based name.
         """
+        # If user provided display_name, use it
+        if self.display_name:
+            return self.display_name
+
+        # Otherwise generate hash-based name
         import hashlib
 
         # Create a hash of the task names to avoid very long names
@@ -115,6 +122,7 @@ class MetricsConfig(BaseModel):
         annotator_aggregation: Literal[
             "individual_average", "majority_vote"
         ] = "individual_average",
+        display_name: str | None = None,
     ) -> None:
         """Add a metric configuration."""
         self.metrics.append(
@@ -123,5 +131,6 @@ class MetricsConfig(BaseModel):
                 task_names=task_names,
                 task_strategy=task_strategy,
                 annotator_aggregation=annotator_aggregation,
+                display_name=display_name,
             )
         )
