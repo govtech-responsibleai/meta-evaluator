@@ -34,7 +34,7 @@ MetaEvaluator helps you assess LLM judges by:
 
 ## Getting Started
 
-See our [**Tutorial**](docs/tutorial.md) for a complete walkthrough, or check out the full example at: [`examples/rejection/run_evaluation_async.py`](examples/rejection/run_evaluation_async.py)  
+See our [**Tutorial**](docs/tutorial.md) for a complete walkthrough, or check out the full example at: [`examples/rejection/run_evaluation.py`](examples/rejection/run_evaluation.py)
 The sections below provide an overview of the main components.
 
 ### 1. Initialize MetaEvaluator
@@ -253,7 +253,8 @@ project_dir/
 See the `examples/` directory for complete working examples:
 
 ### Rejection Detection Evaluation
-- **[`examples/rejection/run_evaluation_async.py`](examples/rejection/run_evaluation_async.py)** - Complete async evaluation with multiple metrics
+- **[`examples/rejection/run_evaluation.py`](examples/rejection/run_evaluation.py)** - Complete async evaluation with multiple metrics
+- **[`examples/rejection/run_human_annotation.py`](examples/rejection/run_human_annotation.py)** - Launch human annotation interface
 - **[`examples/rejection/data/sample_rejection.csv`](examples/rejection/data/sample_rejection.csv)** - Sample rejection detection dataset
 - **[`examples/rejection/judges.yaml`](examples/rejection/judges.yaml)** - Judge configuration example
 - **[`examples/rejection/prompt.md`](examples/rejection/prompt.md)** - Evaluation prompt template
@@ -263,10 +264,11 @@ See the `examples/` directory for complete working examples:
 - **[`docker/docker-compose.yml`](docker/docker-compose.yml)** - Docker compose template
 
 ### RabakBench Evaluation (data not included)
-- **[`examples/rabakbench/run_evaluation_async.py`](examples/rabakbench/run_evaluation_async.py)** - Complete async evaluation with multiple metrics
+- **[`examples/rabakbench/run_evaluation.py`](examples/rabakbench/run_evaluation.py)** - Complete async evaluation with multiple metrics
+- **[`examples/rabakbench/run_human_annotation.py`](examples/rabakbench/run_human_annotation.py)** - Launch human annotation interface
 
-### Scoring-Only Evaluation with External Results
-- **[`examples/rejection/run_scoring_only_async.py`](examples/rejection/run_scoring_only_async.py)** - Load external judge/human results and run scoring without re-evaluation
+### Scoring-Only Evaluation (load in external results)
+- **[`examples/rejection/run_scoring_only.py`](examples/rejection/run_scoring_only.py)** - Load external judge/human results and run scoring without re-evaluation
 
 ## Development Commands
 
