@@ -142,7 +142,7 @@ from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.scores import MetricConfig, MetricsConfig
 from meta_evaluator.scores.metrics import (
-    AccuracyScorer,
+    ClassificationScorer,
     AltTestScorer,
     CohensKappaScorer,
     SemanticSimilarityScorer,
@@ -218,7 +218,7 @@ def main():
     evaluator.run_judges_async(skip_duplicates=True)
 
     # Step 6: Set up multiple metrics for comprehensive comparison
-    accuracy_scorer = AccuracyScorer()
+    accuracy_scorer = ClassificationScorer("accuracy")
     alt_test_scorer = AltTestScorer()
     cohens_kappa_scorer = CohensKappaScorer()
     text_similarity_scorer = TextSimilarityScorer()
@@ -311,7 +311,7 @@ quickstart_project/
 └── scores/                     # Computed metrics (after comparison with human data)
     ├── score_report.html    # Summary HTML report
     ├── score_report.csv     # Summary CSV report
-    ├── accuracy/
+    ├── classification_accuracy/
     ├── cohens_kappa/
     └── text_similarity/
 ```

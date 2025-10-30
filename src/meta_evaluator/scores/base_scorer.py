@@ -37,7 +37,7 @@ class BaseScorer(ABC):
             does nothing - override to provide custom visualization.
 
     Examples:
-        >>> class AccuracyScorer(BaseScorer):
+        >>> class ClassificationScorer(BaseScorer):
         ...     @property
         ...     def min_human_annotators(self) -> int:
         ...         return 1  # Accuracy works with just 1 human
@@ -45,7 +45,7 @@ class BaseScorer(ABC):
         ...         return task_schema is not None  # Only classification tasks
         ...     def compute_score_async(self, judge_data, human_data, human_df, task_name, judge_id, aggregation_mode):
         ...         # Core scoring logic
-        ...         return AccuracyScoringResult(...) # TODO: Implement ScoringResult for each Scorer. Currently using BaseScoringResult.
+        ...         return BaseScoringResult(...)
         ...     def aggregate_results(self, results, scores_dir):
         ...         # Optional: generate accuracy plots
         ...         self._create_accuracy_plots(results, scores_dir)

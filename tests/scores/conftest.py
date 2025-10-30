@@ -8,7 +8,7 @@ import polars as pl
 import pytest
 
 from meta_evaluator.scores import (
-    AccuracyScorer,
+    ClassificationScorer,
     CohensKappaScorer,
     TextSimilarityScorer,
 )
@@ -21,12 +21,12 @@ from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
 
 @pytest.fixture
 def accuracy_scorer():
-    """Provides an AccuracyScorer instance for testing.
+    """Provides a ClassificationScorer instance for accuracy testing.
 
     Returns:
-        AccuracyScorer: An AccuracyScorer instance.
+        ClassificationScorer: A ClassificationScorer instance configured for accuracy.
     """
-    return AccuracyScorer()
+    return ClassificationScorer(metric="accuracy")
 
 
 @pytest.fixture
@@ -446,7 +446,7 @@ def sample_accuracy_results():
     """
     return [
         BaseScoringResult(
-            scorer_name="accuracy",
+            scorer_name="classification_accuracy",
             task_name="sentiment",
             judge_id="judge_1",
             scores={"accuracy": 0.85},
@@ -456,7 +456,7 @@ def sample_accuracy_results():
             failed_comparisons=0,
         ),
         BaseScoringResult(
-            scorer_name="accuracy",
+            scorer_name="classification_accuracy",
             task_name="sentiment",
             judge_id="judge_2",
             scores={"accuracy": 0.78},

@@ -26,9 +26,9 @@ from meta_evaluator.results import (
     JudgeResultsBuilder,
 )
 from meta_evaluator.scores import (
-    AccuracyScorer,
     AltTestScorer,
     BaseScoringResult,
+    ClassificationScorer,
     CohensKappaScorer,
     MetricConfig,
 )
@@ -590,12 +590,12 @@ def create_mock_human_metadata_file(
 
 @pytest.fixture
 def accuracy_scorer_config():
-    """Create AccuracyScorer with MetricConfig for testing.
+    """Create ClassificationScorer with MetricConfig for testing.
 
     Returns:
         tuple: (scorer_instance, MetricConfig)
     """
-    scorer = AccuracyScorer()
+    scorer = ClassificationScorer(metric="accuracy")
     config = MetricConfig(scorer=scorer, task_names=["task1"], task_strategy="single")
     return scorer, config
 
@@ -635,7 +635,7 @@ def multi_aggregation_configs():
     configs = {}
 
     # Single task config
-    scorer1 = AccuracyScorer()
+    scorer1 = ClassificationScorer(metric="accuracy")
     config1 = MetricConfig(
         scorer=scorer1,
         task_names=["task1"],
@@ -654,7 +654,7 @@ def multi_aggregation_configs():
     configs[config1.get_unique_name()] = (config1, [result1])
 
     # Multi-task config
-    scorer2 = AccuracyScorer()
+    scorer2 = ClassificationScorer(metric="accuracy")
     config2 = MetricConfig(
         scorer=scorer2,
         task_names=["task1", "task2"],
@@ -673,7 +673,7 @@ def multi_aggregation_configs():
     configs[config2.get_unique_name()] = (config2, [result2])
 
     # Multilabel config
-    scorer3 = AccuracyScorer()
+    scorer3 = ClassificationScorer(metric="accuracy")
     config3 = MetricConfig(
         scorer=scorer3,
         task_names=["task1", "task2"],
@@ -704,7 +704,7 @@ def different_scorer_configs():
     configs = {}
 
     # Accuracy scorer config
-    accuracy_scorer = AccuracyScorer()
+    accuracy_scorer = ClassificationScorer(metric="accuracy")
     accuracy_config = MetricConfig(
         scorer=accuracy_scorer,
         task_names=["task1"],

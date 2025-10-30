@@ -6,11 +6,11 @@ import pytest
 from meta_evaluator.scores.enums import TaskAggregationMode
 
 
-class TestAccuracyScorer:
-    """Test AccuracyScorer functionality."""
+class TestClassificationScorer:
+    """Test ClassificationScorer functionality."""
 
     def test_can_score_classification(self, accuracy_scorer):
-        """Test that AccuracyScorer can handle classification tasks."""
+        """Test that ClassificationScorer can handle classification tasks."""
         # Should accept classification tasks
         assert accuracy_scorer.can_score_task("A") is True
         assert accuracy_scorer.can_score_task(["A", "B", "C"]) is True
@@ -38,7 +38,7 @@ class TestAccuracyScorer:
             judge_data, human_data, "task1", "judge_1", None
         )
 
-        assert result.scorer_name == "accuracy"
+        assert result.scorer_name == "classification_accuracy"
         assert result.task_name == "task1"
         assert result.judge_id == "judge_1"
         assert "accuracy" in result.scores
@@ -64,7 +64,7 @@ class TestAccuracyScorer:
             judge_data, human_data, "task1", "judge_1", None
         )
 
-        assert result.scorer_name == "accuracy"
+        assert result.scorer_name == "classification_accuracy"
         assert result.task_name == "task1"
         assert result.judge_id == "judge_1"
         assert "accuracy" in result.scores

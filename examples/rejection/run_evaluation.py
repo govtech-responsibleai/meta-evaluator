@@ -12,8 +12,8 @@ from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.scores import MetricConfig, MetricsConfig
 from meta_evaluator.scores.metrics import (
-    AccuracyScorer,
     AltTestScorer,
+    ClassificationScorer,
     CohensKappaScorer,
     SemanticSimilarityScorer,
     TextSimilarityScorer,
@@ -98,7 +98,7 @@ def main():
     print(f"Async judge evaluation completed in {end_time - start_time:.2f} seconds")
 
     # Create scorers
-    accuracy_scorer = AccuracyScorer()
+    accuracy_scorer = ClassificationScorer(metric="accuracy")
     alt_test_scorer = AltTestScorer()
     cohens_kappa_scorer = CohensKappaScorer()
     text_similarity_scorer = TextSimilarityScorer()

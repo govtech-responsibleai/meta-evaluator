@@ -182,7 +182,7 @@ my_project/
 │   ├── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_data.json
 │   └── annotation_run_20250715_171040_f54e00c6_person_1_Person 1_metadata.json
 └── scores/                     # Computed alignment metrics (after comparison)
-    ├── accuracy/
+    ├── classification_accuracy/
     ├── cohens_kappa/
     ├── alt_test/
     └── text_similarity/

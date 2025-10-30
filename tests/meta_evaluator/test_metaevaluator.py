@@ -26,7 +26,7 @@ from meta_evaluator.meta_evaluator.exceptions import (
     ProjectDirectoryExistsError,
     SavedStateNotFoundError,
 )
-from meta_evaluator.scores import AccuracyScorer, MetricConfig, MetricsConfig
+from meta_evaluator.scores import ClassificationScorer, MetricConfig, MetricsConfig
 
 
 @pytest.mark.integration
@@ -259,7 +259,7 @@ class TestMetaEvaluatorBase:
         assert meta_evaluator.metrics_config is None
 
         # Create a sample metrics config
-        accuracy_scorer = AccuracyScorer()
+        accuracy_scorer = ClassificationScorer(metric="accuracy")
         metrics_config = MetricsConfig(
             metrics=[
                 MetricConfig(
@@ -277,7 +277,7 @@ class TestMetaEvaluatorBase:
     def test_add_metrics_config_already_exists_no_overwrite(self, meta_evaluator):
         """Test MetricsConfigAlreadyExistsError when metrics config exists and overwrite is False (default)."""
         # Create first metrics config
-        accuracy_scorer = AccuracyScorer()
+        accuracy_scorer = ClassificationScorer(metric="accuracy")
         first_config = MetricsConfig(
             metrics=[
                 MetricConfig(

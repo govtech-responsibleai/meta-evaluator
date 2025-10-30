@@ -47,7 +47,7 @@ my_project/
 │   └── annotation_run_*_annotator2_*.json
 └── scores/                  # Computed alignment metrics
     ├── score_report.html
-    ├── accuracy/
+    ├── classification_accuracy/
     ├── cohens_kappa/
     └── text_similarity/
 ```

@@ -20,8 +20,8 @@ from meta_evaluator.results import (
     JudgeResultsBuilder,
 )
 from meta_evaluator.scores import (
-    AccuracyScorer,
     BaseScoringResult,
+    ClassificationScorer,
     MetricConfig,
     MetricsConfig,
 )
@@ -756,7 +756,7 @@ class TestScoring:
         self, mock_process_judge, mock_evaluator, judge_results_dict, human_results_dict
     ):
         """Test _run_scoring_async calls _process_single_judge_async for number of judges times asynchronously."""
-        scorer = AccuracyScorer()
+        scorer = ClassificationScorer(metric="accuracy")
         config = MetricConfig(
             scorer=scorer,
             task_names=["task1"],
@@ -765,7 +765,7 @@ class TestScoring:
 
         # Mock the process_single_judge_async method
         mock_result1 = BaseScoringResult(
-            scorer_name="accuracy",
+            scorer_name="classification_accuracy",
             task_name="task1",
             judge_id="judge_1",
             scores={"accuracy": 0.8},
@@ -775,7 +775,7 @@ class TestScoring:
             failed_comparisons=0,
         )
         mock_result2 = BaseScoringResult(
-            scorer_name="accuracy",
+            scorer_name="classification_accuracy",
             task_name="task1",
             judge_id="judge_2",
             scores={"accuracy": 0.7},
@@ -855,8 +855,8 @@ class TestScoring:
         self, mock_evaluator, judge_results_1, human_results_dict
     ):
         """Test _process_single_judge_async calls compute_score_async for number of tasks times when multitask."""
-        # Use a real AccuracyScorer to avoid pydantic validation issues
-        scorer = AccuracyScorer()
+        # Use a real ClassificationScorer to avoid pydantic validation issues
+        scorer = ClassificationScorer(metric="accuracy")
 
         config = MetricConfig(
             scorer=scorer,
@@ -871,7 +871,7 @@ class TestScoring:
 
         # Result should be aggregated for multi-task
         assert "2_tasks_avg" in result.task_name
-        assert result.scorer_name == "accuracy"
+        assert result.scorer_name == "classification_accuracy"
         assert result.aggregation_mode == TaskAggregationMode.MULTITASK
 
     @pytest.mark.asyncio
@@ -879,8 +879,8 @@ class TestScoring:
         self, mock_evaluator, judge_results_1, human_results_dict
     ):
         """Test _process_single_judge_async calls compute_score_async once when single/multilabel."""
-        # Use a real AccuracyScorer to avoid pydantic validation issues
-        scorer = AccuracyScorer()
+        # Use a real ClassificationScorer to avoid pydantic validation issues
+        scorer = ClassificationScorer(metric="accuracy")
 
         config = MetricConfig(
             scorer=scorer,
@@ -895,7 +895,7 @@ class TestScoring:
 
         # Result should be the direct result for single task
         assert result.task_name == "task1"
-        assert result.scorer_name == "accuracy"
+        assert result.scorer_name == "classification_accuracy"
 
     def test_save_all_scorer_results_different_scorers(
         self, mock_evaluator, different_scorer_configs
@@ -908,7 +908,7 @@ class TestScoring:
         mock_evaluator._save_all_scorer_results(different_scorer_configs)
 
         # Verify scorer directories were created and files saved
-        accuracy_dir = mock_evaluator.paths.scores / "accuracy"
+        accuracy_dir = mock_evaluator.paths.scores / "classification_accuracy"
         kappa_dir = mock_evaluator.paths.scores / "cohens_kappa"
         alt_test_dir = mock_evaluator.paths.scores / "alt_test"
 
@@ -936,7 +936,7 @@ class TestScoring:
         mock_evaluator._save_all_scorer_results(multi_aggregation_configs)
 
         # Verify accuracy directory was created
-        accuracy_dir = mock_evaluator.paths.scores / "accuracy"
+        accuracy_dir = mock_evaluator.paths.scores / "classification_accuracy"
         assert accuracy_dir.exists()
 
         # Verify 3 result files were saved (one for each aggregation mode)
@@ -954,7 +954,7 @@ class TestScoring:
         mock_evaluator._aggregate_all_scorer_results(different_scorer_configs)
 
         # Verify scorer directories were created
-        accuracy_dir = mock_evaluator.paths.scores / "accuracy"
+        accuracy_dir = mock_evaluator.paths.scores / "classification_accuracy"
         kappa_dir = mock_evaluator.paths.scores / "cohens_kappa"
         alt_test_dir = mock_evaluator.paths.scores / "alt_test"
 
@@ -982,7 +982,7 @@ class TestScoring:
         mock_evaluator._aggregate_all_scorer_results(multi_aggregation_configs)
 
         # Verify accuracy directory was created
-        accuracy_dir = mock_evaluator.paths.scores / "accuracy"
+        accuracy_dir = mock_evaluator.paths.scores / "classification_accuracy"
         assert accuracy_dir.exists()
 
         # Verify 3 plots were generated (one for each aggregation mode)
@@ -1009,17 +1009,17 @@ class TestScoring:
     @pytest.mark.parametrize(
         "scorer_class,scorer_name,task_names,task_strategy",
         [
-            # AccuracyScorer tests
-            (AccuracyScorer, "accuracy", ["task1"], "single"),
+            # ClassificationScorer tests
+            (ClassificationScorer, "classification_accuracy", ["task1"], "single"),
             (
-                AccuracyScorer,
-                "accuracy",
+                ClassificationScorer,
+                "classification_accuracy",
                 ["task1", "safety"],
                 "multitask",
             ),
             (
-                AccuracyScorer,
-                "accuracy",
+                ClassificationScorer,
+                "classification_accuracy",
                 ["task1", "safety"],
                 "multilabel",
             ),
@@ -1074,7 +1074,9 @@ class TestScoring:
     ):
         """Test _process_single_judge_async with different combinations of metrics, scorers and aggregation modes."""
         # Create real scorer instances
-        if scorer_class == AltTestScorer:
+        if scorer_class == ClassificationScorer:
+            scorer = ClassificationScorer(metric="accuracy")
+        elif scorer_class == AltTestScorer:
             scorer = AltTestScorer()
             scorer.min_instances_per_human = 1  # Set low threshold for testing
         else:
@@ -1121,7 +1123,7 @@ class TestScoring:
         mock_evaluator.load_all_human_results = Mock(return_value=human_results_dict)
 
         # Use a real scorer
-        scorer = AccuracyScorer()
+        scorer = ClassificationScorer(metric="accuracy")
 
         # Create config
         config = MetricsConfig(
@@ -1144,7 +1146,7 @@ class TestScoring:
         # Should have results for each judge
         assert len(scoring_results) == 2
         for result in scoring_results:
-            assert result.scorer_name == "accuracy"
+            assert result.scorer_name == "classification_accuracy"
             assert result.judge_id in ["judge_1", "judge_2"]
             assert isinstance(result.scores.get("accuracy"), float)
 
@@ -1154,7 +1156,7 @@ class TestScoring:
     [
         (CohensKappaScorer, 1),  # Requires 2, test with 1
         (AltTestScorer, 2),  # Requires 3, test with 2
-        # Note: We skip testing scorers that only need 1 human annotator (AccuracyScorer,
+        # Note: We skip testing scorers that only need 1 human annotator (ClassificationScorer with accuracy,
         # TextSimilarityScorer, SemanticSimilarityScorer) because when testing with 0 humans,
         # they hit the "No aligned data" error before the min_human_annotators validation
     ],
@@ -1218,7 +1220,7 @@ def test_min_human_annotators_validation_failure(
         evaluator.load_all_human_results = Mock(return_value=human_results_dict)
 
         # Use a real scorer
-        scorer = AccuracyScorer()
+        scorer = ClassificationScorer(metric="accuracy")
 
         # Create config
         config = MetricsConfig(
@@ -1241,6 +1243,6 @@ def test_min_human_annotators_validation_failure(
         # Should have results for each judge
         assert len(scoring_results) == 2
         for result in scoring_results:
-            assert result.scorer_name == "accuracy"
+            assert result.scorer_name == "classification_accuracy"
             assert result.judge_id in ["judge_1", "judge_2"]
             assert isinstance(result.scores.get("accuracy"), float)
