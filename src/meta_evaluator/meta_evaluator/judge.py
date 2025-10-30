@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Literal, Optional, Union
 
 import yaml
 from pydantic import BaseModel, ValidationError
+from tqdm import tqdm
+from tqdm.asyncio import tqdm as async_tqdm
 
 if TYPE_CHECKING:
     from .base import Paths
@@ -453,7 +455,9 @@ class JudgesMixin:
 
         # Run each judge and collect results
         results = {}
-        for judge_id in final_judges_to_run:
+        for judge_id in tqdm(
+            final_judges_to_run, desc="Evaluating judges", unit="judge"
+        ):
             judge = self.judge_registry[judge_id]
 
             # Run the evaluation
@@ -612,9 +616,11 @@ class JudgesMixin:
             )
             return judge_id, judge_results
 
-        # Execute all judges in parallel
+        # Execute all judges in parallel with progress bar
         judge_tasks = [run_single_judge(judge_id) for judge_id in final_judges_to_run]
-        judge_results_list = await asyncio.gather(*judge_tasks)
+        judge_results_list = await async_tqdm.gather(
+            *judge_tasks, desc="Evaluating judges", unit="judge"
+        )
 
         # Collect results into dictionary
         results = {}

@@ -2,7 +2,6 @@
 """Run evaluation with judge/human loading and metric comparison."""
 
 import logging
-import sys
 import time
 
 import dotenv
@@ -18,13 +17,16 @@ from meta_evaluator.scores.metrics import (
     TextSimilarityScorer,
 )
 
+# Load environment variables
 dotenv.load_dotenv()
 
+# Set up logging
+logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s:%(name)s:%(message)s",
     handlers=[
-        logging.StreamHandler(sys.stdout),  # Output to console
+        # logging.StreamHandler(sys.stdout),  # Output to console
         logging.FileHandler(
             filename="logs/rejection_output.log",
             mode="w",  # 'a' for append, 'w' for overwrite
@@ -85,13 +87,13 @@ def main():
     evaluator.save_state(data_format="json")
 
     # Run judges
-    print("Starting sync judge evaluation without batching...")
+    print("Starting judge evaluation...")
     start_time = time.time()
     evaluator.run_judges(
         skip_duplicates=False  # Skip duplicates to avoid re-running judges
     )
     end_time = time.time()
-    print(f"Sync judge evaluation completed in {end_time - start_time:.2f} seconds")
+    print(f"Judge evaluation completed in {end_time - start_time:.2f} seconds")
 
     # Create scorers
     accuracy_scorer = ClassificationScorer(metric="accuracy")
