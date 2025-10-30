@@ -1266,7 +1266,7 @@
 </span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.meta_evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetaEvaluator</span>
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.scores</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricConfig</span><span class="p">,</span> <span class="n">MetricsConfig</span>
 </span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13"></a><span class="kn">from</span><span class="w"> </span><span class="nn">meta_evaluator.scores.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14"></a>    <span class="n">AccuracyScorer</span><span class="p">,</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14"></a>    <span class="n">ClassificationScorer</span><span class="p">,</span>
 </span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15"></a>    <span class="n">AltTestScorer</span><span class="p">,</span>
 </span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16"></a>    <span class="n">CohensKappaScorer</span><span class="p">,</span>
 </span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17"></a>    <span class="n">SemanticSimilarityScorer</span><span class="p">,</span>
@@ -1342,7 +1342,7 @@
 </span><span id="__span-5-87"><a id="__codelineno-5-87" name="__codelineno-5-87"></a>    <span class="n">evaluator</span><span class="o">.</span><span class="n">run_judges_async</span><span class="p">(</span><span class="n">skip_duplicates</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-5-88"><a id="__codelineno-5-88" name="__codelineno-5-88"></a>
 </span><span id="__span-5-89"><a id="__codelineno-5-89" name="__codelineno-5-89"></a>    <span class="c1"># Step 6: Set up multiple metrics for comprehensive comparison</span>
-</span><span id="__span-5-90"><a id="__codelineno-5-90" name="__codelineno-5-90"></a>    <span class="n">accuracy_scorer</span> <span class="o">=</span> <span class="n">AccuracyScorer</span><span class="p">()</span>
+</span><span id="__span-5-90"><a id="__codelineno-5-90" name="__codelineno-5-90"></a>    <span class="n">accuracy_scorer</span> <span class="o">=</span> <span class="n">ClassificationScorer</span><span class="p">(</span><span class="s2">&quot;accuracy&quot;</span><span class="p">)</span>
 </span><span id="__span-5-91"><a id="__codelineno-5-91" name="__codelineno-5-91"></a>    <span class="n">alt_test_scorer</span> <span class="o">=</span> <span class="n">AltTestScorer</span><span class="p">()</span>
 </span><span id="__span-5-92"><a id="__codelineno-5-92" name="__codelineno-5-92"></a>    <span class="n">cohens_kappa_scorer</span> <span class="o">=</span> <span class="n">CohensKappaScorer</span><span class="p">()</span>
 </span><span id="__span-5-93"><a id="__codelineno-5-93" name="__codelineno-5-93"></a>    <span class="n">text_similarity_scorer</span> <span class="o">=</span> <span class="n">TextSimilarityScorer</span><span class="p">()</span>
@@ -1425,7 +1425,7 @@
 </span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>└── scores/                     # Computed metrics (after comparison with human data)
 </span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    ├── score_report.html    # Summary HTML report
 </span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    ├── score_report.csv     # Summary CSV report
-</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    ├── accuracy/
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    ├── classification_accuracy/
 </span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    ├── cohens_kappa/
 </span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    └── text_similarity/
 </span></code></pre></div>
