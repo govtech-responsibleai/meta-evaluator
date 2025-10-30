@@ -10,6 +10,7 @@ from litellm import completion
 from litellm.types.utils import ModelResponse
 from litellm.utils import supports_response_schema
 from pydantic import BaseModel
+from tqdm import tqdm
 
 from meta_evaluator.common.models import Prompt
 from meta_evaluator.eval_task import EvalTask
@@ -553,9 +554,18 @@ class SyncEvaluationMixin(ABC):
             self.logger.info(
                 f"Evaluating {eval_data.name} with structured outputs fallback disabled"
             )
-        # Process each row in the evaluation data
+        # Process each row in the evaluation data with progress bar
         total_count = 0
-        for row in self._get_dicts_as_generator(eval_data):  # type: ignore
+        rows_generator = self._get_dicts_as_generator(eval_data)  # type: ignore
+        # Get total row count for progress bar
+        total_rows = len(eval_data.data)
+        for row in tqdm(
+            rows_generator,
+            total=total_rows,
+            desc=f"  [Judge] {self.id}",
+            unit="rows",
+            leave=False,
+        ):
             total_count += 1
             sample_example_id = f"{run_id}_{total_count}"
 

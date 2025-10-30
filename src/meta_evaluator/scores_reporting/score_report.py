@@ -79,9 +79,11 @@ class ScoreReport:
                     judge_data[result.judge_id] = {"judge_id": result.judge_id}
 
                 # Add metric scores to this judge's row
-                if scorer_name == "accuracy":
+                if scorer_name.startswith("classification_"):
+                    # Handle classification metrics (f1, precision, recall, accuracy)
+                    metric_name = scorer_name.replace("classification_", "")
                     judge_data[result.judge_id][unique_name] = result.scores.get(
-                        "accuracy"
+                        metric_name
                     )
                 elif scorer_name == "alt_test":
                     # Two columns for alt_test: winning rate and advantage probability

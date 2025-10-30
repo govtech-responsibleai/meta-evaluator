@@ -133,13 +133,13 @@ Compare judge performance against human annotations:
 # Configure metrics
 from meta_evaluator.scores import MetricConfig, MetricsConfig
 from meta_evaluator.scores.metrics import (
-    AccuracyScorer, CohensKappaScorer, SemanticSimilarityScorer
+    ClassificationScorer, CohensKappaScorer, SemanticSimilarityScorer
 )
 
 config = MetricsConfig(
     metrics=[
         MetricConfig(
-            scorer=AccuracyScorer(),
+            scorer=ClassificationScorer("accuracy"),
             task_names=["rejection"],
             task_strategy="single",
             annotator_aggregation="majority_vote"  # Use consensus approach
@@ -208,7 +208,7 @@ For detailed data format requirements and examples, see the [Results Guide](docs
 MetaEvaluator supports comprehensive alignment metrics for evaluating judge performance:
 
 ### Classification Metrics
-- **Accuracy**: Basic classification accuracy between judge and human labels
+- **Accuracy/F1/Recall/Precision**: Classification metrics between judge and human labels
 - **Cohen's Kappa**: Inter-rater agreement accounting for chance agreement  
 - **Alt-Test**: Statistical significance testing with leave-one-annotator-out methodology
 
@@ -238,14 +238,14 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ```
 project_dir/
-├── data/                    # Serialized evaluation data
-├── results/                 # Judge evaluation results
-├── annotations/             # Human annotation data
-└── scores/                  # Computed alignment metrics
-    ├── accuracy/            # Detailed accuracy results
-    ├── cohens_kappa/        # Detailed kappa results
-    ├── alt_test/           # Detailed alt-test results
-    └── text_similarity/     # Detailed similarity results
+├── data/                           # Serialized evaluation data
+├── results/                        # Judge evaluation results
+├── annotations/                    # Human annotation data
+└── scores/                         # Computed alignment metrics
+    ├── classification_accuracy/    # Detailed accuracy results
+    ├── cohens_kappa/               # Detailed kappa results
+    ├── alt_test/                   # Detailed alt-test results
+    └── text_similarity/            # Detailed similarity results
 ```
 
 ## Examples

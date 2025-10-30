@@ -11,6 +11,7 @@ from litellm import acompletion
 from litellm.types.utils import ModelResponse
 from litellm.utils import supports_response_schema
 from pydantic import BaseModel
+from tqdm import tqdm
 
 from meta_evaluator.common.models import Prompt
 from meta_evaluator.eval_task import EvalTask
@@ -602,11 +603,26 @@ class AsyncEvaluationMixin(ABC):
                             builder=builder,
                         )
 
+        # Create progress bar and wrapper to update it
+        pbar = tqdm(
+            total=len(rows_to_evaluate),
+            desc=f"  [Judge] {self.id}",
+            unit="rows",
+            leave=False,
+        )  # type: ignore
+
+        async def process_with_progress(row, sample_id):
+            try:
+                await process_single_row(row, sample_id)
+            finally:
+                pbar.update(1)
+
         # Create and execute tasks for all rows
         tasks = [
-            process_single_row(row, sample_id) for row, sample_id in rows_to_evaluate
+            process_with_progress(row, sample_id) for row, sample_id in rows_to_evaluate
         ]
         await asyncio.gather(*tasks, return_exceptions=True)
+        pbar.close()
 
     async def evaluate_eval_data_async(
         self,

@@ -10,7 +10,9 @@ from meta_evaluator.scores import MetricConfig, MetricsConfig
 from meta_evaluator.scores.base_scoring_result import BaseScoringResult
 from meta_evaluator.scores.enums import TaskAggregationMode
 from meta_evaluator.scores.metrics.agreement.alt_test import AltTestScorer
-from meta_evaluator.scores.metrics.classification.accuracy import AccuracyScorer
+from meta_evaluator.scores.metrics.classification.classification_scorer import (
+    ClassificationScorer,
+)
 from meta_evaluator.scores.metrics.text_comparison.text_similarity import (
     TextSimilarityScorer,
 )
@@ -31,7 +33,7 @@ class TestScoreReport:
             scores_dir = Path(temp_dir)
 
             # Create metrics config
-            accuracy_scorer = AccuracyScorer()
+            accuracy_scorer = ClassificationScorer(metric="accuracy")
             alt_test_scorer = AltTestScorer()
             text_sim_scorer = TextSimilarityScorer()
 
@@ -68,7 +70,7 @@ class TestScoreReport:
 
                 for judge_id in judges:
                     # Create different scores based on scorer type
-                    if scorer_name == "accuracy":
+                    if scorer_name == "classification_accuracy":
                         scores = {"accuracy": 0.8 if judge_id == "judge1" else 0.7}
                     elif scorer_name == "alt_test":
                         scores = {
@@ -131,7 +133,9 @@ class TestScoreReport:
         judge1_row = df.filter(pl.col("judge_id") == "judge1").to_dicts()[0]
 
         # Find accuracy column and verify score
-        accuracy_cols = [col for col in df.columns if col.startswith("accuracy_")]
+        accuracy_cols = [
+            col for col in df.columns if col.startswith("classification_accuracy_")
+        ]
         assert len(accuracy_cols) == 1
         assert judge1_row[accuracy_cols[0]] == 0.8
 

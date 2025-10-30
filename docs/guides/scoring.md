@@ -9,7 +9,7 @@ Configure and use alignment metrics to compare judge evaluations with human anno
     ```python linenums="1" hl_lines="8-17"
     from meta_evaluator import MetaEvaluator
     from meta_evaluator.scores import MetricConfig, MetricsConfig
-    from meta_evaluator.scores.metrics import AccuracyScorer
+    from meta_evaluator.scores.metrics import ClassificationScorer
 
     evaluator = MetaEvaluator(project_dir="my_project", load=True)
 
@@ -17,10 +17,11 @@ Configure and use alignment metrics to compare judge evaluations with human anno
     config = MetricsConfig(
         metrics=[
             MetricConfig(
-                scorer=AccuracyScorer(),
+                scorer=ClassificationScorer(metric="accuracy"),
                 task_names=["rejection"],
                 task_strategy="single", # One of 'single', 'multilabel', or 'multitask'
                 annotator_aggregation="individual_average",  # Default
+                display_name="rejection_accuracy",  # Optional: custom column name
             ),
         ]
     )
@@ -34,7 +35,7 @@ Configure and use alignment metrics to compare judge evaluations with human anno
 
     ```python linenums="1" hl_lines="11-52"
     from meta_evaluator.scores.metrics import (
-        AccuracyScorer,
+        ClassificationScorer,
         AltTestScorer,
         CohensKappaScorer,
         TextSimilarityScorer,
@@ -92,13 +93,25 @@ Configure and use alignment metrics to compare judge evaluations with human anno
     ```
 ## Available Scorers
 
-=== "Accuracy"
+=== "Classification Metrics"
+
+    ClassificationScorer supports 4 different metrics: accuracy, F1, precision, and recall. Select the metric at initialization.
 
     ```python linenums="1"
-    from meta_evaluator.scores.metrics import AccuracyScorer
-    
-    accuracy_scorer = AccuracyScorer()
-    
+    from meta_evaluator.scores.metrics import ClassificationScorer
+
+    # Accuracy Score
+    accuracy_scorer = ClassificationScorer(metric="accuracy")
+
+    # F1 Score
+    f1_scorer = ClassificationScorer(metric="f1", pos_label="accurate", average="binary")
+
+    # Precision Score
+    precision_scorer = ClassificationScorer(metric="precision", pos_label="accurate", average="binary")
+
+    # Recall Score
+    recall_scorer = ClassificationScorer(metric="recall", pos_label="accurate", average="binary")
+
     config = MetricConfig(
         scorer=accuracy_scorer,
         task_names=["classification_field"],
@@ -107,24 +120,26 @@ Configure and use alignment metrics to compare judge evaluations with human anno
     )
     ```
 
-    - **Purpose**: Classification accuracy between judge and human annotations
+    - **Purpose**: Classification metrics between judge and human annotations
     - **Requirements**: 1 human annotator minimum
-    - **Output**: Percentage accuracy (0-1)
+    - **Output**: Metric score (0-1)
+    - **Parameters**:
+        - `metric`: "accuracy", "f1", "precision", or "recall", default='accuracy'.
+        - `pos_label`: For F1/precision/recall, the label to treat as positive (for binary classification), default=1. See sklearn.metrics documentation.
+        - `average`: For F1/precision/recall, averaging strategy, default='binary'. See sklearn.metrics documentation.
 
     **Sample Results:**
 
     ```json
     {
       "judge_id": "gpt_4_judge",
-      "scorer_name": "accuracy",
+      "scorer_name": "classification_f1",
       "task_strategy": "single",
       "task_name": "rejection",
       "score": 0.87,
-      "total_instances": 100,
-      "correct_instances": 87,
       "metadata": {
-        "human_annotators": 2,
-        "scoring_date": "2025-01-15T10:30:00Z"
+        "pos_label": "accurate",
+        "average": "binary"
       }
     }
     ```
@@ -328,13 +343,14 @@ Configure and use alignment metrics to compare judge evaluations with human anno
     ```
 
 !!! note "Score Ranges"
-    - **Accuracy**: 0-1 (higher is better)
+    - **Classification**: 0-1 (higher is better)
     - **Cohen's Kappa**: -1 to 1 (higher is better, accounts for chance) 
     - **Text/Semantic Similarity**: 0-1 (higher is better, semantic similarity)
     - **Alt-Test**: Winning rates across epsilon values, advantage probabilities (0-1)
 
 
-## Task Configuration Types (`task_strategy`)
+## Arguments
+### Task Configuration Types (`task_strategy`)
 
 The `task_strategy` parameter defines how tasks are processed and must be one of: `"single"`, `"multitask"`, or `"multilabel"`.
 
@@ -351,7 +367,7 @@ The `task_strategy` parameter defines how tasks are processed and must be one of
     config = MetricsConfig(
         metrics=[
             MetricConfig(
-                scorer=AccuracyScorer(),
+                scorer=ClassificationScorer(metric="accuracy"),
                 task_names=["rejection"],  # Single task name
                 task_strategy="single",  # Required: "single" for single task
                 annotator_aggregation="individual_average",
@@ -374,7 +390,7 @@ The `task_strategy` parameter defines how tasks are processed and must be one of
     config = MetricsConfig(
         metrics=[
             MetricConfig(
-                scorer=AccuracyScorer(),
+                scorer=ClassificationScorer(metric="accuracy"),
                 task_names=["helpful", "harmless", "honest"],  # Multiple tasks
                 task_strategy="multitask",  # Required: "multitask" for multiple separate tasks
                 annotator_aggregation="majority_vote",  # Example using majority vote
@@ -413,7 +429,7 @@ The `task_strategy` parameter defines how tasks are processed and must be one of
     !!! note "Multi-label Behavior"
         - **Required**: 2 or more tasks in `task_names` list
         - Each instance can have multiple labels: `["hateful", "violent"]`, and these will be passed as 1 input into the Scorer.
-        - Calculation of metric depends on the Scorer. For instance AltTestScorer uses Jaccard similarity for comparison, and AccuracyScorer uses exact match.
+        - Calculation of metric depends on the Scorer. For instance AltTestScorer uses Jaccard similarity for comparison, and ClassificationScorer with metric="accuracy" uses exact match.
 
 
 **Example with different scorers per task:**
@@ -422,14 +438,14 @@ config = MetricsConfig(
     metrics=[
         # Accuracy for single classification tasks
         MetricConfig(
-            scorer=AccuracyScorer(),
+            scorer=ClassificationScorer(metric="accuracy"),
             task_names=["helpful"],
             task_strategy="single",
             annotator_aggregation="majority_vote",
         ),
         # Accuracy for multitask classification tasks
         MetricConfig(
-            scorer=AccuracyScorer(),
+            scorer=ClassificationScorer(metric="accuracy"),
             task_names=["helpful", "harmless", "honest"],
             task_strategy="multitask",
             annotator_aggregation="individual_average",
@@ -445,7 +461,7 @@ config = MetricsConfig(
 )
 ```
 
-## Annotator Aggregation (`annotator_aggregation`)
+### Annotator Aggregation (`annotator_aggregation`)
 
 Control how multiple human annotations are aggregated before comparison with judge results.
 
@@ -455,7 +471,7 @@ Control how multiple human annotations are aggregated before comparison with jud
 
     ```python
     MetricConfig(
-        scorer=AccuracyScorer(),
+        scorer=ClassificationScorer(metric="accuracy"),
         task_names=["rejection"],
         task_strategy="single",
         annotator_aggregation="individual_average"  # Default
@@ -474,7 +490,7 @@ Control how multiple human annotations are aggregated before comparison with jud
 
     ```python
     MetricConfig(
-        scorer=AccuracyScorer(),
+        scorer=ClassificationScorer(metric="accuracy"),
         task_names=["rejection"],
         task_strategy="single",
         annotator_aggregation="majority_vote"
@@ -486,11 +502,35 @@ Control how multiple human annotations are aggregated before comparison with jud
     - Compare judge predictions with consensus
     - Implementation varies by metric type (see support table below)
 
-### Metric Support Table
+
+### Custom Column Names (`display_name`)
+
+Override auto-generated column names (e.g., `classification_accuracy_1tasks_5d6db9a1_single`) with custom names:
+
+```python linenums="1" hl_lines="7 13"
+config = MetricsConfig(
+    metrics=[
+        MetricConfig(
+            scorer=ClassificationScorer(metric="accuracy"),
+            task_names=["accuracy"],
+            task_strategy="single",
+            display_name="accuracy_score"  # Custom column name
+        ),
+        MetricConfig(
+            scorer=ClassificationScorer(metric="accuracy"),
+            task_names=["groundedness"],
+            task_strategy="single",
+            display_name="groundedness_score"
+        ),
+    ]
+)
+```
+
+**Metric Support Table**
 
 | Metric | individual_average | majority_vote |
 |--------|-------------------|---------------|
-| **AccuracyScorer** | :material-check: | :material-check: Per-position majority for multilabel, alphabetical tie-breaking |
+| **ClassificationScorer** | :material-check: | :material-check: Per-position majority for multilabel, alphabetical tie-breaking |
 | **TextSimilarityScorer** | :material-check: | :material-check: Best-match approach: highest similarity human per sample |
 | **SemanticSimilarityScorer** | :material-check: | :material-check: Best-match approach: highest similarity human per sample |
 | **CohensKappaScorer** | :material-check: | :material-close: Logs warning, falls back to individual_average (agreement metric) |
@@ -498,6 +538,92 @@ Control how multiple human annotations are aggregated before comparison with jud
 
 **Why agreement metrics don't support majority_vote:**
 Inter-annotator agreement metrics measure disagreement between individual humans. Majority vote eliminates this disagreement information, making the metrics less meaningful.
+
+## Results Output
+
+### Individual Metric Results
+
+Detailed scores and charts are saved to individual metric directories in your project:
+
+```
+my_project/
+└── scores/
+    ├── classification_accuracy/
+    │   └── classification_accuracy_1tasks_22e76eaf_rejection_accuracy/
+    │       ├── accuracy_scores.png
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
+    ├── cohens_kappa/
+    │   └── cohens_kappa_1tasks_22e76eaf_rejection_agreement/
+    │       ├── cohens_kappa_scores.png
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
+    ├── alt_test/
+    │   └── alt_test_3tasks_22e76eaf_safety_significance/
+    │       ├── aggregate_advantage_probabilities.png
+    │       ├── aggregate_human_vs_llm_advantage.png
+    │       ├── aggregate_winning_rates.png
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
+    ├── text_similarity/
+    │   └── text_similarity_1tasks_74d08617_explanation_quality/
+    │       ├── text_similarity_scores.png
+    │       ├── judge_1_result.json
+    │       └── judge_2_result.json
+    ├── score_report.csv
+    └── score_report.html
+```
+
+!!! note "Chart Styling"
+    Basic, shared plots use default matplotlib styling. Users may customize their chart theme by using Matplotlib's style sheets and rcParams.
+
+**Sample Charts:**
+
+`accuracy_scores.png` (ClassificationScorer) |  `aggregate_winning_rates.png` (AltTestScorer)
+:-------------------------:|:-------------------------:
+![Score Report HTML Table](../assets/example_accuracy_scores.png)|![Score Report HTML Table](../assets/example_aggregate_winning_rates.png)
+
+
+### Summary Reports
+
+You can generate summary reports that aggregate all metrics across all judges in a single view.
+
+```python linenums="1"
+# After running evaluations and configuring metric configs
+evaluator.add_metrics_config(config)
+evaluator.compare_async()
+
+# Save to files
+evaluator.score_report.save("score_report.html", format="html")  # Interactive HTML with highlighting
+evaluator.score_report.save("score_report.csv", format="csv")    # CSV for analysis
+
+# Print to console
+evaluator.score_report.print()
+```
+
+Summary reports are saved to the scores directory:
+
+```
+my_project/
+└── scores/
+    ├── score_report.html          # Interactive HTML table with best score highlighting
+    ├── score_report.csv           # CSV format for analysis/Excel
+    ├── classification_accuracy/   # Detailed accuracy results...
+    ├── cohens_kappa/              # Detailed kappa results...
+    ├── alt_test/                  # Detailed alt-test results...
+    └── text_similarity/           # Detailed similarity results...
+```
+
+**Sample Console Output:**
+
+![Score Report CLI Output](../assets/example_score_report_console.png)
+
+
+**Sample HTML Report:**
+
+![Score Report HTML Table](../assets/example_score_report_html.png)
+
+---
 
 ## Custom Scorer
 
@@ -660,89 +786,4 @@ config = MetricConfig(
     - Return `BaseScoringResult` from `compute_score_async()`
     - Handle edge cases (empty data, mismatched IDs, etc.)
     - Add meaningful metadata for debugging and transparency
-
-
-## Results Output
-
-### Individual Metric Results
-
-Detailed scores and charts are saved to individual metric directories in your project:
-
-```
-my_project/
-└── scores/
-    ├── accuracy/
-    │   └── accuracy_1tasks_22e76eaf_rejection_accuracy/
-    │       ├── accuracy_scores.png
-    │       ├── judge_1_result.json
-    │       └── judge_2_result.json
-    ├── cohens_kappa/
-    │   └── cohens_kappa_1tasks_22e76eaf_rejection_agreement/
-    │       ├── cohens_kappa_scores.png
-    │       ├── judge_1_result.json
-    │       └── judge_2_result.json
-    ├── alt_test/
-    │   └── alt_test_3tasks_22e76eaf_safety_significance/
-    │       ├── aggregate_advantage_probabilities.png
-    │       ├── aggregate_human_vs_llm_advantage.png
-    │       ├── aggregate_winning_rates.png
-    │       ├── judge_1_result.json
-    │       └── judge_2_result.json
-    ├── text_similarity/
-    │   └── text_similarity_1tasks_74d08617_explanation_quality/
-    │       ├── text_similarity_scores.png
-    │       ├── judge_1_result.json
-    │       └── judge_2_result.json
-    ├── score_report.csv
-    └── score_report.html
-```
-
-!!! note "Chart Styling"
-    Basic, shared plots use default matplotlib styling. Users may customize their chart theme by using Matplotlib's style sheets and rcParams.
-
-**Sample Charts:**
-
-`accuracy_scores.png` (AccuracyScorer) |  `aggregate_winning_rates.png` (AltTestScorer)
-:-------------------------:|:-------------------------:
-![Score Report HTML Table](../assets/example_accuracy_scores.png)|![Score Report HTML Table](../assets/example_aggregate_winning_rates.png)
-
-
-### Summary Reports
-
-You can generate summary reports that aggregate all metrics across all judges in a single view.
-
-```python linenums="1"
-# After running evaluations and configuring metric configs
-evaluator.add_metrics_config(config)
-evaluator.compare_async()
-
-# Save to files
-evaluator.score_report.save("score_report.html", format="html")  # Interactive HTML with highlighting
-evaluator.score_report.save("score_report.csv", format="csv")    # CSV for analysis
-
-# Print to console
-evaluator.score_report.print()
-```
-
-Summary reports are saved to the scores directory:
-
-```
-my_project/
-└── scores/
-    ├── score_report.html    # Interactive HTML table with best score highlighting
-    ├── score_report.csv     # CSV format for analysis/Excel
-    ├── accuracy/            # Detailed accuracy results...
-    ├── cohens_kappa/        # Detailed kappa results...
-    ├── alt_test/            # Detailed alt-test results...
-    └── text_similarity/     # Detailed similarity results...
-```
-
-**Sample Console Output:**
-
-![Score Report CLI Output](../assets/example_score_report_console.png)
-
-
-**Sample HTML Report:**
-
-![Score Report HTML Table](../assets/example_score_report_html.png)
 
