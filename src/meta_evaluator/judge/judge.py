@@ -83,6 +83,7 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
     model_config = ConfigDict(frozen=True)
     eval_task: EvalTask
     temperature: float | None = None
+    extra_headers: dict[str, str] | None = None
 
     @property
     def logger(self) -> logging.Logger:
@@ -615,6 +616,7 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
             prompt=self.prompt,
             eval_task=self.eval_task.serialize(),
             temperature=self.temperature,
+            extra_headers=self.extra_headers,
         )
 
     @classmethod
@@ -634,4 +636,5 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
             prompt=state.prompt,
             eval_task=EvalTask.deserialize(state.eval_task),
             temperature=state.temperature,
+            extra_headers=state.extra_headers,
         )

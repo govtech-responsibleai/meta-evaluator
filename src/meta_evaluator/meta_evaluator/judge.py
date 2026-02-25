@@ -42,6 +42,7 @@ class JudgeConfig(BaseModel):
     model: str
     prompt_file: str
     temperature: float | None = None
+    extra_headers: dict[str, str] | None = None
 
 
 class JudgeConfigList(BaseModel):
@@ -112,6 +113,7 @@ class JudgesMixin:
         prompt: Prompt,
         on_duplicate: Literal["skip", "overwrite"] | None = None,
         temperature: float | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         """Add a judge to the evaluator programmatically.
 
@@ -126,6 +128,7 @@ class JudgesMixin:
                 - "overwrite": Replace existing judge
             temperature: Sampling temperature for the LLM. If None, uses the
                 model's default temperature.
+            extra_headers: Additional HTTP headers to pass to the LLM API call.
 
         Raises:
             JudgeAlreadyExistsError: If judge already exists and on_duplicate is None.
@@ -154,6 +157,7 @@ class JudgesMixin:
             model=model,
             prompt=prompt,
             temperature=temperature,
+            extra_headers=extra_headers,
         )
 
         self.judge_registry[judge_id] = judge
@@ -289,6 +293,7 @@ class JudgesMixin:
             prompt=prompt,
             on_duplicate=on_duplicate,
             temperature=judge_config.temperature,
+            extra_headers=judge_config.extra_headers,
         )
 
     def _load_prompt_from_file(

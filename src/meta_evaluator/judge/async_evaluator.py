@@ -38,6 +38,7 @@ class AsyncEvaluationMixin(ABC):
     prompt: Prompt
     id: str
     temperature: float | None
+    extra_headers: dict[str, str] | None
 
     @property
     @abstractmethod
@@ -213,6 +214,7 @@ class AsyncEvaluationMixin(ABC):
                         response_format=task_class,
                         stream=False,
                         temperature=self.temperature,
+                        extra_headers=self.extra_headers,
                     ),
                 )
 
@@ -428,6 +430,7 @@ class AsyncEvaluationMixin(ABC):
                     messages=openai_messages,
                     stream=False,
                     temperature=self.temperature,
+                    extra_headers=self.extra_headers,
                 ),
             )
 

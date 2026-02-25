@@ -37,6 +37,7 @@ class SyncEvaluationMixin(ABC):
     prompt: Prompt
     id: str
     temperature: float | None
+    extra_headers: dict[str, str] | None
 
     @property
     @abstractmethod
@@ -206,6 +207,7 @@ class SyncEvaluationMixin(ABC):
                         messages=openai_messages,
                         response_format=task_class,  # Pydantic model for output
                         temperature=self.temperature,
+                        extra_headers=self.extra_headers,
                     ),
                 )
 
@@ -422,6 +424,7 @@ class SyncEvaluationMixin(ABC):
                     model=full_model_name,
                     messages=openai_messages,
                     temperature=self.temperature,
+                    extra_headers=self.extra_headers,
                 ),
             )
 
