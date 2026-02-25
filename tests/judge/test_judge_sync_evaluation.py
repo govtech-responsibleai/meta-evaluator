@@ -1,5 +1,6 @@
 """Tests for sync evaluation methods in Judge class."""
 
+from typing import Any
 from unittest.mock import Mock, patch
 
 import polars as pl
@@ -711,7 +712,7 @@ class TestJudgeSyncEvaluation:
         TaskClass = free_form_task.create_task_class()
 
         # Verify we can create instance with mixed field types
-        instance = TaskClass(
+        instance: Any = TaskClass(
             sentiment="positive",
             summary="This is a free form summary",
             explanation="This explains the sentiment",

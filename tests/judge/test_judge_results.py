@@ -355,7 +355,7 @@ class TestJudgeResultsSerialization:
         file_path.write_text("<xml>dummy</xml>")
         load_data_method = JudgeResults.load_data
         with pytest.raises((ValueError, Exception)) as exc_info:
-            load_data_method(str(file_path), data_format="xml")
+            load_data_method(str(file_path), data_format="xml")  # type: ignore[arg-type]
         assert "xml" in str(exc_info.value)
 
         # Test missing file
