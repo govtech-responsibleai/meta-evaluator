@@ -21,8 +21,6 @@ class MetaEvaluatorError(Exception, ABC):
 class MetaEvaluatorConfigurationError(MetaEvaluatorError):
     """Base class for configuration-related errors."""
 
-    pass
-
 
 class MissingConfigurationError(MetaEvaluatorConfigurationError):
     """Error raised when required configuration is missing."""
@@ -185,8 +183,6 @@ class IncompatibleTaskError(MetaEvaluatorConfigurationError):
 class MetaEvaluatorClientError(MetaEvaluatorError):
     """Base class for client-related errors."""
 
-    pass
-
 
 class ClientAlreadyExistsError(MetaEvaluatorClientError):
     """Error raised when trying to add a client that already exists."""
@@ -252,8 +248,6 @@ class AsyncClientNotFoundError(MetaEvaluatorClientError):
 class MetaEvaluatorJudgeError(MetaEvaluatorError):
     """Base class for judge-related errors."""
 
-    pass
-
 
 class JudgeAlreadyExistsError(MetaEvaluatorJudgeError):
     """Error raised when trying to add a judge that already exists."""
@@ -294,6 +288,22 @@ class JudgeExecutionError(MetaEvaluatorJudgeError):
         super().__init__(f"Judge '{judge_id}' execution failed: {error}")
 
 
+class ConsistencyNotSupportedError(MetaEvaluatorJudgeError):
+    """Error raised when consistency > 1 is requested for non-classification tasks."""
+
+    def __init__(self, free_form_tasks: list[str]):
+        """Initialize with list of free-form task names.
+
+        Args:
+            free_form_tasks: List of task names with free-form (None) schemas.
+        """
+        super().__init__(
+            f"Consistency runs require all tasks to be classification tasks, but the "
+            f"following tasks have free-form (open-ended) schemas: {free_form_tasks}. "
+            "Majority voting cannot be applied to free-form text outputs."
+        )
+
+
 class ResultsSaveError(MetaEvaluatorJudgeError):
     """Error raised when saving judge results fails."""
 
@@ -313,8 +323,6 @@ class ResultsSaveError(MetaEvaluatorJudgeError):
 # Scoring-related errors
 class MetaEvaluatorScoringError(MetaEvaluatorError):
     """Base class for scoring-related errors."""
-
-    pass
 
 
 class ScoringConfigError(MetaEvaluatorScoringError):

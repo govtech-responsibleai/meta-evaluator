@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import List
 
 import polars as pl
 
@@ -26,7 +25,7 @@ class ScoreReport:
 
     def load_single_results(
         self, unique_name: str, scorer_name: str
-    ) -> List[BaseScoringResult]:
+    ) -> list[BaseScoringResult]:
         """Load results for a specific metric configuration.
 
         Args:

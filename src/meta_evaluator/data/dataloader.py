@@ -3,7 +3,6 @@
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 import polars as pl
 
@@ -44,7 +43,6 @@ class DataLoader:
 
     def __init__(self) -> None:
         """Initialize the DataLoader with default settings."""
-        pass
 
     @staticmethod
     def _validate_file(file_path: str) -> Path:
@@ -76,7 +74,7 @@ class DataLoader:
     def load_csv(
         file_path: str,
         name: str,
-        id_column: Optional[str] = None,
+        id_column: str | None = None,
     ) -> EvalData:
         """Load a CSV file and return an EvalData object.
 
@@ -119,7 +117,7 @@ class DataLoader:
     def load_json(
         file_path: str,
         name: str,
-        id_column: Optional[str] = None,
+        id_column: str | None = None,
     ) -> EvalData:
         """Load a JSON file and return an EvalData object.
 
@@ -155,7 +153,7 @@ class DataLoader:
     def load_parquet(
         file_path: str,
         name: str,
-        id_column: Optional[str] = None,
+        id_column: str | None = None,
     ) -> EvalData:
         """Load a Parquet file and return an EvalData object.
 
@@ -191,7 +189,7 @@ class DataLoader:
     def load_from_dataframe(
         data: pl.DataFrame,
         name: str,
-        id_column: Optional[str] = None,
+        id_column: str | None = None,
     ) -> EvalData:
         """Create an EvalData object from an existing polars DataFrame.
 

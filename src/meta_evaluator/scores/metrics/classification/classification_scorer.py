@@ -1,7 +1,7 @@
 """Classification metrics scorer for classification tasks."""
 
 import os
-from typing import List, Literal
+from typing import Literal
 
 import numpy as np
 import polars as pl
@@ -22,7 +22,7 @@ class ClassificationScorer(BaseScorer):
     def __init__(
         self,
         metric: Literal["accuracy", "f1", "precision", "recall"] = "accuracy",
-        pos_label: int | float | bool | str = 1,
+        pos_label: float | bool | str = 1,
         average: Literal["binary", "macro", "micro", "samples", "weighted"]
         | None = "binary",
     ):
@@ -52,7 +52,7 @@ class ClassificationScorer(BaseScorer):
         return 1
 
     def can_score_task(
-        self, sample_label: str | int | float | List[str | int | float]
+        self, sample_label: str | float | list[str | int | float]
     ) -> bool:
         """Classification scorer works with categorical data (int, str, or list of int/str).
 
@@ -242,7 +242,7 @@ class ClassificationScorer(BaseScorer):
         )
 
     def aggregate_results(
-        self, results: List[BaseScoringResult], scores_dir: str, unique_name: str = ""
+        self, results: list[BaseScoringResult], scores_dir: str, unique_name: str = ""
     ) -> None:
         """Generate aggregate plot and save individual results for classification scorer.
 

@@ -1,7 +1,6 @@
 """Shared plotting utilities for scoring results."""
 
 import os
-from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,7 +19,7 @@ def save_plot(fig, save_path: str, logger=None):
 
 
 def generate_simple_bar_plot(
-    results: List[BaseScoringResult],
+    results: list[BaseScoringResult],
     score_key: str,
     output_dir: str,
     plot_filename: str,

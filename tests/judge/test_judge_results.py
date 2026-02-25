@@ -346,14 +346,14 @@ class TestJudgeResultsSerialization:
         """Test serialization error handling for unsupported formats and missing files."""
         # Test unsupported format for write_data
         file_path = tmp_path / "results.xml"
-        write_data_method = getattr(serialization_sample_judge_results, "write_data")
+        write_data_method = serialization_sample_judge_results.write_data
         with pytest.raises((ValueError, Exception)) as exc_info:
             write_data_method(str(file_path), data_format="xml")
         assert "xml" in str(exc_info.value)
 
         # Test unsupported format for load_data
         file_path.write_text("<xml>dummy</xml>")
-        load_data_method = getattr(JudgeResults, "load_data")
+        load_data_method = JudgeResults.load_data
         with pytest.raises((ValueError, Exception)) as exc_info:
             load_data_method(str(file_path), data_format="xml")
         assert "xml" in str(exc_info.value)

@@ -2,7 +2,6 @@
 
 import asyncio
 import os
-from typing import List
 
 import numpy as np
 import polars as pl
@@ -39,7 +38,7 @@ class SemanticSimilarityScorer(BaseScorer):
         return 1
 
     def can_score_task(
-        self, sample_label: str | int | float | List[str | int | float]
+        self, sample_label: str | float | list[str | int | float]
     ) -> bool:
         """Semantic similarity scorer works with string data or lists of strings.
 
@@ -60,7 +59,7 @@ class SemanticSimilarityScorer(BaseScorer):
         else:
             return False
 
-    async def _get_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
+    async def _get_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """Get embeddings for a batch of texts using OpenAI API.
 
         Args:
@@ -106,7 +105,7 @@ class SemanticSimilarityScorer(BaseScorer):
             # Return zero embeddings as fallback
             return [[0.0] * 3072] * len(texts)
 
-    async def _get_all_embeddings(self, texts: List[str]) -> List[List[float]]:
+    async def _get_all_embeddings(self, texts: list[str]) -> list[list[float]]:
         """Get embeddings for all texts using batch processing.
 
         Args:
@@ -133,8 +132,8 @@ class SemanticSimilarityScorer(BaseScorer):
         return all_embeddings
 
     def _compute_cosine_similarities(
-        self, judge_embeddings: List[List[float]], human_embeddings: List[List[float]]
-    ) -> List[float]:
+        self, judge_embeddings: list[list[float]], human_embeddings: list[list[float]]
+    ) -> list[float]:
         """Compute cosine similarities between judge and human embeddings.
 
         Args:
@@ -301,7 +300,7 @@ class SemanticSimilarityScorer(BaseScorer):
         )
 
     def aggregate_results(
-        self, results: List[BaseScoringResult], scores_dir: str, unique_name: str = ""
+        self, results: list[BaseScoringResult], scores_dir: str, unique_name: str = ""
     ) -> None:
         """Generate aggregate plots and save individual results for semantic similarity scorer.
 

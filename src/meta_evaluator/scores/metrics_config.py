@@ -1,6 +1,6 @@
 """Configuration models for comparison metrics."""
 
-from typing import List, Literal
+from typing import Literal
 
 from pydantic import BaseModel, computed_field, model_validator
 
@@ -17,7 +17,7 @@ class MetricConfig(BaseModel):
     """Configuration for a single metric comparison."""
 
     scorer: BaseScorer
-    task_names: List[str]
+    task_names: list[str]
     task_strategy: Literal["single", "multilabel", "multitask"]
     annotator_aggregation: Literal["individual_average", "majority_vote"] = (
         "individual_average"
@@ -107,7 +107,7 @@ class MetricConfig(BaseModel):
 class MetricsConfig(BaseModel):
     """Configuration for a complete comparison run."""
 
-    metrics: List[MetricConfig]
+    metrics: list[MetricConfig]
 
     class Config:
         """Pydantic configuration for MetricsConfig."""
@@ -117,7 +117,7 @@ class MetricsConfig(BaseModel):
     def add_metric(
         self,
         scorer: "BaseScorer",
-        task_names: List[str],
+        task_names: list[str],
         task_strategy: Literal["single", "multilabel", "multitask"],
         annotator_aggregation: Literal[
             "individual_average", "majority_vote"

@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import List, Optional
 
 from meta_evaluator.annotator.exceptions import PortOccupiedError
 from meta_evaluator.data import EvalData
@@ -28,7 +27,7 @@ class StreamlitLauncher:
         eval_data: EvalData,
         eval_task: EvalTask,
         annotations_dir: str,
-        port: Optional[int] = None,
+        port: int | None = None,
     ):
         """Initialize the StreamlitLauncher.
 
@@ -58,7 +57,7 @@ class StreamlitLauncher:
                 sock.settimeout(1)
                 result = sock.connect_ex(("localhost", self.port))
                 return result == 0
-        except (OSError, socket.error) as e:
+        except OSError as e:
             self.logger.debug(f"Port check failed for {self.port}: {e}")
             return False
 
@@ -133,7 +132,7 @@ class StreamlitLauncher:
         return cmd
 
     def _create_ngrok_command(
-        self, traffic_policy_file: Optional[str] = None
+        self, traffic_policy_file: str | None = None
     ) -> list[str]:
         """Create the command to launch ngrok.
 
@@ -153,7 +152,7 @@ class StreamlitLauncher:
 
         return cmd
 
-    def _launch_streamlit_locally(self, streamlit_cmd: List[str]) -> None:
+    def _launch_streamlit_locally(self, streamlit_cmd: list[str]) -> None:
         """Launch Streamlit locally.
 
         Args:
@@ -162,7 +161,7 @@ class StreamlitLauncher:
         subprocess.run(streamlit_cmd)
 
     def _launch_streamlit_with_ngrok(
-        self, streamlit_cmd: List[str], traffic_policy_file: Optional[str] = None
+        self, streamlit_cmd: list[str], traffic_policy_file: str | None = None
     ) -> None:
         """Launch Streamlit with ngrok.
 
@@ -200,7 +199,7 @@ class StreamlitLauncher:
     def launch(
         self,
         use_ngrok: bool = False,
-        traffic_policy_file: Optional[str] = None,
+        traffic_policy_file: str | None = None,
     ) -> None:
         """Launch the Streamlit interface in a separate process.
 

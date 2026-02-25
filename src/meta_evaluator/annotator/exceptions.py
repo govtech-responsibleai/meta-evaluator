@@ -1,7 +1,5 @@
 """Custom exceptions for the annotator module."""
 
-from typing import Optional
-
 
 class AnnotationError(Exception):
     """Base exception for all annotation-related errors."""
@@ -46,7 +44,7 @@ class SaveError(AnnotationError):
     def __init__(
         self,
         message: str,
-        filepath: Optional[str] = None,
+        filepath: str | None = None,
     ):
         """Initialize the exception."""
         super().__init__(f"{message}: {filepath}")

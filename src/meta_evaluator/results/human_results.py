@@ -3,7 +3,7 @@
 import json
 import logging
 from datetime import datetime
-from typing import Dict, List, Literal, Optional, cast
+from typing import Literal, cast
 
 import polars as pl
 from pydantic import Field, ValidationError
@@ -166,7 +166,7 @@ class HumanAnnotationResults(BaseEvaluationResults):
             pl.col("status") == HumanAnnotationStatusEnum.SUCCESS.value
         )
 
-    def _get_status_counts(self) -> Dict[str, int]:
+    def _get_status_counts(self) -> dict[str, int]:
         """Get status counts for count consistency validation.
 
         Returns:
@@ -177,7 +177,7 @@ class HumanAnnotationResults(BaseEvaluationResults):
             HumanAnnotationStatusEnum.ERROR.value: self.error_count,
         }
 
-    def _get_valid_status_values(self) -> List[str]:
+    def _get_valid_status_values(self) -> list[str]:
         """Get valid status values for this evaluation type.
 
         Returns:
@@ -193,9 +193,9 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
         self,
         run_id: str,
         annotator_id: str,
-        task_schemas: Dict[str, List[str] | None],
-        expected_ids: List[str | int],
-        required_tasks: Optional[List[str]] = None,
+        task_schemas: dict[str, list[str] | None],
+        expected_ids: list[str | int],
+        required_tasks: list[str] | None = None,
         is_sampled_run: bool = False,
     ):
         """Initialize the human annotation results builder.
@@ -270,8 +270,8 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
         sample_example_id: str,
         original_id: str | int,
         error_message: str,
-        error_details_json: Optional[str] = None,
-        annotation_timestamp: Optional[datetime] = None,
+        error_details_json: str | None = None,
+        annotation_timestamp: datetime | None = None,
     ) -> HumanAnnotationResultRow:
         """Create an error row for human annotation.
 

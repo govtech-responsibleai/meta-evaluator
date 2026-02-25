@@ -5,7 +5,7 @@ import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
 from pydantic import BaseModel, ValidationError
@@ -17,11 +17,13 @@ if TYPE_CHECKING:
 
 from ..common.async_utils import sync_wrapper
 from ..common.models import Prompt
-from ..data import EvalData
+from ..data import EvalData, SampleEvalData
 from ..eval_task import EvalTask
 from ..judge import Judge
-from ..results import JudgeResults
+from ..results import JudgeResults, JudgeResultsBuilder
+from ..results.enums import EvaluationStatusEnum
 from .exceptions import (
+    ConsistencyNotSupportedError,
     EvalDataNotFoundError,
     EvalTaskNotFoundError,
     InvalidYAMLStructureError,
@@ -39,6 +41,7 @@ class JudgeConfig(BaseModel):
     llm_client: str
     model: str
     prompt_file: str
+    temperature: float | None = None
 
 
 class JudgeConfigList(BaseModel):
@@ -91,8 +94,8 @@ class JudgesMixin:
     """
 
     # Type hints for attributes that will be provided by MetaEvaluator
-    eval_task: Optional[EvalTask]
-    data: Optional[EvalData]
+    eval_task: EvalTask | None
+    data: EvalData | None
     paths: "Paths"
     logger: logging.Logger
 
@@ -107,7 +110,8 @@ class JudgesMixin:
         llm_client: str,
         model: str,
         prompt: Prompt,
-        on_duplicate: Optional[Literal["skip", "overwrite"]] = None,
+        on_duplicate: Literal["skip", "overwrite"] | None = None,
+        temperature: float | None = None,
     ) -> None:
         """Add a judge to the evaluator programmatically.
 
@@ -120,6 +124,8 @@ class JudgesMixin:
                 - None: Throw JudgeAlreadyExistsError if judge exists
                 - "skip": Skip adding if judge already exists
                 - "overwrite": Replace existing judge
+            temperature: Sampling temperature for the LLM. If None, uses the
+                model's default temperature.
 
         Raises:
             JudgeAlreadyExistsError: If judge already exists and on_duplicate is None.
@@ -147,6 +153,7 @@ class JudgesMixin:
             llm_client=llm_client,
             model=model,
             prompt=prompt,
+            temperature=temperature,
         )
 
         self.judge_registry[judge_id] = judge
@@ -183,7 +190,7 @@ class JudgesMixin:
     def load_judges_from_yaml(
         self,
         yaml_file: str,
-        on_duplicate: Optional[Literal["skip", "overwrite"]] = None,
+        on_duplicate: Literal["skip", "overwrite"] | None = None,
         async_mode: bool = False,
     ) -> None:
         """Load judges from a YAML configuration file.
@@ -260,7 +267,7 @@ class JudgesMixin:
         self,
         judge_config: JudgeConfig,
         yaml_path: Path,
-        on_duplicate: Optional[Literal["skip", "overwrite"]],
+        on_duplicate: Literal["skip", "overwrite"] | None,
         async_mode: bool = False,
     ) -> None:
         """Load a single judge from YAML configuration.
@@ -281,10 +288,11 @@ class JudgesMixin:
             model=judge_config.model,
             prompt=prompt,
             on_duplicate=on_duplicate,
+            temperature=judge_config.temperature,
         )
 
     def _load_prompt_from_file(
-        self, prompt_file: str, yaml_path: Optional[Path] = None
+        self, prompt_file: str, yaml_path: Path | None = None
     ) -> Prompt:
         """Load prompt content from file using absolute or relative path.
 
@@ -324,8 +332,217 @@ class JudgesMixin:
         prompt_id = resolved_prompt_path.stem
         return Prompt(id=prompt_id, prompt=prompt_content)
 
+    def _is_classification_task(self) -> bool:
+        """Check whether all task schemas are classification (no free-form schemas).
+
+        Returns:
+            bool: True if every task schema has predefined outcomes (not None).
+        """
+        if self.eval_task is None:
+            return False
+        return all(
+            outcomes is not None for outcomes in self.eval_task.task_schemas.values()
+        )
+
+    def _majority_vote_outcomes(
+        self, outcomes_list: list[dict[str, Any]]
+    ) -> dict[str, str]:
+        """Compute majority-voted label for each task across multiple outcome dicts.
+
+        For each task, counts label occurrences and picks the most frequent one.
+        In case of a tie, the first-occurring label in the list wins.
+
+        Args:
+            outcomes_list: List of outcome dicts mapping task name to label string.
+
+        Returns:
+            dict[str, str]: Majority-voted label for each task.
+        """
+        assert self.eval_task is not None
+        result: dict[str, str] = {}
+        for task_name in self.eval_task.task_schemas:
+            labels = [
+                o[task_name]
+                for o in outcomes_list
+                if task_name in o and o[task_name] is not None
+            ]
+            if not labels:
+                continue
+            counts: dict[str, int] = {}
+            for label in labels:
+                counts[label] = counts.get(label, 0) + 1
+            max_count = max(counts.values())
+            # First-occurrence tie-breaking: iterate in original order
+            for label in labels:
+                if counts[label] == max_count:
+                    result[task_name] = label
+                    break
+        return result
+
+    def _aggregate_consistency_results(
+        self,
+        all_results: list[JudgeResults],
+        judge: Judge,
+        run_id: str,
+    ) -> JudgeResults:
+        """Aggregate N JudgeResults from consistency runs using majority voting.
+
+        For each row, collects task outcomes from all successful runs and selects
+        the majority label per task. Ties are broken by first occurrence. Token
+        counts and call durations are summed across all successful runs.
+
+        Rows that were skipped in all runs remain skipped. Rows that never
+        succeeded in any run retain the error type from the first failing run.
+
+        Args:
+            all_results: List of JudgeResults from N consistency runs.
+            judge: The Judge instance used for the evaluations.
+            run_id: Run identifier for the returned aggregated JudgeResults.
+
+        Returns:
+            JudgeResults: A single aggregated result with majority-voted labels.
+        """
+        assert self.data is not None
+        assert self.data.id_column is not None
+
+        expected_ids = self.data.data[self.data.id_column].to_list()
+
+        builder = JudgeResultsBuilder(
+            run_id=run_id,
+            judge_id=judge.id,
+            llm_client=judge.llm_client,
+            model_used=judge.model,
+            task_schemas=judge.eval_task.task_schemas,
+            expected_ids=expected_ids,
+            required_tasks=judge.eval_task.get_required_tasks(),
+            is_sampled_run=isinstance(self.data, SampleEvalData),
+        )
+
+        # Collect per-original_id info from all runs
+        id_info: dict[Any, dict[str, Any]] = {}
+        for run_result in all_results:
+            for row in run_result.results_data.iter_rows(named=True):
+                orig_id = row["original_id"]
+                status = row["status"]
+
+                if orig_id not in id_info:
+                    id_info[orig_id] = {
+                        "successes": [],
+                        "skip": False,
+                        "first_error": None,
+                        "agg_prompt_tokens": 0,
+                        "agg_completion_tokens": 0,
+                        "agg_total_tokens": 0,
+                        "agg_duration": 0.0,
+                        "last_llm_response": None,
+                    }
+
+                if status == EvaluationStatusEnum.SKIPPED.value:
+                    id_info[orig_id]["skip"] = True
+                elif status == EvaluationStatusEnum.SUCCESS.value:
+                    outcomes = {
+                        task: row[task]
+                        for task in judge.eval_task.task_schemas
+                        if task in row
+                    }
+                    id_info[orig_id]["successes"].append(outcomes)
+                    id_info[orig_id]["agg_prompt_tokens"] += (
+                        row.get("llm_prompt_tokens") or 0
+                    )
+                    id_info[orig_id]["agg_completion_tokens"] += (
+                        row.get("llm_completion_tokens") or 0
+                    )
+                    id_info[orig_id]["agg_total_tokens"] += (
+                        row.get("llm_total_tokens") or 0
+                    )
+                    id_info[orig_id]["agg_duration"] += (
+                        row.get("llm_call_duration_seconds") or 0.0
+                    )
+                    id_info[orig_id]["last_llm_response"] = row.get(
+                        "llm_raw_response_content"
+                    )
+                elif id_info[orig_id]["first_error"] is None:
+                    id_info[orig_id]["first_error"] = row
+
+        # Build aggregated rows for each expected ID
+        for i, orig_id in enumerate(expected_ids):
+            sample_example_id = f"{run_id}_agg_{i + 1}"
+            info = id_info.get(orig_id)
+
+            if info is None:
+                builder.create_other_error_row(
+                    sample_example_id=sample_example_id,
+                    original_id=orig_id,
+                    error=Exception(
+                        f"No results found for ID '{orig_id}' across consistency runs"
+                    ),
+                )
+                continue
+
+            if info["successes"]:
+                majority_outcomes = self._majority_vote_outcomes(info["successes"])
+                builder.create_success_row(
+                    sample_example_id=sample_example_id,
+                    original_id=orig_id,
+                    outcomes=majority_outcomes,
+                    llm_raw_response_content=info["last_llm_response"] or "",
+                    llm_prompt_tokens=info["agg_prompt_tokens"],
+                    llm_completion_tokens=info["agg_completion_tokens"],
+                    llm_total_tokens=info["agg_total_tokens"],
+                    llm_call_duration_seconds=info["agg_duration"],
+                )
+            elif info["skip"]:
+                builder.create_skipped_row(
+                    sample_example_id=sample_example_id,
+                    original_id=orig_id,
+                )
+            elif info["first_error"] is not None:
+                error_row = info["first_error"]
+                error = Exception(error_row.get("error_message") or "Unknown error")
+                status = error_row.get("status", "")
+                if status == EvaluationStatusEnum.LLM_ERROR.value:
+                    builder.create_llm_error_row(
+                        sample_example_id=sample_example_id,
+                        original_id=orig_id,
+                        error=error,
+                    )
+                elif status == EvaluationStatusEnum.PARSING_ERROR.value:
+                    builder.create_parsing_error_row(
+                        sample_example_id=sample_example_id,
+                        original_id=orig_id,
+                        error=error,
+                        llm_raw_response_content=error_row.get(
+                            "llm_raw_response_content"
+                        )
+                        or "",
+                        llm_prompt_tokens=error_row.get("llm_prompt_tokens") or 0,
+                        llm_completion_tokens=error_row.get("llm_completion_tokens")
+                        or 0,
+                        llm_total_tokens=error_row.get("llm_total_tokens") or 0,
+                        llm_call_duration_seconds=error_row.get(
+                            "llm_call_duration_seconds"
+                        )
+                        or 0.0,
+                    )
+                else:
+                    builder.create_other_error_row(
+                        sample_example_id=sample_example_id,
+                        original_id=orig_id,
+                        error=error,
+                    )
+            else:
+                builder.create_other_error_row(
+                    sample_example_id=sample_example_id,
+                    original_id=orig_id,
+                    error=Exception(
+                        f"No usable results for ID '{orig_id}' across consistency runs"
+                    ),
+                )
+
+        return builder.complete()
+
     def _validate_and_prepare_judges_run(
-        self, judge_ids: Optional[Union[str, list[str]]], run_id: Optional[str]
+        self, judge_ids: str | list[str] | None, run_id: str | None
     ) -> tuple[list[str], str]:
         """Validate prerequisites and prepare judges list for execution.
 
@@ -378,11 +595,12 @@ class JudgesMixin:
 
     def run_judges(
         self,
-        judge_ids: Optional[Union[str, list[str]]] = None,
-        run_id: Optional[str] = None,
+        judge_ids: str | list[str] | None = None,
+        run_id: str | None = None,
         save_results: bool = True,
         results_format: Literal["json", "csv", "parquet"] = "json",
         skip_duplicates: bool = False,
+        consistency: int = 1,
     ) -> dict[str, JudgeResults]:
         """Execute evaluations using specified judges and save results.
 
@@ -405,12 +623,21 @@ class JudgesMixin:
                 handles how to deal with duplicate results (currently takes most recent).
                 - False: Run judges regardless and log duplicate warnings
                 - True: Skip judges with existing results and log warnings
+            consistency: Number of times to run each judge per row and take the
+                majority label. Must be >= 1. When consistency=1 (default), each
+                row is evaluated once. When consistency > 1, the judge runs that
+                many times per row and the majority label is selected (first
+                occurrence wins ties). Only applicable when all task schemas are
+                classification tasks (no free-form schemas).
 
         Returns:
             dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
 
         Raises:
             ResultsSaveError: If saving results fails.
+            ConsistencyNotSupportedError: If consistency > 1 and any task schema
+                is free-form (None).
+            ValueError: If consistency < 1.
 
         Example:
             >>> # Run all judges, skipping those with existing results
@@ -424,8 +651,22 @@ class JudgesMixin:
 
             >>> # Force run all judges even if results exist
             >>> results = evaluator.run_judges(skip_duplicates=False)
+
+            >>> # Run each judge 3 times and take the majority label
+            >>> results = evaluator.run_judges(consistency=3)
         """
         judges_to_run, run_id = self._validate_and_prepare_judges_run(judge_ids, run_id)
+
+        # Validate consistency parameter
+        if consistency < 1:
+            raise ValueError(f"consistency must be >= 1, got {consistency}")
+        if consistency > 1 and not self._is_classification_task():
+            free_form_tasks = [
+                task
+                for task, schema in self.eval_task.task_schemas.items()  # type: ignore[union-attr]
+                if schema is None
+            ]
+            raise ConsistencyNotSupportedError(free_form_tasks)
 
         # Get set of existing judge IDs from results directory
         existing_judge_ids = self._get_existing_judge_ids()
@@ -460,12 +701,34 @@ class JudgesMixin:
         ):
             judge = self.judge_registry[judge_id]
 
-            # Run the evaluation
-            self.logger.info(f"Running evaluation for judge '{judge_id}'...")
-            judge_results = judge.evaluate_eval_data(
-                eval_data=self.data,
-                run_id=f"{run_id}_{judge_id}",
-            )
+            if consistency > 1:
+                # Run N consistency rounds sequentially and aggregate
+                self.logger.info(
+                    f"Running {consistency} consistency rounds for judge '{judge_id}'..."
+                )
+                all_run_results = []
+                for c_idx in range(consistency):
+                    c_run_id = f"{run_id}_{judge_id}_c{c_idx + 1}"
+                    self.logger.info(
+                        f"  Consistency round {c_idx + 1}/{consistency} for judge '{judge_id}'..."
+                    )
+                    c_results = judge.evaluate_eval_data(
+                        eval_data=self.data,
+                        run_id=c_run_id,
+                    )
+                    all_run_results.append(c_results)
+                judge_results = self._aggregate_consistency_results(
+                    all_results=all_run_results,
+                    judge=judge,
+                    run_id=f"{run_id}_{judge_id}",
+                )
+            else:
+                # Run the evaluation once (default)
+                self.logger.info(f"Running evaluation for judge '{judge_id}'...")
+                judge_results = judge.evaluate_eval_data(
+                    eval_data=self.data,
+                    run_id=f"{run_id}_{judge_id}",
+                )
             results[judge_id] = judge_results
 
             # Calculate success and non-success counts
@@ -518,11 +781,12 @@ class JudgesMixin:
 
     async def _run_judges_async(
         self,
-        judge_ids: Optional[Union[str, list[str]]] = None,
-        run_id: Optional[str] = None,
+        judge_ids: str | list[str] | None = None,
+        run_id: str | None = None,
         save_results: bool = True,
         results_format: Literal["json", "csv", "parquet"] = "json",
         skip_duplicates: bool = False,
+        consistency: int = 1,
     ) -> dict[str, JudgeResults]:
         """Execute evaluations using specified judges with parallel processing and save results.
 
@@ -545,11 +809,33 @@ class JudgesMixin:
                 handles how to deal with duplicate results (currently takes most recent).
                 - False: Run judges regardless and log duplicate warnings
                 - True: Skip judges with existing results and log warnings
+            consistency: Number of times to run each judge per row and take the
+                majority label. Must be >= 1. When consistency=1 (default), each
+                row is evaluated once. When consistency > 1, the judge runs that
+                many times per row concurrently and the majority label is selected
+                (first occurrence wins ties). Only applicable when all task schemas
+                are classification tasks (no free-form schemas).
 
         Returns:
             dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
+
+        Raises:
+            ConsistencyNotSupportedError: If consistency > 1 and any task schema
+                is free-form (None).
+            ValueError: If consistency < 1.
         """
         judges_to_run, run_id = self._validate_and_prepare_judges_run(judge_ids, run_id)
+
+        # Validate consistency parameter
+        if consistency < 1:
+            raise ValueError(f"consistency must be >= 1, got {consistency}")
+        if consistency > 1 and not self._is_classification_task():
+            free_form_tasks = [
+                task
+                for task, schema in self.eval_task.task_schemas.items()  # type: ignore[union-attr]
+                if schema is None
+            ]
+            raise ConsistencyNotSupportedError(free_form_tasks)
 
         # Get set of existing judge IDs from results directory
         existing_judge_ids = self._get_existing_judge_ids()
@@ -589,12 +875,31 @@ class JudgesMixin:
             """
             judge = self.judge_registry[judge_id]
 
-            # Run the evaluation
-            self.logger.info(f"Running async evaluation for judge '{judge_id}'...")
-            judge_results = await judge.evaluate_eval_data_async(
-                eval_data=self.data,
-                run_id=f"{run_id}_{judge_id}",
-            )
+            if consistency > 1:
+                # Run N consistency rounds concurrently and aggregate
+                self.logger.info(
+                    f"Running {consistency} consistency rounds (async) for judge '{judge_id}'..."
+                )
+                consistency_tasks = [
+                    judge.evaluate_eval_data_async(
+                        eval_data=self.data,
+                        run_id=f"{run_id}_{judge_id}_c{c_idx + 1}",
+                    )
+                    for c_idx in range(consistency)
+                ]
+                all_run_results = list(await asyncio.gather(*consistency_tasks))
+                judge_results = self._aggregate_consistency_results(
+                    all_results=all_run_results,
+                    judge=judge,
+                    run_id=f"{run_id}_{judge_id}",
+                )
+            else:
+                # Run the evaluation once (default)
+                self.logger.info(f"Running async evaluation for judge '{judge_id}'...")
+                judge_results = await judge.evaluate_eval_data_async(
+                    eval_data=self.data,
+                    run_id=f"{run_id}_{judge_id}",
+                )
 
             # Calculate success and non-success counts
             non_success_count = (

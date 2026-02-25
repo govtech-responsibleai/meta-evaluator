@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -23,10 +23,10 @@ class BaseScoringResult(BaseModel):
     )
     task_name: str = Field(..., description="Name of the task(s) that was scored")
     judge_id: str = Field(..., description="ID of the judge that was scored")
-    scores: Dict[str, Any] = Field(
+    scores: dict[str, Any] = Field(
         ..., description="Dictionary of metric names to scores"
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata about the score"
     )
     timestamp: datetime = Field(

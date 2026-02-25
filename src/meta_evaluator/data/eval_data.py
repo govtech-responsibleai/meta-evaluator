@@ -8,7 +8,7 @@ column names and ensuring immutability after initialization.
 
 import json
 import logging
-from typing import Any, Literal, Optional, cast
+from typing import Any, Literal, cast
 
 import polars as pl
 from pydantic import BaseModel, Field, PrivateAttr, model_validator
@@ -64,7 +64,7 @@ class EvalData(BaseModel):
 
     data: pl.DataFrame
     name: str
-    id_column: Optional[str] = None  # id_column is never None after initalisation
+    id_column: str | None = None  # id_column is never None after initalisation
     logger: logging.Logger = Field(
         default_factory=lambda: logging.getLogger(f"{__name__}.EvalData")
     )
@@ -103,8 +103,6 @@ class EvalData(BaseModel):
                 "Column name must only contain letters, numbers, and underscores",
             )
 
-        return
-
     @staticmethod
     def check_dataset_name(name: str) -> None:
         """Validate a dataset name.
@@ -137,8 +135,6 @@ class EvalData(BaseModel):
                 name,
                 "Dataset name must only contain letters, numbers, and underscores",
             )
-
-        return
 
     @model_validator(mode="before")
     @classmethod
@@ -441,7 +437,7 @@ class EvalData(BaseModel):
         self,
         columns: list[str],
         sample_percentage: float = 0.1,
-        sample_name: Optional[str] = None,
+        sample_name: str | None = None,
         seed: int = 42,
     ) -> "SampleEvalData":
         """Perform stratified sampling based on specified columns.
@@ -601,12 +597,12 @@ class EvalData(BaseModel):
             pl.exceptions.NoDataError,
             json.JSONDecodeError,
         ) as e:
-            raise DataFileError(f"Failed to parse {data_format} file: {str(e)}")
+            raise DataFileError(f"Failed to parse {data_format} file: {e!s}")
 
     def serialize_metadata(
         self,
-        data_format: Optional[Literal["json", "csv", "parquet"]],
-        data_filename: Optional[str],
+        data_format: Literal["json", "csv", "parquet"] | None,
+        data_filename: str | None,
     ) -> DataMetadata:
         """Serialize EvalData metadata.
 
@@ -846,8 +842,8 @@ class SampleEvalData(EvalData):
 
     def serialize_metadata(
         self,
-        data_format: Optional[Literal["json", "csv", "parquet"]],
-        data_filename: Optional[str],
+        data_format: Literal["json", "csv", "parquet"] | None,
+        data_filename: str | None,
     ) -> DataMetadata:
         """Serialize SampleEvalData metadata.
 

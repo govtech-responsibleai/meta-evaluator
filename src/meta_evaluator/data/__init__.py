@@ -14,7 +14,7 @@ from .dataloader import DataLoader
 from .eval_data import EvalData, SampleEvalData
 
 __all__ = [
-    "EvalData",
     "DataLoader",
+    "EvalData",
     "SampleEvalData",
 ]

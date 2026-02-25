@@ -3,7 +3,7 @@
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import streamlit as st
 
@@ -92,12 +92,12 @@ class StreamlitSessionManager:
         return results_builder
 
     @property
-    def run_id(self) -> Optional[str]:
+    def run_id(self) -> str | None:
         """Get the current run ID."""
         return st.session_state.get("current_run_id")
 
     @property
-    def annotator_id(self) -> Optional[str]:
+    def annotator_id(self) -> str | None:
         """Get the current annotator ID."""
         return st.session_state.get("current_annotator_id")
 
@@ -150,7 +150,7 @@ class StreamlitSessionManager:
         """
         return f"outcome_{task_name}_{self.current_row}"
 
-    def get_input_value(self, input_key: str) -> Optional[str]:
+    def get_input_value(self, input_key: str) -> str | None:
         """Get the value of an input from session state.
 
         Args:
@@ -161,7 +161,7 @@ class StreamlitSessionManager:
         """
         return st.session_state.get(input_key)
 
-    def get_previous_outcome(self, task_name: str, current_id: str) -> Optional[str]:
+    def get_previous_outcome(self, task_name: str, current_id: str) -> str | None:
         """Get the previous outcome for a task.
 
         Args:
@@ -184,7 +184,7 @@ class StreamlitSessionManager:
         sample_example_id: str,
         original_id: str,
         outcomes: dict,
-        annotation_timestamp: Optional[datetime] = None,
+        annotation_timestamp: datetime | None = None,
     ) -> None:
         """Create a successful annotation row.
 

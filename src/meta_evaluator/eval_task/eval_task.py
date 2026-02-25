@@ -1,7 +1,8 @@
 """Main class for evaluation tasks."""
 
 import logging
-from typing import Any, Callable, Literal, Optional
+from collections.abc import Callable
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, create_model, model_validator
 
@@ -77,11 +78,11 @@ class EvalTask(BaseModel):
         ...,
         description="Dictionary mapping task names to their allowed outcome values. Use None for free form text outputs.",
     )
-    required_tasks: Optional[list[str]] = Field(
+    required_tasks: list[str] | None = Field(
         default=None,
         description="List of task names that are required for valid annotations. If None, all non-null task_schemas are required.",
     )
-    prompt_columns: Optional[list[str]] = Field(default=None)
+    prompt_columns: list[str] | None = Field(default=None)
     response_columns: list[str] = Field(..., min_length=1)
     skip_function: Callable[[dict[str, Any]], bool] = lambda x: False
     answering_method: Literal["structured", "instructor", "xml"]

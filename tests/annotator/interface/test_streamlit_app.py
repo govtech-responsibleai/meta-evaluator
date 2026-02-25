@@ -312,15 +312,17 @@ class TestStreamlitAnnotatorInitialization:
         """
         invalid_dir = "/invalid/path/that/cannot/be/created"
 
-        with patch(
-            "meta_evaluator.annotator.interface.streamlit_app.StreamlitSessionManager"
+        with (
+            patch(
+                "meta_evaluator.annotator.interface.streamlit_app.StreamlitSessionManager"
+            ),
+            pytest.raises(SaveError),
         ):
-            with pytest.raises(SaveError):
-                StreamlitAnnotator(
-                    eval_data=mock_eval_data,
-                    eval_task=mock_eval_task,
-                    annotations_dir=invalid_dir,
-                )
+            StreamlitAnnotator(
+                eval_data=mock_eval_data,
+                eval_task=mock_eval_task,
+                annotations_dir=invalid_dir,
+            )
 
 
 # -------------------------

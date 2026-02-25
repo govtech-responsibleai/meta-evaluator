@@ -15,7 +15,7 @@ The models provide a unified interface for interacting with LLMs through litellm
 
 import time
 import uuid
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal
 
 from pydantic import BaseModel, model_validator
 
@@ -87,15 +87,13 @@ class TokenLogprob(BaseModel):
 
     token: str  # The chosen token
     logprob: float  # Log probability of chosen token
-    top_logprobs: Optional[list[AlternativeToken]] = (
-        None  # Alternative tokens considered
-    )
+    top_logprobs: list[AlternativeToken] | None = None  # Alternative tokens considered
 
 
 class LogprobsData(BaseModel):
     """Container for all logprobs information in a response."""
 
-    content: Optional[list[TokenLogprob]] = None
+    content: list[TokenLogprob] | None = None
 
 
 class LLMResponse(BaseModel):
@@ -130,7 +128,7 @@ class LLMResponse(BaseModel):
     model: str
     messages: list[Message]
     usage: LLMUsage
-    logprobs: Optional[LogprobsData] = None
+    logprobs: LogprobsData | None = None
 
     @model_validator(mode="after")
     def _validate_messages_not_empty(self) -> "LLMResponse":
@@ -238,7 +236,7 @@ class TagConfig(BaseModel):
     """
 
     name: str
-    allowed_values: Optional[list[str]] = None  # None = freeform
+    allowed_values: list[str] | None = None  # None = freeform
     cardinality: Literal["one", "many"] = "many"
     # Only matters when cardinality="one" but found multiple
     multiple_handling: Literal["error", "allow_both", "error_if_different"] = "error"
@@ -250,8 +248,8 @@ class ParseError(BaseModel):
     error_type: ErrorType
     tag_name: str
     message: str
-    found_values: Optional[list[str]] = None
-    expected_values: Optional[list[str]] = None
+    found_values: list[str] | None = None
+    expected_values: list[str] | None = None
 
     def __str__(self) -> str:
         """Returns the message of the parse error."""
@@ -272,7 +270,7 @@ class ParseResult(BaseModel):
         partial_success: True if some data was parsed despite errors.
     """
 
-    data: dict[str, Union[str, list[str]]]
+    data: dict[str, str | list[str]]
     errors: list[ParseError] = []
 
     @property

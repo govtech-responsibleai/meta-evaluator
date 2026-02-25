@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Annotated, List, Optional
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -38,12 +38,12 @@ class BaseResultRow(BaseModel):
         FieldTags(tags=["metadata"]),
     ]
     error_message: Annotated[
-        Optional[str],
+        str | None,
         Field(None, description="Error message if evaluation failed"),
         FieldTags(tags=["error"]),
     ]
     error_details_json: Annotated[
-        Optional[str],
+        str | None,
         Field(None, description="JSON string with error details"),
         FieldTags(tags=["error"]),
     ]
@@ -97,7 +97,7 @@ class BaseResultRow(BaseModel):
         return list(cls.model_fields.keys())
 
     @classmethod
-    def get_required_columns_with_tasks(cls, task_names: List[str]) -> List[str]:
+    def get_required_columns_with_tasks(cls, task_names: list[str]) -> list[str]:
         """Get all required columns including task columns.
 
         Args:
@@ -120,31 +120,31 @@ class JudgeResultRow(BaseResultRow):
     ]
 
     llm_raw_response_content: Annotated[
-        Optional[str],
+        str | None,
         Field(default=None, description="Raw response content from LLM"),
         FieldTags(tags=["llm_diagnostic"]),
     ]
 
     llm_prompt_tokens: Annotated[
-        Optional[int],
+        int | None,
         Field(default=None, description="Number of tokens used in the prompt"),
         FieldTags(tags=["llm_diagnostic"]),
     ]
 
     llm_completion_tokens: Annotated[
-        Optional[int],
+        int | None,
         Field(default=None, description="Number of tokens used in the completion"),
         FieldTags(tags=["llm_diagnostic"]),
     ]
 
     llm_total_tokens: Annotated[
-        Optional[int],
+        int | None,
         Field(default=None, description="Total number of tokens used"),
         FieldTags(tags=["llm_diagnostic"]),
     ]
 
     llm_call_duration_seconds: Annotated[
-        Optional[float],
+        float | None,
         Field(default=None, description="Duration of the LLM call in seconds"),
         FieldTags(tags=["llm_diagnostic"]),
     ]
@@ -171,7 +171,7 @@ class HumanAnnotationResultRow(BaseResultRow):
     ]
 
     annotation_timestamp: Annotated[
-        Optional[datetime],
+        datetime | None,
         Field(default=None, description="Timestamp when annotation was completed"),
         FieldTags(tags=["annotation_diagnostic"]),
     ]

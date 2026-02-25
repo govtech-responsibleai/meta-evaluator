@@ -1,7 +1,6 @@
 """Tests for custom scorer."""
 
 import asyncio
-from typing import List
 
 import polars as pl
 import pytest
@@ -29,7 +28,7 @@ class CustomScorer(BaseScorer):
         """
         return 1
 
-    def can_score_task(self, sample_label: str | int | float | List[str | int | float]):
+    def can_score_task(self, sample_label: str | float | list[str | int | float]):
         """This custom scorer can only handle single column text tasks.
 
         Returns:

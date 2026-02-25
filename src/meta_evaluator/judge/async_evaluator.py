@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import instructor
 from litellm import acompletion
@@ -37,12 +37,12 @@ class AsyncEvaluationMixin(ABC):
     model: str
     prompt: Prompt
     id: str
+    temperature: float | None
 
     @property
     @abstractmethod
     def logger(self) -> logging.Logger:
         """Logger for this Judge instance."""
-        pass
 
     async def _evaluate_row_with_fallback_async(
         self,
@@ -212,6 +212,7 @@ class AsyncEvaluationMixin(ABC):
                         messages=openai_messages,
                         response_format=task_class,
                         stream=False,
+                        temperature=self.temperature,
                     ),
                 )
 
@@ -326,6 +327,7 @@ class AsyncEvaluationMixin(ABC):
                 model=self.model,  # instructor handles the provider internally
                 response_model=task_class,
                 messages=openai_messages,
+                temperature=self.temperature,
             )
             response = cast(BaseModel, _resp)  # <-- tell Pyright it's a Pydantic model
 
@@ -425,6 +427,7 @@ class AsyncEvaluationMixin(ABC):
                     model=full_model_name,
                     messages=openai_messages,
                     stream=False,
+                    temperature=self.temperature,
                 ),
             )
 
@@ -519,8 +522,8 @@ class AsyncEvaluationMixin(ABC):
         )
 
         # Pre-create models/configs once to avoid recreating in loop
-        task_class: Optional[type[BaseModel]] = None
-        tag_configs: Optional[list[TagConfig]] = None
+        task_class: type[BaseModel] | None = None
+        tag_configs: list[TagConfig] | None = None
 
         task_class = self.eval_task.create_task_class()
         # If fallback is enabled, always create both task_class and tag_configs

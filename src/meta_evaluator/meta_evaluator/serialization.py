@@ -1,7 +1,5 @@
 """Pydantic models for MetaEvaluator serialization."""
 
-from typing import Dict, Optional
-
 from pydantic import BaseModel
 
 from ..data.serialization import DataMetadata
@@ -17,6 +15,6 @@ class MetaEvaluatorState(BaseModel):
     """
 
     version: str = "1.0"
-    data: Optional[DataMetadata] = None
-    eval_task: Optional[EvalTaskState] = None
-    judge_registry: Dict[str, JudgeState] = {}
+    data: DataMetadata | None = None
+    eval_task: EvalTaskState | None = None
+    judge_registry: dict[str, JudgeState] = {}

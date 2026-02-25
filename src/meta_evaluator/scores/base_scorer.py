@@ -3,7 +3,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, List
+from typing import Any
 
 import polars as pl
 
@@ -68,7 +68,6 @@ class BaseScorer(ABC):
         Returns:
             int: Minimum number of human annotators needed for meaningful results
         """
-        pass
 
     @abstractmethod
     def can_score_task(self, sample_label: Any) -> bool:
@@ -81,7 +80,6 @@ class BaseScorer(ABC):
         Returns:
             bool: True if this scorer can compute meaningful metrics for this data type
         """
-        pass
 
     @abstractmethod
     async def compute_score_async(
@@ -106,11 +104,10 @@ class BaseScorer(ABC):
         Returns:
             BaseScoringResult: The scoring result for this judge
         """
-        pass
 
     def aggregate_results(
         self,
-        results: List[BaseScoringResult],
+        results: list[BaseScoringResult],
         scores_dir: str,
         unique_name: str = "",
     ) -> None:
@@ -121,11 +118,10 @@ class BaseScorer(ABC):
             scores_dir: Directory to save aggregate plots
             unique_name: Optional unique identifier for this metric configuration
         """
-        pass
 
     def save_results(
         self,
-        results: List[BaseScoringResult],
+        results: list[BaseScoringResult],
         scores_dir: str,
         unique_name: str = "",
     ) -> None:
