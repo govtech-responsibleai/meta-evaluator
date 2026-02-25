@@ -53,8 +53,9 @@ evaluator.run_judges_async(
     judge_ids=None,              # Which judges to run
     run_id=None,                 # Custom run identifier
     save_results=True,           # Whether to save results to disk
-    results_format="json",       # Output format for results  
-    skip_duplicates=True         # Skip judges with existing results
+    results_format="json",       # Output format for results
+    skip_duplicates=True,        # Skip judges with existing results
+    consistency=1                # Number of runs per row for majority vote / aggregation
 )
 ```
 
@@ -123,6 +124,47 @@ skip_duplicates=True   # Faster, avoids re-evaluation, saves API costs
 skip_duplicates=False  # Re-evaluates everything, overwrites existing results
 ```
 
+
+### Consistency Runs (`consistency`)
+
+Run each judge `N` times per row and automatically aggregate the results. This reduces the impact of non-deterministic model outputs.
+
+```python linenums="1"
+# Run each judge 3 times and aggregate
+evaluator.run_judges_async(consistency=3)
+```
+
+The aggregation strategy depends on the task type:
+
+=== "Classification tasks"
+
+    Outputs are aggregated by **majority vote**. The label that appears most often across the `N` runs wins. Ties are broken by first occurrence.
+
+    ```
+    Run 1: positive   ┐
+    Run 2: positive   ├─→  majority = "positive"
+    Run 3: negative   ┘
+    ```
+
+=== "Free-form tasks"
+
+    Outputs from all runs are **concatenated** with labelled run markers, preserving every response in a single string. This lets you inspect the full range of outputs.
+
+    ```
+    <RUN 1>
+    The model handled the request well by...
+    ===
+    <RUN 2>
+    This response demonstrates clear reasoning...
+    ===
+    <RUN 3>
+    The answer was concise and accurate...
+    ```
+
+Both task types are supported simultaneously — a judge with a mixed schema (some classification, some free-form tasks) will apply the appropriate strategy per task.
+
+!!! note
+    With `consistency > 1`, token counts and call durations in the results are **summed** across all runs.
 
 ## Results Management
 

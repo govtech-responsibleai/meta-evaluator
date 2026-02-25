@@ -98,12 +98,20 @@ judges:
   - id: gpt_4_judge
     llm_client: openai
     model: gpt-4o-mini
-    prompt_file: ./prompt.md # Filepath relative to YAML file
-    
+    prompt_file: ./prompt.md   # Filepath relative to YAML file
+    temperature: 0.0           # Optional: sampling temperature
+
   - id: claude_judge
     llm_client: anthropic
     model: claude-3-5-haiku-latest
-    prompt_file: ./prompt.md # Filepath relative to YAML file
+    prompt_file: ./prompt.md   # Filepath relative to YAML file
+
+  - id: hf_judge
+    llm_client: huggingface/together
+    model: meta-llama/Llama-3.3-70B-Instruct
+    prompt_file: ./prompt.md   # Filepath relative to YAML file
+    extra_headers:             # Optional: e.g. bill to a HuggingFace organisation
+      X-HF-Bill-To: your-org-name
 ```
 
 **Prompt Template System**: MetaEvaluator uses a template-based system where you can define placeholders in your `prompt.md` files using curly braces (`{variable_name}`). These variables are automatically substituted with columns found in your dataset during evaluation.
@@ -123,7 +131,10 @@ Load and run your configured judges:
 ```python
 # Load judges and run evaluation
 evaluator.load_judges_from_yaml("judges.yaml", async_mode=True)
-evaluator.run_judges_async(skip_duplicates=True)
+evaluator.run_judges_async(
+    skip_duplicates=True,
+    consistency=1,   # Optional: run each judge N times and aggregate results
+)
 ```
 
 ### 7. Scoring
