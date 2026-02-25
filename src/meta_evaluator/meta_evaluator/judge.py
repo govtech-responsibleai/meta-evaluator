@@ -23,7 +23,6 @@ from ..judge import Judge
 from ..results import JudgeResults, JudgeResultsBuilder
 from ..results.enums import EvaluationStatusEnum
 from .exceptions import (
-    ConsistencyNotSupportedError,
     EvalDataNotFoundError,
     EvalTaskNotFoundError,
     InvalidYAMLStructureError,
@@ -384,6 +383,49 @@ class JudgesMixin:
                     break
         return result
 
+    def _aggregate_outcomes(
+        self, outcomes_list: list[dict[str, Any]]
+    ) -> dict[str, str]:
+        """Aggregate outcomes from multiple consistency runs per task.
+
+        For classification tasks (non-None schemas), uses majority voting with
+        first-occurrence tie-breaking. For free-form tasks (None schemas),
+        concatenates all outputs with indexed run markers.
+
+        Args:
+            outcomes_list: List of outcome dicts mapping task name to label/text.
+
+        Returns:
+            dict[str, str]: Aggregated outcome for each task.
+        """
+        assert self.eval_task is not None
+        result: dict[str, str] = {}
+        for task_name, schema in self.eval_task.task_schemas.items():
+            labels = [
+                o[task_name]
+                for o in outcomes_list
+                if task_name in o and o[task_name] is not None
+            ]
+            if not labels:
+                continue
+            if schema is None:
+                # Free-form task: concatenate outputs with run markers
+                parts = [
+                    f"<RUN {i}>\n{label}" for i, label in enumerate(labels, start=1)
+                ]
+                result[task_name] = "\n===\n".join(parts)
+            else:
+                # Classification task: majority vote with first-occurrence tie-breaking
+                counts: dict[str, int] = {}
+                for label in labels:
+                    counts[label] = counts.get(label, 0) + 1
+                max_count = max(counts.values())
+                for label in labels:
+                    if counts[label] == max_count:
+                        result[task_name] = label
+                        break
+        return result
+
     def _aggregate_consistency_results(
         self,
         all_results: list[JudgeResults],
@@ -485,7 +527,7 @@ class JudgesMixin:
                 continue
 
             if info["successes"]:
-                majority_outcomes = self._majority_vote_outcomes(info["successes"])
+                majority_outcomes = self._aggregate_outcomes(info["successes"])
                 builder.create_success_row(
                     sample_example_id=sample_example_id,
                     original_id=orig_id,
@@ -640,8 +682,6 @@ class JudgesMixin:
 
         Raises:
             ResultsSaveError: If saving results fails.
-            ConsistencyNotSupportedError: If consistency > 1 and any task schema
-                is free-form (None).
             ValueError: If consistency < 1.
 
         Example:
@@ -665,13 +705,6 @@ class JudgesMixin:
         # Validate consistency parameter
         if consistency < 1:
             raise ValueError(f"consistency must be >= 1, got {consistency}")
-        if consistency > 1 and not self._is_classification_task():
-            free_form_tasks = [
-                task
-                for task, schema in self.eval_task.task_schemas.items()  # type: ignore[union-attr]
-                if schema is None
-            ]
-            raise ConsistencyNotSupportedError(free_form_tasks)
 
         # Get set of existing judge IDs from results directory
         existing_judge_ids = self._get_existing_judge_ids()
@@ -825,8 +858,6 @@ class JudgesMixin:
             dict[str, JudgeResults]: Dictionary mapping judge IDs to their results.
 
         Raises:
-            ConsistencyNotSupportedError: If consistency > 1 and any task schema
-                is free-form (None).
             ValueError: If consistency < 1.
         """
         judges_to_run, run_id = self._validate_and_prepare_judges_run(judge_ids, run_id)
@@ -834,13 +865,6 @@ class JudgesMixin:
         # Validate consistency parameter
         if consistency < 1:
             raise ValueError(f"consistency must be >= 1, got {consistency}")
-        if consistency > 1 and not self._is_classification_task():
-            free_form_tasks = [
-                task
-                for task, schema in self.eval_task.task_schemas.items()  # type: ignore[union-attr]
-                if schema is None
-            ]
-            raise ConsistencyNotSupportedError(free_form_tasks)
 
         # Get set of existing judge IDs from results directory
         existing_judge_ids = self._get_existing_judge_ids()

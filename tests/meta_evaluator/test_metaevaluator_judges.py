@@ -12,7 +12,6 @@ from meta_evaluator.common.models import Prompt
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.judge.judge import Judge
 from meta_evaluator.meta_evaluator.exceptions import (
-    ConsistencyNotSupportedError,
     EvalDataNotFoundError,
     EvalTaskNotFoundError,
     InvalidYAMLStructureError,
@@ -1550,14 +1549,53 @@ class TestConsistency:
             assert row["llm_total_tokens"] == 300
             assert row["llm_call_duration_seconds"] == pytest.approx(4.0)
 
-    def test_consistency_free_form_raises_error(self, meta_evaluator, basic_eval_data):
-        """Consistency > 1 raises ConsistencyNotSupportedError for free-form tasks."""
-        task_schemas = {"sentiment": ["positive", "negative"], "summary": None}
-        evaluator, _ = self._setup_evaluator(
+    def test_consistency_free_form_aggregates_text(
+        self, meta_evaluator, basic_eval_data
+    ):
+        """Consistency > 1 concatenates free-form outputs with run markers."""
+        task_schemas: dict[str, list[str] | None] = {
+            "sentiment": ["positive", "negative"],
+            "summary": None,
+        }
+        evaluator, mock_judge = self._setup_evaluator(
             meta_evaluator, basic_eval_data, task_schemas
         )
-        with pytest.raises(ConsistencyNotSupportedError, match="summary"):
-            evaluator.run_judges(save_results=False, consistency=3)
+        run1 = self._make_results(
+            "r_c1",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive", "summary": "First summary."},
+                {"id": "2", "sentiment": "negative", "summary": "Second summary."},
+                {"id": "3", "sentiment": "positive", "summary": "Third summary."},
+            ],
+            task_schemas=task_schemas,
+        )
+        run2 = self._make_results(
+            "r_c2",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive", "summary": "First again."},
+                {"id": "2", "sentiment": "positive", "summary": "Second again."},
+                {"id": "3", "sentiment": "positive", "summary": "Third again."},
+            ],
+            task_schemas=task_schemas,
+        )
+        mock_judge.evaluate_eval_data.side_effect = [run1, run2]
+
+        results = evaluator.run_judges(save_results=False, consistency=2)
+
+        df = results["test_judge"].get_successful_results()
+        row_map = {str(r["original_id"]): r for r in df.iter_rows(named=True)}
+        # Classification: majority vote
+        assert row_map["1"]["sentiment"] == "positive"
+        assert row_map["2"]["sentiment"] == "negative"  # first-occurrence tie-break
+        # Free-form: both run outputs present with markers
+        summary_1 = row_map["1"]["summary"]
+        assert "<RUN 1>" in summary_1
+        assert "First summary." in summary_1
+        assert "<RUN 2>" in summary_1
+        assert "First again." in summary_1
+        assert "===" in summary_1
 
     def test_consistency_invalid_value_raises(self, meta_evaluator, basic_eval_data):
         """Consistency < 1 raises ValueError."""
@@ -1698,13 +1736,47 @@ class TestConsistency:
         assert row_map["2"]["sentiment"] == "negative"
         assert row_map["3"]["sentiment"] == "neutral"
 
-    def test_consistency_async_free_form_raises_error(
+    def test_consistency_async_free_form_aggregates_text(
         self, meta_evaluator, basic_eval_data
     ):
-        """Consistency > 1 raises ConsistencyNotSupportedError for free-form tasks (async)."""
-        task_schemas = {"sentiment": ["positive", "negative"], "summary": None}
-        evaluator, _ = self._setup_evaluator(
+        """Async consistency > 1 concatenates free-form outputs with run markers."""
+        task_schemas: dict[str, list[str] | None] = {
+            "sentiment": ["positive", "negative"],
+            "summary": None,
+        }
+        evaluator, mock_judge = self._setup_evaluator(
             meta_evaluator, basic_eval_data, task_schemas
         )
-        with pytest.raises(ConsistencyNotSupportedError, match="summary"):
-            evaluator.run_judges_async(save_results=False, consistency=2)
+        run1 = self._make_results(
+            "r_c1",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive", "summary": "Async run 1."},
+                {"id": "2", "sentiment": "negative", "summary": "Async run 1."},
+                {"id": "3", "sentiment": "positive", "summary": "Async run 1."},
+            ],
+            task_schemas=task_schemas,
+        )
+        run2 = self._make_results(
+            "r_c2",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive", "summary": "Async run 2."},
+                {"id": "2", "sentiment": "positive", "summary": "Async run 2."},
+                {"id": "3", "sentiment": "positive", "summary": "Async run 2."},
+            ],
+            task_schemas=task_schemas,
+        )
+        mock_judge.evaluate_eval_data_async = AsyncMock(side_effect=[run1, run2])
+
+        results = evaluator.run_judges_async(save_results=False, consistency=2)
+
+        df = results["test_judge"].get_successful_results()
+        row_map = {str(r["original_id"]): r for r in df.iter_rows(named=True)}
+        assert row_map["1"]["sentiment"] == "positive"
+        summary_1 = row_map["1"]["summary"]
+        assert "<RUN 1>" in summary_1
+        assert "Async run 1." in summary_1
+        assert "<RUN 2>" in summary_1
+        assert "Async run 2." in summary_1
+        assert "===" in summary_1

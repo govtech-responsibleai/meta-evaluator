@@ -288,22 +288,6 @@ class JudgeExecutionError(MetaEvaluatorJudgeError):
         super().__init__(f"Judge '{judge_id}' execution failed: {error}")
 
 
-class ConsistencyNotSupportedError(MetaEvaluatorJudgeError):
-    """Error raised when consistency > 1 is requested for non-classification tasks."""
-
-    def __init__(self, free_form_tasks: list[str]):
-        """Initialize with list of free-form task names.
-
-        Args:
-            free_form_tasks: List of task names with free-form (None) schemas.
-        """
-        super().__init__(
-            f"Consistency runs require all tasks to be classification tasks, but the "
-            f"following tasks have free-form (open-ended) schemas: {free_form_tasks}. "
-            "Majority voting cannot be applied to free-form text outputs."
-        )
-
-
 class ResultsSaveError(MetaEvaluatorJudgeError):
     """Error raised when saving judge results fails."""
 
