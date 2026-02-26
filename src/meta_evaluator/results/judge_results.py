@@ -3,7 +3,7 @@
 import json
 import logging
 from datetime import datetime
-from typing import Dict, List, Literal, Optional, cast
+from typing import Literal, cast
 
 import polars as pl
 from pydantic import Field, ValidationError
@@ -220,7 +220,7 @@ class JudgeResults(BaseEvaluationResults):
             pl.col("status") == EvaluationStatusEnum.SKIPPED.value
         )
 
-    def _get_status_counts(self) -> Dict[str, int]:
+    def _get_status_counts(self) -> dict[str, int]:
         """Get status counts for count consistency validation.
 
         Returns:
@@ -235,7 +235,7 @@ class JudgeResults(BaseEvaluationResults):
             EvaluationStatusEnum.OTHER_ERROR.value: self.other_error_count,
         }
 
-    def _get_valid_status_values(self) -> List[str]:
+    def _get_valid_status_values(self) -> list[str]:
         """Get valid status values for this evaluation type.
 
         Returns:
@@ -244,7 +244,7 @@ class JudgeResults(BaseEvaluationResults):
         return [status.value for status in EvaluationStatusEnum]
 
     def _validate_success_constraints(
-        self, success_df: pl.DataFrame, task_names: List[str]
+        self, success_df: pl.DataFrame, task_names: list[str]
     ) -> None:
         """Validate constraints for success status rows.
 
@@ -273,9 +273,9 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         judge_id: str,
         llm_client: str,
         model_used: str,
-        task_schemas: Dict[str, List[str] | None],
-        expected_ids: List[str | int],
-        required_tasks: Optional[List[str]] = None,
+        task_schemas: dict[str, list[str] | None],
+        expected_ids: list[str | int],
+        required_tasks: list[str] | None = None,
         is_sampled_run: bool = False,
     ):
         """Initialize the judge results builder.

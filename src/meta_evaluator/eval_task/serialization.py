@@ -1,6 +1,6 @@
 """Pydantic models for Evaluation Task serialization."""
 
-from typing import Dict, List, Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -11,10 +11,10 @@ class EvalTaskState(BaseModel):
     Contains all information needed to reconstruct an EvalTask object.
     """
 
-    task_schemas: Dict[str, Optional[List[str]]]
-    required_tasks: Optional[List[str]] = None
-    prompt_columns: Optional[List[str]]
-    response_columns: List[str]
+    task_schemas: dict[str, list[str] | None]
+    required_tasks: list[str] | None = None
+    prompt_columns: list[str] | None
+    response_columns: list[str]
     answering_method: Literal["structured", "instructor", "xml"]
     structured_outputs_fallback: bool = False
     annotation_prompt: str = "Please evaluate the following response:"

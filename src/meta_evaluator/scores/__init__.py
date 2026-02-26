@@ -12,13 +12,13 @@ from .metrics import (
 from .metrics_config import MetricConfig, MetricsConfig
 
 __all__ = [
+    "AltTestScorer",
     "BaseScorer",
     "BaseScoringResult",
     "ClassificationScorer",
-    "TextSimilarityScorer",
-    "SemanticSimilarityScorer",
     "CohensKappaScorer",
-    "AltTestScorer",
-    "MetricsConfig",
     "MetricConfig",
+    "MetricsConfig",
+    "SemanticSimilarityScorer",
+    "TextSimilarityScorer",
 ]

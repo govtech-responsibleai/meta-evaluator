@@ -18,3 +18,5 @@ class JudgeState(BaseModel):
     model: str
     prompt: Prompt
     eval_task: EvalTaskState
+    temperature: float | None = None
+    extra_headers: dict[str, str] | None = None

@@ -6,7 +6,8 @@ Code adapted from: https://github.com/nitaytech/AltTest/
 
 import asyncio
 import os
-from typing import Any, Callable, Dict, List, Tuple, Union
+from collections.abc import Callable
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -62,7 +63,7 @@ class AltTestScorer(BaseScorer):
         return 3
 
     def can_score_task(
-        self, sample_label: str | int | float | List[str | int | float]
+        self, sample_label: str | float | list[str | int | float]
     ) -> bool:
         """Alt-Test works with both categorical and text data.
 
@@ -219,7 +220,7 @@ class AltTestScorer(BaseScorer):
         else:
             raise ValueError(f"Unknown sample label type: {type(sample_label)}.")
 
-    def _accuracy(self, pred: Any, annotations: List[Any]) -> float:
+    def _accuracy(self, pred: Any, annotations: list[Any]) -> float:
         """Accuracy scoring function using exact match.
 
         Returns:
@@ -227,9 +228,7 @@ class AltTestScorer(BaseScorer):
         """
         return float(np.mean([pred == ann for ann in annotations]))
 
-    def _neg_rmse(
-        self, pred: Union[int, float], annotations: List[Union[int, float]]
-    ) -> float:
+    def _neg_rmse(self, pred: float, annotations: list[int | float]) -> float:
         """Negative RMSE scoring function.
 
         Returns:
@@ -238,7 +237,7 @@ class AltTestScorer(BaseScorer):
         return -1 * float(np.sqrt(np.mean([(pred - ann) ** 2 for ann in annotations])))
 
     def _jaccard_similarity(
-        self, pred: List[str], annotations: List[List[str]]
+        self, pred: list[str], annotations: list[list[str]]
     ) -> float:
         """Macro-averaged jaccard similarity.
 
@@ -272,7 +271,7 @@ class AltTestScorer(BaseScorer):
                 f"Unknown scoring function: {scoring_function_name}"
             )
 
-    def _by_procedure(self, p_values: List[float], q: float) -> List[Any]:
+    def _by_procedure(self, p_values: list[float], q: float) -> list[Any]:
         """Benjamini-Yekutieli procedure for multiple testing correction.
 
         Returns:
@@ -305,11 +304,11 @@ class AltTestScorer(BaseScorer):
 
     def _alt_test_core(
         self,
-        llm_annotations: Dict[Union[int, str], Any],
-        humans_annotations: Dict[Union[int, str], Dict[Union[int, str], Any]],
+        llm_annotations: dict[int | str, Any],
+        humans_annotations: dict[int | str, dict[int | str, Any]],
         scoring_function_name: str,
         epsilon: float = 0.0,
-    ) -> Tuple[float, float, Dict[str, Tuple[float, float]]]:
+    ) -> tuple[float, float, dict[str, tuple[float, float]]]:
         """Run the Alt-Test procedure.
 
         Returns:
@@ -411,7 +410,7 @@ class AltTestScorer(BaseScorer):
         human_data: pl.DataFrame,
         scoring_function_name: str,
         epsilon: float = 0.0,
-    ) -> Tuple[float, float, Dict[str, Tuple[float, float]]]:
+    ) -> tuple[float, float, dict[str, tuple[float, float]]]:
         """Format the dataframes into annotations to run the Alt-Test procedure.
 
         Instead of running the Alt-Test procedure directly on DataFrames, we convert
@@ -476,7 +475,7 @@ class AltTestScorer(BaseScorer):
 
     def generate_aggregate_winning_rates_plot(
         self,
-        results: List[BaseScoringResult],
+        results: list[BaseScoringResult],
         alt_test_dir: str,
         scoring_function: str,
         unique_name: str = "",
@@ -539,7 +538,7 @@ class AltTestScorer(BaseScorer):
 
     def generate_aggregate_advantage_probabilities_plot(
         self,
-        results: List[BaseScoringResult],
+        results: list[BaseScoringResult],
         alt_test_dir: str,
         scoring_function: str,
         unique_name: str = "",
@@ -593,7 +592,7 @@ class AltTestScorer(BaseScorer):
         plt.close(fig)
 
     def generate_aggregate_human_vs_llm_plot(
-        self, results: List[BaseScoringResult], alt_test_dir: str, unique_name: str = ""
+        self, results: list[BaseScoringResult], alt_test_dir: str, unique_name: str = ""
     ) -> None:
         """Generate human vs LLM advantage probabilities plot - one chart per LLM."""
         # Filter out results with no valid human advantage probabilities
@@ -693,7 +692,7 @@ class AltTestScorer(BaseScorer):
         plt.close(fig)
 
     def aggregate_results(
-        self, results: List[BaseScoringResult], scores_dir: str, unique_name: str = ""
+        self, results: list[BaseScoringResult], scores_dir: str, unique_name: str = ""
     ) -> None:
         """Generate aggregate plots from alt-test results.
 

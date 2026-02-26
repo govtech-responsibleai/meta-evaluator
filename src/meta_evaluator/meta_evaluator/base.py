@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Literal, Optional, cast
+from typing import Literal, cast
 
 from pydantic import ValidationError
 
@@ -112,7 +112,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
     DEFAULT_STATE_FILENAME = "main_state.json"
 
-    def __init__(self, project_dir: Optional[str] = None, load: bool = False):
+    def __init__(self, project_dir: str | None = None, load: bool = False):
         """Initialize a MetaEvaluator instance.
 
         Implements comprehensive directory and state validation logic:
@@ -182,9 +182,9 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
                 )
 
         # Create new MetaEvaluator instance
-        self.data: Optional[EvalData] = None
-        self.eval_task: Optional[EvalTask] = None
-        self.metrics_config: Optional[MetricsConfig] = None
+        self.data: EvalData | None = None
+        self.eval_task: EvalTask | None = None
+        self.metrics_config: MetricsConfig | None = None
 
         # Create directory structure for new project
         self.paths.ensure_directories()
@@ -344,8 +344,8 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         self,
         include_task: bool = True,
         include_data: bool = True,
-        data_format: Optional[Literal["json", "csv", "parquet"]] = None,
-        data_filename: Optional[str] = None,
+        data_format: Literal["json", "csv", "parquet"] | None = None,
+        data_filename: str | None = None,
     ) -> None:
         """Save MetaEvaluator state to JSON file with optional data serialization.
 
@@ -430,8 +430,8 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         self,
         include_task: bool,
         include_data: bool,
-        data_format: Optional[Literal["json", "csv", "parquet"]],
-        data_filename: Optional[str],
+        data_format: Literal["json", "csv", "parquet"] | None,
+        data_filename: str | None,
     ) -> MetaEvaluatorState:
         """Create complete state object - no I/O operations.
 
@@ -453,9 +453,9 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
     def _serialize_data(
         self,
         include_data: bool,
-        data_format: Optional[Literal["json", "csv", "parquet"]],
-        data_filename: Optional[str],
-    ) -> Optional[DataMetadata]:
+        data_format: Literal["json", "csv", "parquet"] | None,
+        data_filename: str | None,
+    ) -> DataMetadata | None:
         """Serialize EvalData metadata.
 
         Args:
@@ -480,7 +480,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
     def _serialize_eval_task(
         self,
         include_task: bool,
-    ) -> Optional[EvalTaskState]:
+    ) -> EvalTaskState | None:
         """Serialize EvalTask.
 
         Returns:
@@ -492,7 +492,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
         return serialized_state
 
-    def _serialize_judge_registry(self) -> Dict[str, JudgeState]:
+    def _serialize_judge_registry(self) -> dict[str, JudgeState]:
         """Serialize judge registry to JudgeState objects.
 
         Returns:
@@ -649,7 +649,7 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         self.add_data(eval_data, overwrite=True)
 
     def _reconstruct_judge_registry(
-        self, serialized_judges: Dict[str, JudgeState]
+        self, serialized_judges: dict[str, JudgeState]
     ) -> None:
         """Reconstruct the judge registry from serialized judge states.
 
@@ -670,9 +670,9 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
 
     def launch_annotator(
         self,
-        port: Optional[int] = None,
+        port: int | None = None,
         use_ngrok: bool = False,
-        traffic_policy_file: Optional[str] = None,
+        traffic_policy_file: str | None = None,
     ) -> None:
         """Launch the Streamlit annotator interface.
 

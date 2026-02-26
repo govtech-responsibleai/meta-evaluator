@@ -1,14 +1,10 @@
 """File for all Judge related exceptions."""
 
-from typing import Optional
-
 from pydantic import Field
 
 
 class JudgeError(Exception):
     """Base class for Judge exceptions."""
-
-    pass
 
 
 class LLMAPIError(JudgeError):
@@ -102,8 +98,8 @@ class MissingTemplateVariablesError(JudgeError):
     def __init__(
         self,
         missing_variables: list[str],
-        prompt_columns: Optional[list[str]] = Field(default=None),
-        response_columns: Optional[list[str]] = Field(..., min_length=1),
+        prompt_columns: list[str] | None = Field(default=None),
+        response_columns: list[str] | None = Field(..., min_length=1),
     ):
         """Initialize the MissingTemplateVariablesError.
 

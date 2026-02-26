@@ -66,7 +66,43 @@ judges:
     llm_client: provider_name          # Required: openai, anthropic, azure, etc.
     model: model_name                  # Required: specific model name
     prompt_file: ./path/to/prompt.md   # Required: relative to YAML file location, or absolute path
+    temperature: 0.0                   # Optional: sampling temperature (default: model default)
+    extra_headers:                     # Optional: additional HTTP headers for the API call
+      Header-Name: value
 ```
+
+## Optional YAML Fields
+
+### `temperature`
+
+Controls the randomness of the model's output. Lower values produce more deterministic results; higher values produce more varied responses.
+
+```yaml
+judges:
+  - id: deterministic_judge
+    llm_client: openai
+    model: gpt-4o-mini
+    prompt_file: ./prompt.md
+    temperature: 0.0   # Fully deterministic
+```
+
+If omitted, the model's default temperature is used.
+
+### `extra_headers`
+
+Pass additional HTTP headers to every API call made by this judge. This is most commonly used to route billing to a HuggingFace organisation when using Inference Providers:
+
+```yaml
+judges:
+  - id: hf_judge
+    llm_client: huggingface/together
+    model: meta-llama/Llama-3.3-70B-Instruct
+    prompt_file: ./prompt.md
+    extra_headers:
+      X-HF-Bill-To: your-org-name
+```
+
+Any key-value pairs under `extra_headers` are forwarded verbatim to the underlying LiteLLM `completion()` call.
 
 
 ## Environment Variables
@@ -152,9 +188,16 @@ Some examples:
 
     ```yaml
     - id: together_judge
-      llm_client: huggingface/together # Specify Inference Provider
-      model: openai/gpt-oss-20b
+      llm_client: huggingface/together  # Specify Inference Provider
+      model: meta-llama/Llama-3.3-70B-Instruct
       prompt_file: ./prompt.md
+      extra_headers:
+        X-HF-Bill-To: your-org-name    # Optional: bill to your HuggingFace organisation
+    ```
+
+    Set your HuggingFace API key:
+    ```bash
+    export HUGGINGFACE_API_KEY="hf_your_token"
     ```
 
 === "OpenRouter"

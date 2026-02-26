@@ -1,7 +1,6 @@
 """Placeholder file for exceptions in data."""
 
 from abc import ABC, abstractmethod
-from typing import Union
 
 
 class DataError(Exception, ABC):
@@ -63,7 +62,7 @@ class IdColumnExistsError(DataError):
 class ColumnNotFoundError(DataError):
     """Error raised when a column is not found in the dataset."""
 
-    def __init__(self, column_names: Union[str, list[str]]):
+    def __init__(self, column_names: str | list[str]):
         """Initializes the ColumnNotFoundError.
 
         Args:

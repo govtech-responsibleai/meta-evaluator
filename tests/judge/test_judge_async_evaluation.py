@@ -1,5 +1,6 @@
 """Tests for async evaluation methods in Judge class."""
 
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import polars as pl
@@ -466,8 +467,9 @@ class TestJudgeAsyncEvaluation:
             prompt_columns=["text"],
             response_columns=["response"],
             answering_method="instructor",
-            skip_function=lambda row: row.get("text")
-            == "This movie is fantastic!",  # Skip first row
+            skip_function=lambda row: (
+                row.get("text") == "This movie is fantastic!"
+            ),  # Skip first row
         )
 
         skip_judge = Judge(
@@ -743,15 +745,15 @@ class TestJudgeAsyncEvaluation:
         TaskClass = free_form_task.create_task_class()
 
         # Verify we can create instance with mixed field types
-        instance = TaskClass(
+        instance: Any = TaskClass(
             sentiment="positive",
             summary="This is a free form summary",
             explanation="This explains the sentiment",
         )
 
-        assert getattr(instance, "sentiment") == "positive"
-        assert getattr(instance, "summary") == "This is a free form summary"
-        assert getattr(instance, "explanation") == "This explains the sentiment"
+        assert instance.sentiment == "positive"
+        assert instance.summary == "This is a free form summary"
+        assert instance.explanation == "This explains the sentiment"
 
         # Test XML instructions include free form guidance
         xml_instructions = free_form_judge._get_xml_instructions()

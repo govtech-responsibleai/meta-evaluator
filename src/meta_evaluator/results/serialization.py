@@ -1,7 +1,7 @@
 """Pydantic models for Judge and Human Results serialization."""
 
 from datetime import datetime
-from typing import Dict, List, Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -13,7 +13,7 @@ class BaseResultsSerializedState(BaseModel):
     """
 
     run_id: str
-    task_schemas: Dict[str, Optional[List[str]]]
+    task_schemas: dict[str, list[str] | None]
     timestamp_local: datetime
     total_count: int
     succeeded_count: int

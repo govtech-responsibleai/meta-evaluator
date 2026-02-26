@@ -82,6 +82,8 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
     prompt: Prompt
     model_config = ConfigDict(frozen=True)
     eval_task: EvalTask
+    temperature: float | None = None
+    extra_headers: dict[str, str] | None = None
 
     @property
     def logger(self) -> logging.Logger:
@@ -257,9 +259,7 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
             user_content += self._get_xml_instructions()
         return Message(role=RoleEnum.USER, content=user_content)
 
-    def _get_dicts_as_generator(
-        self, eval_data: EvalData
-    ) -> Generator[dict[str, Any], None, None]:
+    def _get_dicts_as_generator(self, eval_data: EvalData) -> Generator[dict[str, Any]]:
         """Generate dictionaries from EvalData rows.
 
         Args:
@@ -615,6 +615,8 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
             model=self.model,
             prompt=self.prompt,
             eval_task=self.eval_task.serialize(),
+            temperature=self.temperature,
+            extra_headers=self.extra_headers,
         )
 
     @classmethod
@@ -633,4 +635,6 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
             model=state.model,
             prompt=state.prompt,
             eval_task=EvalTask.deserialize(state.eval_task),
+            temperature=state.temperature,
+            extra_headers=state.extra_headers,
         )

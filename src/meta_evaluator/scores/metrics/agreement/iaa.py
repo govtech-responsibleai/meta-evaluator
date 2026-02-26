@@ -1,7 +1,6 @@
 """Cohen's kappa scorer for inter-annotator agreement."""
 
 import os
-from typing import List
 
 import numpy as np
 import polars as pl
@@ -29,7 +28,7 @@ class CohensKappaScorer(BaseScorer):
         return 2
 
     def can_score_task(
-        self, sample_label: str | int | float | List[str | int | float]
+        self, sample_label: str | float | list[str | int | float]
     ) -> bool:
         """Cohen's kappa works with categorical data (int, str, or list of int/str).
 
@@ -131,7 +130,7 @@ class CohensKappaScorer(BaseScorer):
         )
 
     def aggregate_results(
-        self, results: List[BaseScoringResult], scores_dir: str, unique_name: str = ""
+        self, results: list[BaseScoringResult], scores_dir: str, unique_name: str = ""
     ) -> None:
         """Generate aggregate plots and save individual results for Cohen's kappa scorer.
 

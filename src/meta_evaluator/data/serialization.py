@@ -1,6 +1,6 @@
 """Pydantic models for EvalData serialization."""
 
-from typing import List, Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -19,8 +19,8 @@ class DataMetadata(BaseModel):
     type: Literal["EvalData", "SampleEvalData"]
 
     # Optional fields for SampleEvalData
-    sample_name: Optional[str] = None
-    stratification_columns: Optional[List[str]] = None
-    sample_percentage: Optional[float] = None
-    seed: Optional[int] = None
-    sampling_method: Optional[str] = None
+    sample_name: str | None = None
+    stratification_columns: list[str] | None = None
+    sample_percentage: float | None = None
+    seed: int | None = None
+    sampling_method: str | None = None

@@ -4,7 +4,7 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import polars as pl
@@ -66,9 +66,9 @@ class ScoringMixin:
     """
 
     # Type hints for attributes that will be provided by MetaEvaluator
-    eval_task: Optional[EvalTask]
-    data: Optional[EvalData]
-    metrics_config: Optional[MetricsConfig]
+    eval_task: EvalTask | None
+    data: EvalData | None
+    metrics_config: MetricsConfig | None
     paths: "Paths"
     logger: logging.Logger
 
@@ -80,7 +80,7 @@ class ScoringMixin:
     # RESULTS LOADING METHODS
     ##########################################################
 
-    def load_all_judge_results(self) -> Dict[str, JudgeResults]:
+    def load_all_judge_results(self) -> dict[str, JudgeResults]:
         """Load all judge results from the project's results directory.
 
         Searches for all *_state.json files in the results directory and attempts
@@ -149,7 +149,7 @@ class ScoringMixin:
 
         return results
 
-    def load_all_human_results(self) -> Dict[str, HumanAnnotationResults]:
+    def load_all_human_results(self) -> dict[str, HumanAnnotationResults]:
         """Load all human annotation results from the project's annotations directory.
 
         Searches for all *_metadata.json files in the annotations directory and attempts
@@ -226,8 +226,8 @@ class ScoringMixin:
     def _filter_and_align_data(
         self,
         judge_result: JudgeResults,
-        human_results: Dict[str, HumanAnnotationResults],
-    ) -> Tuple[pl.DataFrame, pl.DataFrame]:
+        human_results: dict[str, HumanAnnotationResults],
+    ) -> tuple[pl.DataFrame, pl.DataFrame]:
         """Filter judge and human results for successful results and common IDs.
 
         Returns:
@@ -277,9 +277,9 @@ class ScoringMixin:
         self,
         judge_df: pl.DataFrame,
         human_df: pl.DataFrame,
-        task_names: List[str],
+        task_names: list[str],
         aggregation_mode: TaskAggregationMode,
-    ) -> Tuple[pl.DataFrame, pl.DataFrame]:
+    ) -> tuple[pl.DataFrame, pl.DataFrame]:
         """Preprocess data based on aggregation mode.
 
         This is used to determine the format of the task labels for the scorer.
@@ -317,7 +317,7 @@ class ScoringMixin:
         return judge_data, human_data
 
     def _create_multilabel_column(
-        self, df: pl.DataFrame, task_names: List[str], include_human_id: bool = False
+        self, df: pl.DataFrame, task_names: list[str], include_human_id: bool = False
     ) -> pl.DataFrame:
         """Combine task columns into a single multilabel colum for MULTILABEL aggregation mode.
 
@@ -371,7 +371,7 @@ class ScoringMixin:
         return multilabel_df
 
     def _average_multitask_results(
-        self, task_scoring_results: List[BaseScoringResult]
+        self, task_scoring_results: list[BaseScoringResult]
     ) -> BaseScoringResult:
         """Average multiple task results for MULTITASK aggregation mode.
 
@@ -471,9 +471,9 @@ class ScoringMixin:
     async def _run_scoring_async(
         self,
         metric_config: MetricConfig,
-        judge_results: Dict[str, JudgeResults],
-        human_results: Dict[str, HumanAnnotationResults],
-    ) -> Tuple[MetricConfig, List[BaseScoringResult]]:
+        judge_results: dict[str, JudgeResults],
+        human_results: dict[str, HumanAnnotationResults],
+    ) -> tuple[MetricConfig, list[BaseScoringResult]]:
         """Run a single metric configuration with different judges asynchronously.
 
         Args:
@@ -508,7 +508,7 @@ class ScoringMixin:
         self,
         metric_config: MetricConfig,
         judge_result: JudgeResults,
-        human_results: Dict[str, HumanAnnotationResults],
+        human_results: dict[str, HumanAnnotationResults],
     ) -> BaseScoringResult:
         """Process a single judge async with a single scorer configuration. Always returns BaseScoringResult.
 
@@ -639,7 +639,7 @@ class ScoringMixin:
 
     def _save_all_scorer_results(
         self,
-        results: Dict[str, Tuple[MetricConfig, List[BaseScoringResult]]],
+        results: dict[str, tuple[MetricConfig, list[BaseScoringResult]]],
     ) -> None:
         """Save individual results for each metric configuration.
 
@@ -665,7 +665,7 @@ class ScoringMixin:
 
     def _aggregate_all_scorer_results(
         self,
-        results: Dict[str, Tuple[MetricConfig, List[BaseScoringResult]]],
+        results: dict[str, tuple[MetricConfig, list[BaseScoringResult]]],
     ) -> None:
         """Run aggregation for each metric configuration.
 
@@ -700,9 +700,9 @@ class ScoringMixin:
 
     async def _compare_async(
         self,
-        judge_results: Optional[Dict[str, JudgeResults]] = None,
-        human_results: Optional[Dict[str, HumanAnnotationResults]] = None,
-    ) -> Dict[str, Tuple[MetricConfig, List[BaseScoringResult]]]:
+        judge_results: dict[str, JudgeResults] | None = None,
+        human_results: dict[str, HumanAnnotationResults] | None = None,
+    ) -> dict[str, tuple[MetricConfig, list[BaseScoringResult]]]:
         """Main method to compare judge and human results using configured metrics.
 
         Handles:
@@ -812,8 +812,8 @@ class ScoringMixin:
         judge_id: str,
         llm_client: str = "external",
         model_used: str = "unknown",
-        run_id: Optional[str] = None,
-        data_format: Optional[Literal["json", "csv", "parquet"]] = None,
+        run_id: str | None = None,
+        data_format: Literal["json", "csv", "parquet"] | None = None,
         **metadata_kwargs,
     ) -> None:
         """Add judge results from external data source to the project.
@@ -892,8 +892,8 @@ class ScoringMixin:
         self,
         file_path: str,
         annotator_id: str,
-        run_id: Optional[str] = None,
-        data_format: Optional[Literal["json", "csv", "parquet"]] = None,
+        run_id: str | None = None,
+        data_format: Literal["json", "csv", "parquet"] | None = None,
         **metadata_kwargs,
     ) -> None:
         """Add human annotation results from external data source to the project.
@@ -965,7 +965,7 @@ class ScoringMixin:
     # ===== HELPER METHODS FOR EXTERNAL RESULTS =====
 
     def _extract_data_format(
-        self, file_path: str, data_format: Optional[str]
+        self, file_path: str, data_format: str | None
     ) -> Literal["json", "csv", "parquet"]:
         """Extract or validate data format for external files.
 

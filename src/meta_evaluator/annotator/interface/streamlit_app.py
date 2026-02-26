@@ -4,7 +4,7 @@ import html
 import logging
 import os
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import polars as pl
 import streamlit as st
@@ -28,8 +28,8 @@ class StreamlitAnnotator:
         eval_data: EvalData,
         eval_task: EvalTask,
         annotations_dir: str,
-        required_tasks: Optional[list[str]] = None,
-        metadata: Optional[dict] = None,
+        required_tasks: list[str] | None = None,
+        metadata: dict | None = None,
         test_environment: bool = False,
     ):
         """Initialize the Streamlit annotator.
@@ -52,7 +52,7 @@ class StreamlitAnnotator:
         self.id_col: str = eval_data.id_column  # type: ignore
         self.eval_task: EvalTask = eval_task  # Store the full eval_task object
         self.task_schemas: dict[str, list[str] | None] = eval_task.task_schemas
-        self.prompt_columns: Optional[list[str]] = eval_task.prompt_columns
+        self.prompt_columns: list[str] | None = eval_task.prompt_columns
         self.response_columns: list[str] = eval_task.response_columns
         self.annotation_prompt: str = eval_task.annotation_prompt
         self.annotations_dir: str = annotations_dir
@@ -197,7 +197,7 @@ class StreamlitAnnotator:
         label: str,
         outcomes: list[str],
         key: str,
-        selected_index: Optional[int] = None,
+        selected_index: int | None = None,
         is_required: bool = False,
     ) -> None:
         """Display radio buttons for annotation."""
@@ -222,8 +222,8 @@ class StreamlitAnnotator:
     def display_free_form_text(
         self,
         label: str,
-        value: Optional[str] = None,
-        key: Optional[str] = None,
+        value: str | None = None,
+        key: str | None = None,
         is_required: bool = False,
     ) -> None:
         """Display a free form text input."""
@@ -239,9 +239,7 @@ class StreamlitAnnotator:
             )
         st.text_area(label=label, value=value, key=key, label_visibility="collapsed")
 
-    def handle_annotation(
-        self, current_row: tuple[Any, ...]
-    ) -> dict[str, Optional[str]]:
+    def handle_annotation(self, current_row: tuple[Any, ...]) -> dict[str, str | None]:
         """Handle the annotation process for the current sample.
 
         Returns:
@@ -386,7 +384,7 @@ class StreamlitAnnotator:
             f"autosave_{run_id}_{annotator_id}_{annotator_name}_data.parquet",
         )
 
-    def _find_existing_auto_save_file(self, annotator_name: str) -> Optional[str]:
+    def _find_existing_auto_save_file(self, annotator_name: str) -> str | None:
         """Find existing auto-save file for the given annotator.
 
         Args:
@@ -525,9 +523,7 @@ class StreamlitAnnotator:
             return True
 
         except Exception as e:
-            self.logger.error(
-                f"Failed to load auto-save file {auto_save_file}: {str(e)}"
-            )
+            self.logger.error(f"Failed to load auto-save file {auto_save_file}: {e!s}")
             return False
 
     def _auto_save_annotation(
@@ -551,8 +547,8 @@ class StreamlitAnnotator:
             )
 
         except Exception as e:
-            self.logger.error(f"Auto-save failed: {str(e)}")
-            st.error(f"Auto-save failed: {str(e)}")
+            self.logger.error(f"Auto-save failed: {e!s}")
+            st.error(f"Auto-save failed: {e!s}")
 
     def save_results(self) -> None:
         """Save the results to the results builder.
@@ -650,7 +646,7 @@ class StreamlitAnnotator:
                     )
 
         except Exception as e:
-            st.error(f"Error creating results: {str(e)}", icon="🚨")
+            st.error(f"Error creating results: {e!s}", icon="🚨")
             st.markdown(
                 """
             - Please check that all samples have been annotated

@@ -277,7 +277,7 @@ def main():
         evaluator.score_report.print()  # Print to console
 
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error: {e!s}")
 
 
 if __name__ == "__main__":

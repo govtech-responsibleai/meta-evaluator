@@ -2,12 +2,15 @@
 
 import json
 from datetime import datetime
+from typing import ClassVar
 from unittest.mock import AsyncMock, Mock, patch
 
 import polars as pl
 import pytest
 
 from meta_evaluator.common.models import Prompt
+from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.judge.judge import Judge
 from meta_evaluator.meta_evaluator.exceptions import (
     EvalDataNotFoundError,
     EvalTaskNotFoundError,
@@ -17,7 +20,7 @@ from meta_evaluator.meta_evaluator.exceptions import (
     PromptFileNotFoundError,
     ResultsSaveError,
 )
-from meta_evaluator.results import JudgeResults
+from meta_evaluator.results import JudgeResults, JudgeResultsBuilder
 
 from .conftest import create_mock_judge_state_file
 
@@ -1216,3 +1219,564 @@ class TestAsyncMetaEvaluatorJudges:
         # Verify both judges' evaluate_eval_data_async were called
         judge1.evaluate_eval_data_async.assert_called_once()
         judge2.evaluate_eval_data_async.assert_called_once()
+
+
+class TestConsistency:
+    """Tests for the consistency parameter in run_judges and run_judges_async."""
+
+    TASK_SCHEMAS: ClassVar[dict[str, list[str] | None]] = {
+        "sentiment": ["positive", "negative", "neutral"]
+    }
+
+    def _make_results(
+        self,
+        run_id: str,
+        judge_id: str,
+        rows: list[dict],
+        task_schemas: dict[str, list[str] | None] | None = None,
+    ) -> JudgeResults:
+        """Build a real JudgeResults from a list of row specs.
+
+        Each row spec must have an "id" key. Use "skip": True for skipped rows,
+        "error": True (with optional "error_msg") for LLM-error rows, or task-name
+        keys for successful rows.
+
+        Returns:
+            JudgeResults: The constructed JudgeResults object.
+        """
+        if task_schemas is None:
+            task_schemas = self.TASK_SCHEMAS
+        builder = JudgeResultsBuilder(
+            run_id=run_id,
+            judge_id=judge_id,
+            llm_client="openai",
+            model_used="gpt-4",
+            task_schemas=task_schemas,
+            expected_ids=[r["id"] for r in rows],
+            required_tasks=list(task_schemas.keys()),
+        )
+        for i, row in enumerate(rows):
+            sid = f"{run_id}_{i + 1}"
+            orig_id = row["id"]
+            if row.get("skip"):
+                builder.create_skipped_row(sample_example_id=sid, original_id=orig_id)
+            elif row.get("error"):
+                builder.create_llm_error_row(
+                    sample_example_id=sid,
+                    original_id=orig_id,
+                    error=Exception(row.get("error_msg", "LLM error")),
+                )
+            else:
+                outcomes = {task: row[task] for task in task_schemas}
+                builder.create_success_row(
+                    sample_example_id=sid,
+                    original_id=orig_id,
+                    outcomes=outcomes,
+                    llm_raw_response_content="response",
+                    llm_prompt_tokens=10,
+                    llm_completion_tokens=5,
+                    llm_total_tokens=15,
+                    llm_call_duration_seconds=1.0,
+                )
+        return builder.complete()
+
+    def _setup_evaluator(
+        self,
+        meta_evaluator,
+        basic_eval_data,
+        task_schemas: dict[str, list[str] | None] | None = None,
+    ):
+        """Configure meta_evaluator with a classification task and a mock judge.
+
+        Returns:
+            tuple[MetaEvaluator, Mock]: The configured evaluator and the mock judge.
+        """
+        if task_schemas is None:
+            task_schemas = self.TASK_SCHEMAS
+        eval_task = EvalTask(
+            task_schemas=task_schemas,
+            prompt_columns=["text"],
+            response_columns=["response"],
+            answering_method="structured",
+        )
+        meta_evaluator.add_eval_task(eval_task)
+        meta_evaluator.add_data(basic_eval_data)
+
+        mock_judge = Mock(spec=Judge)
+        mock_judge.id = "test_judge"
+        mock_judge.llm_client = "openai"
+        mock_judge.model = "gpt-4"
+        mock_judge.eval_task = eval_task
+        meta_evaluator.judge_registry = {"test_judge": mock_judge}
+        return meta_evaluator, mock_judge
+
+    # === Unit tests for helper methods ===
+
+    def test_is_classification_task_all_classification(
+        self, meta_evaluator, basic_eval_data
+    ):
+        """_is_classification_task returns True when all schemas have predefined labels."""
+        evaluator, _ = self._setup_evaluator(meta_evaluator, basic_eval_data)
+        assert evaluator._is_classification_task() is True
+
+    def test_is_classification_task_with_free_form(
+        self, meta_evaluator, basic_eval_data
+    ):
+        """_is_classification_task returns False when any schema is free-form."""
+        task_schemas = {"sentiment": ["positive", "negative"], "summary": None}
+        evaluator, _ = self._setup_evaluator(
+            meta_evaluator, basic_eval_data, task_schemas
+        )
+        assert evaluator._is_classification_task() is False
+
+    def test_is_classification_task_no_eval_task(self, meta_evaluator):
+        """_is_classification_task returns False when no eval_task is configured."""
+        assert meta_evaluator._is_classification_task() is False
+
+    def test_majority_vote_clear_winner(self, meta_evaluator, basic_eval_data):
+        """_majority_vote_outcomes picks the most frequent label."""
+        evaluator, _ = self._setup_evaluator(meta_evaluator, basic_eval_data)
+        outcomes_list = [
+            {"sentiment": "positive"},
+            {"sentiment": "positive"},
+            {"sentiment": "negative"},
+        ]
+        result = evaluator._majority_vote_outcomes(outcomes_list)
+        assert result["sentiment"] == "positive"
+
+    def test_majority_vote_tie_first_occurrence_wins(
+        self, meta_evaluator, basic_eval_data
+    ):
+        """_majority_vote_outcomes picks first-occurring label on a tie."""
+        evaluator, _ = self._setup_evaluator(meta_evaluator, basic_eval_data)
+        # positive and negative both appear once; positive appears first
+        outcomes_list = [
+            {"sentiment": "positive"},
+            {"sentiment": "negative"},
+        ]
+        result = evaluator._majority_vote_outcomes(outcomes_list)
+        assert result["sentiment"] == "positive"
+
+    def test_majority_vote_single_run(self, meta_evaluator, basic_eval_data):
+        """_majority_vote_outcomes with a single outcome returns that outcome."""
+        evaluator, _ = self._setup_evaluator(meta_evaluator, basic_eval_data)
+        outcomes_list = [{"sentiment": "neutral"}]
+        result = evaluator._majority_vote_outcomes(outcomes_list)
+        assert result["sentiment"] == "neutral"
+
+    def test_majority_vote_multi_task(self, meta_evaluator, basic_eval_data):
+        """_majority_vote_outcomes handles multiple tasks independently."""
+        task_schemas: dict[str, list[str] | None] = {
+            "sentiment": ["positive", "negative"],
+            "toxicity": ["toxic", "non_toxic"],
+        }
+        evaluator, _ = self._setup_evaluator(
+            meta_evaluator, basic_eval_data, task_schemas
+        )
+        outcomes_list = [
+            {"sentiment": "positive", "toxicity": "toxic"},
+            {"sentiment": "positive", "toxicity": "non_toxic"},
+            {"sentiment": "negative", "toxicity": "non_toxic"},
+        ]
+        result = evaluator._majority_vote_outcomes(outcomes_list)
+        assert result["sentiment"] == "positive"  # 2 vs 1
+        assert result["toxicity"] == "non_toxic"  # 2 vs 1
+
+    # === run_judges consistency tests ===
+
+    def test_consistency_1_calls_evaluate_once(
+        self, meta_evaluator, basic_eval_data, sample_prompt
+    ):
+        """With consistency=1, evaluate_eval_data is called exactly once per judge."""
+        evaluator, mock_judge = self._setup_evaluator(meta_evaluator, basic_eval_data)
+        run1 = self._make_results(
+            "run_test_judge",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "sentiment": "negative"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        mock_judge.evaluate_eval_data.return_value = run1
+
+        results = evaluator.run_judges(save_results=False, consistency=1)
+
+        mock_judge.evaluate_eval_data.assert_called_once()
+        assert "test_judge" in results
+        assert results["test_judge"] is run1
+
+    def test_consistency_3_calls_evaluate_three_times(
+        self, meta_evaluator, basic_eval_data
+    ):
+        """With consistency=3, evaluate_eval_data is called three times per judge."""
+        evaluator, mock_judge = self._setup_evaluator(meta_evaluator, basic_eval_data)
+        run1 = self._make_results(
+            "run_test_judge_c1",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "sentiment": "negative"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        mock_judge.evaluate_eval_data.return_value = run1
+
+        evaluator.run_judges(save_results=False, consistency=3)
+
+        assert mock_judge.evaluate_eval_data.call_count == 3
+
+    def test_consistency_majority_vote_applied(self, meta_evaluator, basic_eval_data):
+        """Majority label wins after N consistency runs."""
+        evaluator, mock_judge = self._setup_evaluator(meta_evaluator, basic_eval_data)
+
+        # id=1: positive(2) > negative(1) → positive
+        # id=2: negative(2) > positive(1) → negative
+        # id=3: neutral(3) → neutral
+        run1 = self._make_results(
+            "r_c1",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "sentiment": "negative"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        run2 = self._make_results(
+            "r_c2",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "sentiment": "positive"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        run3 = self._make_results(
+            "r_c3",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "negative"},
+                {"id": "2", "sentiment": "negative"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        mock_judge.evaluate_eval_data.side_effect = [run1, run2, run3]
+
+        results = evaluator.run_judges(save_results=False, consistency=3)
+
+        agg = results["test_judge"]
+        df = agg.get_successful_results()
+        # All 3 rows should be successful
+        assert len(df) == 3
+        row_map = {str(r["original_id"]): r for r in df.iter_rows(named=True)}
+        assert row_map["1"]["sentiment"] == "positive"
+        assert row_map["2"]["sentiment"] == "negative"
+        assert row_map["3"]["sentiment"] == "neutral"
+
+    def test_consistency_tie_breaking_first_occurrence(
+        self, meta_evaluator, basic_eval_data
+    ):
+        """On a tie, the label from the first run wins."""
+        evaluator, mock_judge = self._setup_evaluator(meta_evaluator, basic_eval_data)
+
+        # id=1 gets positive then negative → tie → positive (first)
+        # id=2 gets negative then positive → tie → negative (first)
+        run1 = self._make_results(
+            "r_c1",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "sentiment": "negative"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        run2 = self._make_results(
+            "r_c2",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "negative"},
+                {"id": "2", "sentiment": "positive"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        mock_judge.evaluate_eval_data.side_effect = [run1, run2]
+
+        results = evaluator.run_judges(save_results=False, consistency=2)
+
+        df = results["test_judge"].get_successful_results()
+        row_map = {str(r["original_id"]): r for r in df.iter_rows(named=True)}
+        assert row_map["1"]["sentiment"] == "positive"
+        assert row_map["2"]["sentiment"] == "negative"
+
+    def test_consistency_tokens_summed(self, meta_evaluator, basic_eval_data):
+        """Token counts are summed across all successful consistency runs."""
+        evaluator, mock_judge = self._setup_evaluator(meta_evaluator, basic_eval_data)
+
+        def make_one_row_result(run_id, sentiment):
+            builder = JudgeResultsBuilder(
+                run_id=run_id,
+                judge_id="test_judge",
+                llm_client="openai",
+                model_used="gpt-4",
+                task_schemas=self.TASK_SCHEMAS,
+                expected_ids=["1", "2", "3"],
+                required_tasks=["sentiment"],
+            )
+            for i, sid in enumerate(["1", "2", "3"]):
+                builder.create_success_row(
+                    sample_example_id=f"{run_id}_{i + 1}",
+                    original_id=sid,
+                    outcomes={"sentiment": sentiment},
+                    llm_raw_response_content="resp",
+                    llm_prompt_tokens=100,
+                    llm_completion_tokens=50,
+                    llm_total_tokens=150,
+                    llm_call_duration_seconds=2.0,
+                )
+            return builder.complete()
+
+        run1 = make_one_row_result("r_c1", "positive")
+        run2 = make_one_row_result("r_c2", "positive")
+        mock_judge.evaluate_eval_data.side_effect = [run1, run2]
+
+        results = evaluator.run_judges(save_results=False, consistency=2)
+
+        df = results["test_judge"].get_successful_results()
+        # Each row ran twice: tokens should be 200 prompt, 100 completion, 300 total
+        for row in df.iter_rows(named=True):
+            assert row["llm_prompt_tokens"] == 200
+            assert row["llm_completion_tokens"] == 100
+            assert row["llm_total_tokens"] == 300
+            assert row["llm_call_duration_seconds"] == pytest.approx(4.0)
+
+    def test_consistency_free_form_aggregates_text(
+        self, meta_evaluator, basic_eval_data
+    ):
+        """Consistency > 1 concatenates free-form outputs with run markers."""
+        task_schemas: dict[str, list[str] | None] = {
+            "sentiment": ["positive", "negative"],
+            "summary": None,
+        }
+        evaluator, mock_judge = self._setup_evaluator(
+            meta_evaluator, basic_eval_data, task_schemas
+        )
+        run1 = self._make_results(
+            "r_c1",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive", "summary": "First summary."},
+                {"id": "2", "sentiment": "negative", "summary": "Second summary."},
+                {"id": "3", "sentiment": "positive", "summary": "Third summary."},
+            ],
+            task_schemas=task_schemas,
+        )
+        run2 = self._make_results(
+            "r_c2",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive", "summary": "First again."},
+                {"id": "2", "sentiment": "positive", "summary": "Second again."},
+                {"id": "3", "sentiment": "positive", "summary": "Third again."},
+            ],
+            task_schemas=task_schemas,
+        )
+        mock_judge.evaluate_eval_data.side_effect = [run1, run2]
+
+        results = evaluator.run_judges(save_results=False, consistency=2)
+
+        df = results["test_judge"].get_successful_results()
+        row_map = {str(r["original_id"]): r for r in df.iter_rows(named=True)}
+        # Classification: majority vote
+        assert row_map["1"]["sentiment"] == "positive"
+        assert row_map["2"]["sentiment"] == "negative"  # first-occurrence tie-break
+        # Free-form: both run outputs present with markers
+        summary_1 = row_map["1"]["summary"]
+        assert "<RUN 1>" in summary_1
+        assert "First summary." in summary_1
+        assert "<RUN 2>" in summary_1
+        assert "First again." in summary_1
+        assert "===" in summary_1
+
+    def test_consistency_invalid_value_raises(self, meta_evaluator, basic_eval_data):
+        """Consistency < 1 raises ValueError."""
+        evaluator, _ = self._setup_evaluator(meta_evaluator, basic_eval_data)
+        with pytest.raises(ValueError, match="consistency must be >= 1"):
+            evaluator.run_judges(save_results=False, consistency=0)
+
+    def test_consistency_error_rows_preserved(self, meta_evaluator, basic_eval_data):
+        """Rows that fail in all runs keep the error status from the first run."""
+        evaluator, mock_judge = self._setup_evaluator(meta_evaluator, basic_eval_data)
+
+        # id=2 errors in all 3 runs
+        run1 = self._make_results(
+            "r_c1",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "error": True, "error_msg": "API timeout"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        run2 = self._make_results(
+            "r_c2",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "error": True, "error_msg": "API timeout"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        run3 = self._make_results(
+            "r_c3",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "error": True, "error_msg": "API timeout"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        mock_judge.evaluate_eval_data.side_effect = [run1, run2, run3]
+
+        results = evaluator.run_judges(save_results=False, consistency=3)
+
+        agg = results["test_judge"]
+        assert agg.succeeded_count == 2  # id=1 and id=3 succeed
+        assert agg.llm_error_count == 1  # id=2 fails
+
+    def test_consistency_skipped_rows_preserved(self, meta_evaluator, basic_eval_data):
+        """Skipped rows remain skipped in the aggregated result."""
+        evaluator, mock_judge = self._setup_evaluator(meta_evaluator, basic_eval_data)
+
+        run1 = self._make_results(
+            "r_c1",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "skip": True},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        run2 = self._make_results(
+            "r_c2",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "skip": True},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        mock_judge.evaluate_eval_data.side_effect = [run1, run2]
+
+        results = evaluator.run_judges(save_results=False, consistency=2)
+
+        agg = results["test_judge"]
+        assert agg.skipped_count == 1
+        assert agg.succeeded_count == 2
+
+    # === run_judges_async consistency tests ===
+
+    def test_consistency_async_calls_evaluate_n_times(
+        self, meta_evaluator, basic_eval_data
+    ):
+        """With consistency=3, evaluate_eval_data_async is called three times."""
+        evaluator, mock_judge = self._setup_evaluator(meta_evaluator, basic_eval_data)
+        run1 = self._make_results(
+            "r_c1",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "sentiment": "negative"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        mock_judge.evaluate_eval_data_async = AsyncMock(return_value=run1)
+
+        evaluator.run_judges_async(save_results=False, consistency=3)
+
+        assert mock_judge.evaluate_eval_data_async.call_count == 3
+
+    def test_consistency_async_majority_vote(self, meta_evaluator, basic_eval_data):
+        """Async consistency applies majority voting correctly."""
+        evaluator, mock_judge = self._setup_evaluator(meta_evaluator, basic_eval_data)
+
+        run1 = self._make_results(
+            "r_c1",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "sentiment": "negative"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        run2 = self._make_results(
+            "r_c2",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive"},
+                {"id": "2", "sentiment": "positive"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        run3 = self._make_results(
+            "r_c3",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "negative"},
+                {"id": "2", "sentiment": "negative"},
+                {"id": "3", "sentiment": "neutral"},
+            ],
+        )
+        mock_judge.evaluate_eval_data_async = AsyncMock(side_effect=[run1, run2, run3])
+
+        results = evaluator.run_judges_async(save_results=False, consistency=3)
+
+        df = results["test_judge"].get_successful_results()
+        row_map = {str(r["original_id"]): r for r in df.iter_rows(named=True)}
+        assert row_map["1"]["sentiment"] == "positive"
+        assert row_map["2"]["sentiment"] == "negative"
+        assert row_map["3"]["sentiment"] == "neutral"
+
+    def test_consistency_async_free_form_aggregates_text(
+        self, meta_evaluator, basic_eval_data
+    ):
+        """Async consistency > 1 concatenates free-form outputs with run markers."""
+        task_schemas: dict[str, list[str] | None] = {
+            "sentiment": ["positive", "negative"],
+            "summary": None,
+        }
+        evaluator, mock_judge = self._setup_evaluator(
+            meta_evaluator, basic_eval_data, task_schemas
+        )
+        run1 = self._make_results(
+            "r_c1",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive", "summary": "Async run 1."},
+                {"id": "2", "sentiment": "negative", "summary": "Async run 1."},
+                {"id": "3", "sentiment": "positive", "summary": "Async run 1."},
+            ],
+            task_schemas=task_schemas,
+        )
+        run2 = self._make_results(
+            "r_c2",
+            "test_judge",
+            [
+                {"id": "1", "sentiment": "positive", "summary": "Async run 2."},
+                {"id": "2", "sentiment": "positive", "summary": "Async run 2."},
+                {"id": "3", "sentiment": "positive", "summary": "Async run 2."},
+            ],
+            task_schemas=task_schemas,
+        )
+        mock_judge.evaluate_eval_data_async = AsyncMock(side_effect=[run1, run2])
+
+        results = evaluator.run_judges_async(save_results=False, consistency=2)
+
+        df = results["test_judge"].get_successful_results()
+        row_map = {str(r["original_id"]): r for r in df.iter_rows(named=True)}
+        assert row_map["1"]["sentiment"] == "positive"
+        summary_1 = row_map["1"]["summary"]
+        assert "<RUN 1>" in summary_1
+        assert "Async run 1." in summary_1
+        assert "<RUN 2>" in summary_1
+        assert "Async run 2." in summary_1
+        assert "===" in summary_1

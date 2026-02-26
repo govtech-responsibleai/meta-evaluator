@@ -7,9 +7,9 @@ from .text_comparison.semantic_similarity import SemanticSimilarityScorer
 from .text_comparison.text_similarity import TextSimilarityScorer
 
 __all__ = [
-    "ClassificationScorer",
-    "TextSimilarityScorer",
-    "SemanticSimilarityScorer",
-    "CohensKappaScorer",
     "AltTestScorer",
+    "ClassificationScorer",
+    "CohensKappaScorer",
+    "SemanticSimilarityScorer",
+    "TextSimilarityScorer",
 ]

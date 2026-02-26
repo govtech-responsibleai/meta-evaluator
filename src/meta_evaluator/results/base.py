@@ -5,7 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, TypeVar
+from typing import Literal, Self, TypeVar
 
 import polars as pl
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -31,7 +31,7 @@ class BaseEvaluationResults(BaseModel, ABC):
     """Base class for final, completed evaluation results of an evaluation run."""
 
     run_id: str = Field(..., description="Unique identifier for this evaluation run")
-    task_schemas: Dict[str, List[str] | None] = Field(
+    task_schemas: dict[str, list[str] | None] = Field(
         ..., description="Dictionary mapping task names to their allowed outcome values"
     )
     timestamp_local: datetime = Field(
@@ -49,17 +49,14 @@ class BaseEvaluationResults(BaseModel, ABC):
     @abstractmethod
     def get_evaluator_id(self) -> str:
         """Get the ID of the evaluator (judge_id or annotator_id)."""
-        pass
 
     @abstractmethod
     def get_error_count(self) -> int:
         """Get the total error count for this evaluation."""
-        pass
 
     @abstractmethod
     def get_failed_results(self) -> pl.DataFrame:
         """Get all failed evaluation results."""
-        pass
 
     @model_validator(mode="after")
     def validate_base_results(self) -> "BaseEvaluationResults":
@@ -200,22 +197,20 @@ class BaseEvaluationResults(BaseModel, ABC):
                     )
 
     @abstractmethod
-    def _get_status_counts(self) -> Dict[str, int]:
+    def _get_status_counts(self) -> dict[str, int]:
         """Get status counts for count consistency validation.
 
         Returns:
             Dict[str, int]: Dictionary mapping status values to their counts.
         """
-        pass
 
     @abstractmethod
-    def _get_valid_status_values(self) -> List[str]:
+    def _get_valid_status_values(self) -> list[str]:
         """Get valid status values for this evaluation type.
 
         Returns:
             List[str]: List of valid status values.
         """
-        pass
 
     @abstractmethod
     def get_base_result_row_class(self) -> type[BaseResultRow]:
@@ -224,7 +219,6 @@ class BaseEvaluationResults(BaseModel, ABC):
         Returns:
             type[BaseResultRow]: The base result row class.
         """
-        pass
 
     @abstractmethod
     def serialize(
@@ -239,7 +233,6 @@ class BaseEvaluationResults(BaseModel, ABC):
         Returns:
             BaseModel: Serialized state as a Pydantic model.
         """
-        pass
 
     @classmethod
     @abstractmethod
@@ -257,7 +250,6 @@ class BaseEvaluationResults(BaseModel, ABC):
         Returns:
             EvaluationResultsType: Reconstructed evaluation results instance.
         """
-        pass
 
     @classmethod
     @abstractmethod
@@ -274,7 +266,6 @@ class BaseEvaluationResults(BaseModel, ABC):
             FileNotFoundError: If the state file doesn't exist.
             ValueError: If the JSON structure is invalid.
         """
-        pass
 
     def __len__(self) -> int:
         """Return the number of results in the DataFrame.
@@ -377,15 +368,13 @@ class BaseEvaluationResults(BaseModel, ABC):
             pl.exceptions.NoDataError,
             json.JSONDecodeError,
         ) as e:
-            raise DataFileError(
-                data_format, filepath, f"Failed to parse file: {str(e)}"
-            )
+            raise DataFileError(data_format, filepath, f"Failed to parse file: {e!s}")
 
     def save_state(
         self,
         state_file: str,
         data_format: Literal["json", "csv", "parquet"] = "json",
-        data_filename: Optional[str] = None,
+        data_filename: str | None = None,
     ) -> None:
         """Save the current state of the evaluation results to a file.
 
@@ -422,9 +411,7 @@ class BaseEvaluationResults(BaseModel, ABC):
         logger.info(f"State saved to {state_file} with data in {data_filepath}")
 
     @classmethod
-    def load_state(
-        cls: type[EvaluationResultsType], state_file: str
-    ) -> EvaluationResultsType:
+    def load_state(cls, state_file: str) -> Self:
         """Load evaluation results from a state file.
 
         Args:
@@ -457,9 +444,9 @@ class BaseEvaluationResultsBuilder(ABC):
         self,
         run_id: str,
         evaluator_id: str,
-        task_schemas: Dict[str, List[str] | None],
-        expected_ids: List[str | int],
-        required_tasks: Optional[List[str]] = None,
+        task_schemas: dict[str, list[str] | None],
+        expected_ids: list[str | int],
+        required_tasks: list[str] | None = None,
         is_sampled_run: bool = False,
     ):
         """Initialize the base evaluation results builder.
@@ -482,7 +469,7 @@ class BaseEvaluationResultsBuilder(ABC):
             required_tasks if required_tasks is not None else list(task_schemas.keys())
         )
         self.is_sampled_run = is_sampled_run
-        self._results: Dict[str | int, BaseResultRow] = {}
+        self._results: dict[str | int, BaseResultRow] = {}
 
         # Validate and convert expected_ids to set for O(1) lookup
         if len(expected_ids) == 0:
@@ -558,12 +545,10 @@ class BaseEvaluationResultsBuilder(ABC):
             outcomes: Dictionary with outcomes for ALL tasks
             **kwargs: Additional keyword arguments
         """
-        pass
 
     @abstractmethod
     def complete(self) -> BaseEvaluationResults:
         """Complete the building process and return the results."""
-        pass
 
     def _create_dataframe(self) -> pl.DataFrame:
         """Create a DataFrame from the collected rows.

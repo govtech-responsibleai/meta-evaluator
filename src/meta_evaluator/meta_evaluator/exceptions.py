@@ -21,8 +21,6 @@ class MetaEvaluatorError(Exception, ABC):
 class MetaEvaluatorConfigurationError(MetaEvaluatorError):
     """Base class for configuration-related errors."""
 
-    pass
-
 
 class MissingConfigurationError(MetaEvaluatorConfigurationError):
     """Error raised when required configuration is missing."""
@@ -185,8 +183,6 @@ class IncompatibleTaskError(MetaEvaluatorConfigurationError):
 class MetaEvaluatorClientError(MetaEvaluatorError):
     """Base class for client-related errors."""
 
-    pass
-
 
 class ClientAlreadyExistsError(MetaEvaluatorClientError):
     """Error raised when trying to add a client that already exists."""
@@ -252,8 +248,6 @@ class AsyncClientNotFoundError(MetaEvaluatorClientError):
 class MetaEvaluatorJudgeError(MetaEvaluatorError):
     """Base class for judge-related errors."""
 
-    pass
-
 
 class JudgeAlreadyExistsError(MetaEvaluatorJudgeError):
     """Error raised when trying to add a judge that already exists."""
@@ -313,8 +307,6 @@ class ResultsSaveError(MetaEvaluatorJudgeError):
 # Scoring-related errors
 class MetaEvaluatorScoringError(MetaEvaluatorError):
     """Base class for scoring-related errors."""
-
-    pass
 
 
 class ScoringConfigError(MetaEvaluatorScoringError):
