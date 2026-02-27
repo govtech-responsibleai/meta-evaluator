@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from ..common.models import Prompt
 from ..data import EvalData
-from ..eval_task import EvalTask
+from ..eval_task import EvalTask, sanitize_task_name
 from ..results import JudgeResultsBuilder
 from .async_evaluator import AsyncEvaluationMixin
 from .enums import ErrorType, RoleEnum
@@ -162,8 +162,9 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
         instructions = "\n\nPlease provide your evaluation results in XML format using the following tags:\n"
 
         for task_name, outcomes in self.eval_task.task_schemas.items():
+            safe_name = sanitize_task_name(task_name)
             instructions += (
-                f"<{task_name}>YOUR_ANSWER_FOR_{task_name.upper()}</{task_name}>\n"
+                f"<{safe_name}>YOUR_ANSWER_FOR_{safe_name.upper()}</{safe_name}>\n"
             )
             if outcomes is None:
                 instructions += (
@@ -287,8 +288,12 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
         missing_tasks = []
 
         for task_name in self.eval_task.task_schemas.keys():
-            if task_name in parsed_response:
-                outcomes[task_name] = parsed_response[task_name]
+            # The LLM API returns the sanitized field name; map it back to the
+            # original task name so downstream storage (DataFrame columns,
+            # result rows) always uses the human-readable original.
+            safe_name = sanitize_task_name(task_name)
+            if safe_name in parsed_response:
+                outcomes[task_name] = parsed_response[safe_name]
             else:
                 missing_tasks.append(task_name)
 
@@ -305,17 +310,18 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
         Returns:
             Tuple of (outcomes_dict, missing_tasks_list)
         """
-        task_names = set(self.eval_task.task_schemas.keys())
-        parsed_tasks = set(parse_result.data.keys())
-        missing_tasks = list(task_names - parsed_tasks)
-
-        # Convert ParseResult data to outcomes (cast to str for XML)
         outcomes = {}
-        for task_name in parsed_tasks:
-            outcome = parse_result.data[task_name]
-            outcomes[task_name] = cast(
-                str, outcome
-            )  # TagConfig cardinality="one" guarantees str
+        missing_tasks = []
+        for original_name in self.eval_task.task_schemas.keys():
+            # TagConfigs are built with sanitized names; reverse the mapping here so
+            # result outputs always use the original human-readable task name.
+            safe_name = sanitize_task_name(original_name)
+            if safe_name in parse_result.data:
+                outcomes[original_name] = cast(
+                    str, parse_result.data[safe_name]
+                )  # TagConfig cardinality="one" guarantees str
+            else:
+                missing_tasks.append(original_name)
 
         return outcomes, missing_tasks
 
