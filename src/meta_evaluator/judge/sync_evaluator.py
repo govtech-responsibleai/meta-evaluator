@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from tqdm import tqdm
 
 from meta_evaluator.common.models import Prompt
-from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.eval_task import EvalTask, sanitize_task_name
 
 from ..data import EvalData, SampleEvalData
 from ..results import JudgeResults, JudgeResultsBuilder
@@ -546,7 +546,7 @@ class SyncEvaluationMixin(ABC):
             for task_name, outcomes in self.eval_task.task_schemas.items():
                 tag_configs.append(
                     TagConfig(
-                        name=task_name,
+                        name=sanitize_task_name(task_name),
                         allowed_values=outcomes,
                         cardinality="one",
                     )

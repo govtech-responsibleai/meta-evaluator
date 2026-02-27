@@ -1,6 +1,7 @@
 """Main class for evaluation tasks."""
 
 import logging
+import re
 from collections.abc import Callable
 from typing import Any, Literal
 
@@ -8,6 +9,25 @@ from pydantic import BaseModel, Field, create_model, model_validator
 
 from .exceptions import TaskSchemaError
 from .serialization import EvalTaskState
+
+
+def sanitize_task_name(name: str) -> str:
+    """Convert a task name to a valid API property key and Pydantic field name.
+
+    LLM APIs require JSON schema property keys to match
+    '^[a-zA-Z0-9_.-]{1,64}$'. This function replaces any character outside
+    that set with an underscore and truncates to 64 characters.
+
+    The sanitized name is used only at the API boundary (Pydantic model fields,
+    XML tag names). Original names are always preserved in result outputs.
+
+    Args:
+        name: The original task name, which may contain spaces or special characters.
+
+    Returns:
+        str: A sanitized name safe for use as an API property key.
+    """
+    return re.sub(r"[^a-zA-Z0-9_.\-]", "_", name)[:64]
 
 
 class EvalTask(BaseModel):
@@ -183,11 +203,16 @@ class EvalTask(BaseModel):
 
         model_fields: dict[str, Any] = {}
 
-        # Create one field per task
+        # Create one field per task, using sanitized names as Pydantic field keys so
+        # that the generated JSON schema is accepted by LLM APIs (e.g. Anthropic requires
+        # property keys matching '^[a-zA-Z0-9_.-]{1,64}$'). Original names are preserved
+        # in result outputs via the reverse mapping in _extract_outcomes_from_json /
+        # _extract_outcomes_from_parse_result.
         for task_name, outcomes in self.task_schemas.items():
+            safe_name = sanitize_task_name(task_name)
             if outcomes is None:
                 # Free form text output
-                model_fields[task_name] = (
+                model_fields[safe_name] = (
                     str,
                     Field(
                         ...,
@@ -197,7 +222,7 @@ class EvalTask(BaseModel):
             else:
                 # Predefined outcomes using Literal
                 outcomes_literal = Literal[tuple(outcomes)]
-                model_fields[task_name] = (
+                model_fields[safe_name] = (
                     outcomes_literal,
                     Field(
                         ...,

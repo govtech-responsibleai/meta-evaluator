@@ -11,6 +11,8 @@ from unittest.mock import Mock, patch
 import polars as pl
 import pytest
 
+from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.judge.judge import Judge
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.meta_evaluator.scoring import ScoringMixin
 from meta_evaluator.results import (
@@ -32,7 +34,11 @@ from meta_evaluator.scores.metrics.text_comparison.text_similarity import (
     TextSimilarityScorer,
 )
 
-from .conftest import create_mock_human_metadata_file, create_mock_judge_state_file
+from .conftest import (
+    MockMetaEvaluator,
+    create_mock_human_metadata_file,
+    create_mock_judge_state_file,
+)
 
 # Note: All fixtures are now available from conftest.py
 
@@ -1141,7 +1147,7 @@ class TestScoring:
         # Verify results structure
         assert len(results) == 1
         unique_name = list(results.keys())[0]
-        metric_config, scoring_results = results[unique_name]
+        _metric_config, scoring_results = results[unique_name]
 
         # Should have results for each judge
         assert len(scoring_results) == 2
@@ -1149,6 +1155,110 @@ class TestScoring:
             assert result.scorer_name == "classification_accuracy"
             assert result.judge_id in ["judge_1", "judge_2"]
             assert isinstance(result.scores.get("accuracy"), float)
+
+
+class TestSpacedTaskNames:
+    """Regression tests: task names containing spaces must survive the full pipeline.
+
+    Spaces in task schema keys (e.g. "Example Metric Spaced") cause Anthropic's API
+    to reject structured-output requests because JSON schema property keys must match
+    '^[a-zA-Z0-9_.-]{1,64}$'. The fix sanitizes names only at the API boundary
+    (Pydantic model fields, XML tags) and maps them back to the original before
+    storing results, so that judge output columns stay identical to human annotation
+    columns and alignment scoring continues to work.
+    """
+
+    @pytest.mark.asyncio
+    async def test_judge_and_alignment_with_spaced_task_names(
+        self,
+        spaced_task_schemas,
+        spaced_judge_results,
+        spaced_human_results,
+        sample_prompt,
+        tmp_path,
+    ):
+        """Judge output columns and alignment scoring both work when task names contain spaces.
+
+        Checks four things in sequence:
+        1. create_task_class() uses the sanitized field name so the Anthropic API
+           accepts the JSON schema.
+        2. _extract_outcomes_from_json() maps the sanitized key back to the original
+           task name, so outcomes always carry the human-readable name.
+        3. The completed JudgeResults DataFrame has the original spaced column name,
+           matching pre-existing human annotation columns.
+        4. Alignment scoring (_process_single_judge_async) succeeds end-to-end.
+        """
+        task_name = "Example Metric Spaced"
+        sanitized_name = "Example_Metric_Spaced"
+
+        # === Part 1: create_task_class uses sanitized field name (API-safe) ===
+        eval_task = EvalTask(
+            task_schemas=spaced_task_schemas,
+            prompt_columns=["text"],
+            response_columns=["response"],
+            answering_method="structured",
+        )
+        task_class = eval_task.create_task_class()
+
+        assert sanitized_name in task_class.model_fields, (
+            f"create_task_class() should sanitize spaces: expected field '{sanitized_name}', "
+            f"got fields: {list(task_class.model_fields.keys())}"
+        )
+        assert task_name not in task_class.model_fields, (
+            "create_task_class() must NOT use the raw spaced name as a Pydantic field"
+        )
+
+        # === Part 2: _extract_outcomes_from_json maps sanitized key → original name ===
+        judge = Judge(
+            id="spaced_judge",
+            eval_task=eval_task,
+            llm_client="anthropic",
+            model="claude-3-5-sonnet-20241022",
+            prompt=sample_prompt,
+        )
+
+        # The LLM API returns the sanitized key because that is what the schema declares
+        sanitized_json = f'{{"{sanitized_name}": "PASS"}}'
+        outcomes, missing = judge._extract_outcomes_from_json(sanitized_json)
+
+        assert task_name in outcomes, (
+            f"Outcome should use original task name '{task_name}', "
+            f"got keys: {list(outcomes.keys())}"
+        )
+        assert outcomes[task_name] == "PASS"
+        assert missing == [], f"No tasks should be missing, got: {missing}"
+
+        # === Part 3: JudgeResults DataFrame preserves original spaced column name ===
+        successful_df = spaced_judge_results.get_successful_results()
+        assert task_name in successful_df.columns, (
+            f"Judge results should have '{task_name}' column, "
+            f"got columns: {list(successful_df.columns)}"
+        )
+
+        # === Part 4: Alignment scoring works with the spaced task name ===
+        human_results_dict = {"spaced_human_run": spaced_human_results}
+
+        mock_eval = MockMetaEvaluator(scores_dir=str(tmp_path / "scores"))
+        scorer = ClassificationScorer(metric="accuracy")
+        config = MetricConfig(
+            scorer=scorer,
+            task_names=[task_name],
+            task_strategy="single",
+        )
+
+        result = await mock_eval._process_single_judge_async(
+            metric_config=config,
+            judge_result=spaced_judge_results,
+            human_results=human_results_dict,
+        )
+
+        assert "error" not in result.metadata, (
+            f"Alignment scoring failed for spaced task name. "
+            f"Error: {result.metadata.get('error')}"
+        )
+        assert "accuracy" in result.scores, (
+            f"Expected accuracy score in result, got: {result.scores}"
+        )
 
 
 @pytest.mark.parametrize(

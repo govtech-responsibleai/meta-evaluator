@@ -857,6 +857,91 @@ def valid_human_data():
     )
 
 
+# ==== SPACED TASK NAME FIXTURES ====
+
+
+@pytest.fixture
+def spaced_judge_results(spaced_task_schemas) -> JudgeResults:
+    """Provides JudgeResults with a space-containing task name column ('Example Metric Spaced').
+
+    Simulates what a judge run should produce after sanitization is applied at
+    the API boundary: the output DataFrame column uses the original task name
+    (with space), not the sanitized one.
+
+    Args:
+        spaced_task_schemas: Task schemas fixture with 'Example Metric Spaced' key.
+
+    Returns:
+        JudgeResults: Completed results with 'Example Metric Spaced' column.
+    """
+    builder = JudgeResultsBuilder(
+        run_id="spaced_run",
+        judge_id="spaced_judge",
+        llm_client="anthropic",
+        model_used="claude-3-5-sonnet-20241022",
+        task_schemas=spaced_task_schemas,
+        expected_ids=["1", "2"],
+        required_tasks=["Example Metric Spaced"],
+        is_sampled_run=False,
+    )
+    builder.create_success_row(
+        sample_example_id="s1",
+        original_id="1",
+        outcomes={"Example Metric Spaced": "PASS"},
+        llm_raw_response_content='{"Example_Metric_Spaced": "PASS"}',
+        llm_prompt_tokens=10,
+        llm_completion_tokens=5,
+        llm_total_tokens=15,
+        llm_call_duration_seconds=1.0,
+    )
+    builder.create_success_row(
+        sample_example_id="s2",
+        original_id="2",
+        outcomes={"Example Metric Spaced": "FAIL"},
+        llm_raw_response_content='{"Example_Metric_Spaced": "FAIL"}',
+        llm_prompt_tokens=10,
+        llm_completion_tokens=5,
+        llm_total_tokens=15,
+        llm_call_duration_seconds=1.0,
+    )
+    return builder.complete()
+
+
+@pytest.fixture
+def spaced_human_results(spaced_task_schemas) -> HumanAnnotationResults:
+    """Provides HumanAnnotationResults with a space-containing task name column ('Example Metric Spaced').
+
+    Simulates pre-existing human annotations that use the original (spaced) task name.
+    Judge results must preserve the same column name for alignment scoring to work.
+
+    Args:
+        spaced_task_schemas: Task schemas fixture with 'Example Metric Spaced' key.
+
+    Returns:
+        HumanAnnotationResults: Completed results with 'Example Metric Spaced' column.
+    """
+    builder = HumanAnnotationResultsBuilder(
+        run_id="spaced_human_run",
+        annotator_id="human_1",
+        task_schemas=spaced_task_schemas,
+        expected_ids=["1", "2"],
+        required_tasks=["Example Metric Spaced"],
+    )
+    builder.create_success_row(
+        sample_example_id="h1",
+        original_id="1",
+        outcomes={"Example Metric Spaced": "PASS"},
+        annotation_timestamp=datetime.now(),
+    )
+    builder.create_success_row(
+        sample_example_id="h2",
+        original_id="2",
+        outcomes={"Example Metric Spaced": "FAIL"},
+        annotation_timestamp=datetime.now(),
+    )
+    return builder.complete()
+
+
 # ==== SIMPLE DATA FIXTURES FOR UNIT TESTS ====
 
 

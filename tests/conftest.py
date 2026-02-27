@@ -281,3 +281,16 @@ def single_task_schemas():
         dict: Single task schema for basic testing.
     """
     return {"sentiment": ["positive", "negative", "neutral"]}
+
+
+@pytest.fixture
+def spaced_task_schemas():
+    """Provides task schemas with spaces in task names for testing.
+
+    Used to verify that spaces in task names are handled correctly at the API
+    boundary (sanitized for LLM APIs) while original names are preserved in outputs.
+
+    Returns:
+        dict: Task schema with a space-containing task name.
+    """
+    return {"Example Metric Spaced": ["PASS", "FAIL"]}
