@@ -808,7 +808,6 @@ wheels = [
 
 [[package]]
 name = "meta-evaluator"
-version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "beartype" },
@@ -818,8 +817,6 @@ dependencies = [
     { name = "instructor" },
     { name = "litellm" },
     { name = "matplotlib" },
-    { name = "mkdocs" },
-    { name = "mkdocs-material" },
     { name = "openai" },
     { name = "polars" },
     { name = "pydantic" },
@@ -827,8 +824,21 @@ dependencies = [
     { name = "pyyaml" },
     { name = "scikit-learn" },
     { name = "scipy" },
-    { name = "streamlit" },
     { name = "tqdm" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+    { name = "streamlit" },
+]
+docs = [
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+]
+ui = [
+    { name = "streamlit" },
 ]
 
 [package.dev-dependencies]
@@ -850,8 +860,10 @@ requires-dist = [
     { name = "instructor", specifier = ">=1.8.3" },
     { name = "litellm", specifier = ">=1.65.1" },
     { name = "matplotlib", specifier = ">=3.5.0" },
-    { name = "mkdocs", specifier = ">=1.6.1" },
-    { name = "mkdocs-material", specifier = ">=9.6.17" },
+    { name = "mkdocs", marker = "extra == 'all'", specifier = ">=1.6.1" },
+    { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6.1" },
+    { name = "mkdocs-material", marker = "extra == 'all'", specifier = ">=9.6.17" },
+    { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.6.17" },
     { name = "openai", specifier = ">=1.82.1" },
     { name = "polars", specifier = ">=1.30.0" },
     { name = "pydantic", specifier = ">=2.11.5" },
@@ -859,9 +871,11 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "scikit-learn", specifier = ">=1.5.0" },
     { name = "scipy", specifier = ">=1.9.0" },
-    { name = "streamlit", specifier = ">=1.50.0" },
+    { name = "streamlit", marker = "extra == 'all'", specifier = ">=1.50.0" },
+    { name = "streamlit", marker = "extra == 'ui'", specifier = ">=1.50.0" },
     { name = "tqdm", specifier = ">=4.66.0" },
 ]
+provides-extras = ["all", "docs", "ui"]
 
 [package.metadata.requires-dev]
 dev = [

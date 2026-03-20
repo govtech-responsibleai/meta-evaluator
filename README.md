@@ -14,6 +14,18 @@ MetaEvaluator helps you assess LLM judges by:
 1. **Install the package:**
    ```bash
    # Requires Python 3.13+
+   pip install meta-evaluator
+   ```
+
+   **Optional dependencies:**
+   ```bash
+   pip install meta-evaluator[ui]    # streamlit for human annotation interface
+   pip install meta-evaluator[docs]  # mkdocs for documentation
+   pip install meta-evaluator[all]   # all optional dependencies
+   ```
+
+   Or install directly from GitHub:
+   ```bash
    pip install git+https://github.com/govtech-responsibleai/meta-evaluator
    ```
 
@@ -21,7 +33,7 @@ MetaEvaluator helps you assess LLM judges by:
    You can either:
    - Copy the [.env.example](https://github.com/govtech-responsibleai/meta-evaluator/blob/main/.env.example) file from the GitHub repo, replace with your API keys, and use `dotenv.load_dotenv()` in your script
    - Set the environment variables directly in your shell
-   
+
    See [LiteLLM providers documentation](https://docs.litellm.ai/docs/providers) for all supported providers.
 
 3. **(Optional) For developers: clone the repository and set up dev tools:**

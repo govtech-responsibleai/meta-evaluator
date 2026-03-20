@@ -26,6 +26,11 @@ Always fix all errors from the ruff check. If there are unfixable errors, docume
 
 ## Type Checking
 
+Streamlit is an optional dependency (`ui` extra). To ensure pyright can resolve all imports, sync with extras before type checking:
+```bash
+uv sync --extra all
+```
+
 After every task, run type checking:
 ```bash
 uv run pyright
@@ -76,6 +81,12 @@ At the end of every task, run in order:
    ```
 
 Ensure your last command is always `uv tool run ruff format .`
+
+## Packaging
+
+- The package version is defined in `src/meta_evaluator/__init__.py` (`__version__`) and read by hatchling via `[tool.hatch.version]`.
+- Optional dependency groups: `docs` (mkdocs), `ui` (streamlit), `all` (everything). Core deps include matplotlib.
+- Publishing is automated via `.github/workflows/publish.yml` on GitHub release creation using trusted publishing (OIDC).
 
 ## Additional Reminders (VERY IMPORTANT!)
 

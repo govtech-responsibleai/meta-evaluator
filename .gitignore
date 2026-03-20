@@ -16,8 +16,17 @@ plan.md
 # OS generated files
 .DS_Store
 
+# MkDocs build output
+site/
+
 # Data directories
 */examples/demo_annotations/
+
+# Ignore all examples except tracked ones
+examples/*
+!examples/rejection/
+!examples/rabakbench/run_evaluation.py
+!examples/rabakbench/run_human_annotation.py
 
 # Project directories - ignore contents but keep structure
 **/project_dir/*
