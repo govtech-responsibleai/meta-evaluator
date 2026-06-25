@@ -44,12 +44,12 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
       {Object.entries(taskConfig.task_schemas).map(([taskName, options]) => (
         <div key={taskName} className="space-y-2">
           <div className="flex items-center gap-2">
-            <Label className="font-medium">{taskName}</Label>
-            {taskConfig.required_tasks.includes(taskName) && (
-              <Badge variant="outline" className="text-xs">
-                required
-              </Badge>
-            )}
+            <Label className="font-medium">
+              {taskName}
+              {taskConfig.required_tasks.includes(taskName) && (
+                <span className="text-red-500 ml-0.5">*</span>
+              )}
+            </Label>
             {outcomes[taskName] && (
               <Badge variant="secondary" className="text-xs">
                 done
@@ -100,9 +100,15 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
         </div>
       ))}
 
-      <Button onClick={handleSubmit} className="w-full">
-        Submit
-      </Button>
+      <div className="space-y-2">
+        <Button onClick={handleSubmit} className="w-full">
+          Submit &amp; Save
+        </Button>
+        <p className="text-xs text-muted-foreground text-center">
+          You must click Submit to log your labels for this sample. Your
+          progress is auto-saved after each submission.
+        </p>
+      </div>
     </div>
   );
 }

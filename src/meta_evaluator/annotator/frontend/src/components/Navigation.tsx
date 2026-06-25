@@ -19,7 +19,7 @@ export function Navigation({ sample, progress, onPrevious, onNext }: Props) {
       <div className="flex items-center gap-3">
         <Progress value={percent} className="flex-1" />
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {progress?.annotated_count ?? 0} / {sample.total}
+          {progress?.annotated_count ?? 0} / {sample.total} completed
         </span>
       </div>
       <div className="flex justify-between">

@@ -30,7 +30,7 @@ describe("Navigation", () => {
         onNext={vi.fn()}
       />,
     );
-    expect(screen.getByText("2 / 5")).toBeInTheDocument();
+    expect(screen.getByText("2 / 5 completed")).toBeInTheDocument();
   });
 
   it("disables previous on first sample", () => {

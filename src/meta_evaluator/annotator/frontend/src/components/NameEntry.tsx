@@ -32,6 +32,9 @@ export function NameEntry({ onSubmit, loading, error }: Props) {
                 onChange={(e) => setName(e.target.value)}
                 autoFocus
               />
+              <p className="text-xs text-muted-foreground mt-2">
+                Use the same name you have been using. Case sensitive.
+              </p>
               {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
             </div>
             <Button
