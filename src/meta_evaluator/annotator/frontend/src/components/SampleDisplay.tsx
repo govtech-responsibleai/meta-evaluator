@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -14,11 +13,6 @@ interface Props {
   taskConfig: TaskConfig;
 }
 
-function truncate(text: string, maxLen = 80): string {
-  if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen).trimEnd() + "…";
-}
-
 function CollapsibleField({
   label,
   value,
@@ -31,24 +25,28 @@ function CollapsibleField({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="mb-3">
-      <CollapsibleTrigger className="flex items-center gap-1 w-full text-left group">
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-left py-1 transition-colors hover:text-foreground">
         {open ? (
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
         ) : (
-          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
         )}
-        <span className="text-xs font-medium text-muted-foreground">
+        <span className="text-[13px] font-semibold leading-5 text-foreground">
           {label}
         </span>
-        {!open && (
-          <span className="text-xs text-muted-foreground/60 ml-2 truncate">
-            {truncate(value)}
-          </span>
-        )}
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <p className="text-sm whitespace-pre-wrap mt-1 pl-4">{value}</p>
+        <div className="mt-3 space-y-3 pl-5">
+          {value.split(/\n\n+/).map((block, i) => (
+            <p
+              key={i}
+              className="text-[15px] leading-7 text-foreground/90 whitespace-pre-line"
+            >
+              {block}
+            </p>
+          ))}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -57,34 +55,42 @@ function CollapsibleField({
 export function SampleDisplay({ sample, taskConfig }: Props) {
   return (
     <ScrollArea className="h-full">
-      <div className="space-y-4 pr-4">
+      <div className="space-y-6 pr-4">
         {sample.prompt_data && taskConfig.prompt_columns && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <div className="rounded-xl bg-card border border-border/50 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="size-2.5 rounded-sm bg-primary" />
+              <h2 className="text-sm font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                 Prompt
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </h2>
+              <span className="ml-auto text-xs text-muted-foreground/60">
+                user
+              </span>
+            </div>
+            <div className="space-y-5">
               {Object.entries(sample.prompt_data).map(([col, value]) => (
                 <CollapsibleField key={col} label={col} value={value} />
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <div className="rounded-xl bg-card border border-border/50 p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="size-2.5 rounded-sm bg-primary" />
+            <h2 className="text-sm font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               Response
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h2>
+            <span className="ml-auto text-xs text-muted-foreground/60">
+              assistant
+            </span>
+          </div>
+          <div className="space-y-5">
             {Object.entries(sample.response_data).map(([col, value]) => (
               <CollapsibleField key={col} label={col} value={value} />
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </ScrollArea>
   );

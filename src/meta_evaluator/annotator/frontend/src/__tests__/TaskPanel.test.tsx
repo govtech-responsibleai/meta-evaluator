@@ -43,13 +43,32 @@ describe("TaskPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps long instructions collapsed by default", () => {
+    const longPrompt =
+      "Read the full rubric carefully before judging each response. Check factuality, tone, completeness, refusal behavior, and whether the response follows every constraint in the prompt.";
+    render(
+      <TaskPanel
+        taskConfig={{
+          ...taskConfig,
+          annotation_prompt: longPrompt,
+        }}
+        sample={sample}
+        onSubmit={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(longPrompt)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Read the full rubric carefully/),
+    ).toBeInTheDocument();
+  });
+
   it("does not submit when required fields empty", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
     );
-    await user.click(screen.getByRole("button", { name: /submit/i }));
+    await user.click(screen.getByRole("button", { name: /save & next/i }));
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -60,7 +79,7 @@ describe("TaskPanel", () => {
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
     );
     await user.click(screen.getByRole("radio", { name: "positive" }));
-    await user.click(screen.getByRole("button", { name: /submit/i }));
+    await user.click(screen.getByRole("button", { name: /save & next/i }));
     expect(onSubmit).toHaveBeenCalledWith({ sentiment: "positive" });
   });
 

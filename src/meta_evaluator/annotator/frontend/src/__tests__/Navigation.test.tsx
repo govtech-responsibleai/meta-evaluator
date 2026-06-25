@@ -21,7 +21,7 @@ const progress: Progress = {
 };
 
 describe("Navigation", () => {
-  it("shows progress count", () => {
+  it("shows sample count in queue", () => {
     render(
       <Navigation
         sample={sample}
@@ -30,7 +30,19 @@ describe("Navigation", () => {
         onNext={vi.fn()}
       />,
     );
-    expect(screen.getByText("2 / 5 completed")).toBeInTheDocument();
+    expect(screen.getByText(/\/ 5 in queue/)).toBeInTheDocument();
+  });
+
+  it("shows done count", () => {
+    render(
+      <Navigation
+        sample={sample}
+        progress={progress}
+        onPrevious={vi.fn()}
+        onNext={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/2 done today/)).toBeInTheDocument();
   });
 
   it("disables previous on first sample", () => {
@@ -43,7 +55,8 @@ describe("Navigation", () => {
         onNext={vi.fn()}
       />,
     );
-    expect(screen.getByRole("button", { name: /previous/i })).toBeDisabled();
+    const buttons = screen.getAllByRole("button");
+    expect(buttons[0]).toBeDisabled();
   });
 
   it("disables next on last sample", () => {
@@ -56,7 +69,8 @@ describe("Navigation", () => {
         onNext={vi.fn()}
       />,
     );
-    expect(screen.getByRole("button", { name: /next/i })).toBeDisabled();
+    const buttons = screen.getAllByRole("button");
+    expect(buttons[1]).toBeDisabled();
   });
 
   it("calls onPrevious and onNext", async () => {
@@ -71,9 +85,10 @@ describe("Navigation", () => {
         onNext={onNext}
       />,
     );
-    await user.click(screen.getByRole("button", { name: /previous/i }));
+    const buttons = screen.getAllByRole("button");
+    await user.click(buttons[0]);
     expect(onPrevious).toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: /next/i }));
+    await user.click(buttons[1]);
     expect(onNext).toHaveBeenCalled();
   });
 });

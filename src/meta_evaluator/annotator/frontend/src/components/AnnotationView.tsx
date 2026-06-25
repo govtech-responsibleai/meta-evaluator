@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import type { Progress, Sample, TaskConfig } from "@/lib/api";
 import { Navigation } from "./Navigation";
 import { SampleDisplay } from "./SampleDisplay";
@@ -24,8 +25,8 @@ export function AnnotationView({
     progress && progress.annotated_count === progress.total_samples;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="border-b p-4 sticky top-0 z-10 bg-background">
+    <div className="min-h-screen flex flex-col bg-background">
+      <div className="border-b border-border/60 px-6 py-4 sticky top-0 z-20 bg-background/95 backdrop-blur-sm">
         <Navigation
           sample={sample}
           progress={progress}
@@ -34,24 +35,23 @@ export function AnnotationView({
         />
       </div>
 
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        <div className="flex-1 p-4 overflow-y-auto md:border-r">
-          <SampleDisplay sample={sample} taskConfig={taskConfig} />
+      <div className="flex-1 flex min-h-0 flex-col md:flex-row overflow-hidden">
+        <div className="order-2 md:order-1 flex-1 min-h-0 px-5 py-6 md:px-8 md:py-7 overflow-y-auto">
+          <div className="max-w-4xl mx-auto">
+            <SampleDisplay sample={sample} taskConfig={taskConfig} />
+          </div>
         </div>
 
-        <div className="w-full md:w-96 p-4 overflow-y-auto">
+        <div className="order-1 md:order-2 w-full md:w-[26rem] shrink-0 max-h-[48vh] md:max-h-none px-5 py-6 md:py-7 overflow-y-auto bg-[var(--annotation-rail)] border-l border-[var(--annotation-rail-border)]">
           <TaskPanel
             taskConfig={taskConfig}
             sample={sample}
             onSubmit={onSubmit}
           />
           {canExport && (
-            <button
-              onClick={onExport}
-              className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700"
-            >
+            <Button onClick={onExport} className="mt-4 w-full">
               Export Results
-            </button>
+            </Button>
           )}
         </div>
       </div>
