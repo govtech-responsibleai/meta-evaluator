@@ -25,7 +25,7 @@ export function AnnotationView({
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="border-b p-4">
+      <div className="border-b p-4 sticky top-0 z-10 bg-background">
         <Navigation
           sample={sample}
           progress={progress}
@@ -39,7 +39,7 @@ export function AnnotationView({
           <SampleDisplay sample={sample} taskConfig={taskConfig} />
         </div>
 
-        <div className="w-full md:w-96 p-4 overflow-y-auto md:sticky md:top-0 md:h-[calc(100vh-80px)]">
+        <div className="w-full md:w-96 p-4 overflow-y-auto">
           <TaskPanel
             taskConfig={taskConfig}
             sample={sample}

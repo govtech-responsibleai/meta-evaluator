@@ -1,9 +1,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import type { Sample, TaskConfig } from "@/lib/api";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface Props {
@@ -12,9 +18,15 @@ interface Props {
   onSubmit: (outcomes: Record<string, string>) => void;
 }
 
+function truncate(text: string, maxLen = 60): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen).trimEnd() + "…";
+}
+
 export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
   const [outcomes, setOutcomes] = useState<Record<string, string>>({});
   const [attempted, setAttempted] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(true);
 
   useEffect(() => {
     setOutcomes(sample.previous_annotation || {});
@@ -37,9 +49,28 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">
-        {taskConfig.annotation_prompt}
-      </p>
+      <Collapsible open={promptOpen} onOpenChange={setPromptOpen}>
+        <CollapsibleTrigger className="flex items-center gap-1 w-full text-left">
+          {promptOpen ? (
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          )}
+          <span className="text-xs font-medium text-muted-foreground">
+            Instructions
+          </span>
+          {!promptOpen && (
+            <span className="text-xs text-muted-foreground/60 ml-2 truncate">
+              {truncate(taskConfig.annotation_prompt)}
+            </span>
+          )}
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <p className="text-sm text-muted-foreground mt-1 pl-4 whitespace-pre-wrap">
+            {taskConfig.annotation_prompt}
+          </p>
+        </CollapsibleContent>
+      </Collapsible>
 
       {Object.entries(taskConfig.task_schemas).map(([taskName, options]) => (
         <div key={taskName} className="space-y-2">
