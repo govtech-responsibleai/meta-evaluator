@@ -2,11 +2,20 @@
 
 import logging
 import os
+import socket
+import subprocess
+import time
 
+import uvicorn
+
+from meta_evaluator.annotator.api.app import create_app
+from meta_evaluator.annotator.exceptions import PortOccupiedError
 from meta_evaluator.data import EvalData
 from meta_evaluator.eval_task import EvalTask
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_PORT = 8000
 
 
 class AnnotationLauncher:
@@ -30,14 +39,96 @@ class AnnotationLauncher:
         self.eval_task = eval_task
         self.eval_data = eval_data
         self.annotations_dir = annotations_dir
-        self.port = port or 8000
+        self.port = port or _DEFAULT_PORT
 
         os.makedirs(self.annotations_dir, exist_ok=True)
+
+    def _is_port_occupied(self) -> bool:
+        """Check if port is in use.
+
+        Returns:
+            bool: True if port is occupied.
+        """
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(1)
+                result = sock.connect_ex(("localhost", self.port))
+                return result == 0
+        except OSError:
+            return False
+
+    def _get_static_dir(self) -> str | None:
+        """Find frontend build directory.
+
+        Returns:
+            str | None: Path to dist directory if it exists.
+        """
+        candidate = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "frontend", "dist"
+        )
+        if os.path.isdir(candidate):
+            return candidate
+        return None
 
     def launch(
         self,
         use_ngrok: bool = False,
         traffic_policy_file: str | None = None,
     ) -> None:
-        """Launch the annotation interface."""
-        raise NotImplementedError("Full implementation in Task 4")
+        """Launch the annotation interface.
+
+        Args:
+            use_ngrok: Whether to expose via ngrok tunnel.
+            traffic_policy_file: Optional ngrok traffic policy file path.
+
+        Raises:
+            ValueError: If traffic_policy_file given without use_ngrok.
+            PortOccupiedError: If port is already in use.
+        """
+        if traffic_policy_file and not use_ngrok:
+            raise ValueError(
+                "Traffic policy file provided but ngrok is not being used."
+            )
+
+        if self._is_port_occupied():
+            raise PortOccupiedError(self.port)
+
+        app = create_app(
+            eval_task=self.eval_task,
+            eval_data=self.eval_data,
+            annotations_dir=self.annotations_dir,
+            static_dir=self._get_static_dir(),
+        )
+
+        if use_ngrok:
+            self._launch_with_ngrok(app, traffic_policy_file)
+        else:
+            logger.info(f"Starting annotation server on port {self.port}")
+            uvicorn.run(app, host="0.0.0.0", port=self.port)
+
+    def _launch_with_ngrok(self, app, traffic_policy_file: str | None) -> None:  # type: ignore[type-arg]
+        """Launch with ngrok tunnel.
+
+        Args:
+            app: FastAPI application instance.
+            traffic_policy_file: Optional traffic policy file path.
+        """
+        import threading
+
+        server_thread = threading.Thread(
+            target=uvicorn.run,
+            kwargs={"app": app, "host": "0.0.0.0", "port": self.port},
+            daemon=True,
+        )
+        server_thread.start()
+        time.sleep(2)
+
+        ngrok_cmd = ["ngrok", "http", str(self.port)]
+        if traffic_policy_file:
+            ngrok_cmd.extend(["--traffic-policy-file", traffic_policy_file])
+
+        try:
+            ngrok_process = subprocess.Popen(ngrok_cmd)
+            ngrok_process.wait()
+        except KeyboardInterrupt:
+            pass
