@@ -1,0 +1,108 @@
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
+import type { Sample, TaskConfig } from "@/lib/api";
+import { useEffect, useState } from "react";
+
+interface Props {
+  taskConfig: TaskConfig;
+  sample: Sample;
+  onSubmit: (outcomes: Record<string, string>) => void;
+}
+
+export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
+  const [outcomes, setOutcomes] = useState<Record<string, string>>({});
+  const [attempted, setAttempted] = useState(false);
+
+  useEffect(() => {
+    setOutcomes(sample.previous_annotation || {});
+    setAttempted(false);
+  }, [sample.index, sample.previous_annotation]);
+
+  const handleSubmit = () => {
+    setAttempted(true);
+    const missing = taskConfig.required_tasks.filter(
+      (t) => !outcomes[t]?.trim(),
+    );
+    if (missing.length > 0) return;
+    onSubmit(outcomes);
+  };
+
+  const isFieldMissing = (task: string) =>
+    attempted &&
+    taskConfig.required_tasks.includes(task) &&
+    !outcomes[task]?.trim();
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        {taskConfig.annotation_prompt}
+      </p>
+
+      {Object.entries(taskConfig.task_schemas).map(([taskName, options]) => (
+        <div key={taskName} className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Label className="font-medium">{taskName}</Label>
+            {taskConfig.required_tasks.includes(taskName) && (
+              <Badge variant="outline" className="text-xs">
+                required
+              </Badge>
+            )}
+            {outcomes[taskName] && (
+              <Badge variant="secondary" className="text-xs">
+                done
+              </Badge>
+            )}
+          </div>
+
+          {options ? (
+            <RadioGroup
+              value={outcomes[taskName] || ""}
+              onValueChange={(v) =>
+                setOutcomes((prev) => ({ ...prev, [taskName]: v }))
+              }
+              className={
+                isFieldMissing(taskName)
+                  ? "border border-red-300 rounded p-2"
+                  : ""
+              }
+            >
+              {options.map((option) => (
+                <div
+                  key={option}
+                  className="flex items-center space-x-2 min-h-[44px]"
+                >
+                  <RadioGroupItem
+                    value={option}
+                    id={`${taskName}-${option}`}
+                  />
+                  <Label
+                    htmlFor={`${taskName}-${option}`}
+                    className="cursor-pointer"
+                  >
+                    {option}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          ) : (
+            <Textarea
+              value={outcomes[taskName] || ""}
+              onChange={(e) =>
+                setOutcomes((prev) => ({ ...prev, [taskName]: e.target.value }))
+              }
+              placeholder="Enter your response..."
+              className={isFieldMissing(taskName) ? "border-red-300" : ""}
+            />
+          )}
+        </div>
+      ))}
+
+      <Button onClick={handleSubmit} className="w-full">
+        Submit
+      </Button>
+    </div>
+  );
+}
