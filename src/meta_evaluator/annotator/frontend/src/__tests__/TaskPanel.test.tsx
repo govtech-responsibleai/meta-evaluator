@@ -1,0 +1,82 @@
+import { TaskPanel } from "@/components/TaskPanel";
+import type { Sample, TaskConfig } from "@/lib/api";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+
+const taskConfig: TaskConfig = {
+  task_schemas: {
+    sentiment: ["positive", "negative", "neutral"],
+    comments: null,
+  },
+  prompt_columns: ["text"],
+  response_columns: ["response"],
+  annotation_prompt: "Evaluate this:",
+  required_tasks: ["sentiment"],
+};
+
+const sample: Sample = {
+  index: 0,
+  total: 3,
+  sample_id: "s1",
+  prompt_data: { text: "Hello" },
+  response_data: { response: "Hi" },
+  previous_annotation: null,
+};
+
+describe("TaskPanel", () => {
+  it("renders radio options for classification tasks", () => {
+    render(
+      <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={vi.fn()} />,
+    );
+    expect(screen.getByRole("radio", { name: "positive" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "negative" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "neutral" })).toBeInTheDocument();
+  });
+
+  it("renders textarea for free-form tasks", () => {
+    render(
+      <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={vi.fn()} />,
+    );
+    expect(
+      screen.getByPlaceholderText("Enter your response..."),
+    ).toBeInTheDocument();
+  });
+
+  it("does not submit when required fields empty", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
+    );
+    await user.click(screen.getByRole("button", { name: /submit/i }));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("submits when required fields filled", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
+    );
+    await user.click(screen.getByRole("radio", { name: "positive" }));
+    await user.click(screen.getByRole("button", { name: /submit/i }));
+    expect(onSubmit).toHaveBeenCalledWith({ sentiment: "positive" });
+  });
+
+  it("pre-fills from previous annotation", () => {
+    const sampleWithPrev = {
+      ...sample,
+      previous_annotation: { sentiment: "negative" },
+    };
+    render(
+      <TaskPanel
+        taskConfig={taskConfig}
+        sample={sampleWithPrev}
+        onSubmit={vi.fn()}
+      />,
+    );
+    const radio = screen.getByRole("radio", { name: "negative" });
+    expect(radio).toBeChecked();
+  });
+});
