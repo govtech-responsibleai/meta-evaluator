@@ -5,7 +5,6 @@ from unittest.mock import patch
 import polars as pl
 import pytest
 
-from meta_evaluator.annotator.exceptions import PortOccupiedError
 from meta_evaluator.annotator.launcher import AnnotationLauncher
 from meta_evaluator.data import EvalData
 from meta_evaluator.eval_task import EvalTask
@@ -50,17 +49,25 @@ class TestAnnotationLauncher:
         )
         assert (tmp_path / "new_dir").exists()
 
-    def test_port_occupied_raises(self, eval_task, eval_data, tmp_path):
-        """Raises PortOccupiedError when port is in use."""
+    def test_port_occupied_finds_next(self, eval_task, eval_data, tmp_path):
+        """Finds next available port when requested port is occupied."""
         launcher = AnnotationLauncher(
             eval_data=eval_data,
             eval_task=eval_task,
             annotations_dir=str(tmp_path),
             port=9999,
         )
-        with patch.object(launcher, "_is_port_occupied", return_value=True):
-            with pytest.raises(PortOccupiedError):
-                launcher.launch()
+        with (
+            patch.object(
+                launcher,
+                "_is_port_occupied",
+                side_effect=lambda port=None: (port or launcher.port) == 9999,
+            ),
+            patch("meta_evaluator.annotator.launcher.launcher.uvicorn.run") as mock_run,
+        ):
+            launcher.launch()
+            mock_run.assert_called_once()
+            assert mock_run.call_args[1]["port"] == 10000
 
     def test_launch_calls_uvicorn(self, eval_task, eval_data, tmp_path):
         """Launch starts uvicorn with correct arguments."""

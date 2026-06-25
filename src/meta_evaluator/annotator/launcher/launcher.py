@@ -9,7 +9,6 @@ import time
 import uvicorn
 
 from meta_evaluator.annotator.api.app import create_app
-from meta_evaluator.annotator.exceptions import PortOccupiedError
 from meta_evaluator.data import EvalData
 from meta_evaluator.eval_task import EvalTask
 
@@ -43,19 +42,38 @@ class AnnotationLauncher:
 
         os.makedirs(self.annotations_dir, exist_ok=True)
 
-    def _is_port_occupied(self) -> bool:
+    def _is_port_occupied(self, port: int | None = None) -> bool:
         """Check if port is in use.
+
+        Args:
+            port: Port to check. Defaults to self.port.
 
         Returns:
             bool: True if port is occupied.
         """
+        port = port or self.port
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.settimeout(1)
-                result = sock.connect_ex(("localhost", self.port))
+                result = sock.connect_ex(("localhost", port))
                 return result == 0
         except OSError:
             return False
+
+    def _find_available_port(self) -> int:
+        """Find next available port starting from self.port + 1.
+
+        Returns:
+            int: An available port number.
+        """
+        port = self.port + 1
+        while port < 65535:
+            if not self._is_port_occupied(port):
+                return port
+            port += 1
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("localhost", 0))
+            return sock.getsockname()[1]
 
     def _get_static_dir(self) -> str | None:
         """Find frontend build directory.
@@ -83,7 +101,6 @@ class AnnotationLauncher:
 
         Raises:
             ValueError: If traffic_policy_file given without use_ngrok.
-            PortOccupiedError: If port is already in use.
         """
         if traffic_policy_file and not use_ngrok:
             raise ValueError(
@@ -91,7 +108,9 @@ class AnnotationLauncher:
             )
 
         if self._is_port_occupied():
-            raise PortOccupiedError(self.port)
+            original_port = self.port
+            self.port = self._find_available_port()
+            logger.info(f"Port {original_port} in use, using port {self.port} instead")
 
         app = create_app(
             eval_task=self.eval_task,
