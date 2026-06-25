@@ -1,23 +1,14 @@
-"""Fixtures for Annotator testing.
-
-This conftest provides annotator-specific fixtures used across annotator test modules.
-Common fixtures are inherited from the main conftest.py.
-"""
+"""Fixtures for Annotator testing."""
 
 import socket
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import polars as pl
 import pytest
 
-from meta_evaluator.annotator.interface.streamlit_session_manager import (
-    StreamlitSessionManager,
-)
 from meta_evaluator.data import EvalData
 from meta_evaluator.eval_task import EvalTask
 from meta_evaluator.results import HumanAnnotationResultsBuilder
-
-# ==== BASIC FIXTURES ====
 
 
 @pytest.fixture
@@ -25,8 +16,7 @@ def free_port():
     """Find and return a free port for testing.
 
     Returns:
-        int: An available port number that can be used for the Streamlit
-             app during testing without conflicts.
+        int: An available port number.
     """
     with socket.socket() as s:
         s.bind(("", 0))
@@ -38,16 +28,10 @@ def free_port():
 def temp_annotations_dir(tmp_path):
     """Create a temporary directory for storing annotation results.
 
-    Args:
-        tmp_path: pytest's temporary path fixture
-
     Returns:
-        str: Path to a temporary annotations directory for test isolation
+        str: Path to a temporary annotations directory.
     """
     return str(tmp_path / "annotations")
-
-
-# ==== EVAL TASK FIXTURES ====
 
 
 @pytest.fixture
@@ -55,16 +39,13 @@ def annotator_eval_task() -> EvalTask:
     """Create a test EvalTask for annotator testing.
 
     Returns:
-        EvalTask: A configured evaluation task with:
-            - Mixed task types (structured sentiment/quality, some free-form)
-            - Prompt and response column definitions
-            - Structured answering method for radio button interactions
+        EvalTask: A configured evaluation task.
     """
     return EvalTask(
         task_schemas={
             "sentiment": ["positive", "negative", "neutral"],
             "quality": ["high", "medium", "low"],
-            "comments": None,  # Free form text
+            "comments": None,
         },
         prompt_columns=["text", "question"],
         response_columns=["response", "answer"],
@@ -77,7 +58,7 @@ def integration_eval_task() -> EvalTask:
     """Create a test EvalTask for integration testing.
 
     Returns:
-        EvalTask: A configured evaluation task for integration tests.
+        EvalTask: A configured evaluation task.
     """
     return EvalTask(
         task_schemas={
@@ -90,18 +71,12 @@ def integration_eval_task() -> EvalTask:
     )
 
 
-# ==== EVAL DATA FIXTURES ====
-
-
 @pytest.fixture
 def sample_dataframe():
-    """Create a sample Polars DataFrame for testing annotation workflows.
+    """Create a sample Polars DataFrame for testing.
 
     Returns:
-        pl.DataFrame: A DataFrame with sample question-answer pairs containing:
-            - id: Unique identifiers (1, 2, 3)
-            - question: Sample questions for annotation
-            - answer: Corresponding answers to the questions
+        pl.DataFrame: A DataFrame with sample data.
     """
     return pl.DataFrame(
         {
@@ -121,7 +96,7 @@ def annotator_eval_data() -> EvalData:
     """Create test EvalData for annotator testing.
 
     Returns:
-        EvalData: A test dataset with sample text/response pairs.
+        EvalData: A test dataset.
     """
     df = pl.DataFrame(
         {
@@ -142,10 +117,7 @@ def integration_eval_data() -> EvalData:
     """Create test EvalData for integration testing.
 
     Returns:
-        EvalData: A test dataset containing:
-            - 3 sample text/response pairs for annotation
-            - Varied content (positive, negative, neutral sentiment)
-            - Properly structured with ID column for tracking
+        EvalData: A test dataset.
     """
     df = pl.DataFrame(
         {
@@ -169,20 +141,12 @@ def integration_eval_data() -> EvalData:
     )
 
 
-# ==== MOCK FIXTURES ====
-
-
 @pytest.fixture
 def mock_eval_data(sample_dataframe):
     """Create a mock EvalData object for testing.
 
-    Args:
-        sample_dataframe: Fixture providing sample DataFrame data
-
     Returns:
-        Mock: A mock EvalData object with:
-            - id_column: Set to "id" for data identification
-            - data: The sample DataFrame for annotation
+        Mock: A mock EvalData object.
     """
     mock_data = Mock(spec=EvalData)
     mock_data.id_column = "id"
@@ -192,21 +156,16 @@ def mock_eval_data(sample_dataframe):
 
 @pytest.fixture
 def mock_eval_task():
-    """Create a mock EvalTask object for testing annotation workflows.
+    """Create a mock EvalTask object for testing.
 
     Returns:
-        Mock: A mock EvalTask object configured with:
-            - task_schemas: Mixed task types (structured and free-form)
-            - prompt_columns: ["question"] - columns to display as prompts
-            - response_columns: ["answer"] - columns to display as responses
-            - answering_method: "structured" - annotation method type
-            - annotation_prompt: Default prompt text for annotations
+        Mock: A mock EvalTask object.
     """
     mock_task = Mock(spec=EvalTask)
     mock_task.task_schemas = {
         "sentiment": ["positive", "negative", "neutral"],
         "quality": ["high", "medium", "low"],
-        "comments": None,  # Free form text
+        "comments": None,
     }
     mock_task.prompt_columns = ["question"]
     mock_task.response_columns = ["answer"]
@@ -216,125 +175,12 @@ def mock_eval_task():
     return mock_task
 
 
-# ==== SESSION MANAGER FIXTURES ====
-
-
-class MockSessionState:
-    """Mock Streamlit session state that behaves like both dict and object.
-
-    This class simulates Streamlit's session_state object, which can be accessed
-    both as a dictionary (with square brackets) and as an object (with dot notation).
-    It provides the same interface as the real session_state for testing purposes.
-
-    Features:
-        - Dictionary-style access: state['key'] = value
-        - Object-style access: state.key = value
-        - Proper attribute handling with underscores for internal attributes
-        - Support for all standard dict operations (get, contains, delete)
-        - Consistent behavior matching Streamlit's actual session_state
-    """
-
-    def __init__(self):
-        """Initialize state."""
-        self._data = {}
-
-    def __contains__(self, key):
-        """Check if key exists in the session state.
-
-        Returns:
-            bool: True if key exists, False otherwise.
-        """
-        return key in self._data
-
-    def __getitem__(self, key):
-        """Get item using dictionary-style access.
-
-        Returns:
-            Any: The value associated with the key.
-        """
-        return self._data[key]
-
-    def __setitem__(self, key, value):
-        """Set item using dictionary-style access."""
-        self._data[key] = value
-
-    def __delitem__(self, key):
-        """Delete item using dictionary-style access."""
-        del self._data[key]
-
-    def __getattr__(self, name):
-        """Get attribute using object-style access.
-
-        Returns:
-            Any: The attribute value or None if not found.
-        """
-        return self._data.get(name)
-
-    def __setattr__(self, name, value):
-        """Set attribute using object-style access."""
-        if name.startswith("_"):
-            super().__setattr__(name, value)
-        else:
-            self._data[name] = value
-
-    def __delattr__(self, name):
-        """Delete attribute using object-style access.
-
-        Raises:
-            AttributeError: If the attribute is not found.
-        """
-        if name.startswith("_"):
-            super().__delattr__(name)
-        else:
-            if name in self._data:
-                del self._data[name]
-            else:
-                raise AttributeError(
-                    f"'MockSessionState' object has no attribute '{name}'"
-                )
-
-    def get(self, key, default=None):
-        """Get item from session state with default if not found.
-
-        Returns:
-            Any: The value for key, or default if key not found.
-        """
-        return self._data.get(key, default)
-
-
-@pytest.fixture
-def mock_streamlit_session_state():
-    """Mock streamlit.session_state for tests that need it.
-
-    This fixture patches streamlit.session_state with a MockSessionState
-    instance for tests that explicitly request it.
-    """
-    with patch("streamlit.session_state", MockSessionState()):
-        yield
-
-
-@pytest.fixture
-def session_manager():
-    """Create a StreamlitSessionManager instance for testing.
-
-    Returns:
-        StreamlitSessionManager: A fresh session manager instance that will
-                               use the mocked session state from other fixtures
-    """
-    return StreamlitSessionManager()
-
-
-# ==== TASK SCHEMA AND ID FIXTURES ====
-
-
 @pytest.fixture
 def sample_task_schemas():
-    """Sample task schemas for testing annotation workflows.
+    """Sample task schemas for testing.
 
     Returns:
-        dict: A dictionary mapping task names to their allowed outcomes.
-              Contains both structured tasks (with predefined options)
-              for testing radio button interactions.
+        dict: Task schemas mapping.
     """
     return {
         "task1": ["yes", "no", "maybe"],
@@ -344,25 +190,20 @@ def sample_task_schemas():
 
 @pytest.fixture
 def sample_expected_ids():
-    """Sample expected IDs for testing annotation workflows.
+    """Sample expected IDs for testing.
 
     Returns:
-        list: A list of sample IDs that represent the expected data
-              samples to be annotated in the test scenarios.
+        list: A list of sample IDs.
     """
     return ["id1", "id2", "id3"]
 
 
-# ==== HUMAN ANNOTATION RESULTS FIXTURES ====
-
-
 @pytest.fixture
 def base_human_results_builder() -> HumanAnnotationResultsBuilder:
-    """Provide a basic HumanAnnotationResultsBuilder instance for testing.
+    """Provide a basic HumanAnnotationResultsBuilder instance.
 
     Returns:
-        HumanAnnotationResultsBuilder: A builder instance ready to create
-                                    annotation result rows for testing.
+        HumanAnnotationResultsBuilder: A builder instance.
     """
     return HumanAnnotationResultsBuilder(
         run_id="run_001",
@@ -396,8 +237,7 @@ def mock_results_builder():
     """Mock HumanAnnotationResultsBuilder for testing.
 
     Returns:
-        Mock: A mock results builder with basic attributes set up
-              for testing annotation storage and completion workflows.
+        Mock: A mock results builder.
     """
     mock_builder = Mock(spec=HumanAnnotationResultsBuilder)
     mock_builder.completed_count = 0

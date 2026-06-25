@@ -7,7 +7,7 @@ from typing import Literal, cast
 
 from pydantic import ValidationError
 
-from ..annotator.launcher import StreamlitLauncher
+from ..annotator.launcher import AnnotationLauncher
 from ..common.error_constants import (
     INVALID_JSON_MSG,
     INVALID_JSON_STRUCTURE_MSG,
@@ -674,24 +674,18 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         use_ngrok: bool = False,
         traffic_policy_file: str | None = None,
     ) -> None:
-        """Launch the Streamlit annotator interface.
-
-        This method launches the Streamlit annotation interface using the data and task
-        that have been added to the MetaEvaluator. The annotations will be saved to
-        the project's annotations directory.
+        """Launch the annotation interface.
 
         Args:
-            port: Optional port number for Streamlit server. If None, uses default Streamlit port.
-            use_ngrok: Whether to use ngrok to expose the Streamlit interface to the internet. Defaults to False.
-            traffic_policy_file: Optional path to an ngrok traffic policy file for advanced
-                configuration. See https://ngrok.com/docs/traffic-policy/ for details.
+            port: Optional port number for the server. If None, uses default port (8000).
+            use_ngrok: Whether to use ngrok to expose the interface to the internet.
+            traffic_policy_file: Optional path to an ngrok traffic policy file.
                 Only used when use_ngrok=True.
 
         Raises:
             EvalTaskNotFoundError: If the evaluation task is not set.
             EvalDataNotFoundError: If the evaluation data is not set.
         """
-        # Validate prerequisites
         if self.eval_task is None:
             raise EvalTaskNotFoundError(
                 "eval_task must be set before launching annotator"
@@ -700,13 +694,11 @@ class MetaEvaluator(JudgesMixin, ScoringMixin):
         if self.data is None:
             raise EvalDataNotFoundError("data must be set before launching annotator")
 
-        # Create launcher with data and task from MetaEvaluator
-        launcher = StreamlitLauncher(
+        launcher = AnnotationLauncher(
             eval_data=self.data,
             eval_task=self.eval_task,
             annotations_dir=str(self.paths.annotations),
             port=port,
         )
 
-        # Launch the interface
         launcher.launch(use_ngrok=use_ngrok, traffic_policy_file=traffic_policy_file)

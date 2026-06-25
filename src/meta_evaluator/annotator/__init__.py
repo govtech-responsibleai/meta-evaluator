@@ -1,4 +1,4 @@
-"""Launcher for the annotation interface."""
+"""Annotation interface module."""
 
 from .launcher import AnnotationLauncher
 

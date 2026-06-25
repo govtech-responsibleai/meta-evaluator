@@ -1087,11 +1087,11 @@ class TestMetaEvaluatorAnnotator:
         with pytest.raises(EvalTaskNotFoundError):
             meta_evaluator.launch_annotator()
 
-    @patch("meta_evaluator.meta_evaluator.base.StreamlitLauncher")
+    @patch("meta_evaluator.meta_evaluator.base.AnnotationLauncher")
     def test_launch_annotator_called(
         self, mock_launcher_class, meta_evaluator, sample_eval_data, basic_eval_task
     ):
-        """Test that launch_annotator calls the StreamlitLauncher with the correct arguments."""
+        """Test that launch_annotator calls the AnnotationLauncher with the correct arguments."""
         # Setup
         meta_evaluator.add_data(sample_eval_data)
         meta_evaluator.add_eval_task(basic_eval_task)
