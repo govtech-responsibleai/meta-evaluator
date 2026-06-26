@@ -26,7 +26,7 @@ Given an evaluation task and dataset, MetaEvaluator:
 - Load multiple judges through simplified YAML Configurations.
 
 ### 2. Built-in Human Annotation Platform
-- **Streamlit Interface**: Clean, intuitive annotation workflow
+- **Web Interface**: Clean, intuitive annotation workflow
 - **Multi-annotator Support**: Separate sessions with progress tracking
 - **Resume Capability**: Continue annotation sessions across multiple visits
 - **Export Options**: JSON format for analysis and sharing

@@ -1,6 +1,6 @@
 # Setting up the Annotation Platform
 
-Launch the Streamlit-based annotation interface to collect human evaluations for your dataset.
+Launch the annotation interface to collect human evaluations for your dataset.
 
 ## Quick Setup
 
@@ -13,7 +13,7 @@ Launch the Streamlit-based annotation interface to collect human evaluations for
     evaluator = MetaEvaluator(project_dir="my_project", load=True) 
     
     # Launch annotation interface
-    evaluator.launch_annotator(port=8501) 
+    evaluator.launch_annotator(port=8000) 
     ```
 
 === "Complete Setup Example"
@@ -51,7 +51,7 @@ Launch the Streamlit-based annotation interface to collect human evaluations for
     
     # Save state and launch annotator
     evaluator.save_state()
-    evaluator.launch_annotator(port=8501)
+    evaluator.launch_annotator(port=8000)
     ```
 
 !!! tip "Dataset Recommendations"
@@ -67,7 +67,7 @@ For different deployment scenarios including remote access (ngrok) and Docker de
 
 
 1. **Launch the interface**: Load your data and task, and run `evaluator.launch_annotator()`
-2. **Open browser**: Navigate to `http://localhost:8501` 
+2. **Open browser**: Navigate to `http://localhost:8000` 
 3. **Enter annotator ID**: Provide your name or identifier
 4. **Begin annotation**: Start evaluating samples!
 
@@ -99,7 +99,7 @@ task = EvalTask(
 
 **The annotation platform (Mobile):**
 <figure markdown="span">
-  ![Simple Annotation Interface](../assets/simple_annotation_interface_mobile.jpg){ width="300" }
+  ![Simple Annotation Interface](../assets/simple_annotation_interface_mobile.png){ width="300" }
 </figure>
 
 ## Results and Output
@@ -202,7 +202,7 @@ for result in human_results:
 
 === "Browser Doesn't Open"
     ```
-    Manually navigate to: http://localhost:8501
+    Manually navigate to: http://localhost:8000
     Check console output for exact URL and port
     ```
 
