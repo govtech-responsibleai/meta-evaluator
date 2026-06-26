@@ -55,9 +55,9 @@ function CollapsibleField({
 export function SampleDisplay({ sample, taskConfig }: Props) {
   return (
     <ScrollArea className="h-full">
-      <div className="space-y-6 pr-4">
+      <div className="space-y-6">
         {sample.prompt_data && taskConfig.prompt_columns && (
-          <div className="rounded-xl bg-card border border-border/50 p-6 shadow-sm">
+          <div className="rounded-xl bg-card border border-border/50 px-4 py-5 md:p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <span className="size-2.5 rounded-sm bg-primary" />
               <h2 className="text-sm font-semibold uppercase tracking-[0.06em] text-muted-foreground">
@@ -75,7 +75,7 @@ export function SampleDisplay({ sample, taskConfig }: Props) {
           </div>
         )}
 
-        <div className="rounded-xl bg-card border border-border/50 p-6 shadow-sm">
+        <div className="rounded-xl bg-card border border-border/50 px-4 py-5 md:p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <span className="size-2.5 rounded-sm bg-primary" />
             <h2 className="text-sm font-semibold uppercase tracking-[0.06em] text-muted-foreground">

@@ -36,13 +36,13 @@ export function AnnotationView({
       </div>
 
       <div className="flex-1 flex min-h-0 flex-col md:flex-row overflow-hidden">
-        <div className="order-2 md:order-1 flex-1 min-h-0 px-5 py-6 md:px-8 md:py-7 overflow-y-auto">
-          <div className="max-w-4xl mx-auto">
+        <div className="flex-1 min-h-0 px-4 py-5 md:px-8 md:py-7 overflow-y-auto">
+          <div className="max-w-4xl">
             <SampleDisplay sample={sample} taskConfig={taskConfig} />
           </div>
         </div>
 
-        <div className="order-1 md:order-2 w-full md:w-[26rem] shrink-0 max-h-[48vh] md:max-h-none px-5 py-6 md:py-7 overflow-y-auto bg-[var(--annotation-rail)] border-l border-[var(--annotation-rail-border)]">
+        <div className="w-full md:w-[26rem] shrink-0 px-4 py-5 md:px-5 md:py-7 overflow-y-auto bg-[var(--annotation-rail)] border-t md:border-t-0 md:border-l border-[var(--annotation-rail-border)]">
           <TaskPanel
             taskConfig={taskConfig}
             sample={sample}
