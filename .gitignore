@@ -13,6 +13,9 @@ node_modules/
 package-lock.json
 plan.md
 
+# Frontend build output
+src/meta_evaluator/annotator/frontend/dist/
+
 # OS generated files
 .DS_Store
 

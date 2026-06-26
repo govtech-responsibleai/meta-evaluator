@@ -223,7 +223,7 @@ The `required_tasks` parameter controls which tasks must be completed for a vali
 
 **Impact on Annotation Interface:**
 
-In the Streamlit annotation interface, required fields are marked with a red asterisk (*) and must be filled before the annotation is auto-saved.
+In the annotation interface, required fields are marked with a red asterisk (*) and must be filled before the annotation is auto-saved.
 
 **Impact on Judge Results:**
 

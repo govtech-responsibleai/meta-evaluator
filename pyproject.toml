@@ -42,7 +42,8 @@ docs = [
     "mkdocs-material>=9.6.17",
 ]
 ui = [
-    "streamlit>=1.50.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
 ]
 all = [
     "meta-evaluator[docs,ui]",

@@ -58,8 +58,8 @@ def main():
     evaluator.add_eval_task(eval_task, overwrite=True)
     evaluator.add_data(eval_data, overwrite=True)
 
-    # Launch annotator - use PORT environment variable or default to 8501
-    port = int(os.environ.get("PORT", 8501))
+    # Launch annotator - use PORT environment variable or default
+    port = int(os.environ.get("PORT", 8000))
     evaluator.launch_annotator(port=port)
 
 

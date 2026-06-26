@@ -1,7 +1,5 @@
-"""Launcher for the Streamlit annotation interface."""
+"""Launcher for the annotation interface."""
 
-from .streamlit_launcher import StreamlitLauncher
+from .launcher import AnnotationLauncher
 
-__all__ = [
-    "StreamlitLauncher",
-]
+__all__ = ["AnnotationLauncher"]

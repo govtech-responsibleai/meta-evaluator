@@ -73,7 +73,7 @@ evaluator.add_eval_task(task)
 evaluator.add_data(data)
 
 # Step 3: Launch annotator
-evaluator.launch_annotator(port=8501)
+evaluator.launch_annotator(port=8000)
 ```
 
 

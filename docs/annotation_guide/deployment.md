@@ -9,7 +9,7 @@ Run the annotation platform on your local machine.
 from meta_evaluator import MetaEvaluator
 
 evaluator = MetaEvaluator(project_dir="my_project", load=True)
-evaluator.launch_annotator(port=8501)  # Access at http://localhost:8501
+evaluator.launch_annotator(port=8000)  # Access at http://localhost:8000
 ```
 
 ## Remote Access with ngrok
@@ -32,7 +32,7 @@ If you wish to share your annotation interface with remote annotators and your d
 
     # Basic ngrok tunnel - creates a public URL
     evaluator.launch_annotator(
-        port=8501,
+        port=8000,
         use_ngrok=True
     )
     ```
@@ -49,7 +49,7 @@ ngrok creates a tunnel from a public URL (e.g., `https://abc123.ngrok.io`) to yo
 
 ```python
 evaluator.launch_annotator(
-    port=8501,
+    port=8000,
     use_ngrok=True,
     traffic_policy_file="ngrok_policy.yaml"
 )
@@ -107,7 +107,7 @@ Ensure you have downloaded the Docker templates above and are in the directory c
 
     ```
 
-3. **Access at `http://localhost:8501`**
+3. **Access at `http://localhost:8000`**
 
 ### Server
 
@@ -155,7 +155,7 @@ Ensure you have downloaded the Docker templates above and are in the directory c
     docker compose up
     ```
 
-5.  **Access at `http://server-ip:8501`**
+5.  **Access at `http://server-ip:8000`**
 
 6.  **After annotation, copy project directory back to local:**
    ```bash
