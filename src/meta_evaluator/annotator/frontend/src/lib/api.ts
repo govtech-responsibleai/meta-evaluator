@@ -1,8 +1,15 @@
-const BASE = "/api";
+const params = new URLSearchParams(window.location.search);
+const slug = params.get("slug");
+const token = params.get("token");
+
+const BASE = slug ? `/api/annotate/${slug}` : "/api";
+const authHeaders: Record<string, string> = token
+  ? { Authorization: `Bearer ${token}` }
+  : {};
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const resp = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders },
     ...options,
   });
   if (!resp.ok) {
