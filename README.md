@@ -102,6 +102,21 @@ evaluator.launch_annotator(port=8501)
 
 For deployment options including remote access (ngrok) and Docker deployment for classified data, see the [Deployment Guide](docs/annotation_guide/deployment.md).
 
+### Embedding the annotation UI
+
+The shipped bundle reads two optional URL query params:
+
+- `slug` → API base becomes `/api/annotate/{slug}` (absent → `/api`).
+- `token` → sent as `Authorization: Bearer <token>` on every request (absent → no header).
+
+With no params it behaves exactly as standalone `launch_annotator`. The published
+wheel includes a prebuilt `dist/`, so consumers need no Node build.
+
+A host embedding the bundle must expose all of these under its chosen base:
+`GET /task`, `POST /session`, `GET /session/{run_id}`, `GET /samples/{index}?run_id=`,
+`POST /annotations`, `GET /progress?run_id=`, `POST /export`,
+`GET /export/download/{filename}`.
+
 ### 5. Judge Configuration & Prompt Templates
 Configure multiple LLM judges using YAML and template-based prompts:
 

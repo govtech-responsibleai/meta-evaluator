@@ -61,6 +61,11 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 path = "src/meta_evaluator/__init__.py"
 
+[tool.hatch.build.targets.sdist]
+artifacts = [
+  "src/meta_evaluator/annotator/frontend/dist/**",
+]
+
 [tool.hatch.build.targets.wheel]
 artifacts = [
   "src/meta_evaluator/annotator/frontend/dist/**",
