@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2
+
+- Fix blank annotator page when the bundle is embedded under a path prefix
+  (e.g. served at `/annotate-ui/`). The Vite build now uses a relative `base`
+  (`./`), so `index.html` references `./assets/...` instead of absolute
+  `/assets/...`. Absolute paths resolved against the host root and 404'd (or
+  collided with the embedding app's own `/assets`), leaving a white screen.
+  Works for both standalone (served at `/`) and embedded deployments.
+
 ## 0.2.1
 
 - Annotator frontend is now embeddable: `api.ts` reads optional `slug`/`token`
