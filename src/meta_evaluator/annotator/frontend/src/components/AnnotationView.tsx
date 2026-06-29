@@ -35,6 +35,13 @@ export function AnnotationView({
         />
       </div>
 
+      <div className="border-b border-border/60 bg-muted/40 px-6 py-2.5">
+        <p className="text-center text-xs leading-relaxed text-muted-foreground">
+          Hit <span className="font-medium text-foreground">Save &amp; Next</span> to save each
+          answer and pick up right where you left off whenever you return.
+        </p>
+      </div>
+
       <div className="flex-1 flex min-h-0 flex-col md:flex-row overflow-hidden">
         <div className="flex-1 min-h-0 px-4 py-5 md:px-8 md:py-7 overflow-y-auto">
           <div className="max-w-4xl">
