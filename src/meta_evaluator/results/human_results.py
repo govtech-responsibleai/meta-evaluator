@@ -251,6 +251,16 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
                 f"Success row missing required tasks: {missing_tasks}. Required: {expected_tasks}, Got: {outcome_tasks}",
             )
 
+        # Pad any optional schema tasks the annotator did not answer with None,
+        # so every task in task_schemas yields a column. Without this, a success
+        # row that omits an optional (non-required) task leaves that column out
+        # entirely, and results validation later rejects the run for a "missing
+        # required column". Mirrors create_error_row's null padding.
+        padded_outcomes: dict[str, str | None] = {
+            task_name: None for task_name in self.task_schemas
+        }
+        padded_outcomes.update(outcomes)
+
         row = HumanAnnotationResultRow(
             sample_example_id=sample_example_id,
             original_id=original_id,
@@ -260,7 +270,7 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
             error_message=None,
             error_details_json=None,
             annotation_timestamp=annotation_timestamp or datetime.now(),
-            **outcomes,
+            **padded_outcomes,
         )
         self._validate_and_store(row)
         return row

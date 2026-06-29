@@ -11,6 +11,8 @@ wheels/
 .env
 node_modules/
 package-lock.json
+# Frontend lockfile is tracked so CI `npm ci` has a lockfile to install from
+!src/meta_evaluator/annotator/frontend/package-lock.json
 plan.md
 
 # Frontend build output

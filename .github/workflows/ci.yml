@@ -26,7 +26,19 @@ jobs:
       - name: Sync dependencies
         run: uv sync --group dev --extra all
 
-      # 5 — Run the same hooks you use locally
+      # 5 — Build the frontend so the packaging test sees a bundled dist
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build frontend
+        working-directory: src/meta_evaluator/annotator/frontend
+        run: |
+          npm ci
+          npm run build
+
+      # 6 — Run the same hooks you use locally
       - name: Run pre-commit hooks
         run: uv run pre-commit run --all-files
 

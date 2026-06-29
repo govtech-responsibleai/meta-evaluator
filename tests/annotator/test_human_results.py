@@ -388,6 +388,37 @@ class TestHumanAnnotationResultsSerialization:
             is_sampled_run=False,
         )
 
+    def test_optional_task_unanswered_pads_null_and_completes(self):
+        """Omitted optional task still yields a null column so the run validates.
+
+        A success row that omits an optional (non-required) task must still
+        yield that task's column (null) so the run validates and can be scored.
+        Regression: previously the column was dropped and completion failed with
+        a 'missing required column' validation error.
+        """
+        builder = HumanAnnotationResultsBuilder(
+            run_id="opt_run",
+            annotator_id="annotator_1",
+            # 'explanation' is in the schema but NOT required.
+            task_schemas={
+                "rejection": ["rejection", "not rejection"],
+                "explanation": None,
+            },
+            expected_ids=["id1"],
+            required_tasks=["rejection"],
+            is_sampled_run=False,
+        )
+        builder.create_success_row(
+            sample_example_id="sample_1",
+            original_id="id1",
+            outcomes={"rejection": "rejection"},  # explanation deliberately omitted
+            annotation_timestamp=datetime.now(),
+        )
+        results = builder.complete()
+        assert "explanation" in results.results_data.columns
+        assert results.results_data["explanation"].to_list() == [None]
+        assert results.results_data["rejection"].to_list() == ["rejection"]
+
     @pytest.mark.parametrize("data_format", ["json", "csv", "parquet"])
     def test_write_and_load_data(
         self, tmp_path, base_human_results_builder, data_format
