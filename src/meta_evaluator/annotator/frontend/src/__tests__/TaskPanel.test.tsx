@@ -39,7 +39,7 @@ describe("TaskPanel", () => {
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={vi.fn()} />,
     );
     expect(
-      screen.getByPlaceholderText("Enter your response..."),
+      screen.getByRole("textbox", { name: "comments" }),
     ).toBeInTheDocument();
   });
 
@@ -112,9 +112,7 @@ describe("TaskPanel", () => {
     );
 
     await user.tab();
-    expect(
-      screen.getByPlaceholderText("Enter your response..."),
-    ).toHaveFocus();
+    expect(screen.getByRole("textbox", { name: "comments" })).toHaveFocus();
   });
 
   it("focuses the textarea when the first task is free-form", () => {
@@ -132,9 +130,7 @@ describe("TaskPanel", () => {
       />,
     );
 
-    expect(
-      screen.getByPlaceholderText("Enter your response..."),
-    ).toHaveFocus();
+    expect(screen.getByRole("textbox", { name: "comments" })).toHaveFocus();
   });
 
   it("keeps numeric input in the free-form textarea as text", async () => {
@@ -146,9 +142,9 @@ describe("TaskPanel", () => {
 
     await user.tab();
 
-    const commentsTextarea = screen.getByPlaceholderText(
-      "Enter your response...",
-    );
+    const commentsTextarea = screen.getByRole("textbox", {
+      name: "comments",
+    });
     expect(commentsTextarea).toHaveFocus();
 
     await user.keyboard("123");

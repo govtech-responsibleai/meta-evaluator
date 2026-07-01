@@ -393,6 +393,7 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
             ) : (
               <Textarea
                 ref={taskIdx === 0 ? setFirstTaskFocusTarget : undefined}
+                aria-labelledby={labelId}
                 value={
                   typeof outcomes[taskName] === "string"
                     ? (outcomes[taskName] as string)
