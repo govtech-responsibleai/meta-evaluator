@@ -257,6 +257,7 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
         const isActive = activeTaskName === taskName;
         const labelId = `task-${taskIdx}-label`;
         const instructionsId = `task-${taskIdx}-instructions`;
+        const navigationHintId = `task-${taskIdx}-navigation-hint`;
 
         return (
           <div
@@ -268,7 +269,11 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
             }
             role={isSelectable ? "group" : undefined}
             aria-labelledby={isSelectable ? labelId : undefined}
-            aria-describedby={isSelectable ? instructionsId : undefined}
+            aria-describedby={
+              isSelectable
+                ? `${instructionsId} ${navigationHintId}`
+                : undefined
+            }
             tabIndex={isSelectable ? 0 : undefined}
             onFocus={() => setActiveTaskName(taskName)}
             onBlur={(e) => handleTaskBlur(taskName, e)}
@@ -394,6 +399,7 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
               <Textarea
                 ref={taskIdx === 0 ? setFirstTaskFocusTarget : undefined}
                 aria-labelledby={labelId}
+                aria-describedby={navigationHintId}
                 value={
                   typeof outcomes[taskName] === "string"
                     ? (outcomes[taskName] as string)
@@ -413,6 +419,20 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
                 }
               />
             )}
+            <p
+              id={navigationHintId}
+              className="mt-2 flex items-center justify-end gap-1 text-[11px] text-muted-foreground/60"
+            >
+              <span>Press</span>
+              <kbd className="inline-flex h-5 items-center justify-center rounded border border-border/60 bg-muted/50 px-1.5 text-[10px] font-medium text-muted-foreground/70">
+                Tab
+              </kbd>
+              <span>
+                {taskIdx < taskEntries.length - 1
+                  ? "to go to next task"
+                  : "to continue"}
+              </span>
+            </p>
           </div>
         );
       })}

@@ -43,6 +43,18 @@ describe("TaskPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows truthful Tab-navigation hints on every task", () => {
+    render(
+      <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={vi.fn()} />,
+    );
+
+    expect(screen.getByText("to go to next task")).toBeVisible();
+    expect(screen.getByText("to continue")).toBeVisible();
+    const tabHints = screen.getAllByText("Tab");
+    expect(tabHints).toHaveLength(2);
+    tabHints.forEach((hint) => expect(hint).toBeVisible());
+  });
+
   it("keeps long instructions collapsed by default", () => {
     const longPrompt =
       "Read the full rubric carefully before judging each response. Check factuality, tone, completeness, refusal behavior, and whether the response follows every constraint in the prompt.";
