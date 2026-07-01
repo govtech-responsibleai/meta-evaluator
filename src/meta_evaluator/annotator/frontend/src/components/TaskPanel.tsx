@@ -17,7 +17,7 @@ import type {
 } from "@/lib/api";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { FocusEvent } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 interface Props {
   taskConfig: TaskConfig;
@@ -34,9 +34,12 @@ function truncate(text: string, maxLen = 60): string {
 }
 
 /** A multi-label schema is the `{ outcomes: [...] }` object form. */
-function isMultiLabel(schema: TaskSchema): schema is MultiLabelSchema {
+function isMultiLabel(schema: unknown): schema is MultiLabelSchema {
   return (
-    schema !== null && !Array.isArray(schema) && Array.isArray(schema.outcomes)
+    schema !== null &&
+    typeof schema === "object" &&
+    !Array.isArray(schema) &&
+    Array.isArray((schema as { outcomes?: unknown }).outcomes)
   );
 }
 
@@ -73,7 +76,10 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
   const [promptOpen, setPromptOpen] = useState(false);
   const [activeTaskName, setActiveTaskName] = useState<string | null>(null);
 
-  const taskEntries = Object.entries(taskConfig.task_schemas);
+  const taskEntries = useMemo(
+    () => Object.entries(taskConfig.task_schemas),
+    [taskConfig.task_schemas],
+  );
 
   useEffect(() => {
     // Seed state from any previous annotation, normalising multi-label tasks to
@@ -90,8 +96,7 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
     setOutcomes(seeded);
     setAttempted(false);
     setActiveTaskName(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sample.index, sample.previous_annotation]);
+  }, [sample.index, sample.previous_annotation, taskEntries]);
 
   // A task is "answered" if: single-select has a value, free-form has text, or
   // multi-label has been rendered (its vector is always full-length once seeded).
@@ -127,8 +132,13 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
     });
     if (missing.length > 0) return;
     onSubmit(finalOutcomes);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskConfig.required_tasks, taskConfig.task_schemas, outcomes, onSubmit]);
+  }, [
+    taskConfig.required_tasks,
+    taskConfig.task_schemas,
+    taskEntries,
+    outcomes,
+    onSubmit,
+  ]);
 
   const isFieldMissing = (task: string) => {
     if (!attempted || !taskConfig.required_tasks.includes(task)) return false;

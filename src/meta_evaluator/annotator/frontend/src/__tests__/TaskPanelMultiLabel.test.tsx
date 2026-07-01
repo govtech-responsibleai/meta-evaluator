@@ -321,4 +321,44 @@ describe("TaskPanel multi-label", () => {
       sentiment: "positive",
     });
   });
+
+  it("reseeds state and clears active keyboard routing when the task config changes", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const initialConfig: TaskConfig = {
+      ...taskConfig,
+      task_schemas: { harm: { outcomes: ["hateful", "insults", "sexual"] } },
+      required_tasks: ["harm"],
+    };
+    const nextConfig: TaskConfig = {
+      ...taskConfig,
+      task_schemas: { harm: { outcomes: ["privacy"] } },
+      required_tasks: ["harm"],
+    };
+    const { rerender } = render(
+      <TaskPanel
+        taskConfig={initialConfig}
+        sample={sample}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await user.tab();
+    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
+    await user.keyboard("2");
+
+    rerender(
+      <TaskPanel taskConfig={nextConfig} sample={sample} onSubmit={onSubmit} />,
+    );
+
+    expect(screen.getByRole("checkbox", { name: "privacy" })).not.toBeChecked();
+    await user.keyboard("1");
+    await user.click(screen.getByRole("button", { name: /save & next/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      harm: ["FALSE"],
+    });
+  });
 });
