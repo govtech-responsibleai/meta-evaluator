@@ -19,8 +19,23 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return resp.json();
 }
 
+/**
+ * A multi-label (pick-several) task schema. Serialized by the backend as
+ * `{ "outcomes": [...] }`, distinct from a bare `string[]` (single-select) and
+ * from `null` (free-form).
+ */
+export interface MultiLabelSchema {
+  outcomes: string[];
+}
+
+/** A single task's schema: single-select list, multi-label wrapper, or free-form. */
+export type TaskSchema = string[] | MultiLabelSchema | null;
+
+/** An outcome value: a single label (single-select/free-form) or an ordered vector (multi-label). */
+export type OutcomeValue = string | string[];
+
 export interface TaskConfig {
-  task_schemas: Record<string, string[] | null>;
+  task_schemas: Record<string, TaskSchema>;
   prompt_columns: string[] | null;
   response_columns: string[];
   annotation_prompt: string;
@@ -41,7 +56,7 @@ export interface Sample {
   sample_id: string;
   prompt_data: Record<string, string> | null;
   response_data: Record<string, string>;
-  previous_annotation: Record<string, string> | null;
+  previous_annotation: Record<string, OutcomeValue> | null;
 }
 
 export interface SubmitResult {
@@ -82,7 +97,7 @@ export const api = {
   submitAnnotation: (
     run_id: string,
     sample_index: number,
-    outcomes: Record<string, string>,
+    outcomes: Record<string, OutcomeValue>,
   ) =>
     request<SubmitResult>("/annotations", {
       method: "POST",

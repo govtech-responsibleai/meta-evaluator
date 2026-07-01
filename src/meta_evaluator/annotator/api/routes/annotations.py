@@ -7,6 +7,7 @@ from meta_evaluator.annotator.api.schemas import (
     SubmitAnnotationRequest,
     SubmitAnnotationResponse,
 )
+from meta_evaluator.annotator.exceptions import AnnotationValidationError
 
 router = APIRouter()
 
@@ -34,6 +35,8 @@ def submit_annotation(
         raise HTTPException(status_code=404, detail="Session not found")
     except IndexError:
         raise HTTPException(status_code=404, detail="Sample index out of bounds")
+    except AnnotationValidationError as error:
+        raise HTTPException(status_code=422, detail=str(error))
 
 
 @router.get("/progress", response_model=ProgressResponse)

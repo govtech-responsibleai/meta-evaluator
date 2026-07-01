@@ -13,7 +13,11 @@ from pydantic import BaseModel
 from tqdm import tqdm
 
 from meta_evaluator.common.models import Prompt
-from meta_evaluator.eval_task import EvalTask, sanitize_task_name
+from meta_evaluator.eval_task import (
+    EvalTask,
+    MultiLabelSchema,
+    sanitize_task_name,
+)
 
 from ..data import EvalData, SampleEvalData
 from ..results import JudgeResults, JudgeResultsBuilder
@@ -544,10 +548,18 @@ class SyncEvaluationMixin(ABC):
         ):
             tag_configs = []
             for task_name, outcomes in self.eval_task.task_schemas.items():
+                # Multi-label tasks never route through XML (excluded at construction
+                # and from the fallback sequence), so the scalar TagConfig never sees
+                # one in practice; narrow the type to the allowed-values list anyway.
+                allowed_values = (
+                    outcomes.outcomes
+                    if isinstance(outcomes, MultiLabelSchema)
+                    else outcomes
+                )
                 tag_configs.append(
                     TagConfig(
                         name=sanitize_task_name(task_name),
-                        allowed_values=outcomes,
+                        allowed_values=allowed_values,
                         cardinality="one",
                     )
                 )

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import type { Progress, Sample, TaskConfig } from "@/lib/api";
+import type { OutcomeValue, Progress, Sample, TaskConfig } from "@/lib/api";
 import { Navigation } from "./Navigation";
 import { SampleDisplay } from "./SampleDisplay";
 import { TaskPanel } from "./TaskPanel";
@@ -8,7 +8,7 @@ interface Props {
   taskConfig: TaskConfig;
   sample: Sample;
   progress: Progress | null;
-  onSubmit: (outcomes: Record<string, string>) => void;
+  onSubmit: (outcomes: Record<string, OutcomeValue>) => void;
   onNavigate: (index: number) => void;
   onExport: () => void;
 }

@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from ..common.models import Prompt
 from ..data import EvalData
-from ..eval_task import EvalTask, sanitize_task_name
+from ..eval_task import EvalTask, MultiLabelSchema, sanitize_task_name
 from ..results import JudgeResultsBuilder
 from .async_evaluator import AsyncEvaluationMixin
 from .enums import ErrorType, RoleEnum
@@ -171,8 +171,15 @@ class Judge(AsyncEvaluationMixin, SyncEvaluationMixin, BaseModel):
                     f"For {task_name}, provide a free form text response.\n\n"
                 )
             else:
+                # Multi-label tasks never use XML (rejected at EvalTask construction),
+                # but narrow the type for the shared instruction builder regardless.
+                values = (
+                    outcomes.outcomes
+                    if isinstance(outcomes, MultiLabelSchema)
+                    else outcomes
+                )
                 instructions += (
-                    f"Valid values for {task_name} are: {', '.join(outcomes)}\n\n"
+                    f"Valid values for {task_name} are: {', '.join(values)}\n\n"
                 )
 
         instructions += "For tasks with predefined values, you must choose exactly one value. For free form tasks, provide your response within the appropriate tags."

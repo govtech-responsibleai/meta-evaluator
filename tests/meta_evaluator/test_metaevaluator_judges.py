@@ -9,7 +9,7 @@ import polars as pl
 import pytest
 
 from meta_evaluator.common.models import Prompt
-from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.eval_task import EvalTask, MultiLabelSchema
 from meta_evaluator.judge.judge import Judge
 from meta_evaluator.meta_evaluator.exceptions import (
     EvalDataNotFoundError,
@@ -1293,8 +1293,10 @@ class TestConsistency:
         """
         if task_schemas is None:
             task_schemas = self.TASK_SCHEMAS
+        # Widen for EvalTask's task_schemas field (invariant dict union).
+        widened: dict[str, list[str] | MultiLabelSchema | None] = dict(task_schemas)
         eval_task = EvalTask(
-            task_schemas=task_schemas,
+            task_schemas=widened,
             prompt_columns=["text"],
             response_columns=["response"],
             answering_method="structured",

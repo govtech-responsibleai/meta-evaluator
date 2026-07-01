@@ -177,6 +177,65 @@ task_schemas = {
     }
     ```
 
+#### Multi-label Tasks (pick several)
+
+Some tasks require selecting **several** labels at once for a single field (e.g. a
+response can be both `hateful` **and** `insults`). Wrap the outcomes in a
+`MultiLabelSchema` to declare a multi-label task:
+
+```python linenums="1"
+from meta_evaluator.eval_task import EvalTask, MultiLabelSchema
+
+task = EvalTask(
+    task_schemas={
+        "harm_types": MultiLabelSchema(
+            outcomes=["hateful", "insults", "sexual", "violent"]
+        ),
+        "sentiment": ["positive", "negative"],  # still single-select
+    },
+    prompt_columns=["user_prompt"],
+    response_columns=["chatbot_response"],
+    answering_method="structured",  # or "instructor"
+)
+```
+
+A multi-label task's value is a **fixed-length ordered vector** with one slot per
+declared outcome. Each slot holds either that outcome's own name (selected) or the
+reserved sentinel `"FALSE"` (not selected). For the example above, a response that is
+hateful and sexual (but not insulting or violent) is stored as:
+
+```python
+["hateful", "FALSE", "sexual", "FALSE"]
+```
+
+Key rules:
+
+- **Outcome order is load-bearing** — it defines slot order and is preserved through
+  serialization, judging, storage, and export.
+- `outcomes` must contain **at least 2 values**, and the exact string `"FALSE"` is
+  **reserved** (it marks a not-selected slot) and cannot be declared as an outcome.
+- **"Nothing applies" is fully defined** — an all-`"FALSE"` vector, never an empty/missing value.
+- **Answering methods**: multi-label supports only `structured` and `instructor`.
+  Direct `answering_method="xml"` raises an error, and XML is excluded from the
+  fallback sequence (its scalar-only path cannot carry the ordered vector).
+- In the **annotation interface**, a multi-label task renders as a checkbox group; the
+  number-key shortcut toggles a slot instead of replacing the selection.
+
+**Scoring multi-label tasks** (see the [Scoring guide](scoring.md) for details):
+
+- Score with `ClassificationScorer` via `task_strategy="single"`. The vector is
+  binarized positionally (slot `i` → 1 if it holds outcome `i`'s name, else 0) into a
+  per-slot indicator vector.
+- For F1, precision, and recall, `ClassificationScorer.average` **must** be `"macro"`
+  (per-label, recommended) or `"samples"` (per-item overlap). The global default
+  `"binary"` is rejected. Accuracy ignores `average` and works with its default.
+  `"macro"` is required for a mixed single-class + multi-label `multitask`
+  configuration using an averaged metric.
+- `AltTestScorer` scores the native name vector unchanged (routes to jaccard).
+- **`CohensKappaScorer` does not support multi-label tasks** and raises a clear error —
+  κ has no valid averaging axis over a sparse multi-label vector. Use
+  `ClassificationScorer` or `AltTestScorer` instead.
+
 ### Required Tasks (`required_tasks`)
 
 The `required_tasks` parameter controls which tasks must be completed for a valid annotation or judge response.

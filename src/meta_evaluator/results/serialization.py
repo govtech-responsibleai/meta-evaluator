@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from meta_evaluator.eval_task import MultiLabelSchema
+
 
 class BaseResultsSerializedState(BaseModel):
     """Base serialized state for Results.
@@ -13,7 +15,7 @@ class BaseResultsSerializedState(BaseModel):
     """
 
     run_id: str
-    task_schemas: dict[str, list[str] | None]
+    task_schemas: dict[str, list[str] | MultiLabelSchema | None]
     timestamp_local: datetime
     total_count: int
     succeeded_count: int
