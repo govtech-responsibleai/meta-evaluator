@@ -132,6 +132,8 @@ describe("TaskPanel multi-label", () => {
     render(<TaskPanel taskConfig={config} sample={sample} onSubmit={onSubmit} />);
 
     await user.tab();
+    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
+    await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     await user.keyboard("2");
     await user.click(screen.getByRole("button", { name: /save & next/i }));
@@ -148,6 +150,8 @@ describe("TaskPanel multi-label", () => {
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
     );
 
+    await user.tab();
+    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     await user.keyboard("2");
@@ -177,6 +181,8 @@ describe("TaskPanel multi-label", () => {
     render(<TaskPanel taskConfig={config} sample={sample} onSubmit={onSubmit} />);
 
     await user.tab();
+    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
+    await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     await user.keyboard("1");
     await user.tab();
@@ -197,6 +203,8 @@ describe("TaskPanel multi-label", () => {
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
     );
 
+    await user.tab();
+    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     await user.tab();
@@ -267,7 +275,11 @@ describe("TaskPanel multi-label", () => {
     );
 
     await user.tab();
+    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
     await user.tab();
+    expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("group", { name: "sentiment" })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("button", { name: /save & next/i })).toHaveFocus();
     await user.keyboard("2");
@@ -287,6 +299,8 @@ describe("TaskPanel multi-label", () => {
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
     );
 
+    await user.tab();
+    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
 
