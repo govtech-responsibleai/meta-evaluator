@@ -121,7 +121,7 @@ describe("TaskPanel multi-label", () => {
     });
   });
 
-  it("toggles the focused multi-label card with number-key shortcuts", async () => {
+  it("focuses the first multi-label task and enables shortcuts immediately", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     const config: TaskConfig = {
@@ -131,9 +131,6 @@ describe("TaskPanel multi-label", () => {
     };
     render(<TaskPanel taskConfig={config} sample={sample} onSubmit={onSubmit} />);
 
-    await user.tab();
-    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
-    await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     await user.keyboard("2");
     await user.click(screen.getByRole("button", { name: /save & next/i }));
@@ -150,9 +147,6 @@ describe("TaskPanel multi-label", () => {
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
     );
 
-    await user.tab();
-    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
-    await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     await user.keyboard("2");
     await user.tab();
@@ -180,9 +174,6 @@ describe("TaskPanel multi-label", () => {
 
     render(<TaskPanel taskConfig={config} sample={sample} onSubmit={onSubmit} />);
 
-    await user.tab();
-    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
-    await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     await user.keyboard("1");
     await user.tab();
@@ -203,9 +194,6 @@ describe("TaskPanel multi-label", () => {
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
     );
 
-    await user.tab();
-    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
-    await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("group", { name: "sentiment" })).toHaveFocus();
@@ -274,9 +262,6 @@ describe("TaskPanel multi-label", () => {
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
     );
 
-    await user.tab();
-    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
-    await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("group", { name: "sentiment" })).toHaveFocus();
@@ -292,17 +277,16 @@ describe("TaskPanel multi-label", () => {
     });
   });
 
-  it("clears active keyboard state when the sample changes", async () => {
+  it("returns focus and shortcut routing to the first task when the sample changes", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     const { rerender } = render(
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
     );
 
-    await user.tab();
-    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
-    await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("group", { name: "sentiment" })).toHaveFocus();
 
     rerender(
       <TaskPanel
@@ -312,17 +296,18 @@ describe("TaskPanel multi-label", () => {
       />,
     );
 
+    expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     await user.keyboard("1");
     await user.click(screen.getByRole("radio", { name: "positive" }));
     await user.click(screen.getByRole("button", { name: /save & next/i }));
 
     expect(onSubmit).toHaveBeenCalledWith({
-      harm: ["FALSE", "FALSE", "FALSE"],
+      harm: ["hateful", "FALSE", "FALSE"],
       sentiment: "positive",
     });
   });
 
-  it("reseeds state and clears active keyboard routing when the task config changes", async () => {
+  it("reseeds state and refocuses the first task when the task config changes", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     const initialConfig: TaskConfig = {
@@ -343,9 +328,6 @@ describe("TaskPanel multi-label", () => {
       />,
     );
 
-    await user.tab();
-    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
-    await user.tab();
     expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     await user.keyboard("2");
 
@@ -353,12 +335,13 @@ describe("TaskPanel multi-label", () => {
       <TaskPanel taskConfig={nextConfig} sample={sample} onSubmit={onSubmit} />,
     );
 
+    expect(screen.getByRole("group", { name: "harm" })).toHaveFocus();
     expect(screen.getByRole("checkbox", { name: "privacy" })).not.toBeChecked();
     await user.keyboard("1");
     await user.click(screen.getByRole("button", { name: /save & next/i }));
 
     expect(onSubmit).toHaveBeenCalledWith({
-      harm: ["FALSE"],
+      harm: ["privacy"],
     });
   });
 });

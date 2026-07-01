@@ -17,7 +17,7 @@ import type {
 } from "@/lib/api";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { FocusEvent } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface Props {
   taskConfig: TaskConfig;
@@ -75,6 +75,10 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
   const [attempted, setAttempted] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
   const [activeTaskName, setActiveTaskName] = useState<string | null>(null);
+  const firstTaskFocusTarget = useRef<HTMLElement | null>(null);
+  const setFirstTaskFocusTarget = useCallback((node: HTMLElement | null) => {
+    firstTaskFocusTarget.current = node;
+  }, []);
 
   const taskEntries = useMemo(
     () => Object.entries(taskConfig.task_schemas),
@@ -96,6 +100,12 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
     setOutcomes(seeded);
     setAttempted(false);
     setActiveTaskName(null);
+  }, [sample.index, sample.previous_annotation, taskEntries]);
+
+  useEffect(() => {
+    const target = firstTaskFocusTarget.current;
+    if (target === document.activeElement) target.blur();
+    target?.focus();
   }, [sample.index, sample.previous_annotation, taskEntries]);
 
   // A task is "answered" if: single-select has a value, free-form has text, or
@@ -251,6 +261,11 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
         return (
           <div
             key={taskName}
+            ref={
+              taskIdx === 0 && isSelectable
+                ? setFirstTaskFocusTarget
+                : undefined
+            }
             role={isSelectable ? "group" : undefined}
             aria-labelledby={isSelectable ? labelId : undefined}
             aria-describedby={isSelectable ? instructionsId : undefined}
