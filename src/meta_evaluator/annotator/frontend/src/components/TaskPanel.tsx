@@ -104,7 +104,7 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
 
   useEffect(() => {
     const target = firstTaskFocusTarget.current;
-    if (target === document.activeElement) target.blur();
+    if (target && target === document.activeElement) target.blur();
     target?.focus();
   }, [sample.index, sample.previous_annotation, taskEntries]);
 
