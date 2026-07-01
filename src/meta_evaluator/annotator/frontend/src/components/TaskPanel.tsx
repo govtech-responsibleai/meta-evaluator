@@ -270,8 +270,8 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
             aria-labelledby={isSelectable ? labelId : undefined}
             aria-describedby={isSelectable ? instructionsId : undefined}
             tabIndex={isSelectable ? 0 : undefined}
-            onFocus={isSelectable ? () => setActiveTaskName(taskName) : undefined}
-            onBlur={isSelectable ? (e) => handleTaskBlur(taskName, e) : undefined}
+            onFocus={() => setActiveTaskName(taskName)}
+            onBlur={(e) => handleTaskBlur(taskName, e)}
             className={`rounded-lg bg-card border px-4 py-3.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${isActive ? "border-primary/40 shadow-sm" : "border-border/50"}`}
           >
             <div className="flex items-center gap-2 mb-2.5">
@@ -392,6 +392,7 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
               </>
             ) : (
               <Textarea
+                ref={taskIdx === 0 ? setFirstTaskFocusTarget : undefined}
                 value={
                   typeof outcomes[taskName] === "string"
                     ? (outcomes[taskName] as string)

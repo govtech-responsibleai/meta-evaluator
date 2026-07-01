@@ -99,21 +99,42 @@ describe("TaskPanel", () => {
     expect(radio).toBeChecked();
   });
 
-  it("uses the single-select task card as one tab stop", async () => {
+  it("focuses the first selectable task and tabs to the free-form task", async () => {
     const user = userEvent.setup();
     render(
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={vi.fn()} />,
     );
 
-    await user.tab();
-    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
-
-    await user.tab();
     expect(screen.getByRole("group", { name: "sentiment" })).toHaveFocus();
     expect(screen.getByRole("radio", { name: "positive" })).toHaveAttribute(
       "tabindex",
       "-1",
     );
+
+    await user.tab();
+    expect(
+      screen.getByPlaceholderText("Enter your response..."),
+    ).toHaveFocus();
+  });
+
+  it("focuses the textarea when the first task is free-form", () => {
+    render(
+      <TaskPanel
+        taskConfig={{
+          ...taskConfig,
+          task_schemas: {
+            comments: null,
+            sentiment: ["positive", "negative", "neutral"],
+          },
+        }}
+        sample={sample}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByPlaceholderText("Enter your response..."),
+    ).toHaveFocus();
   });
 
   it("keeps numeric input in the free-form textarea as text", async () => {
@@ -122,12 +143,6 @@ describe("TaskPanel", () => {
     render(
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
     );
-
-    await user.tab();
-    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
-
-    await user.tab();
-    expect(screen.getByRole("group", { name: "sentiment" })).toHaveFocus();
 
     await user.tab();
 
