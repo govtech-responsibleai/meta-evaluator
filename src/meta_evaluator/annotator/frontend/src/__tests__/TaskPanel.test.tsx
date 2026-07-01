@@ -98,4 +98,52 @@ describe("TaskPanel", () => {
     const radio = screen.getByRole("radio", { name: "negative" });
     expect(radio).toBeChecked();
   });
+
+  it("uses the single-select task card as one tab stop", async () => {
+    const user = userEvent.setup();
+    render(
+      <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={vi.fn()} />,
+    );
+
+    await user.tab();
+    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByRole("group", { name: "sentiment" })).toHaveFocus();
+    expect(screen.getByRole("radio", { name: "positive" })).toHaveAttribute(
+      "tabindex",
+      "-1",
+    );
+  });
+
+  it("keeps numeric input in the free-form textarea as text", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
+    );
+
+    await user.tab();
+    expect(screen.getByRole("button", { name: /instructions/i })).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByRole("group", { name: "sentiment" })).toHaveFocus();
+
+    await user.tab();
+
+    const commentsTextarea = screen.getByPlaceholderText(
+      "Enter your response...",
+    );
+    expect(commentsTextarea).toHaveFocus();
+
+    await user.keyboard("123");
+    await user.click(screen.getByRole("radio", { name: "positive" }));
+    await user.click(screen.getByRole("button", { name: /save & next/i }));
+
+    expect(commentsTextarea).toHaveValue("123");
+    expect(onSubmit).toHaveBeenCalledWith({
+      sentiment: "positive",
+      comments: "123",
+    });
+  });
 });
