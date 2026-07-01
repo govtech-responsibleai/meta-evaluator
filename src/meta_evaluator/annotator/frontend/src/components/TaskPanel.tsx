@@ -242,7 +242,7 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
           )}
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <p className="mt-2 max-h-40 overflow-y-auto border-t border-[var(--annotation-rail-border)] pt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap md:max-h-56">
+          <p className="mt-2 max-h-40 overflow-y-auto scroll-slim border-t border-[var(--annotation-rail-border)] pt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap md:max-h-56">
             {taskConfig.annotation_prompt}
           </p>
         </CollapsibleContent>
@@ -432,7 +432,7 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
         );
       })}
 
-      <div className="sticky bottom-0 bg-[var(--annotation-rail)] pt-4 pb-2 -mx-5 px-5 border-t border-[var(--annotation-rail-border)]">
+      <div className="pt-1">
         <Button onClick={handleSubmit} className="w-full h-10 text-sm font-semibold">
           Save & Next
         </Button>

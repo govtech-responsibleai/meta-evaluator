@@ -82,6 +82,9 @@
     --sidebar-ring: oklch(0.4 0.065 255);
     --annotation-rail: oklch(0.93 0.005 75);
     --annotation-rail-border: oklch(0.87 0.007 75);
+    /* Slim scrollbar: tinted toward the brand hue, quiet at rest. */
+    --scrollbar-thumb: oklch(0.5 0.02 255 / 0.26);
+    --scrollbar-thumb-hover: oklch(0.42 0.035 255 / 0.5);
 }
 
 .dark {
@@ -118,6 +121,8 @@
     --sidebar-ring: oklch(0.7 0.09 255);
     --annotation-rail: oklch(0.18 0.016 255);
     --annotation-rail-border: oklch(0.36 0.015 255 / 82%);
+    --scrollbar-thumb: oklch(0.75 0.02 255 / 0.22);
+    --scrollbar-thumb-hover: oklch(0.82 0.03 255 / 0.42);
 }
 
 @layer base {
@@ -130,4 +135,35 @@
   html {
     @apply font-sans;
     }
+}
+
+@layer components {
+  /* Slim, brand-tinted scrollbar for internal scroll regions. Transparent
+     track (no heavy gray channel), rounded thumb that surfaces on hover. */
+  .scroll-slim {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+  .scroll-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scroll-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .scroll-slim:hover::-webkit-scrollbar-thumb,
+  .scroll-slim::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    background-clip: padding-box;
+  }
+  .scroll-slim::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
