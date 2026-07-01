@@ -76,11 +76,14 @@ evaluator.add_data(data)
 Define what and how to evaluate using EvalTask:
 
 ```python
-from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.eval_task import EvalTask, MultiLabelSchema
 
 task = EvalTask(
     task_schemas={
-        "rejection": ["rejection", "not rejection"],  # Classification (required by default)
+        "rejection": ["rejection", "not rejection"],  # Single-select classification (required by default)
+        "harm_types": MultiLabelSchema(                # Multi-label: pick several at once
+            outcomes=["hateful", "insults", "sexual"]
+        ),
         "explanation": None,  # Free-form text (not required by default)
     },
     # required_tasks not specified - only classification tasks required by default
@@ -91,6 +94,8 @@ task = EvalTask(
 )
 evaluator.add_eval_task(task)
 ```
+
+A task schema can be a single-select list (`["rejection", "not rejection"]`), a free-form field (`None`), or a **multi-label** field via `MultiLabelSchema` when more than one label can apply at once. See the [task-definition guide](docs/guides/evaltask.md#multi-label-tasks-pick-several) for details.
 
 ### 4. Collect Human Annotations
 Collect human ground truth using the built-in Streamlit interface:
@@ -246,8 +251,8 @@ For detailed data format requirements and examples, see the [Results Guide](docs
 MetaEvaluator supports comprehensive alignment metrics for evaluating judge performance:
 
 ### Classification Metrics
-- **Accuracy/F1/Recall/Precision**: Classification metrics between judge and human labels
-- **Cohen's Kappa**: Inter-rater agreement accounting for chance agreement  
+- **Accuracy/F1/Recall/Precision**: Classification metrics between judge and human labels. For multi-label tasks, use `average="macro"` (or `"samples"`).
+- **Cohen's Kappa**: Inter-rater agreement accounting for chance agreement. *Not supported for multi-label tasks* — use `ClassificationScorer` or `AltTestScorer` instead.
 - **Alt-Test**: Statistical significance testing with leave-one-annotator-out methodology
 
 ### Text Similarity Metrics  

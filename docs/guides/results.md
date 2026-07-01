@@ -100,6 +100,25 @@ task = EvalTask(
 # - "explanation" (with free-form text values)
 ```
 
+### Multi-label Task Columns
+
+A [multi-label task](evaltask.md#multi-label-tasks-pick-several) (declared with `MultiLabelSchema`) stores its outcome as a **fixed-length ordered vector** (`list[str]`) in a single column — one slot per declared outcome, holding either that outcome's name (selected) or the sentinel `"FALSE"` (not selected). Slot order matches the schema's `outcomes` order and is preserved on load.
+
+```python linenums="1"
+task_schemas={
+    "harm_types": MultiLabelSchema(outcomes=["hateful", "insults", "sexual", "violent"]),
+}
+# A row that is hateful and sexual (but not insulting or violent) is stored as:
+# ["hateful", "FALSE", "sexual", "FALSE"]
+```
+
+**Serialization by format:**
+
+- **Parquet** and **JSON** store the list natively — no encoding needed.
+- **CSV** cannot hold a native list column, so each multi-label cell is **JSON-encoded** on write (e.g. `"[""hateful"", ""FALSE"", ""sexual"", ""FALSE""]"`) and **JSON-decoded on load**. The load path identifies which columns to decode from the persisted results `task_schemas` (the `MultiLabelSchema` marks them), so standalone results loading works without the original `EvalTask` object.
+
+When authoring an **external** multi-label CSV by hand, JSON-encode each multi-label cell the same way so it decodes back to the ordered vector.
+
 ### Complete Example
 
 See `examples/rejection/run_scoring_only_async.py` in the [GitHub Repository](https://github.com/govtech-responsibleai/meta-evaluator/blob/main/examples/rejection/run_scoring_only_async.py) for a complete example that:
