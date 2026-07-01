@@ -76,6 +76,9 @@ evaluator.add_data(data)
 evaluator.launch_annotator(port=8000)
 ```
 
+!!! tip "Need to pick several labels at once?"
+    Besides single-select (`list[str]`) and free-form (`None`) tasks, MetaEvaluator supports a native **multi-label** task type for fields where more than one label can apply at once (e.g. a response that is both `hateful` and `sexual`). Declare it with `MultiLabelSchema` and it carries through annotation, judging, storage, and scoring as one field. See the [task-definition guide](guides/evaltask.md#multi-label-tasks-pick-several).
+
 
 ### Step 3: Create Judge Configuration
 

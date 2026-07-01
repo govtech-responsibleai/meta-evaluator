@@ -91,6 +91,16 @@ task = EvalTask(
 - Uses annotator name and session time to differentiate annotations
 - Auto-saves when required fields are filled; resumes from last incomplete sample on reload
 
+### Field types in the interface
+
+Each task schema renders as a different widget:
+
+- **Single-select** (a `list[str]` schema like `["excellent", "good", "fair", "poor"]`) renders as a **radio group** — exactly one choice.
+- **Free-form** (a `None` schema) renders as a **text box**.
+- **Multi-label** (a [`MultiLabelSchema`](../guides/evaltask.md#multi-label-tasks-pick-several) schema) renders as a **checkbox group** — one checkbox per declared outcome, so the annotator can select several at once.
+
+For a multi-label task, the number-key shortcut **toggles** the corresponding slot on or off (it does not replace the selection, unlike single-select). Selecting nothing is recorded as an all-`"FALSE"` vector — "nothing applies" is a fully defined answer, never an empty or missing value. See the [task-definition guide](../guides/evaltask.md#multi-label-tasks-pick-several) for the schema details.
+
 **The annotation platform (Web):**
 <figure markdown="span">
   ![Simple Annotation Interface](../assets/simple_annotation_interface.png)

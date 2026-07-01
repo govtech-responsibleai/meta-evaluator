@@ -19,7 +19,7 @@ Configure and use alignment metrics to compare judge evaluations with human anno
             MetricConfig(
                 scorer=ClassificationScorer(metric="accuracy"),
                 task_names=["rejection"],
-                task_strategy="single", # One of 'single', 'multilabel', or 'multitask'
+                task_strategy="single", # 'single' or 'multitask' (aggregation across task_names)
                 annotator_aggregation="individual_average",  # Default
                 display_name="rejection_accuracy",  # Optional: custom column name
             ),
@@ -44,38 +44,28 @@ Configure and use alignment metrics to compare judge evaluations with human anno
     cohens_kappa_scorer = CohensKappaScorer()
     text_similarity_scorer = TextSimilarityScorer()
     
+    # Assumes a native multi-label task "harm_types" declared with MultiLabelSchema
     config = MetricsConfig(
         metrics=[
+            # Native multi-label task: one column, scored with task_strategy="single"
             MetricConfig(
-                scorer=alt_test_scorer,
-                task_names=[
-                    "hateful",
-                    "insults",
-                    "sexual",
-                    "physical_violence",
-                    "self_harm",
-                    "all_other_misconduct",
-                ],
-                task_strategy="multilabel",
-                annotator_aggregation="individual_average",
-            ),
-            MetricConfig(
-                scorer=cohens_kappa_scorer,
-                task_names=["hateful"],
+                scorer=ClassificationScorer(metric="f1", average="macro"),
+                task_names=["harm_types"],
                 task_strategy="single",
                 annotator_aggregation="individual_average",
             ),
+            # AltTest scores the native name vector unchanged
+            MetricConfig(
+                scorer=alt_test_scorer,
+                task_names=["harm_types"],
+                task_strategy="single",
+                annotator_aggregation="individual_average",
+            ),
+            # A separate single-select task
             MetricConfig(
                 scorer=cohens_kappa_scorer,
-                task_names=[
-                    "hateful",
-                    "insults",
-                    "sexual",
-                    "physical_violence",
-                    "self_harm",
-                    "all_other_misconduct",
-                ],
-                task_strategy="multitask",
+                task_names=["rejection"],
+                task_strategy="single",
                 annotator_aggregation="individual_average",
             ),
             MetricConfig(
@@ -224,7 +214,7 @@ Configure and use alignment metrics to compare judge evaluations with human anno
     {
       "judge_id": "anthropic_claude_3_5_haiku_judge",
       "scorer_name": "alt_test",
-      "task_strategy": "multilabel", 
+      "task_strategy": "single", 
       "task_name": "rejection",
       "scores": {
         "winning_rate": {
@@ -352,11 +342,19 @@ Configure and use alignment metrics to compare judge evaluations with human anno
 ## Arguments
 ### Task Configuration Types (`task_strategy`)
 
-The `task_strategy` parameter defines how tasks are processed and must be one of: `"single"`, `"multitask"`, or `"multilabel"`.
+`task_strategy` controls **how a scorer's results are aggregated across the `task_names` in one `MetricConfig`** — it is about aggregation, *not* about the shape of any individual task's value:
+
+- **`"single"`**: score **one** task on its own.
+- **`"multitask"`**: score **several** tasks with the same scorer, then average their scores into one result.
+
+This is independent of whether a task's value is single-select, free-form, or multi-label. In particular, a native [multi-label task](evaltask.md#multi-label-tasks-pick-several) is a single column and is scored with `task_strategy="single"` — its "pick several" nature lives in the `EvalTask` schema, not in `task_strategy`. See [Scoring multi-label tasks](#scoring-multi-label-tasks) below.
 
 !!! important "Task Count Requirements"
     - **`"single"`**: Use only when `task_names` contains **exactly 1 task**
-    - **`"multitask"`** and **`"multilabel"`**: Use only when `task_names` contains **2 or more tasks**
+    - **`"multitask"`**: Use only when `task_names` contains **2 or more tasks**
+
+!!! warning "`task_strategy="multilabel"` is deprecated"
+    A third value, `task_strategy="multilabel"`, still exists: it melts **multiple single-select task columns** into one aligned vector at scoring time. It is **deprecated** — declare a native [`MultiLabelSchema`](evaltask.md#multi-label-tasks-pick-several) task instead (scored with `task_strategy="single"`). It still functions in the current version, but will be removed in a future release. See [The legacy `multilabel` strategy](#the-legacy-multilabel-strategy-deprecated).
 
 === "Single Label (Single Task)"
     
@@ -405,60 +403,71 @@ The `task_strategy` parameter defines how tasks are processed and must be one of
         - **Result**: Aggregated score across all tasks
         - For different scorers on different tasks, create separate `MetricConfig` entries
 
-=== "Multi-Label (Combined Classification)"
-    
-    Treat multiple classification tasks as a single multi-label problem:
-
-    ```python linenums="1" hl_lines="8 9"
-    # Multi-label classification (AltTestScorer only)
-    alt_test_scorer = AltTestScorer()
-
-    config = MetricsConfig(
-        metrics=[
-            MetricConfig(
-                scorer=alt_test_scorer,
-                task_names=["hateful", "violent", "sexual"],  # Combined as multi-label
-                task_strategy="multilabel",  # Required: "multilabel" for combined tasks
-                annotator_aggregation="individual_average",
-            ),
-        ]
-    )
-    ```
-
-
-    !!! note "Multi-label Behavior"
-        - **Required**: 2 or more tasks in `task_names` list
-        - Each instance can have multiple labels: `["hateful", "violent"]`, and these will be passed as 1 input into the Scorer.
-        - Calculation of metric depends on the Scorer. For instance AltTestScorer uses Jaccard similarity for comparison, and ClassificationScorer with metric="accuracy" uses exact match.
-
-
 **Example with different scorers per task:**
-```python linenums="1" hl_lines="7 13 19"
+```python linenums="1" hl_lines="7 13"
 config = MetricsConfig(
     metrics=[
-        # Accuracy for single classification tasks
+        # Accuracy for a single classification task
         MetricConfig(
             scorer=ClassificationScorer(metric="accuracy"),
             task_names=["helpful"],
             task_strategy="single",
             annotator_aggregation="majority_vote",
         ),
-        # Accuracy for multitask classification tasks
+        # Same scorer applied across several tasks, then averaged
         MetricConfig(
             scorer=ClassificationScorer(metric="accuracy"),
             task_names=["helpful", "harmless", "honest"],
             task_strategy="multitask",
             annotator_aggregation="individual_average",
         ),
-        # Text similarity for text tasks, all tasks combined into one multilabel
+    ]
+)
+```
+
+### Scoring multi-label tasks
+
+A native [multi-label task](evaltask.md#multi-label-tasks-pick-several) (declared with `MultiLabelSchema`) is **one column**, so it is scored with `task_strategy="single"`. The recommended scorer is `ClassificationScorer`:
+
+```python linenums="1" hl_lines="7 8"
+from meta_evaluator.scores.metrics import ClassificationScorer
+
+config = MetricsConfig(
+    metrics=[
         MetricConfig(
-            scorer=TextSimilarityScorer(),
-            task_names=["explanation", "reasoning"],
-            task_strategy="multilabel",
-            annotator_aggregation="majority_vote",
+            scorer=ClassificationScorer(metric="f1", average="macro"),  # or average="samples"
+            task_names=["harm_types"],   # ONE native multi-label task
+            task_strategy="single",
+            annotator_aggregation="individual_average",
         ),
     ]
 )
+```
+
+- The name-vector is **binarized positionally** (slot `i` → `1` if it holds outcome `i`'s name, `0` if `"FALSE"`) into a per-slot indicator vector, then scored.
+- For F1/precision/recall, `ClassificationScorer.average` **must** be `"macro"` (per-label, recommended) or `"samples"` (per-item overlap). The global default `"binary"` is rejected with a clear error. Accuracy ignores `average`. A mixed single-class + multi-label `multitask` config must use `"macro"`.
+- **`AltTestScorer`** scores the native **name** vector unchanged (it is *not* binarized; its Jaccard similarity auto-routes on list-valued labels).
+- **`CohensKappaScorer` does not support multi-label tasks** and raises a clear error — κ has no valid averaging axis over a sparse multi-label vector. Use `ClassificationScorer` or `AltTestScorer` instead.
+
+### The legacy `multilabel` strategy (deprecated)
+
+!!! warning "Deprecated"
+    `task_strategy="multilabel"` melts **N separate single-select task columns** into one aligned vector at scoring time. It predates the native multi-label task type and is **deprecated**. Prefer declaring a single [`MultiLabelSchema`](evaltask.md#multi-label-tasks-pick-several) task and scoring it with `task_strategy="single"` (above). The legacy strategy still functions in the current version but will be removed in a future release.
+
+Migration — replace N single-select tasks combined by the melt:
+
+```python
+# Before (deprecated): six single-select tasks melted at scoring time
+# task_schemas: {"hateful": ["FALSE","hateful"], "insults": ["FALSE","insults"], ...}
+MetricConfig(scorer=alt_test_scorer,
+             task_names=["hateful", "insults", "sexual"],
+             task_strategy="multilabel")
+
+# After: one native multi-label task, scored as a single column
+# task_schemas: {"harm_types": MultiLabelSchema(outcomes=["hateful","insults","sexual"])}
+MetricConfig(scorer=alt_test_scorer,
+             task_names=["harm_types"],
+             task_strategy="single")
 ```
 
 ### Annotator Aggregation (`annotator_aggregation`)
@@ -530,7 +539,7 @@ config = MetricsConfig(
 
 | Metric | individual_average | majority_vote |
 |--------|-------------------|---------------|
-| **ClassificationScorer** | :material-check: | :material-check: Per-position majority for multilabel, alphabetical tie-breaking |
+| **ClassificationScorer** | :material-check: | :material-check: Per-position majority for multi-label vectors, alphabetical tie-breaking |
 | **TextSimilarityScorer** | :material-check: | :material-check: Best-match approach: highest similarity human per sample |
 | **SemanticSimilarityScorer** | :material-check: | :material-check: Best-match approach: highest similarity human per sample |
 | **CohensKappaScorer** | :material-check: | :material-close: Logs warning, falls back to individual_average (agreement metric) |

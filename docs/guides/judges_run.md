@@ -2,6 +2,9 @@
 
 Execute your configured LLM judges to evaluate your dataset.
 
+!!! note "Multi-label tasks"
+    For a [multi-label task](evaltask.md#multi-label-tasks-pick-several), the judge emits the **full ordered vector** (every slot explicit). Multi-label is supported only by the `structured` and `instructor` answering methods — a direct `answering_method="xml"` raises an error, and `xml` is excluded from the `structured_outputs_fallback` sequence (its scalar-only path cannot carry the ordered vector).
+
 ## Quick Setup
 
 === "Async (Recommended)"
@@ -161,7 +164,19 @@ The aggregation strategy depends on the task type:
     The answer was concise and accurate...
     ```
 
-Both task types are supported simultaneously — a judge with a mixed schema (some classification, some free-form tasks) will apply the appropriate strategy per task.
+=== "Multi-label tasks"
+
+    A [multi-label task](evaltask.md#multi-label-tasks-pick-several) is aggregated **independently per slot**. Each slot uses the same majority-vote rule as classification (most votes wins, ties broken by first occurrence), so the aggregated result is still a full ordered vector.
+
+    ```
+             slot:  hateful   insults   sexual
+    Run 1:          hateful   FALSE     sexual
+    Run 2:          hateful   insults   FALSE
+    Run 3:          hateful   FALSE     FALSE
+    majority:       hateful   FALSE     FALSE
+    ```
+
+All task types are supported simultaneously — a judge with a mixed schema (classification, free-form, and multi-label tasks) applies the appropriate strategy per task.
 
 !!! note
     With `consistency > 1`, token counts and call durations in the results are **summed** across all runs.
