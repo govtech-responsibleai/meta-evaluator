@@ -2,6 +2,7 @@
 
 import json
 import logging
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Literal, cast
 
@@ -13,6 +14,7 @@ from ..common.error_constants import (
     INVALID_JSON_STRUCTURE_MSG,
     STATE_FILE_NOT_FOUND_MSG,
 )
+from ..eval_task import MultiLabelSchema
 from .base import (
     BaseEvaluationResults,
     BaseEvaluationResultsBuilder,
@@ -193,7 +195,7 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
         self,
         run_id: str,
         annotator_id: str,
-        task_schemas: dict[str, list[str] | None],
+        task_schemas: Mapping[str, list[str] | MultiLabelSchema | None],
         expected_ids: list[str | int],
         required_tasks: list[str] | None = None,
         is_sampled_run: bool = False,
@@ -221,7 +223,7 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
         self,
         sample_example_id: str,
         original_id: str | int,
-        outcomes: dict[str, str],
+        outcomes: dict[str, str | list[str]],
         annotation_timestamp: datetime | None = None,
         **kwargs,
     ) -> HumanAnnotationResultRow:
@@ -256,7 +258,7 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
         # row that omits an optional (non-required) task leaves that column out
         # entirely, and results validation later rejects the run for a "missing
         # required column". Mirrors create_error_row's null padding.
-        padded_outcomes: dict[str, str | None] = {
+        padded_outcomes: dict[str, str | list[str] | None] = {
             task_name: None for task_name in self.task_schemas
         }
         padded_outcomes.update(outcomes)
@@ -342,7 +344,7 @@ class HumanAnnotationResultsBuilder(BaseEvaluationResultsBuilder):
         return HumanAnnotationResults(
             run_id=self.run_id,
             annotator_id=self.evaluator_id,
-            task_schemas=self.task_schemas,
+            task_schemas=dict(self.task_schemas),
             timestamp_local=datetime.now(),
             total_count=self.total_count,
             succeeded_count=status_count_map.get(

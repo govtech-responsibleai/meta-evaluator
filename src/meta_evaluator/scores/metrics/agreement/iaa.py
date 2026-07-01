@@ -8,6 +8,7 @@ from sklearn.metrics import cohen_kappa_score
 
 from meta_evaluator.scores.base_scorer import BaseScorer
 from meta_evaluator.scores.base_scoring_result import BaseScoringResult
+from meta_evaluator.scores.exceptions import MultiLabelScoringError
 from meta_evaluator.scores.utils import generate_simple_bar_plot
 
 
@@ -70,11 +71,29 @@ class CohensKappaScorer(BaseScorer):
 
         Returns:
             BaseScoringResult: The scoring result for this judge
+
+        Raises:
+            MultiLabelScoringError: If the task is multi-label (list-valued
+                labels), which Cohen's kappa does not support.
         """
         # Check annotator aggregation strategy and warn if majority_vote is used
         if annotator_aggregation == "majority_vote":
             self.logger.warning(
                 "CohensKappaScorer does not support majority_vote aggregation. Using individual_average instead."
+            )
+
+        # Cohen's kappa has no valid averaging axis over a multi-label (vector)
+        # task: flattening mixes incompatible per-label marginals, per-label
+        # collapses to 0/NaN on absent labels, and per-item is undefined for kappa.
+        # Reject list-valued labels loudly rather than failing deep in sklearn.
+        non_null_labels = judge_data.filter(pl.col("label").is_not_null())["label"]
+        if len(non_null_labels) > 0 and isinstance(
+            non_null_labels[0], (list, pl.Series)
+        ):
+            raise MultiLabelScoringError(
+                f"CohensKappaScorer does not support multi-label (vector) task "
+                f"'{task_name}'. Use ClassificationScorer (average='macro' or "
+                f"'samples') or AltTestScorer for multi-label tasks."
             )
 
         # Join judge and human data on original_id

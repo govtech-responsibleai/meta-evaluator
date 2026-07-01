@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, Field
 
+from meta_evaluator.eval_task import MultiLabelSchema
+
 
 class CreateSessionRequest(BaseModel):
     """Request to create a new annotation session."""
@@ -20,9 +22,14 @@ class CreateSessionResponse(BaseModel):
 
 
 class TaskConfigResponse(BaseModel):
-    """Response containing task configuration."""
+    """Response containing task configuration.
 
-    task_schemas: dict[str, list[str] | None]
+    A multi-label task serializes its schema as a ``MultiLabelSchema``, i.e. a
+    ``{"outcomes": [...]}`` object, so the frontend can distinguish it from a
+    bare single-select list and from ``null`` (free-form).
+    """
+
+    task_schemas: dict[str, list[str] | MultiLabelSchema | None]
     prompt_columns: list[str] | None
     response_columns: list[str]
     annotation_prompt: str
@@ -37,15 +44,20 @@ class SampleResponse(BaseModel):
     sample_id: str
     prompt_data: dict[str, str] | None
     response_data: dict[str, str]
-    previous_annotation: dict[str, str] | None = None
+    previous_annotation: dict[str, str | list[str]] | None = None
 
 
 class SubmitAnnotationRequest(BaseModel):
-    """Request to submit an annotation."""
+    """Request to submit an annotation.
+
+    A multi-label outcome is the full ordered vector (each slot holds the
+    outcome name if selected or ``"FALSE"`` if not); single-select and free-form
+    outcomes remain plain strings.
+    """
 
     run_id: str
     sample_index: int = Field(..., ge=0)
-    outcomes: dict[str, str]
+    outcomes: dict[str, str | list[str]]
 
 
 class SubmitAnnotationResponse(BaseModel):

@@ -1101,6 +1101,16 @@ class TestScoring:
             config, judge_result, human_results_dict
         )
 
+        # Cohen's kappa rejects list-valued (multilabel) labels loudly; the
+        # legacy MULTILABEL melt produces exactly such a vector, so this combo
+        # now surfaces as an error result rather than a silent NaN.
+        if (
+            scorer_class == CohensKappaScorer
+            and config.aggregation_mode == TaskAggregationMode.MULTILABEL
+        ):
+            assert result.task_name == "error"
+            return
+
         # Verify result structure
         assert result.scorer_name == scorer_name
         assert result.judge_id == judge_result.judge_id

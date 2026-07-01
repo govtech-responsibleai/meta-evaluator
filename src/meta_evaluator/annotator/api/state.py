@@ -16,8 +16,9 @@ from meta_evaluator.annotator.api.schemas import (
     SampleResponse,
     SubmitAnnotationResponse,
 )
+from meta_evaluator.annotator.exceptions import AnnotationValidationError
 from meta_evaluator.data import EvalData
-from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.eval_task import EvalTask, MultiLabelSchema
 from meta_evaluator.results import HumanAnnotationResultsBuilder
 
 logger = logging.getLogger(__name__)
@@ -304,14 +305,15 @@ class SessionStore:
         )
 
     def submit_annotation(
-        self, run_id: str, sample_index: int, outcomes: dict[str, str]
+        self, run_id: str, sample_index: int, outcomes: dict[str, str | list[str]]
     ) -> SubmitAnnotationResponse:
         """Submit annotation for a sample.
 
         Args:
             run_id: Session run ID.
             sample_index: Index of sample being annotated.
-            outcomes: Task outcomes dict.
+            outcomes: Task outcomes dict. A multi-label outcome is the full
+                ordered vector (list); single-select and free-form are strings.
 
         Returns:
             SubmitAnnotationResponse: Submission result.
@@ -319,12 +321,21 @@ class SessionStore:
         Raises:
             KeyError: If session not found.
             IndexError: If index out of bounds.
+            AnnotationValidationError: If a multi-label value violates its schema.
         """
         session = self._sessions.get(run_id)
         if session is None:
             raise KeyError(f"Session not found: {run_id}")
         if sample_index < 0 or sample_index >= len(session.sample_ids):
             raise IndexError(f"Sample index out of bounds: {sample_index}")
+
+        for task_name, value in outcomes.items():
+            schema = self._eval_task.task_schemas.get(task_name)
+            if isinstance(schema, MultiLabelSchema):
+                try:
+                    schema.validate_value(task_name, value)
+                except ValueError as error:
+                    raise AnnotationValidationError(task_name, error) from error
 
         sample_id = session.sample_ids[sample_index]
 

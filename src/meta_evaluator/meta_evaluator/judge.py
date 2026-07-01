@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 from ..common.async_utils import sync_wrapper
 from ..common.models import Prompt
 from ..data import EvalData, SampleEvalData
-from ..eval_task import EvalTask
+from ..eval_task import EvalTask, MultiLabelSchema
 from ..judge import Judge
 from ..results import JudgeResults, JudgeResultsBuilder
 from ..results.enums import EvaluationStatusEnum
@@ -385,21 +385,25 @@ class JudgesMixin:
 
     def _aggregate_outcomes(
         self, outcomes_list: list[dict[str, Any]]
-    ) -> dict[str, str]:
+    ) -> dict[str, Any]:
         """Aggregate outcomes from multiple consistency runs per task.
 
-        For classification tasks (non-None schemas), uses majority voting with
-        first-occurrence tie-breaking. For free-form tasks (None schemas),
-        concatenates all outputs with indexed run markers.
+        For single-select classification tasks (bare-list schemas), uses majority
+        voting with first-occurrence tie-breaking. For multi-label tasks
+        (MultiLabelSchema), votes independently per slot in canonical schema order
+        (each slot is itself a majority vote with first-occurrence tie-breaking).
+        For free-form tasks (None schemas), concatenates all outputs with indexed
+        run markers.
 
         Args:
-            outcomes_list: List of outcome dicts mapping task name to label/text.
+            outcomes_list: List of outcome dicts mapping task name to label/text/vector.
 
         Returns:
-            dict[str, str]: Aggregated outcome for each task.
+            dict[str, Any]: Aggregated outcome for each task. Multi-label values are
+                full ordered vectors; single-select are strings; free-form are strings.
         """
         assert self.eval_task is not None
-        result: dict[str, str] = {}
+        result: dict[str, Any] = {}
         for task_name, schema in self.eval_task.task_schemas.items():
             labels = [
                 o[task_name]
@@ -414,17 +418,38 @@ class JudgesMixin:
                     f"<RUN {i}>\n{label}" for i, label in enumerate(labels, start=1)
                 ]
                 result[task_name] = "\n===\n".join(parts)
+            elif isinstance(schema, MultiLabelSchema):
+                # Multi-label: vote independently per slot, in canonical schema
+                # order. Lists are unhashable, so the scalar dict-key vote cannot
+                # be applied to the whole vector; aggregate slot by slot instead.
+                result[task_name] = [
+                    self._majority_vote_slot([vector[i] for vector in labels])
+                    for i in range(len(schema.outcomes))
+                ]
             else:
-                # Classification task: majority vote with first-occurrence tie-breaking
-                counts: dict[str, int] = {}
-                for label in labels:
-                    counts[label] = counts.get(label, 0) + 1
-                max_count = max(counts.values())
-                for label in labels:
-                    if counts[label] == max_count:
-                        result[task_name] = label
-                        break
+                # Single-select classification: majority vote, first-occurrence tie-break
+                result[task_name] = self._majority_vote_slot(labels)
         return result
+
+    @staticmethod
+    def _majority_vote_slot(values: list[str]) -> str:
+        """Pick the most frequent value, breaking ties by first occurrence.
+
+        Args:
+            values: The values voted on (e.g. one slot across consistency runs).
+
+        Returns:
+            str: The winning value.
+        """
+        counts: dict[str, int] = {}
+        for value in values:
+            counts[value] = counts.get(value, 0) + 1
+        max_count = max(counts.values())
+        for value in values:
+            if counts[value] == max_count:
+                return value
+        # Unreachable: max_count always matches at least one value.
+        return values[0]
 
     def _aggregate_consistency_results(
         self,

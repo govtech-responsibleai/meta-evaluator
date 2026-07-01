@@ -2,6 +2,7 @@
 
 import json
 import logging
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Literal, cast
 
@@ -13,6 +14,7 @@ from ..common.error_constants import (
     INVALID_JSON_STRUCTURE_MSG,
     STATE_FILE_NOT_FOUND_MSG,
 )
+from ..eval_task import MultiLabelSchema
 from .base import (
     BaseEvaluationResults,
     BaseEvaluationResultsBuilder,
@@ -273,7 +275,7 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         judge_id: str,
         llm_client: str,
         model_used: str,
-        task_schemas: dict[str, list[str] | None],
+        task_schemas: Mapping[str, list[str] | MultiLabelSchema | None],
         expected_ids: list[str | int],
         required_tasks: list[str] | None = None,
         is_sampled_run: bool = False,
@@ -300,7 +302,7 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         self,
         sample_example_id: str,
         original_id: str | int,
-        outcomes: dict[str, str],
+        outcomes: dict[str, str | list[str]],
         llm_raw_response_content: str | None = None,
         llm_prompt_tokens: int | None = None,
         llm_completion_tokens: int | None = None,
@@ -360,7 +362,7 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         self,
         sample_example_id: str,
         original_id: str | int,
-        outcomes: dict[str, str],
+        outcomes: dict[str, str | list[str]],
         error_message: str,
         llm_raw_response_content: str,
         llm_prompt_tokens: int,
@@ -595,7 +597,7 @@ class JudgeResultsBuilder(BaseEvaluationResultsBuilder):
         return JudgeResults(
             run_id=self.run_id,
             judge_id=self.evaluator_id,
-            task_schemas=self.task_schemas,
+            task_schemas=dict(self.task_schemas),
             llm_client=self.llm_client,
             model_used=self.model_used,
             timestamp_local=datetime.now(),

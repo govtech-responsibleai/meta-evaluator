@@ -3,12 +3,15 @@
 import json
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Literal, Self, TypeVar
 
 import polars as pl
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from meta_evaluator.eval_task import MultiLabelSchema
 
 from .enums import BaseEvaluationStatusEnum
 from .exceptions import (
@@ -31,7 +34,7 @@ class BaseEvaluationResults(BaseModel, ABC):
     """Base class for final, completed evaluation results of an evaluation run."""
 
     run_id: str = Field(..., description="Unique identifier for this evaluation run")
-    task_schemas: dict[str, list[str] | None] = Field(
+    task_schemas: dict[str, list[str] | MultiLabelSchema | None] = Field(
         ..., description="Dictionary mapping task names to their allowed outcome values"
     )
     timestamp_local: datetime = Field(
@@ -310,6 +313,84 @@ class BaseEvaluationResults(BaseModel, ABC):
 
         return non_null_count / self.total_count
 
+    @staticmethod
+    def _multilabel_columns(
+        task_schemas: dict[str, list[str] | MultiLabelSchema | None],
+    ) -> list[str]:
+        """List task columns whose schema is a MultiLabelSchema.
+
+        Args:
+            task_schemas: The task schema mapping.
+
+        Returns:
+            list[str]: Names of multi-label (vector-valued) task columns.
+        """
+        return [
+            name
+            for name, schema in task_schemas.items()
+            if isinstance(schema, MultiLabelSchema)
+        ]
+
+    @staticmethod
+    def _encode_multilabel_for_csv(
+        df: pl.DataFrame, multilabel_columns: list[str]
+    ) -> pl.DataFrame:
+        """JSON-encode multi-label list columns so they fit CSV's scalar cells.
+
+        CSV cannot store a nested ``list[str]`` cell (polars ``write_csv`` raises
+        ``ComputeError``), and slot order is load-bearing, so each vector is
+        encoded as a JSON array string and decoded back on read.
+
+        Args:
+            df: The DataFrame to encode.
+            multilabel_columns: Columns holding multi-label vectors.
+
+        Returns:
+            pl.DataFrame: A copy with the named columns JSON-encoded as strings.
+        """
+        present = [c for c in multilabel_columns if c in df.columns]
+        if not present:
+            return df
+        return df.with_columns(
+            [
+                pl.col(c).map_elements(
+                    lambda v: None if v is None else json.dumps(list(v)),
+                    return_dtype=pl.String,
+                )
+                for c in present
+            ]
+        )
+
+    @staticmethod
+    def _decode_multilabel_from_csv(
+        df: pl.DataFrame, multilabel_columns: list[str]
+    ) -> pl.DataFrame:
+        """JSON-decode multi-label columns read back from CSV as strings.
+
+        ``pl.read_csv`` returns a plain ``String`` column with no marker that it
+        is a list, so the columns to decode are supplied by the caller from the
+        persisted task schemas.
+
+        Args:
+            df: The DataFrame loaded from CSV.
+            multilabel_columns: Columns to JSON-decode back into vectors.
+
+        Returns:
+            pl.DataFrame: A copy with the named columns decoded into list[str].
+        """
+        present = [c for c in multilabel_columns if c in df.columns]
+        if not present:
+            return df
+        return df.with_columns(
+            [
+                pl.col(c).map_elements(
+                    lambda v: None if v is None else json.loads(v),
+                    return_dtype=pl.List(pl.String),
+                )
+                for c in present
+            ]
+        )
+
     def write_data(
         self, filepath: str, data_format: Literal["json", "csv", "parquet"]
     ) -> None:
@@ -326,7 +407,13 @@ class BaseEvaluationResults(BaseModel, ABC):
             case "parquet":
                 self.results_data.write_parquet(filepath)
             case "csv":
-                self.results_data.write_csv(filepath)
+                # CSV cells are scalar; JSON-encode any multi-label vector columns
+                # first (slot order preserved) so write_csv does not raise on
+                # nested data. Decoded back from the persisted schema on load.
+                df = self._encode_multilabel_for_csv(
+                    self.results_data, self._multilabel_columns(self.task_schemas)
+                )
+                df.write_csv(filepath)
             case "json":
                 self.results_data.write_json(filepath)
             case _:
@@ -433,6 +520,14 @@ class BaseEvaluationResults(BaseModel, ABC):
         # Load the data from the referenced file using load_data()
         results_data = cls.load_data(str(data_filepath), data_format=data_format)
 
+        # CSV stores multi-label vectors as JSON-encoded strings (read_csv returns
+        # plain String columns with no list marker), so decode them back using the
+        # persisted schema. parquet/json preserve list columns natively.
+        if data_format == "csv":
+            results_data = cls._decode_multilabel_from_csv(
+                results_data, cls._multilabel_columns(serialized_state.task_schemas)
+            )
+
         # Deserialize using the state and data
         return cls.deserialize(results_data, serialized_state)
 
@@ -444,7 +539,7 @@ class BaseEvaluationResultsBuilder(ABC):
         self,
         run_id: str,
         evaluator_id: str,
-        task_schemas: dict[str, list[str] | None],
+        task_schemas: Mapping[str, list[str] | MultiLabelSchema | None],
         expected_ids: list[str | int],
         required_tasks: list[str] | None = None,
         is_sampled_run: bool = False,
@@ -534,7 +629,7 @@ class BaseEvaluationResultsBuilder(ABC):
         self,
         sample_example_id: str,
         original_id: str | int,
-        outcomes: dict[str, str],
+        outcomes: dict[str, str | list[str]],
         **kwargs,
     ) -> BaseResultRow:
         """Create a success row for this evaluation type.

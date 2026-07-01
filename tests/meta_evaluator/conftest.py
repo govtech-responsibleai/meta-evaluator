@@ -79,8 +79,6 @@ def meta_evaluator_with_judges_and_data(
         meta_evaluator: The MetaEvaluator instance from main conftest.
         sample_prompt: Sample prompt from main conftest.
         sample_eval_data: Sample evaluation data from main conftest.
-        mock_openai_client: Mock OpenAI client fixture.
-        mock_async_openai_client: Mock async OpenAI client fixture.
 
     Returns:
         MetaEvaluator: The modified MetaEvaluator instance with configured judges and data.

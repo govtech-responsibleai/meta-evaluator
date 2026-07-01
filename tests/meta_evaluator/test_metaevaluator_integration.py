@@ -94,7 +94,10 @@ class TestMetaEvaluatorIntegration:
         """
         return Prompt(
             id="test_integration_prompt",
-            prompt="Evaluate the accuracy and difficulty agreement of the given question-answer pair. "
+            prompt="Evaluate the accuracy and difficulty agreement of the given "
+            "question-answer pair.\n"
+            "Question: {question}\nAnswer: {answer}\n"
+            "Category: {category}\nDifficulty: {difficulty}\n"
             "For accuracy, determine if the answer is 'correct' or 'incorrect'. "
             "For difficulty_agreement, provide your assessment of the difficulty level.",
         )

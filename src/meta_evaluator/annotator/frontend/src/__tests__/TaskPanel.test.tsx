@@ -39,8 +39,36 @@ describe("TaskPanel", () => {
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={vi.fn()} />,
     );
     expect(
-      screen.getByPlaceholderText("Enter your response..."),
+      screen.getByRole("textbox", { name: "comments" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows truthful Tab-navigation hints on every task", () => {
+    render(
+      <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={vi.fn()} />,
+    );
+
+    const nextTaskHint = screen.getByText("to go to next task");
+    const continueHint = screen.getByText("to continue");
+    expect(nextTaskHint).toBeVisible();
+    expect(continueHint).toBeVisible();
+    [nextTaskHint, continueHint].forEach((hint) => {
+      expect(hint.closest("p")).toHaveClass("text-muted-foreground");
+      expect(hint.closest("p")).not.toHaveClass("text-muted-foreground/60");
+    });
+    const tabHints = screen.getAllByText("Tab");
+    expect(tabHints).toHaveLength(2);
+    tabHints.forEach((hint) => {
+      expect(hint).toBeVisible();
+      expect(hint).toHaveClass("text-muted-foreground");
+      expect(hint).not.toHaveClass("text-muted-foreground/70");
+    });
+    expect(
+      screen.getByRole("group", { name: "sentiment" }),
+    ).toHaveAccessibleDescription(/to go to next task/);
+    expect(
+      screen.getByRole("textbox", { name: "comments" }),
+    ).toHaveAccessibleDescription(/to continue/);
   });
 
   it("keeps long instructions collapsed by default", () => {
@@ -97,5 +125,64 @@ describe("TaskPanel", () => {
     );
     const radio = screen.getByRole("radio", { name: "negative" });
     expect(radio).toBeChecked();
+  });
+
+  it("focuses the first selectable task and tabs to the free-form task", async () => {
+    const user = userEvent.setup();
+    render(
+      <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={vi.fn()} />,
+    );
+
+    expect(screen.getByRole("group", { name: "sentiment" })).toHaveFocus();
+    expect(screen.getByRole("radio", { name: "positive" })).toHaveAttribute(
+      "tabindex",
+      "-1",
+    );
+
+    await user.tab();
+    expect(screen.getByRole("textbox", { name: "comments" })).toHaveFocus();
+  });
+
+  it("focuses the textarea when the first task is free-form", () => {
+    render(
+      <TaskPanel
+        taskConfig={{
+          ...taskConfig,
+          task_schemas: {
+            comments: null,
+            sentiment: ["positive", "negative", "neutral"],
+          },
+        }}
+        sample={sample}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("textbox", { name: "comments" })).toHaveFocus();
+  });
+
+  it("keeps numeric input in the free-form textarea as text", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={onSubmit} />,
+    );
+
+    await user.tab();
+
+    const commentsTextarea = screen.getByRole("textbox", {
+      name: "comments",
+    });
+    expect(commentsTextarea).toHaveFocus();
+
+    await user.keyboard("123");
+    await user.click(screen.getByRole("radio", { name: "positive" }));
+    await user.click(screen.getByRole("button", { name: /save & next/i }));
+
+    expect(commentsTextarea).toHaveValue("123");
+    expect(onSubmit).toHaveBeenCalledWith({
+      sentiment: "positive",
+      comments: "123",
+    });
   });
 });

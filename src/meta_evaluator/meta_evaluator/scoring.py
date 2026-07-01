@@ -4,7 +4,7 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import polars as pl
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 from ..common.async_utils import sync_wrapper
 from ..data import EvalData
-from ..eval_task import EvalTask
+from ..eval_task import EvalTask, MultiLabelSchema
 from ..results import HumanAnnotationResults, JudgeResults
 from ..results.enums import EvaluationStatusEnum, HumanAnnotationStatusEnum
 from ..results.serialization import (
@@ -23,11 +23,57 @@ from ..results.serialization import (
 )
 from ..scores import BaseScoringResult, MetricConfig, MetricsConfig
 from ..scores.enums import TaskAggregationMode
+from ..scores.exceptions import MultiLabelScoringError
+from ..scores.metrics import ClassificationScorer
 from .exceptions import (
     IncompatibleTaskError,
     InsufficientDataError,
     ScoringConfigError,
 )
+
+# sklearn's averaged classification metrics reject average="binary" on an
+# indicator matrix and would surface as a silent NaN deep in the scorer;
+# multi-label tasks must use one of these per-label / per-item averages instead.
+# Accuracy has no averaging parameter and is handled separately.
+_MULTILABEL_VALID_AVERAGES = ("samples", "macro")
+
+
+def binarize_multilabel_vector(vector: list[str], outcomes: list[str]) -> list[int]:
+    """Positionally binarize one multi-label name-vector into an indicator vector.
+
+    Slot ``i`` maps to 1 iff it equals outcome ``i``'s name, else 0. This is
+    positional (NOT ``!= "FALSE"``): an imported external result need not have
+    passed the judge validator, so a typo'd or foreign slot value must fail loud
+    rather than be silently counted as selected.
+
+    Args:
+        vector: The name-vector (one slot per outcome).
+        outcomes: Canonical ordered outcome names (the slot order).
+
+    Returns:
+        list[int]: A length-N indicator vector (collapse, not one-hot expansion).
+
+    Raises:
+        MultiLabelScoringError: If the vector length differs from the number of
+            outcomes, or a slot holds neither outcome ``i``'s name nor ``"FALSE"``.
+    """
+    if len(vector) != len(outcomes):
+        raise MultiLabelScoringError(
+            f"Multi-label vector length {len(vector)} does not match the number "
+            f"of outcomes {len(outcomes)}: {vector}."
+        )
+    indicator: list[int] = []
+    for i, slot in enumerate(vector):
+        if slot == outcomes[i]:
+            indicator.append(1)
+        elif slot == "FALSE":
+            indicator.append(0)
+        else:
+            raise MultiLabelScoringError(
+                f"Multi-label slot {i} holds foreign value '{slot}'; expected "
+                f"'{outcomes[i]}' or 'FALSE'. Cannot binarize."
+            )
+    return indicator
 
 
 class ScoringMixin:
@@ -316,6 +362,114 @@ class ScoringMixin:
 
         return judge_data, human_data
 
+    def _multilabel_outcomes_for_task(self, task_name: str) -> list[str] | None:
+        """Return canonical outcomes if the task is multi-label, else None.
+
+        Args:
+            task_name: The task name to look up.
+
+        Returns:
+            list[str] | None: Ordered outcomes for a MultiLabelSchema task, or
+                None for single-select / free-form / unknown tasks.
+        """
+        eval_task = getattr(self, "eval_task", None)
+        if eval_task is None:
+            return None
+        schema = eval_task.task_schemas.get(task_name)
+        if isinstance(schema, MultiLabelSchema):
+            return schema.outcomes
+        return None
+
+    def _validate_multilabel_metrics(self) -> None:
+        """Validate every metric config that touches a multi-label task.
+
+        For an averaged ClassificationScorer metric scoring any multi-label task,
+        ``average`` must be ``"samples"`` or ``"macro"`` (sklearn rejects the
+        global default ``"binary"`` on an indicator matrix). Accuracy does not use
+        ``average`` and is exempt. A mixed scalar + multi-label MULTITASK additionally
+        requires ``"macro"`` because sklearn does not accept ``"samples"`` for
+        scalar multiclass input.
+
+        Raises:
+            MultiLabelScoringError: If a multi-label ClassificationScorer uses an
+                invalid ``average`` for its configuration.
+        """
+        if self.metrics_config is None or getattr(self, "eval_task", None) is None:
+            return
+
+        for metric_config in self.metrics_config.metrics:
+            scorer = metric_config.scorer
+            if not isinstance(scorer, ClassificationScorer):
+                continue
+
+            ml_tasks = [
+                name
+                for name in metric_config.task_names
+                if self._multilabel_outcomes_for_task(name) is not None
+            ]
+            if not ml_tasks:
+                continue
+
+            if scorer.metric == "accuracy":
+                continue
+
+            if scorer.average not in _MULTILABEL_VALID_AVERAGES:
+                raise MultiLabelScoringError(
+                    f"ClassificationScorer.average={scorer.average!r} is invalid for "
+                    f"multi-label task(s) {ml_tasks}. Multi-label scoring requires "
+                    f"average='macro' (per-label, recommended) or average='samples' "
+                    f"(per-item); the default 'binary' is not supported."
+                )
+
+            # A mixed scalar + multi-label MULTITASK must use macro: one scorer
+            # supplies one average for all tasks, and 'samples' is invalid for the
+            # scalar multiclass task.
+            has_scalar = any(
+                self._multilabel_outcomes_for_task(name) is None
+                for name in metric_config.task_names
+            )
+            if (
+                metric_config.aggregation_mode == TaskAggregationMode.MULTITASK
+                and has_scalar
+                and scorer.average == "samples"
+            ):
+                raise MultiLabelScoringError(
+                    f"A mixed scalar + multi-label multitask configuration "
+                    f"({metric_config.task_names}) requires "
+                    f"ClassificationScorer(average='macro'); 'samples' is not "
+                    f"supported for scalar multiclass input."
+                )
+
+    def _binarize_label_column(
+        self, data: pl.DataFrame, outcomes: list[str]
+    ) -> pl.DataFrame:
+        """Positionally binarize the ``label`` column of preprocessed data.
+
+        Maps each multi-label name-vector to a length-N indicator vector using
+        :func:`binarize_multilabel_vector` (which propagates ``MultiLabelScoringError``
+        on a foreign/misaligned slot value — raised here, before
+        ``compute_score_async``, so it is visible rather than swallowed into a
+        per-judge NaN). Null labels (error/missing rows) pass through unchanged.
+        Applied at the scorer call site, gated to ``ClassificationScorer``, so the
+        scorer never learns the ``"FALSE"`` sentinel and ``AltTest`` keeps the
+        native name vector.
+
+        Args:
+            data: Preprocessed data with a ``label`` column of name-vectors.
+            outcomes: Canonical ordered outcome names (slot order).
+
+        Returns:
+            pl.DataFrame: The data with ``label`` replaced by indicator vectors.
+        """
+        return data.with_columns(
+            pl.col("label").map_elements(
+                lambda v: None
+                if v is None
+                else binarize_multilabel_vector(list(v), outcomes),
+                return_dtype=pl.List(pl.Int64),
+            )
+        )
+
     def _create_multilabel_column(
         self, df: pl.DataFrame, task_names: list[str], include_human_id: bool = False
     ) -> pl.DataFrame:
@@ -438,7 +592,7 @@ class ScoringMixin:
     # SCORING AND COMPARISON METHODS #
     ##################################
 
-    def _get_first_non_null_value(self, label_column):
+    def _get_first_non_null_value(self, label_column) -> Any:
         """Get first non-null sample value from label column for scorer compatibility validation.
 
         Args:
@@ -558,6 +712,19 @@ class ScoringMixin:
                         self.logger.warning(f"No data for task {task_name}, skipping")
                         continue
 
+                    # Binarize this task's vector only if it is multi-label and the
+                    # scorer is a ClassificationScorer; engages per task automatically.
+                    ml_outcomes = self._multilabel_outcomes_for_task(task_name)
+                    if ml_outcomes is not None and isinstance(
+                        metric_config.scorer, ClassificationScorer
+                    ):
+                        task_judge_data = self._binarize_label_column(
+                            task_judge_data, ml_outcomes
+                        )
+                        task_human_data = self._binarize_label_column(
+                            task_human_data, ml_outcomes
+                        )
+
                     # Validate scorer compatibility
                     sample_label = self._get_first_non_null_value(
                         task_judge_data["label"]
@@ -595,6 +762,23 @@ class ScoringMixin:
                     metric_config.task_names,
                     metric_config.aggregation_mode,
                 )
+
+                # Binarize a native multi-label task (SINGLE mode, one column whose
+                # value is a vector) when scored by ClassificationScorer. AltTest and
+                # the legacy MULTILABEL melt are intentionally left on the name vector.
+                if metric_config.aggregation_mode == TaskAggregationMode.SINGLE:
+                    ml_outcomes = self._multilabel_outcomes_for_task(
+                        metric_config.task_names[0]
+                    )
+                    if ml_outcomes is not None and isinstance(
+                        metric_config.scorer, ClassificationScorer
+                    ):
+                        processed_judge_data = self._binarize_label_column(
+                            processed_judge_data, ml_outcomes
+                        )
+                        processed_human_data = self._binarize_label_column(
+                            processed_human_data, ml_outcomes
+                        )
 
                 # Validate scorer compatibility
                 sample_label = self._get_first_non_null_value(
@@ -742,6 +926,11 @@ class ScoringMixin:
         for i, metric_config in enumerate(self.metrics_config.metrics):
             if not metric_config.task_names:
                 raise ScoringConfigError(f"No task names specified for metric {i}")
+
+        # Validate multi-label scoring configuration up front, outside the
+        # per-judge try/except that swallows errors into NaN, so misconfiguration
+        # fails loud instead of silently producing NaN deep in sklearn.
+        self._validate_multilabel_metrics()
 
         # Load results if not provided
         if judge_results is None:

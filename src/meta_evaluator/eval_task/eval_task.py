@@ -5,10 +5,14 @@ import re
 from collections.abc import Callable
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, create_model, model_validator
+from pydantic import BaseModel, Field, create_model, field_validator, model_validator
 
 from .exceptions import TaskSchemaError
-from .serialization import EvalTaskState
+from .serialization import (
+    MULTILABEL_FALSE_SENTINEL,
+    EvalTaskState,
+    MultiLabelSchema,
+)
 
 
 def sanitize_task_name(name: str) -> str:
@@ -28,6 +32,30 @@ def sanitize_task_name(name: str) -> str:
         str: A sanitized name safe for use as an API property key.
     """
     return re.sub(r"[^a-zA-Z0-9_.\-]", "_", name)[:64]
+
+
+def _make_multilabel_slot_validator(
+    task_name: str, schema: MultiLabelSchema
+) -> Callable[[type, list[str]], list[str]]:
+    """Build a field validator enforcing the multi-label slot contract.
+
+    The returned validator checks that the value is a fixed-length vector whose
+    length equals the number of declared outcomes, and that slot ``i`` holds
+    either outcome ``i``'s name or the reserved ``"FALSE"`` sentinel
+    (positional, not merely non-``"FALSE"``).
+
+    Args:
+        task_name: Original task name, for error messages.
+        schema: Multi-label schema defining canonical slot order.
+
+    Returns:
+        Callable: A validator suitable for pydantic's ``field_validator``.
+    """
+
+    def validate(cls: type, value: list[str]) -> list[str]:
+        return schema.validate_value(task_name, value)
+
+    return validate
 
 
 class EvalTask(BaseModel):
@@ -51,8 +79,10 @@ class EvalTask(BaseModel):
     - free-form text evaluation
 
     Attributes:
-        task_schemas (dict[str, list[str] | None]): Maps task names to allowed outcomes.
-            Use None for free-form text outputs, or list of strings for classification.
+        task_schemas (dict[str, list[str] | MultiLabelSchema | None]): Maps task
+            names to allowed outcomes. Use a list of strings for single-select
+            classification, a MultiLabelSchema(outcomes=[...]) for multi-label
+            (pick several) tasks, or None for free-form text outputs.
         required_tasks (Optional[list[str]]): List of task names that are required for
             valid annotations. If None, all non-null task_schemas are required.
         prompt_columns (Optional[list[str]]): Column names containing inputs to the
@@ -94,9 +124,9 @@ class EvalTask(BaseModel):
         ... )
     """
 
-    task_schemas: dict[str, list[str] | None] = Field(
+    task_schemas: dict[str, list[str] | MultiLabelSchema | None] = Field(
         ...,
-        description="Dictionary mapping task names to their allowed outcome values. Use None for free form text outputs.",
+        description="Dictionary mapping task names to their allowed outcome values. Use a bare list for single-select classification, a MultiLabelSchema for multi-label (pick several), or None for free form text outputs.",
     )
     required_tasks: list[str] | None = Field(
         default=None,
@@ -137,11 +167,24 @@ class EvalTask(BaseModel):
                 "task_schema is empty. Please define your tasks and their allowed outcome values."
             )
 
+        has_multilabel = False
         for task_name, outcomes in self.task_schemas.items():
-            if outcomes is not None and len(outcomes) < 2:
+            if isinstance(outcomes, MultiLabelSchema):
+                # MultiLabelSchema self-validates (>=2 outcomes, no reserved
+                # "FALSE" sentinel) on construction; nothing more to check here.
+                has_multilabel = True
+            elif outcomes is not None and len(outcomes) < 2:
                 raise TaskSchemaError(
                     f"Please define at least 2 outcomes for task {task_name}."
                 )
+
+        # Multi-label tasks rely on JSON-based answering methods to carry the
+        # ordered vector; XML's scalar cardinality="one" path cannot preserve it.
+        if has_multilabel and self.answering_method == "xml":
+            raise TaskSchemaError(
+                "Multi-label tasks (MultiLabelSchema) require answering_method "
+                "'structured' or 'instructor'; 'xml' is not supported."
+            )
 
         # Validate required_tasks if provided
         if self.required_tasks is not None:
@@ -187,7 +230,9 @@ class EvalTask(BaseModel):
         """
         all_outcomes = []
         for outcomes in self.task_schemas.values():
-            if outcomes is not None:
+            if isinstance(outcomes, MultiLabelSchema):
+                all_outcomes.extend(outcomes.outcomes)
+            elif outcomes is not None:
                 all_outcomes.extend(outcomes)
         return list(set(all_outcomes))  # Remove duplicates
 
@@ -202,6 +247,9 @@ class EvalTask(BaseModel):
         )
 
         model_fields: dict[str, Any] = {}
+        # Per-field validators for multi-label tasks, attached to the generated
+        # model so slot alignment is enforced at parse time.
+        model_validators: dict[str, Any] = {}
 
         # Create one field per task, using sanitized names as Pydantic field keys so
         # that the generated JSON schema is accepted by LLM APIs (e.g. Anthropic requires
@@ -219,6 +267,28 @@ class EvalTask(BaseModel):
                         description=f"The free form text output for {task_name}",
                     ),
                 )
+            elif isinstance(outcomes, MultiLabelSchema):
+                # Multi-label: a fixed-length ordered vector. Each slot holds the
+                # outcome's own name (selected) or the "FALSE" sentinel (not
+                # selected). Typed as list[Literal[*outcomes, "FALSE"]] with a
+                # validator enforcing length and per-slot (positional) membership.
+                slot_outcomes = outcomes.outcomes
+                allowed_values = tuple([*slot_outcomes, MULTILABEL_FALSE_SENTINEL])
+                model_fields[safe_name] = (
+                    list[Literal[allowed_values]],  # type: ignore[valid-type]
+                    Field(
+                        ...,
+                        description=(
+                            f"The multi-label outcome vector for {task_name}. "
+                            f"A list of length {len(slot_outcomes)} where slot i is "
+                            f"either the i-th outcome name or '{MULTILABEL_FALSE_SENTINEL}'. "
+                            f"Outcomes in order: {', '.join(slot_outcomes)}"
+                        ),
+                    ),
+                )
+                model_validators[f"validate_{safe_name}"] = field_validator(safe_name)(
+                    _make_multilabel_slot_validator(task_name, outcomes)
+                )
             else:
                 # Predefined outcomes using Literal
                 outcomes_literal = Literal[tuple(outcomes)]
@@ -231,7 +301,10 @@ class EvalTask(BaseModel):
                 )
 
         DynamicTaskOutcome = create_model(
-            "MultiTaskOutcomeRecord", **model_fields, __base__=BaseModel
+            "MultiTaskOutcomeRecord",
+            **model_fields,
+            __validators__=model_validators,
+            __base__=BaseModel,
         )
 
         return DynamicTaskOutcome
@@ -255,7 +328,28 @@ class EvalTask(BaseModel):
             "xml": ["xml"],  # XML doesn't need fallback as it's most compatible
         }
 
-        return fallback_sequences.get(self.answering_method, [self.answering_method])
+        sequence = fallback_sequences.get(
+            self.answering_method, [self.answering_method]
+        )
+
+        # Multi-label tasks cannot route through XML's scalar path, so exclude it
+        # from the fallback sequence. Construction already rejects a direct
+        # answering_method="xml" alongside a MultiLabelSchema.
+        if self._has_multilabel_task():
+            sequence = [method for method in sequence if method != "xml"]
+
+        return sequence
+
+    def _has_multilabel_task(self) -> bool:
+        """Whether any task in this EvalTask is multi-label.
+
+        Returns:
+            bool: True if at least one task schema is a MultiLabelSchema.
+        """
+        return any(
+            isinstance(schema, MultiLabelSchema)
+            for schema in self.task_schemas.values()
+        )
 
     def serialize(self) -> EvalTaskState:
         """Serialize the EvalTask to metadata (excluding skip_function).

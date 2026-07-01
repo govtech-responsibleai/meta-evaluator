@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   api,
   type ExportResult,
+  type OutcomeValue,
   type Progress,
   type Sample,
   type SessionInfo,
@@ -60,7 +61,7 @@ export function useAnnotation() {
   );
 
   const submitAnnotation = useCallback(
-    async (outcomes: Record<string, string>) => {
+    async (outcomes: Record<string, OutcomeValue>) => {
       if (!session || !currentSample) return;
       setError(null);
       try {
