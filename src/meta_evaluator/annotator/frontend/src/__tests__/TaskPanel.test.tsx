@@ -48,11 +48,27 @@ describe("TaskPanel", () => {
       <TaskPanel taskConfig={taskConfig} sample={sample} onSubmit={vi.fn()} />,
     );
 
-    expect(screen.getByText("to go to next task")).toBeVisible();
-    expect(screen.getByText("to continue")).toBeVisible();
+    const nextTaskHint = screen.getByText("to go to next task");
+    const continueHint = screen.getByText("to continue");
+    expect(nextTaskHint).toBeVisible();
+    expect(continueHint).toBeVisible();
+    [nextTaskHint, continueHint].forEach((hint) => {
+      expect(hint.closest("p")).toHaveClass("text-muted-foreground");
+      expect(hint.closest("p")).not.toHaveClass("text-muted-foreground/60");
+    });
     const tabHints = screen.getAllByText("Tab");
     expect(tabHints).toHaveLength(2);
-    tabHints.forEach((hint) => expect(hint).toBeVisible());
+    tabHints.forEach((hint) => {
+      expect(hint).toBeVisible();
+      expect(hint).toHaveClass("text-muted-foreground");
+      expect(hint).not.toHaveClass("text-muted-foreground/70");
+    });
+    expect(
+      screen.getByRole("group", { name: "sentiment" }),
+    ).toHaveAccessibleDescription(/to go to next task/);
+    expect(
+      screen.getByRole("textbox", { name: "comments" }),
+    ).toHaveAccessibleDescription(/to continue/);
   });
 
   it("keeps long instructions collapsed by default", () => {

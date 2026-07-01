@@ -421,10 +421,10 @@ export function TaskPanel({ taskConfig, sample, onSubmit }: Props) {
             )}
             <p
               id={navigationHintId}
-              className="mt-2 flex items-center justify-end gap-1 text-[11px] text-muted-foreground/60"
+              className="mt-2 flex items-center justify-end gap-1 text-[11px] text-muted-foreground"
             >
               <span>Press</span>
-              <kbd className="inline-flex h-5 items-center justify-center rounded border border-border/60 bg-muted/50 px-1.5 text-[10px] font-medium text-muted-foreground/70">
+              <kbd className="inline-flex h-5 items-center justify-center rounded border border-border/60 bg-muted/50 px-1.5 text-[10px] font-medium text-muted-foreground">
                 Tab
               </kbd>
               <span>
