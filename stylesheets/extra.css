@@ -1,0 +1,37 @@
+h1, h2 {
+  font-weight: 700 !important;
+}
+
+h3 {
+  font-weight: 700 !important;
+  color: #4d4d4f !important;
+}
+
+:root  > * {
+  /* --md-primary-fg-color:        #B41E8E; */
+  --md-primary-fg-color--light: #00c0f3;
+  --md-primary-fg-color--dark:  #0061AF;
+}
+
+
+/* Highlight the active nav link */
+.md-sidebar--primary .md-nav__link--active {
+  background-color: #e0f2f1;   /* light teal, pick your color */
+  color: #0061AF;
+  font-weight: 700;
+}
+
+/* Add margin between nav sections */
+.md-sidebar--primary .md-nav__list > .md-nav__item--section > nav > ul.md-nav__list > .md-nav__item {
+  margin: 20px 0;
+}
+
+/* Add padding around every nav item in the primary sidebar */
+.md-sidebar--primary .md-nav__link {
+  padding: 6px 12px;   /* top/bottom, left/right */
+}
+
+/* Add vertical line on the content menu */
+.md-content {
+  border-left: 1px solid #e0e0e0;
+}
