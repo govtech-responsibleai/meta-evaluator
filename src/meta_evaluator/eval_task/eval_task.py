@@ -361,6 +361,7 @@ class EvalTask(BaseModel):
 
         return EvalTaskState(
             task_schemas=self.task_schemas,
+            required_tasks=self.required_tasks,
             prompt_columns=self.prompt_columns,
             response_columns=self.response_columns,
             answering_method=self.answering_method,
@@ -380,6 +381,7 @@ class EvalTask(BaseModel):
         """
         return cls(
             task_schemas=state.task_schemas,
+            required_tasks=state.required_tasks,
             prompt_columns=state.prompt_columns,
             response_columns=state.response_columns,
             answering_method=state.answering_method,
