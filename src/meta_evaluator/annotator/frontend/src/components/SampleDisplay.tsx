@@ -54,7 +54,7 @@ function CollapsibleField({
 
 export function SampleDisplay({ sample, taskConfig }: Props) {
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="md:h-full">
       <div className="space-y-6">
         {sample.prompt_data && taskConfig.prompt_columns && (
           <div className="rounded-xl bg-card border border-border/50 px-4 py-5 md:p-6 shadow-sm">

@@ -86,7 +86,7 @@ export function AnnotationView({
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
+    <div className="min-h-screen md:h-screen flex flex-col bg-background md:overflow-hidden">
       <div className="border-b border-border/60 px-6 py-4 sticky top-0 z-20 bg-background/95 backdrop-blur-sm">
         <Navigation
           sample={sample}
@@ -103,8 +103,8 @@ export function AnnotationView({
         </p>
       </div>
 
-      <div className="relative flex-1 flex min-h-0 flex-col md:flex-row overflow-hidden">
-        <div className="relative flex-1 min-h-0 px-4 py-5 md:px-8 md:py-7 overflow-y-auto scroll-slim">
+      <div className="relative flex-1 flex min-h-0 flex-col md:flex-row md:overflow-hidden">
+        <div className="relative md:flex-1 md:min-h-0 px-4 py-5 md:px-8 md:py-7 md:overflow-y-auto scroll-slim">
           <div className="max-w-4xl mx-auto">
             <SampleDisplay sample={sample} taskConfig={taskConfig} />
           </div>
@@ -118,7 +118,7 @@ export function AnnotationView({
         />
 
         <div
-          className="relative w-full md:w-[26rem] shrink-0 px-4 py-5 md:px-5 md:py-7 overflow-y-auto scroll-slim bg-[var(--annotation-rail)] border-t md:border-t-0 border-[var(--annotation-rail-border)]"
+          className="relative w-full md:w-[26rem] md:shrink-0 px-4 py-5 md:px-5 md:py-7 md:overflow-y-auto scroll-slim bg-[var(--annotation-rail)] border-t md:border-t-0 border-[var(--annotation-rail-border)]"
           style={isDesktop ? { width: railWidth } : undefined}
         >
           <TaskPanel

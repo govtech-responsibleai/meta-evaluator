@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.2
+
+- Fix the annotator being unusable on mobile / narrow viewports. The annotation
+  view was a fixed-height two-column layout (`h-screen` + `overflow-hidden`)
+  whose columns fought over the viewport height when stacked, squeezing the
+  prompt/response to an unreadable sliver behind the questions. Below the `md`
+  breakpoint the view now flows as a single scrolling document (prompt/response,
+  then questions), with the fixed-height and per-pane scroll behavior scoped to
+  desktop. The navigation header stays sticky on mobile. Desktop layout —
+  side-by-side panes, independent scroll, draggable rail resize — is unchanged.
+
 ## 0.2.2
 
 - Fix blank annotator page when the bundle is embedded under a path prefix
