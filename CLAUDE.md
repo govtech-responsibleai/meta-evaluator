@@ -88,6 +88,22 @@ Ensure your last command is always `uv tool run ruff format .`
 - Optional dependency groups: `docs` (mkdocs), `ui` (streamlit), `all` (everything). Core deps include matplotlib.
 - Publishing is automated via `.github/workflows/publish.yml` on GitHub release creation using trusted publishing (OIDC).
 
+## Annotator Frontend
+
+The annotator UI is a React + Vite + Tailwind app living in `src/meta_evaluator/annotator/frontend`. It is served to annotators as a pre-built bundle embedded in the Python package (the launcher serves `frontend/dist`).
+
+All frontend commands are run from inside `src/meta_evaluator/annotator/frontend`:
+```bash
+npm run lint    # oxlint
+npm run test    # vitest run
+npm run build   # tsc -b && vite build — regenerates frontend/dist
+npm run dev      # local dev server for manual verification
+```
+
+After any change to frontend source:
+1. Run `npm run lint` and `npm run test`; fix issues in the files you touched.
+2. Run `npm run build` to confirm the bundle compiles. **Do NOT commit `frontend/dist` — it is gitignored.** The bundle is rebuilt from source by CI (`ci.yml`) and the publish workflow (`publish.yml`) via `npm run build`, and hatchling includes it as a build artifact (`[tool.hatch.build.targets.*].artifacts`). So a UI change ships as source; the embedded bundle is regenerated at build/publish time.
+
 ## Additional Reminders (VERY IMPORTANT!)
 
 - If you have any questions or doubts about the instructions, ask me before you begin. 
