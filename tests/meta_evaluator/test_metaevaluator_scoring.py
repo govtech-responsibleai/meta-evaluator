@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 import polars as pl
 import pytest
 
-from meta_evaluator.eval_task import EvalTask
+from meta_evaluator.eval_task import EvalTask, MultiLabelSchema
 from meta_evaluator.judge.judge import Judge
 from meta_evaluator.meta_evaluator import MetaEvaluator
 from meta_evaluator.meta_evaluator.scoring import ScoringMixin
@@ -438,6 +438,70 @@ class TestResultsLoading:
 
 class TestExternalResultsLoading:
     """Test external judge and human results loading functionality."""
+
+    def test_external_csv_multilabel_results_decode(self, tmp_path):
+        """Test external CSV imports decode multi-label task columns."""
+        evaluator = MetaEvaluator(
+            project_dir=str(tmp_path / "test_project"), load=False
+        )
+        evaluator.add_eval_task(
+            EvalTask(
+                task_schemas={
+                    "harm": MultiLabelSchema(outcomes=["hateful", "insults"])
+                },
+                prompt_columns=["question"],
+                response_columns=["answer"],
+                answering_method="structured",
+            )
+        )
+        expected_harm = [["hateful", "FALSE"], ["FALSE", "insults"]]
+        external_data = pl.DataFrame(
+            {
+                "original_id": [1, 2],
+                "harm": [json.dumps(value) for value in expected_harm],
+            }
+        )
+        judge_path = tmp_path / "judge_results.csv"
+        human_path = tmp_path / "human_results.csv"
+        external_data.write_csv(judge_path)
+        external_data.write_csv(human_path)
+
+        evaluator.add_external_judge_results(
+            file_path=str(judge_path), judge_id="external_multilabel_judge"
+        )
+        evaluator.add_external_annotation_results(
+            file_path=str(human_path), annotator_id="external_multilabel_annotator"
+        )
+
+        judge_result = list(evaluator.load_all_judge_results().values())[0]
+        human_result = list(evaluator.load_all_human_results().values())[0]
+
+        assert judge_result.results_data["harm"].dtype == pl.List(pl.String)
+        assert human_result.results_data["harm"].dtype == pl.List(pl.String)
+        assert (
+            judge_result.results_data.sort("original_id")["harm"].to_list()
+            == expected_harm
+        )
+        assert (
+            human_result.results_data.sort("original_id")["harm"].to_list()
+            == expected_harm
+        )
+
+        judge_csv_state = tmp_path / "judge_csv_state.json"
+        human_csv_state = tmp_path / "human_csv_state.json"
+        judge_result.save_state(str(judge_csv_state), data_format="csv")
+        human_result.save_state(str(human_csv_state), data_format="csv")
+
+        loaded_judge_result = JudgeResults.load_state(str(judge_csv_state))
+        loaded_human_result = HumanAnnotationResults.load_state(str(human_csv_state))
+        assert (
+            loaded_judge_result.results_data.sort("original_id")["harm"].to_list()
+            == expected_harm
+        )
+        assert (
+            loaded_human_result.results_data.sort("original_id")["harm"].to_list()
+            == expected_harm
+        )
 
     # ===== Judge Results =====
 
