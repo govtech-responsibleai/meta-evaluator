@@ -1,0 +1,1403 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for MetaEvaluator">
+      
+      
+        <meta name="author" content="GovTech AI Practice">
+      
+      
+      
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.17">
+    
+    
+      
+        <title>Annotation UI Migration: Streamlit → React + FastAPI - MetaEvaluator Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.7e37652d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Lato";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#annotation-ui-migration-streamlit-react-fastapi" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="MetaEvaluator Docs" class="md-header__button md-logo" aria-label="MetaEvaluator Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            MetaEvaluator Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Annotation UI Migration: Streamlit → React + FastAPI
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../tutorial/" class="md-tabs__link">
+          
+  
+  
+  Usage
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="MetaEvaluator Docs" class="md-nav__button md-logo" aria-label="MetaEvaluator Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    MetaEvaluator Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Usage
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Usage
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Tutorial
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Annotation Guide
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            Annotation Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../annotation_guide/annotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Setting up the annotation platform
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../annotation_guide/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Deployment options
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Evaluation Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            Evaluation Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/base/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MetaEvaluator
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/evaltask/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Defining the evaluation task
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/evaldata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Loading the evaluation data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/judges_load/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Loading judges
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/judges_run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Running judges
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Scoring Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            Scoring Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Judge/Annotation results
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Scoring and Metrics
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Summary
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      Constraints
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      Architecture
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      API Endpoints
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Data Flow
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ui-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      UI Design
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="UI Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#desktop-768px" class="md-nav__link">
+    <span class="md-ellipsis">
+      Desktop (≥768px)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mobile-768px" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mobile (&lt;768px)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shadcnui-components-used" class="md-nav__link">
+    <span class="md-ellipsis">
+      shadcn/ui Components Used
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ux-improvements-over-streamlit" class="md-nav__link">
+    <span class="md-ellipsis">
+      UX Improvements Over Streamlit
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Error Handling
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deployment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Deployment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#docker" class="md-nav__link">
+    <span class="md-ellipsis">
+      Docker
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#package-distribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Package Distribution
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ngrok" class="md-nav__link">
+    <span class="md-ellipsis">
+      ngrok
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Strategy
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#existing-tests-to-remove" class="md-nav__link">
+    <span class="md-ellipsis">
+      Existing Tests to Remove
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-backend-tests-pytest-httpx-asyncclient" class="md-nav__link">
+    <span class="md-ellipsis">
+      New Backend Tests (pytest + httpx AsyncClient)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-frontend-tests-vitest-react-testing-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      New Frontend Tests (Vitest + React Testing Library)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tdd-order-write-tests-first-then-implement" class="md-nav__link">
+    <span class="md-ellipsis">
+      TDD Order (write tests first, then implement)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#files-changed-outside-annotator" class="md-nav__link">
+    <span class="md-ellipsis">
+      Files Changed Outside annotator/
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#effort-estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Effort Estimate
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="annotation-ui-migration-streamlit-react-fastapi">Annotation UI Migration: Streamlit → React + FastAPI</h1>
+<h2 id="summary">Summary</h2>
+<p>Replace the Streamlit-based annotation interface with a React (shadcn/ui) frontend served by a FastAPI backend. Goal: better UX, mobile support, reliable deployment, full customization.</p>
+<h2 id="constraints">Constraints</h2>
+<ul>
+<li>Keep <code>launch_annotator()</code> API signature unchanged</li>
+<li>Existing data models (EvalTask, EvalData, HumanAnnotationResults) stay untouched</li>
+<li>Single Docker image, single port</li>
+<li>No auth required (name-based identification, multiple concurrent annotators supported)</li>
+<li>Mobile-friendly</li>
+</ul>
+<h2 id="architecture">Architecture</h2>
+<p>Monorepo approach: FastAPI + React in single package.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>src/meta_evaluator/annotator/
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── api/
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│   ├── __init__.py
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   ├── app.py              ← FastAPI app factory
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   ├── routes/
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   │   ├── session.py      ← POST /session, GET /session/:id
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   │   ├── annotations.py  ← GET /samples/:idx, POST /annotations, GET /progress
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   │   └── export.py       ← POST /export, GET /export/download/:filename
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   ├── state.py            ← In-memory session store (wraps HumanAnnotationResultsBuilder)
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   └── schemas.py          ← Pydantic request/response models
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── frontend/
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   ├── package.json
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   ├── vite.config.ts
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   ├── tsconfig.json
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   ├── src/
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│   │   ├── App.tsx
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│   │   ├── components/
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   │   │   ├── NameEntry.tsx
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   │   │   ├── AnnotationView.tsx
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   │   │   ├── SampleDisplay.tsx
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│   │   │   ├── TaskPanel.tsx
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│   │   │   ├── Navigation.tsx
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>│   │   │   └── ExportDialog.tsx
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│   │   ├── hooks/
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│   │   │   └── useAnnotation.ts
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│   │   └── lib/
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│   │       └── api.ts
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│   └── components/ui/      ← shadcn/ui components
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>├── launcher/
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│   ├── __init__.py
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>│   └── launcher.py         ← starts uvicorn, serves frontend/dist as static
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>├── exceptions.py
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>└── __init__.py
+</span></code></pre></div>
+<h2 id="api-endpoints">API Endpoints</h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td>/api/task</td>
+<td>Task config (schemas, columns, annotation prompt)</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>/api/session</td>
+<td>Create session → returns run_id, total samples</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>/api/session/{run_id}</td>
+<td>Resume session → returns progress, current index</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>/api/samples/{index}</td>
+<td>Sample data (prompt + response columns)</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>/api/annotations</td>
+<td>Submit annotation → triggers auto-save</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>/api/progress</td>
+<td>Annotation count, total, incomplete indices</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>/api/export</td>
+<td>Finalize → saves parquet + metadata</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>/api/export/download/{filename}</td>
+<td>Download exported file</td>
+</tr>
+</tbody>
+</table>
+<h2 id="data-flow">Data Flow</h2>
+<ol>
+<li><code>launch_annotator()</code> → serializes EvalTask + EvalData → starts uvicorn</li>
+<li>FastAPI loads task/data into memory, serves React SPA at <code>/</code></li>
+<li>User enters name → <code>POST /api/session</code> → creates <code>HumanAnnotationResultsBuilder</code></li>
+<li>User annotates samples → <code>POST /api/annotations</code> → auto-save to parquet</li>
+<li>User exports → <code>POST /api/export</code> → finalizes <code>HumanAnnotationResults</code></li>
+</ol>
+<p><strong>State ownership:</strong>
+- Backend: persisted annotations, auto-save, export, session identity
+- Frontend: current sample index, form field values (pre-submit), UI state</p>
+<p><strong>Session resume:</strong> <code>POST /api/session</code> with same name detects existing auto-save file and returns previous progress.</p>
+<h2 id="ui-design">UI Design</h2>
+<h3 id="desktop-768px">Desktop (≥768px)</h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>┌─────────────────────────────────────────────────────┐
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>│  Header: task name + progress bar (3/50)            │
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>├────────────────────────┬────────────────────────────┤
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>│  Sample Display        │  Annotation Panel (sticky) │
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>│  ─────────────────     │  ─────────────────         │
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>│  Prompt columns        │  Instruction text          │
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>│  (collapsible)         │                            │
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>│                        │  Task 1: ○ Good            │
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>│  Response columns      │          ○ Bad             │
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>│  (main content)        │          ○ Neutral         │
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>│                        │                            │
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>│                        │  Task 2: [text area]       │
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>│                        │                            │
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>│                        │  [Submit]                  │
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>├────────────────────────┴────────────────────────────┤
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>│  ← Previous                              Next →     │
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>└─────────────────────────────────────────────────────┘
+</span></code></pre></div>
+<h3 id="mobile-768px">Mobile (&lt;768px)</h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>┌───────────────────────┐
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>│ Progress bar (3/50)   │
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>├───────────────────────┤
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>│ Sample Display        │
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>│ (scrollable)          │
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>├───────────────────────┤
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>│ Annotation Panel      │
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>│ ○ Good  ○ Bad         │
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>│ [text area]           │
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>├───────────────────────┤
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>│ [← Prev] [Submit] [Next →] ← sticky bottom │
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>└───────────────────────┘
+</span></code></pre></div>
+<h3 id="shadcnui-components-used">shadcn/ui Components Used</h3>
+<p>Card, RadioGroup, Textarea, Button, Progress, Input, Dialog, Badge, ScrollArea</p>
+<h3 id="ux-improvements-over-streamlit">UX Improvements Over Streamlit</h3>
+<ul>
+<li>No full-page rerun on interaction</li>
+<li>Keyboard shortcuts (Enter to submit, arrow keys for navigation)</li>
+<li>Smooth transitions between samples</li>
+<li>Inline validation (highlight missing fields, no modal alerts)</li>
+<li>Instant feedback on submit</li>
+<li>Touch-friendly (min 44px tap targets)</li>
+<li>Swipe gestures for prev/next (progressive enhancement)</li>
+</ul>
+<h2 id="error-handling">Error Handling</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Backend</th>
+<th>Frontend</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Invalid annotator name</td>
+<td>422</td>
+<td>Inline error below input</td>
+</tr>
+<tr>
+<td>Missing required fields</td>
+<td>422</td>
+<td>Highlight unfilled fields, prevent submit</td>
+</tr>
+<tr>
+<td>Auto-save write failure</td>
+<td>500, log, keep in memory</td>
+<td>Toast "auto-save failed, data safe in memory"</td>
+</tr>
+<tr>
+<td>Export failure</td>
+<td>500 with details</td>
+<td>Dialog with retry button</td>
+</tr>
+<tr>
+<td>Sample index OOB</td>
+<td>404</td>
+<td>Disable nav buttons at boundaries</td>
+</tr>
+<tr>
+<td>Session not found</td>
+<td>404</td>
+<td>Redirect to name entry</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Client-side validation first (reduce round-trips)</li>
+<li>Backend validates independently (never trust client)</li>
+<li>Existing <code>AnnotationError</code> exception hierarchy reused in API error handlers</li>
+</ul>
+<h2 id="deployment">Deployment</h2>
+<h3 id="docker">Docker</h3>
+<div class="language-dockerfile highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">FROM</span><span class="w"> </span><span class="s">node:20-alpine</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">frontend</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">WORKDIR</span><span class="w"> </span><span class="s">/app/frontend</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">COPY</span><span class="w"> </span>src/meta_evaluator/annotator/frontend/<span class="w"> </span>.
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">RUN</span><span class="w"> </span>npm<span class="w"> </span>ci<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>build
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">FROM</span><span class="w"> </span><span class="s">python:3.11-slim</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">WORKDIR</span><span class="w"> </span><span class="s">/app</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="k">COPY</span><span class="w"> </span>--from<span class="o">=</span>frontend<span class="w"> </span>/app/frontend/dist<span class="w"> </span>/app/static
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="k">COPY</span><span class="w"> </span>.<span class="w"> </span>.
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="k">RUN</span><span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[ui]&quot;</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="k">EXPOSE</span><span class="w"> </span><span class="s">8000</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="k">CMD</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;python&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-m&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;meta_evaluator.annotator.launcher&quot;</span><span class="p">]</span>
+</span></code></pre></div>
+<h3 id="package-distribution">Package Distribution</h3>
+<ul>
+<li><code>frontend/dist/</code> is NOT committed to git (gitignored)</li>
+<li>Hatchling custom build hook runs <code>npm ci &amp;&amp; npm run build</code> during <code>hatch build</code></li>
+<li>CI/publish workflow already has Node available for this step</li>
+<li><code>pip install meta-evaluator[ui]</code> works without Node at runtime (dist included in wheel)</li>
+<li><code>ui</code> extra: swap <code>streamlit</code> for <code>fastapi</code>, <code>uvicorn</code></li>
+<li>For local dev: run <code>npm run dev</code> in frontend/ for hot-reload against FastAPI backend</li>
+</ul>
+<h3 id="ngrok">ngrok</h3>
+<p>Same support as today — point at uvicorn port instead of Streamlit port.</p>
+<h2 id="testing-strategy">Testing Strategy</h2>
+<h3 id="existing-tests-to-remove">Existing Tests to Remove</h3>
+<p>All Streamlit-coupled tests are deleted entirely (not incrementally refactored):</p>
+<ul>
+<li><code>tests/annotator/interface/test_streamlit_app.py</code> (1,555 lines)</li>
+<li><code>tests/annotator/interface/test_streamlit_session_manager.py</code> (602 lines)</li>
+<li><code>tests/annotator/test_annotator_integration.py</code> (315 lines)</li>
+</ul>
+<p>Keep unchanged:
+- <code>tests/annotator/test_human_results.py</code> (666 lines) — tests data models, not UI
+- <code>tests/annotator/conftest.py</code> — review and keep fixtures for EvalTask/EvalData setup; remove Streamlit-specific fixtures</p>
+<h3 id="new-backend-tests-pytest-httpx-asyncclient">New Backend Tests (pytest + httpx AsyncClient)</h3>
+<p><strong><code>tests/annotator/api/test_session.py</code></strong>
+- Create session with valid name → 200, returns run_id + total samples
+- Create session with empty name → 422
+- Create session with existing auto-save → 200, returns previous progress
+- Get session by run_id → 200 with progress
+- Get session with invalid run_id → 404</p>
+<p><strong><code>tests/annotator/api/test_annotations.py</code></strong>
+- Submit annotation with all required fields → 200, auto-save triggered
+- Submit annotation missing required fields → 422, lists missing tasks
+- Submit for invalid session → 404
+- Submit for out-of-bounds sample index → 404
+- Submit idempotent (re-submit same sample) → 200, overwrites previous</p>
+<p><strong><code>tests/annotator/api/test_samples.py</code></strong>
+- Get sample at valid index → 200, returns prompt + response column data
+- Get sample at negative index → 404
+- Get sample beyond total → 404
+- Sample data matches EvalData content</p>
+<p><strong><code>tests/annotator/api/test_export.py</code></strong>
+- Export with all samples annotated → 200, files written to disk
+- Export with incomplete samples → 200, includes warning in response
+- Export creates valid parquet + metadata JSON
+- Download endpoint returns correct file</p>
+<p><strong><code>tests/annotator/api/test_progress.py</code></strong>
+- Progress after 0 annotations → count=0, total=N
+- Progress after K annotations → count=K, correct incomplete indices</p>
+<p><strong><code>tests/annotator/api/test_task.py</code></strong>
+- Returns task schemas, prompt columns, response columns, annotation prompt
+- Matches EvalTask configuration</p>
+<p><strong><code>tests/annotator/test_state.py</code></strong>
+- State manager wraps HumanAnnotationResultsBuilder correctly
+- Auto-save writes parquet on each annotation
+- Resume loads from auto-save file
+- Multiple concurrent sessions (different annotator names) don't conflict</p>
+<p><strong><code>tests/annotator/test_launcher.py</code></strong>
+- Launcher starts uvicorn on specified port
+- Launcher detects port occupied → raises PortOccupiedError
+- Launcher serializes EvalTask + EvalData to temp dir</p>
+<h3 id="new-frontend-tests-vitest-react-testing-library">New Frontend Tests (Vitest + React Testing Library)</h3>
+<p><strong><code>frontend/src/__tests__/NameEntry.test.tsx</code></strong>
+- Renders name input and submit button
+- Empty name → shows validation error, no API call
+- Valid name → calls POST /api/session
+- On success → navigates to annotation view</p>
+<p><strong><code>frontend/src/__tests__/AnnotationView.test.tsx</code></strong>
+- Loads task config and first sample on mount
+- Displays prompt columns (collapsible) and response columns
+- Shows progress bar with correct count</p>
+<p><strong><code>frontend/src/__tests__/TaskPanel.test.tsx</code></strong>
+- Renders radio group for multi-choice tasks
+- Renders textarea for free-form tasks
+- Required fields highlighted when submit attempted empty
+- Submit disabled until all required fields filled (client-side)</p>
+<p><strong><code>frontend/src/__tests__/Navigation.test.tsx</code></strong>
+- Previous disabled on first sample
+- Next disabled on last sample
+- Clicking next/prev fetches correct sample
+- Keyboard arrows trigger navigation</p>
+<p><strong><code>frontend/src/__tests__/ExportDialog.test.tsx</code></strong>
+- Shows completion summary (counts, timestamps)
+- Download link points to correct endpoint
+- Retry button visible on export failure</p>
+<p><strong><code>frontend/src/__tests__/useAnnotation.test.ts</code></strong>
+- Hook manages current index, form state, submission
+- On submit success: advances to next sample, clears form
+- On submit error: preserves form state, shows error</p>
+<h3 id="tdd-order-write-tests-first-then-implement">TDD Order (write tests first, then implement)</h3>
+<ol>
+<li>Backend: <code>test_task.py</code> → implement <code>GET /api/task</code></li>
+<li>Backend: <code>test_session.py</code> → implement session routes + state manager</li>
+<li>Backend: <code>test_samples.py</code> → implement sample route</li>
+<li>Backend: <code>test_annotations.py</code> → implement annotation submission + auto-save</li>
+<li>Backend: <code>test_progress.py</code> → implement progress route</li>
+<li>Backend: <code>test_export.py</code> → implement export route + download</li>
+<li>Backend: <code>test_launcher.py</code> → implement launcher</li>
+<li>Frontend: <code>NameEntry.test.tsx</code> → implement NameEntry component</li>
+<li>Frontend: <code>TaskPanel.test.tsx</code> → implement TaskPanel</li>
+<li>Frontend: <code>AnnotationView.test.tsx</code> → implement AnnotationView + SampleDisplay</li>
+<li>Frontend: <code>Navigation.test.tsx</code> → implement Navigation</li>
+<li>Frontend: <code>ExportDialog.test.tsx</code> → implement ExportDialog</li>
+<li>Frontend: <code>useAnnotation.test.ts</code> → implement hook (wires everything together)</li>
+<li>Integration: manual end-to-end run in Docker</li>
+</ol>
+<h2 id="files-changed-outside-annotator">Files Changed Outside annotator/</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/meta_evaluator/meta_evaluator/base.py</code></td>
+<td><code>launch_annotator()</code> internals → new launcher</td>
+</tr>
+<tr>
+<td><code>pyproject.toml</code></td>
+<td><code>ui</code> extra deps: fastapi, uvicorn (remove streamlit)</td>
+</tr>
+<tr>
+<td><code>tests/annotator/</code></td>
+<td>Full test rewrite (API tests + React component tests)</td>
+</tr>
+<tr>
+<td><code>examples/</code></td>
+<td>Minor tweaks if launcher signature changes (goal: keep same)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="effort-estimate">Effort Estimate</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Effort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FastAPI backend</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>React annotation UI</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>Session/auto-save</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>Launcher rewrite</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>Docker packaging</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>Test rewrite</td>
+<td>Medium-High</td>
+</tr>
+</tbody>
+</table>
+<p>Total: ~2-3 weeks solo, ~1 week with incremental test writing.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.expand", "navigation.tabs", "content.last_updated", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.92b07e13.min.js"></script>
+      
+    
+  </body>
+</html>
