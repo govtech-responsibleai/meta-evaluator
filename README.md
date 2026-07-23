@@ -6,7 +6,7 @@ Evaluate LLM-as-a-Judge systems by measuring alignment between judge outputs wit
 
 MetaEvaluator helps you assess LLM judges by:
 - 🤖 **Running multiple judges** (OpenAI, Anthropic, Google, AWS, etc.) using **LiteLLM integration**
-- 👥 **Collecting human annotations** through a built-in Streamlit interface
+- 👥 **Collecting human annotations** through a built-in web annotation interface (React + FastAPI)
 - 📊 **Computing alignment metrics** (Accuracy, Cohen's Kappa, Alt-Test, text/semantic similarity) and **generating comprehensive reports** with visualizations and statistical analysis
 
 ## Installation
@@ -19,7 +19,7 @@ MetaEvaluator helps you assess LLM judges by:
 
    **Optional dependencies:**
    ```bash
-   pip install meta-evaluator[ui]    # streamlit for human annotation interface
+   pip install meta-evaluator[ui]    # FastAPI + web UI for human annotation interface
    pip install meta-evaluator[docs]  # mkdocs for documentation
    pip install meta-evaluator[all]   # all optional dependencies
    ```
@@ -98,11 +98,11 @@ evaluator.add_eval_task(task)
 A task schema can be a single-select list (`["rejection", "not rejection"]`), a free-form field (`None`), or a **multi-label** field via `MultiLabelSchema` when more than one label can apply at once. See the [task-definition guide](docs/guides/evaltask.md#multi-label-tasks-pick-several) for details.
 
 ### 4. Collect Human Annotations
-Collect human ground truth using the built-in Streamlit interface:
+Collect human ground truth using the built-in web annotation interface:
 
 ```python
 # Launch annotation interface
-evaluator.launch_annotator(port=8501)
+evaluator.launch_annotator(port=8000)
 ```
 
 For deployment options including remote access (ngrok) and Docker deployment for classified data, see the [Deployment Guide](docs/annotation_guide/deployment.md).
