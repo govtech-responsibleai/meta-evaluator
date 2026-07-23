@@ -203,7 +203,7 @@ The MetaEvaluator employs a clean component architecture with separation of conc
 
 **Scoring System**: Extensible metrics framework supporting classification accuracy, inter-rater agreement (Cohen's Kappa), statistical significance testing (Alt-Test), and text similarity measures. Includes semantic similarity using OpenAI embeddings and supports custom scorer implementations for domain-specific metrics.
 
-**Human Annotation Platform**: Built-in Streamlit interface for collecting ground truth annotations. Supports multi-annotator workflows with progress tracking, session management, and automatic result storage. Enables remote annotation via ngrok integration with traffic policy controls.
+**Human Annotation Platform**: Built-in web annotation interface (React frontend served by a FastAPI backend) for collecting ground truth annotations. Supports multi-annotator workflows with progress tracking, session management, and automatic result storage. Enables remote annotation via ngrok integration with traffic policy controls.
 
 ## Key Design Principles
 
@@ -391,8 +391,8 @@ class MetaEvaluator {
     +load_human_results(path: String)
     +compare(): Report
 }
-class StreamlitAnnotator {
-    +build_streamlit_app()
+class AnnotationLauncher {
+    +launch()
 }
 
 ' Relationships
@@ -400,10 +400,10 @@ DataLoader ..> EvalData : creates
 DataLoader --> MetaEvaluator : add_data()
 Prompt --> Judge : provided to
 MetaEvaluator --> EvalData : contains
-MetaEvaluator --> StreamlitAnnotator : load_human_results()
+MetaEvaluator --> AnnotationLauncher : load_human_results()
 MetaEvaluator --> Judge : contains, add_judge(), run_all_judges()
 EvaluationTask --> Judge : used by
-EvaluationTask --> StreamlitAnnotator : used by
+EvaluationTask --> AnnotationLauncher : used by
 
 ' Notes
 note right of MetaEvaluator
