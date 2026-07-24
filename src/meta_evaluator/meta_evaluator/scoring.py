@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 from ..common.async_utils import sync_wrapper
 from ..data import EvalData
 from ..eval_task import EvalTask, MultiLabelSchema
-from ..results import HumanAnnotationResults, JudgeResults
+from ..results import BaseEvaluationResults, HumanAnnotationResults, JudgeResults
 from ..results.enums import EvaluationStatusEnum, HumanAnnotationStatusEnum
 from ..results.serialization import (
     HumanAnnotationResultsSerializedState,
@@ -1030,6 +1030,11 @@ class ScoringMixin:
         # 2. Load DataFrame from file
         detected_format = self._extract_data_format(file_path, data_format)
         df = EvalData.load_data(file_path, detected_format)
+        if detected_format == "csv":
+            df = BaseEvaluationResults._decode_multilabel_from_csv(
+                df,
+                BaseEvaluationResults._multilabel_columns(self.eval_task.task_schemas),
+            )
 
         # 3. Validate and prepare results data (for JudgeResultRow schema)
         actual_run_id = run_id or self._generate_run_id()
@@ -1108,6 +1113,11 @@ class ScoringMixin:
         # 2. Load DataFrame from file
         detected_format = self._extract_data_format(file_path, data_format)
         df = EvalData.load_data(file_path, detected_format)
+        if detected_format == "csv":
+            df = BaseEvaluationResults._decode_multilabel_from_csv(
+                df,
+                BaseEvaluationResults._multilabel_columns(self.eval_task.task_schemas),
+            )
 
         # 3. Validate and prepare results data (for HumanAnnotationResultRow schema)
         actual_run_id = run_id or self._generate_run_id()
